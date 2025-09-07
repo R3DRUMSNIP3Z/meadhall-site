@@ -1,4 +1,4 @@
-console.log("account.ts loaded");
+﻿console.log("account.ts loaded");
 
 /* ---------- Types ---------- */
 type SafeUser = {
@@ -137,7 +137,7 @@ function renderStories(list: Story[]) {
 
 async function loadStories() {
   if (!storiesEl) return;
-  storiesEl.innerHTML = `<div class="muted">Loading…</div>`;
+  storiesEl.innerHTML = `<div class="muted">Loadingâ€¦</div>`;
   try {
     const list = await fetchStories();
     renderStories(list);
@@ -208,7 +208,7 @@ function renderStoryCard(s: Story): HTMLDivElement {
   metaEl.style.fontSize = "12px";
   metaEl.textContent = [s.createdAt ? `Created ${fmt(s.createdAt)}` : "", s.updatedAt ? `Updated ${fmt(s.updatedAt)}` : ""]
     .filter(Boolean)
-    .join(" • ");
+    .join(" â€¢ ");
 
   const textEl = document.createElement("p");
   textEl.style.whiteSpace = "pre-wrap";
@@ -242,7 +242,7 @@ function renderStoryCard(s: Story): HTMLDivElement {
   const editText = document.createElement("textarea");
   editText.className = "input";
   editText.rows = 5;
-  editText.placeholder = "Your tale…";
+  editText.placeholder = "Your taleâ€¦";
 
   const editBtns = document.createElement("div");
   editBtns.className = "cta-row";
@@ -386,6 +386,7 @@ if (!(window as any)[BIND_KEY]) {
 /* ---------- go ---------- */
 loadUser();
 loadStories();
+
 
 
 

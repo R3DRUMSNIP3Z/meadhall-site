@@ -1,4 +1,4 @@
-// Central API config (URL + headers)
+﻿// Central API config (URL + headers)
 export const API_BASE =
   (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ||
   (window as any).VITE_API_BASE ||
@@ -8,3 +8,4 @@ export const API_BASE =
 export function authHeaders(userId: string) {
   return { "Content-Type": "application/json", "x-user-id": userId };
 }
+

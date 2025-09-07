@@ -1,4 +1,4 @@
-const { users, ensureFriendState } = require("./db");
+﻿const { users, ensureFriendState } = require("./db");
 
 // return only safe, public fields
 function safeUser(u) {
@@ -10,7 +10,7 @@ function safeUser(u) {
 const currentUserId = (req) => (req.get("x-user-id") || "").trim();
 
 function install(app) {
-  // GET /api/friends — list friends + pending for current user (by x-user-id)
+  // GET /api/friends â€” list friends + pending for current user (by x-user-id)
   app.get("/api/friends", (req, res) => {
     const me = currentUserId(req);
     const meUser = users.get(me);
@@ -91,5 +91,6 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 

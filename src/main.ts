@@ -326,7 +326,7 @@ function applyMeadLockUI(locked: boolean) {
     if (el.hasAttribute("href")) el.removeAttribute("href");
   } else {
     el.removeAttribute("tabindex");
-    el.setAttribute("href", "/meadhall.html");
+    el.setAttribute("href", "/");
   }
 }
 
@@ -376,6 +376,7 @@ window.addEventListener("storage", (e) => {
 
 // Initial run
 enforceNavLock();
+
 
 
 

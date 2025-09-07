@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Mead Hall — Friends & Chat</title>
+  <title>Mead Hall â€” Friends & Chat</title>
 
   <!-- Match your profile.html -->
   <meta name="api-base" content="http://localhost:5050" />
@@ -115,14 +115,14 @@
 </head>
 <body>
   <header>
-    <h1>🛡️ Mead Hall</h1>
+    <h1>ðŸ›¡ï¸ Mead Hall</h1>
     <nav>
-      <a href="index.html">← Back to Home</a>
+      <a href="index.html">â† Back to Home</a>
     </nav>
   </header>
 
   <div class="home-strip">
-    <a href="index.html">← Back to Home</a>
+    <a href="index.html">â† Back to Home</a>
   </div>
 
   <main>
@@ -142,19 +142,19 @@
     <!-- Friends -->
     <div class="card">
       <h2>Friends</h2>
-      <div id="friendsList" class="body list"><div class="muted">Loading…</div></div>
+      <div id="friendsList" class="body list"><div class="muted">Loadingâ€¦</div></div>
     </div>
 
     <!-- Incoming -->
     <div class="card">
       <h2>Incoming Requests</h2>
-      <div id="incomingList" class="body list"><div class="muted">Loading…</div></div>
+      <div id="incomingList" class="body list"><div class="muted">Loadingâ€¦</div></div>
     </div>
 
     <!-- Outgoing -->
     <div class="card">
       <h2>Outgoing Requests</h2>
-      <div id="outgoingList" class="body list"><div class="muted">Loading…</div></div>
+      <div id="outgoingList" class="body list"><div class="muted">Loadingâ€¦</div></div>
     </div>
   </main>
 
@@ -222,7 +222,7 @@
 
       // Prevent adding yourself by name
       if ((mhUser?.name || '').toLowerCase() === term.toLowerCase()) {
-        say('That’s you.', 'err'); return;
+        say('Thatâ€™s you.', 'err'); return;
       }
 
       let results = [];
@@ -267,14 +267,14 @@
         ? 'Already friends'
         : isIncoming ? 'They requested you (see Incoming)'
         : isOutgoing ? 'Request pending'
-        : (u.id === CURRENT_USER_ID ? 'That’s you' : '');
+        : (u.id === CURRENT_USER_ID ? 'Thatâ€™s you' : '');
 
       return `
         <div class="result">
           <img src="${esc(u.avatarUrl || '/logo/logo-512.png')}" alt="avatar"/>
           <div style="flex:1; min-width:0">
             <div><strong>${esc(u.name || u.id)}</strong></div>
-            <div class="muted" style="font-size:.9rem">${esc(u.id)} ${u.email ? '• ' + esc(u.email) : ''}</div>
+            <div class="muted" style="font-size:.9rem">${esc(u.id)} ${u.email ? 'â€¢ ' + esc(u.email) : ''}</div>
           </div>
           <div>
             <button id="addBtn_${u.id}" ${disabled ? 'disabled' : ''}>Add Friend</button>
@@ -286,7 +286,7 @@
 
     // ------- Lists (friends/incoming/outgoing) -------
     function itemFriend(u){
-      const href = `friendprofile.html?user=${encodeURIComponent(u.id)}`; /* <— added */
+      const href = `friendprofile.html?user=${encodeURIComponent(u.id)}`; /* <â€” added */
       return `
         <div class="item">
           <div class="meta">
@@ -331,7 +331,7 @@
               <div class="id">${esc(u.id)}</div>
             </div>
           </div>
-          <div class="actions"><span class="muted">Pending…</span></div>
+          <div class="actions"><span class="muted">Pendingâ€¦</span></div>
         </div>
       `;
     }
@@ -383,15 +383,15 @@
       root.className='chat-box';
       root.innerHTML=`
         <div class="chat-head">
-          <div class="title">💬 ${esc(friendName||friendId)}</div>
+          <div class="title">ðŸ’¬ ${esc(friendName||friendId)}</div>
           <div class="btns">
             <button data-min>_</button>
-            <button data-close>×</button>
+            <button data-close>Ã—</button>
           </div>
         </div>
         <div class="chat-msgs"></div>
         <div class="chat-compose">
-          <textarea rows="3" placeholder="Speak, ${esc(friendName||'friend')}…"></textarea>
+          <textarea rows="3" placeholder="Speak, ${esc(friendName||'friend')}â€¦"></textarea>
           <button data-send>Send</button>
         </div>
       `;
@@ -447,6 +447,7 @@
   </script>
 </body>
 </html>
+
 
 
 

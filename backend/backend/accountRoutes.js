@@ -1,4 +1,4 @@
-// backend/accountRoutes.js
+﻿// backend/accountRoutes.js
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
@@ -45,7 +45,7 @@ function install(app) {
   // NOTE: Static serving of /uploads should already be in index.js:
   // app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-  // 🔎 Search users by name/email/id — MUST be before "/api/users/:id"
+  // ðŸ”Ž Search users by name/email/id â€” MUST be before "/api/users/:id"
   app.get("/api/users/search", (req, res) => {
     const q = String(req.query.q || "").trim().toLowerCase();
     if (!q) return res.json([]);
@@ -84,7 +84,7 @@ function install(app) {
     res.json(safeUser(u));
   });
 
-  // Upload avatar — return a FULL URL so frontend doesn't need to prefix
+  // Upload avatar â€” return a FULL URL so frontend doesn't need to prefix
   app.post("/api/users/:id/avatar", upload.single("file"), (req, res) => {
     const u = users.get(req.params.id);
     if (!u) return res.status(404).json({ error: "User not found" });
@@ -178,6 +178,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 

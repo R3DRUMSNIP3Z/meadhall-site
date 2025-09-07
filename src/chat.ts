@@ -1,4 +1,4 @@
-import { API_BASE, authHeaders } from "./base";
+﻿import { API_BASE, authHeaders } from "./base";
 
 export async function getHistory(userId: string, withId: string) {
   const r = await fetch(`${API_BASE}/api/chat/history?with=${encodeURIComponent(withId)}`, {
@@ -17,3 +17,4 @@ export async function sendMessage(userId: string, to: string, text: string) {
   if (!r.ok) throw new Error("send failed");
   return r.json();
 }
+

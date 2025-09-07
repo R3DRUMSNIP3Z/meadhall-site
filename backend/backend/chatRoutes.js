@@ -1,4 +1,4 @@
-// backend/chatRoutes.js
+﻿// backend/chatRoutes.js
 const { randomUUID } = require("crypto");
 const { users, ensureFriendState, messages, dmKey } = require("./db");
 
@@ -139,7 +139,7 @@ function install(app) {
   });
 
   // POST /api/chat/global { userId, text }  -> broadcast to everyone
-  // ❗ No auth required; userId is optional (anonymous = "skald")
+  // â— No auth required; userId is optional (anonymous = "skald")
   app.post("/api/chat/global", (req, res) => {
     const origin = req.headers.origin || "*";
     res.set({ "Access-Control-Allow-Origin": origin, "Vary": "Origin" });
@@ -170,7 +170,7 @@ function install(app) {
     res.status(201).json({ ok: true, id: msg.id });
   });
 
-  // (Optional legacy endpoint you had before — keep if other code uses it)
+  // (Optional legacy endpoint you had before â€” keep if other code uses it)
   app.get("/api/chat/global/history", (req, res) => {
     const origin = req.headers.origin || "*";
     res.set({ "Access-Control-Allow-Origin": origin, "Vary": "Origin" });
@@ -180,6 +180,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 

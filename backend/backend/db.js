@@ -1,4 +1,4 @@
-/** Simple in-memory DB shared by all routes */
+﻿/** Simple in-memory DB shared by all routes */
 const users = new Map();   // id -> { id,name,email,password?,avatarUrl,bio,interests }
 const stories = new Map(); // userId -> [{ id,title,text,createdAt }]
 
@@ -25,6 +25,7 @@ module.exports = {
   messages,
   dmKey,
 };
+
 
 
 
