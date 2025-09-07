@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mead Hall — Friends & Chat</title>
+
+  <!-- Match your profile.html -->
+  <meta name="api-base" content="http://localhost:5050" />
+
+  <style>
+    :root{
+      --bg:#0f0f0f; --wood:#22170f; --wood2:#2a1d14; --parch:#e9dbb9;
+      --parch-ink:#2b261a; --iron:#51483e; --gold:#c6a05d; --green:#2f4f39;
+      --red:#7a2b2b; --text:#eee9df; --muted:#bdb6a3;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:"Georgia",serif; color:var(--text);
+      background:
+        radial-gradient(60% 60% at 50% 20%, rgba(198,160,93,0.12), transparent 60%),
+        linear-gradient(180deg, rgba(47,79,57,0.12), rgba(47,79,57,0) 45%),
+        var(--bg);
+      display:flex; flex-direction:column; min-height:100vh;
+    }
+    header{
+      background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.2)), var(--wood2);
+      border-bottom:3px solid var(--iron);
+      padding:10px 12px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    }
+    header h1{margin:0; font-size:1.3rem; color:var(--gold); letter-spacing:.4px}
+    nav{display:flex; gap:12px; margin-left:auto}
+    nav a{color:var(--gold); text-decoration:none; border-bottom:1px dashed var(--gold)}
+    nav a:hover{color:#ffd68e}
+
+    .home-strip{
+      background:#2a1a0a; padding:8px 12px; border-bottom:1px solid var(--iron);
+      text-align:center;
+    }
+    .home-strip a{ color:var(--gold); text-decoration:none; font-weight:bold }
+    .home-strip a:hover{ color:#fff }
+
+    main{max-width:980px; width:100%; margin:18px auto; padding:0 12px}
+    .card{
+      background:linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.08)), var(--wood);
+      border:2px solid var(--iron); border-radius:10px; overflow:hidden; margin-bottom:16px;
+    }
+    .card h2{
+      margin:0; padding:12px; color:var(--gold);
+      border-bottom:2px solid var(--iron); background:var(--wood2);
+      font-size:1.05rem;
+    }
+    .body{padding:12px; background:var(--parch); color:var(--parch-ink)}
+    .row{display:flex; gap:8px; flex-wrap:wrap}
+    input[type="text"]{
+      flex:1; min-width:240px; padding:10px; border:2px solid var(--iron);
+      background:var(--parch); color:var(--parch-ink); border-radius:8px
+    }
+    button{
+      padding:10px 12px; border:2px solid var(--gold); background:var(--green);
+      color:var(--text); cursor:pointer; border-radius:8px
+    }
+    button.secondary{background:transparent; color:var(--parch-ink)}
+    button:hover{background:var(--red)}
+
+    .note{font-size:.9rem}
+    .muted{opacity:.75}
+
+    /* Lookup results */
+    .result{
+      margin-top:10px; display:flex; align-items:center; gap:12px;
+      background:#f3e9c9; border:1px solid #c8bc99; border-radius:10px; padding:10px;
+    }
+    .result img{ width:48px; height:48px; border-radius:50%; object-fit:cover; border:1px solid #c8bc99; background:#ddd }
+
+    /* Lists */
+    .list{display:grid; gap:8px}
+    .item{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      background:#f3e9c9; border:1px solid #c8bc99; border-radius:10px; padding:8px 10px;
+    }
+    .meta{display:flex; align-items:center; gap:10px}
+    .meta img{width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #c8bc99; background:#ddd}
+    .name{font-weight:bold}
+    .id{opacity:.65; font-size:.9rem}
+    .actions{display:flex; gap:6px}
+
+    /* Chat dock */
+    .chat-dock{
+      position:fixed; right:16px; bottom:12px; display:flex; gap:10px;
+      align-items:flex-end; z-index:50; flex-wrap:wrap-reverse; max-width:90vw
+    }
+    .chat-box{
+      width:320px; max-height:60vh; display:flex; flex-direction:column;
+      background:linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.08)), var(--wood);
+      border:2px solid var(--iron); border-radius:10px; overflow:hidden;
+      box-shadow:0 6px 24px rgba(0,0,0,.45)
+    }
+    .chat-head{display:flex; align-items:center; justify-content:space-between;
+      padding:8px 10px; background:var(--wood2); border-bottom:2px solid var(--iron); color:var(--gold)}
+    .chat-head .title{font-weight:bold; font-size:.98rem}
+    .chat-head .btns{display:flex; gap:6px}
+    .chat-head button{padding:4px 8px; border:2px solid var(--gold); background:transparent; color:var(--text); cursor:pointer; border-radius:6px}
+    .chat-head button:hover{background:var(--red)}
+    .chat-msgs{background:var(--parch); color:var(--parch-ink); padding:10px; display:flex; flex-direction:column; gap:6px; overflow:auto}
+    .msg{max-width:78%; padding:8px 10px; border-radius:10px; border:1px solid #c8bc99; background:#efe5c9; align-self:flex-start}
+    .msg.mine{background:var(--green); color:var(--text); border-color:#365543; align-self:flex-end}
+    .msg time{display:block; font-size:.7rem; opacity:.7; margin-top:4px}
+    .chat-compose{display:flex; gap:8px; padding:8px; background:var(--wood2); border-top:2px solid var(--iron)}
+    .chat-compose textarea{flex:1; min-height:54px; padding:8px; border:2px solid var(--iron); background:var(--parch); color:var(--parch-ink); border-radius:8px}
+    .chat-compose button{padding:8px 12px; border:2px solid var(--gold); background:var(--green); color:var(--text); cursor:pointer; border-radius:8px}
+    .chat-compose button:hover{background:var(--red)}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🛡️ Mead Hall</h1>
+    <nav>
+      <a href="index.html">← Back to Home</a>
+    </nav>
+  </header>
+
+  <div class="home-strip">
+    <a href="index.html">← Back to Home</a>
+  </div>
+
+  <main>
+    <!-- Lookup / Add by USERNAME -->
+    <div class="card">
+      <h2>Find a Friend</h2>
+      <div class="body">
+        <div class="row">
+          <input id="lookupId" type="text" placeholder="Search by username (e.g., lady2)" />
+          <button id="lookupBtn">Search</button>
+        </div>
+        <div id="lookupResult"></div>
+        <div id="notice" class="note" style="margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <!-- Friends -->
+    <div class="card">
+      <h2>Friends</h2>
+      <div id="friendsList" class="body list"><div class="muted">Loading…</div></div>
+    </div>
+
+    <!-- Incoming -->
+    <div class="card">
+      <h2>Incoming Requests</h2>
+      <div id="incomingList" class="body list"><div class="muted">Loading…</div></div>
+    </div>
+
+    <!-- Outgoing -->
+    <div class="card">
+      <h2>Outgoing Requests</h2>
+      <div id="outgoingList" class="body list"><div class="muted">Loading…</div></div>
+    </div>
+  </main>
+
+  <!-- Chat dock -->
+  <div id="chatDock" class="chat-dock"></div>
+
+  <script type="module">
+    // ------- CONFIG & AUTH -------
+    const API_BASE = document.querySelector('meta[name="api-base"]')?.content?.replace(/\/$/, '') || '';
+    const mhUser = (() => {
+      try { return JSON.parse(localStorage.getItem('mh_user') || localStorage.getItem('user') || 'null'); }
+      catch { return null; }
+    })();
+    const CURRENT_USER_ID = mhUser?.id || '';
+
+    const headers = {
+      'Content-Type':'application/json',
+      'x-user-id': CURRENT_USER_ID || ''
+    };
+
+    const $ = (id)=>document.getElementById(id);
+    const $friends = $('friendsList'), $incoming=$('incomingList'), $outgoing=$('outgoingList');
+    const $notice = $('notice'), $dock = $('chatDock'), $lookup = $('lookupId'), $lookupBtn = $('lookupBtn'), $lookupResult = $('lookupResult');
+
+    const esc = (s)=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    function say(msg, kind=''){ $notice.innerHTML = msg ? `<span class="${kind}">${esc(msg)}</span>` : ''; }
+
+    function requireReady(){
+      if (!API_BASE) { say('Missing API base meta tag.', 'err'); throw new Error('No API base'); }
+      if (!CURRENT_USER_ID) { say('Not signed in. Please log in first.', 'err'); throw new Error('No user'); }
+    }
+    requireReady();
+
+    // ------- HTTP -------
+    async function http(method, path, body){
+      const r = await fetch(API_BASE + path, {
+        method,
+        headers,
+        body: method==='GET' ? undefined : JSON.stringify(body||{})
+      });
+      if (!r.ok) {
+        const ct = r.headers.get('content-type') || '';
+        const t = await (ct.includes('json') ? r.json() : r.text());
+        const msg = typeof t === 'string' ? t : (t?.error || ('HTTP '+r.status));
+        throw new Error(msg);
+      }
+      return r.json();
+    }
+
+    // ------- Backend APIs -------
+    const getUser = (id)=> http('GET', '/api/users/' + encodeURIComponent(id));
+    const searchUsers = (q)=> http('GET','/api/users/search?q=' + encodeURIComponent(q));
+    const apiGetFriends = ()=> http('GET','/api/friends');
+    const apiSendFriendRequest = (toUserId)=> http('POST','/api/friends/request',{ toUserId });
+    const apiRespondFriendRequest = (fromUserId, accept)=> http('POST','/api/friends/respond',{ fromUserId, accept });
+    const apiGetHistory = (withId)=> http('GET','/api/chat/history?with=' + encodeURIComponent(withId));
+    const apiSendMessage = (to,text)=> http('POST','/api/chat/send',{ to, text });
+
+    // ------- Lookup by username -------
+    async function lookup() {
+      $lookupResult.innerHTML = '';
+      say('');
+      const term = ($lookup.value || '').trim();
+      if (!term) return;
+
+      // Prevent adding yourself by name
+      if ((mhUser?.name || '').toLowerCase() === term.toLowerCase()) {
+        say('That’s you.', 'err'); return;
+      }
+
+      let results = [];
+      try {
+        // name/email/id search
+        results = await searchUsers(term);
+      } catch (e) {
+        say(e.message || 'Search failed.', 'err');
+        return;
+      }
+
+      if (!Array.isArray(results) || results.length === 0) {
+        say('No user found matching "' + term + '".', 'err');
+        return;
+      }
+
+      // Show multiple matches (avatars + names)
+      const rel = await apiGetFriends();
+      $lookupResult.innerHTML = results.map(u => buildLookupRow(u, rel)).join('');
+      // bind buttons
+      results.forEach(u => {
+        const btn = document.getElementById('addBtn_' + u.id);
+        if (btn && !btn.disabled) {
+          btn.onclick = async () => {
+            try {
+              await apiSendFriendRequest(u.id);
+              say('Request sent to ' + (u.name || u.id) + '.', 'ok');
+              await refreshLists();
+              lookup(); // refresh the lookup state (disables button etc.)
+            } catch (e) { say(e.message || 'Failed to send request.', 'err'); }
+          };
+        }
+      });
+    }
+
+    function buildLookupRow(u, rel) {
+      const isFriend   = rel.friends.some(x => x.id === u.id);
+      const isIncoming = rel.incoming.some(x => x.id === u.id);
+      const isOutgoing = rel.outgoing.some(x => x.id === u.id);
+      const disabled = isFriend || isIncoming || isOutgoing || (u.id === CURRENT_USER_ID);
+      const status = isFriend
+        ? 'Already friends'
+        : isIncoming ? 'They requested you (see Incoming)'
+        : isOutgoing ? 'Request pending'
+        : (u.id === CURRENT_USER_ID ? 'That’s you' : '');
+
+      return `
+        <div class="result">
+          <img src="${esc(u.avatarUrl || '/logo/logo-512.png')}" alt="avatar"/>
+          <div style="flex:1; min-width:0">
+            <div><strong>${esc(u.name || u.id)}</strong></div>
+            <div class="muted" style="font-size:.9rem">${esc(u.id)} ${u.email ? '• ' + esc(u.email) : ''}</div>
+          </div>
+          <div>
+            <button id="addBtn_${u.id}" ${disabled ? 'disabled' : ''}>Add Friend</button>
+            ${status ? `<div class="muted" style="margin-top:4px; font-size:.85rem">${esc(status)}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // ------- Lists (friends/incoming/outgoing) -------
+    function itemFriend(u){
+      const href = `friendprofile.html?user=${encodeURIComponent(u.id)}`; /* <— added */
+      return `
+        <div class="item">
+          <div class="meta">
+            <a href="${href}">
+              <img src="${esc(u.avatarUrl || '/logo/logo-512.png')}" alt="">
+            </a>
+            <div>
+              <div class="name">${esc(u.name || u.id)}</div>
+              <div class="id">${esc(u.id)}</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button onclick="openChat('${u.id}','${esc(u.name || u.id)}')">Chat</button>
+          </div>
+        </div>
+      `;
+    }
+    function itemIncoming(u){
+      return `
+        <div class="item">
+          <div class="meta">
+            <img src="${esc(u.avatarUrl || '/logo/logo-512.png')}" alt="">
+            <div>
+              <div class="name">${esc(u.name || u.id)}</div>
+              <div class="id">${esc(u.id)}</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button onclick="respond('${u.id}', true)">Accept</button>
+            <button class="secondary" onclick="respond('${u.id}', false)">Decline</button>
+          </div>
+        </div>
+      `;
+    }
+    function itemOutgoing(u){
+      return `
+        <div class="item">
+          <div class="meta">
+            <img src="${esc(u.avatarUrl || '/logo/logo-512.png')}" alt="">
+            <div>
+              <div class="name">${esc(u.name || u.id)}</div>
+              <div class="id">${esc(u.id)}</div>
+            </div>
+          </div>
+          <div class="actions"><span class="muted">Pending…</span></div>
+        </div>
+      `;
+    }
+
+    async function refreshLists(){
+      try{
+        const data = await apiGetFriends();
+        $('friendsList').innerHTML  = data.friends.length  ? data.friends.map(itemFriend).join('')    : `<div class="muted">No friends yet.</div>`;
+        $('incomingList').innerHTML = data.incoming.length ? data.incoming.map(itemIncoming).join('') : `<div class="muted">None.</div>`;
+        $('outgoingList').innerHTML = data.outgoing.length ? data.outgoing.map(itemOutgoing).join('') : `<div class="muted">None.</div>`;
+      }catch(e){
+        say(e.message || 'Failed to load lists', 'err');
+      }
+    }
+
+    async function respond(fromUserId, accept){
+      try{
+        await apiRespondFriendRequest(fromUserId, !!accept);
+        await refreshLists();
+        say(accept ? 'Friend request accepted.' : 'Request declined.', 'ok');
+      }catch(e){ say(e.message || 'Failed to respond.', 'err'); }
+    }
+    window.respond = respond;
+
+    // ------- Chat (popup) -------
+    const openWindows = new Map(); // friendId -> {root, msgsEl, ta, pollId}
+
+    async function renderHistory(friendId){
+      const w = openWindows.get(friendId); if(!w) return;
+      const list = await apiGetHistory(friendId);
+      w.msgsEl.innerHTML = '';
+      list.forEach(m=>{
+        const div = document.createElement('div');
+        div.className = 'msg ' + (m.from === CURRENT_USER_ID ? 'mine' : '');
+        div.innerHTML = `<div>${esc(m.text)}</div><time>${new Date(m.ts).toLocaleTimeString()}</time>`;
+        w.msgsEl.appendChild(div);
+      });
+      w.msgsEl.scrollTop = w.msgsEl.scrollHeight;
+    }
+
+    function openChat(friendId, friendName){
+      if(openWindows.has(friendId)){
+        const { root } = openWindows.get(friendId);
+        root.style.display='flex';
+        root.querySelector('textarea')?.focus();
+        return;
+      }
+      const root=document.createElement('div');
+      root.className='chat-box';
+      root.innerHTML=`
+        <div class="chat-head">
+          <div class="title">💬 ${esc(friendName||friendId)}</div>
+          <div class="btns">
+            <button data-min>_</button>
+            <button data-close>×</button>
+          </div>
+        </div>
+        <div class="chat-msgs"></div>
+        <div class="chat-compose">
+          <textarea rows="3" placeholder="Speak, ${esc(friendName||'friend')}…"></textarea>
+          <button data-send>Send</button>
+        </div>
+      `;
+      const msgsEl = root.querySelector('.chat-msgs');
+      const ta = root.querySelector('textarea');
+      const sendBtn = root.querySelector('[data-send]');
+      const btnMin = root.querySelector('[data-min]');
+      const btnClose = root.querySelector('[data-close]');
+
+      sendBtn.addEventListener('click', async ()=>{
+        const text=(ta.value||'').trim(); if(!text) return;
+        await apiSendMessage(friendId, text);
+        ta.value=''; renderHistory(friendId);
+      });
+      ta.addEventListener('keydown', async (e)=>{
+        if(e.key==='Enter' && !e.shiftKey){
+          e.preventDefault();
+          const text=(ta.value||'').trim(); if(!text) return;
+          await apiSendMessage(friendId, text);
+          ta.value=''; renderHistory(friendId);
+        }
+      });
+      btnMin.addEventListener('click', ()=>{
+        const body=root.querySelector('.chat-msgs');
+        const comp=root.querySelector('.chat-compose');
+        const hidden=body.style.display==='none';
+        body.style.display=hidden?'flex':'none';
+        comp.style.display=hidden?'flex':'none';
+      });
+      btnClose.addEventListener('click', ()=>{
+        const w=openWindows.get(friendId);
+        if(w?.pollId) clearInterval(w.pollId);
+        openWindows.delete(friendId);
+        root.remove();
+      });
+
+      document.getElementById('chatDock').appendChild(root);
+      openWindows.set(friendId, { root, msgsEl, ta, pollId:null });
+
+      renderHistory(friendId).then(()=>{
+        const pollId=setInterval(()=>renderHistory(friendId), 3000);
+        const w=openWindows.get(friendId);
+        if(w) w.pollId=pollId;
+      });
+      ta.focus();
+    }
+    window.openChat = openChat;
+
+    // ------- Init -------
+    $lookupBtn.addEventListener('click', lookup);
+    $lookup.addEventListener('keydown', e => { if (e.key === 'Enter') lookup(); });
+    refreshLists();
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+

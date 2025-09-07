@@ -1,0 +1,170 @@
+:root{
+  --bg:#0b0f12; --bg-soft:#121820;
+  --ink:#e9eef4; --ink-dim:#cfd8e3;
+  --gold:#c8a96b; --ember:#d3702d;
+  --pine:#2f5341; --blood:#7a1d1d; --frost:#5aa1c2;
+  --glass:rgba(255,255,255,.06); --glass-strong:rgba(255,255,255,.12);
+  --radius:18px; --shadow:0 10px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; color:var(--ink); background:var(--bg);
+  font-family:"Cinzel", ui-serif, Georgia, "Times New Roman", serif;
+  line-height:1.4;
+  background-image:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255,255,255,.07), transparent 60%),
+    url('/images/viking-texture.webp');
+  background-size:cover; background-attachment:fixed; background-position:center top;
+}
+
+.wrap{max-width:1200px; width:100%; margin:0 auto}
+
+header{
+  position:fixed; inset:0 0 auto 0; height:68px; display:flex; align-items:center;
+  background:linear-gradient(to bottom, rgba(11,15,18,.92), rgba(11,15,18,.7));
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid rgba(200,169,107,.25);
+  z-index:10;
+}
+
+.brand{display:flex; align-items:center; gap:14px; font-family:"Cinzel Decorative", serif; letter-spacing:.06em}
+.brand .mark{
+  width:38px; height:38px; display:grid; place-items:center; border-radius:50%;
+  background:radial-gradient(100% 100% at 50% 0%, var(--gold), #916f33);
+  box-shadow:0 2px 0 #6e5324 inset, 0 6px 20px rgba(0,0,0,.45);
+}
+.brand h1{font-size:20px; margin:0}
+
+nav{margin-left:auto; display:flex; align-items:center; gap:16px}
+.navlink{color:var(--ink-dim); text-decoration:none; font-size:14px; letter-spacing:.06em}
+.navlink:hover{color:var(--ink)}
+
+.hero{
+  position:relative; min-height:88vh; display:flex; align-items:center; justify-content:center;
+  padding:clamp(24px, 5vw, 64px); overflow:hidden;
+  background:linear-gradient(180deg, rgba(9,13,16,.8), rgba(9,13,16,.92)),
+             url('/images/odin-hero.jpg') center/cover no-repeat;
+  border-bottom:1px solid rgba(200,169,107,.25);
+}
+.hero:before{
+  content:""; position:absolute; inset:-1px; pointer-events:none;
+  background-image:
+    linear-gradient(90deg, rgba(200,169,107,.1) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(200,169,107,.08) 1px, transparent 1px);
+  background-size:48px 48px; mix-blend-mode:overlay; opacity:.35;
+}
+
+.hero-card{
+  position:relative; z-index:2; max-width:860px; margin:110px auto 0; padding:clamp(24px, 4vw, 48px);
+  border-radius:var(--radius);
+  background:linear-gradient(180deg, var(--glass), rgba(255,255,255,.03));
+  border:1px solid rgba(200,169,107,.25);
+  box-shadow:var(--shadow);
+  text-align:center;
+}
+
+.rune-title{font-family:"Uncial Antiqua","Cinzel Decorative",serif; font-size:clamp(40px, 6vw, 72px); margin:.2em 0 .1em; letter-spacing:.04em}
+.rune-sub{font-size:clamp(16px, 2.2vw, 22px); color:var(--ink-dim)}
+
+.cta-row{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; margin-top:28px}
+
+.btn{
+  appearance:none; border:none; cursor:pointer; padding:14px 22px; border-radius:14px;
+  letter-spacing:.08em; text-transform:uppercase; font-weight:700;
+  transition:transform .08s ease, box-shadow .2s ease, background .3s ease
+}
+.btn:active{transform:translateY(1px)}
+
+.btn-viking{
+  color:#111; background:linear-gradient(180deg, #e5c67f, #ba9457);
+  box-shadow:0 2px 0 #745726 inset, 0 10px 30px rgba(200,169,107,.25);
+  border:1px solid #a98245;
+}
+.btn-viking:hover{filter:brightness(1.05)}
+
+.btn-ghost{color:var(--ink); background:transparent; border:1px solid rgba(200,169,107,.35)}
+.btn-ghost:hover{background:rgba(200,169,107,.08)}
+
+.plans{padding:clamp(36px, 5vw, 72px) 20px; background:linear-gradient(180deg, rgba(17,25,30,.6), rgba(8,11,14,.8)); border-top:1px solid rgba(200,169,107,.25)}
+.grid{display:grid; gap:20px; grid-template-columns:repeat(1, 1fr)}
+@media(min-width:760px){ .grid{grid-template-columns:repeat(3, 1fr)} }
+
+.card{
+  padding:26px; border-radius:var(--radius);
+  background:linear-gradient(180deg, var(--glass), rgba(255,255,255,.02));
+  border:1px solid rgba(200,169,107,.22);
+  box-shadow:var(--shadow)
+}
+.card h3{font-family:"Cinzel Decorative",serif; font-size:28px; margin:0 0 8px}
+.price{font-size:34px; font-weight:900; color:var(--gold); margin:.2em 0 .5em}
+.feat{margin:0; padding:0; list-style:none}
+.feat li{padding:6px 0; color:var(--ink-dim)}
+
+.knot{height:18px; margin:28px auto; opacity:.6; filter:drop-shadow(0 2px 0 rgba(0,0,0,.4))}
+
+footer{
+  padding:26px 20px; color:var(--ink-dim); text-align:center;
+  border-top:1px solid rgba(200,169,107,.25);
+  background:linear-gradient(180deg, rgba(11,15,18,.8), rgba(11,15,18,.95))
+}
+
+.sep{display:inline-block; opacity:.6; margin:0 8px}
+
+.embers{position:absolute; inset:0; pointer-events:none; overflow:hidden}
+.ember{position:absolute; width:3px; height:3px; background:var(--ember); border-radius:50%; opacity:.8; filter:blur(.4px); animation:rise 8s linear infinite}
+
+@keyframes rise{
+  from{transform:translateY(20vh) scale(.8); opacity:0}
+  to{transform:translateY(-90vh) scale(1.2); opacity:.9}
+}
+
+.input{
+  width:100%; padding:12px 14px; border-radius:12px;
+  border:1px solid rgba(200,169,107,.25);
+  background:rgba(255,255,255,.06); color:var(--ink)
+}
+.input:focus{outline:none; border-color:rgba(200,169,107,.55); box-shadow:0 0 0 2px rgba(200,169,107,.18)}
+
+.modal{
+  position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+  z-index:50; background:rgba(0,0,0,.55); backdrop-filter:blur(6px)
+}
+
+/* --- Lock state for Mead Hall --- */
+.navlink.locked {
+  position: relative;
+  pointer-events: none;
+  opacity: .5;
+}
+.navlink.locked::after {
+  content: "🔒";
+  position: absolute;
+  right: -18px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--gold);
+}
+
+/* --- Lock overlay for non-subscriber accounts --- */
+.brand h1.locked {
+  position: relative;
+  color: var(--ink-dim); /* dimmed if locked */
+  pointer-events: none; /* prevent clicking */
+}
+
+.brand h1.locked::after {
+  content: "🔒";
+  font-size: 18px;
+  position: absolute;
+  top: 50%;
+  right: -28px;
+  transform: translateY(-50%);
+  color: var(--gold);
+}
+
+
+
+

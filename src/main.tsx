@@ -1,12 +1,1 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import "./index.css";
-import StorySiteStarter from "./StorySiteStarter";
-
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <StorySiteStarter />
-  </React.StrictMode>
-);
-
-
+﻿console.log("Vite module loaded");
