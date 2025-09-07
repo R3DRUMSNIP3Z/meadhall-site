@@ -1,4 +1,4 @@
-﻿// src/StorySiteStarter.tsx
+// src/StorySiteStarter.tsx
 import React, { useState, useEffect } from "react";
 
 const API_BASE =
@@ -65,7 +65,7 @@ export default function StorySiteStarter() {
   return (
     <div className="viking-page" style={{ fontFamily: "serif", color: "#fff", background: "#111" }}>
       <header style={{ textAlign: "center", padding: "20px" }}>
-        <h1>ðŸ¹ Mead Hall</h1>
+        <h1>🏹 Mead Hall</h1>
         {user ? (
           <p>Signed in as {user.name}</p>
         ) : (
@@ -75,16 +75,13 @@ export default function StorySiteStarter() {
 
       <main style={{ textAlign: "center" }}>
         <h2>Membership Plans</h2>
-        <button onClick={() => handleCheckout("reader")}>ðŸ“– Reader Plan</button>
-        <button onClick={() => handleCheckout("premium")}>âš”ï¸ Premium Plan</button>
-        <button onClick={() => handleCheckout("annual")}>ðŸ›¡ï¸ Annual Plan</button>
+        <button onClick={() => handleCheckout("reader")}>📖 Reader Plan</button>
+        <button onClick={() => handleCheckout("premium")}>⚔️ Premium Plan</button>
+        <button onClick={() => handleCheckout("annual")}>🛡️ Annual Plan</button>
       </main>
     </div>
   );
 }
-
-
-
 
 
 

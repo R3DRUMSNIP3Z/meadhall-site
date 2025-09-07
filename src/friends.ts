@@ -1,4 +1,4 @@
-﻿// src/friends.ts
+// src/friends.ts
 type SafeUser = {
   id: string;
   name: string;
@@ -101,7 +101,7 @@ async function lookup() {
   try {
     const results = await apiSearchUsers($lookup.value.trim());
     if (!Array.isArray(results) || results.length === 0) {
-      $lookupResult.innerHTML = `<div class="muted">No user found for â€œ${escapeHtml($lookup.value)}â€.</div>`;
+      $lookupResult.innerHTML = `<div class="muted">No user found for “${escapeHtml($lookup.value)}”.</div>`;
       return;
     }
     const rel = await apiGetFriends();
@@ -140,7 +140,7 @@ function buildLookupRow(u: SafeUser, rel: FriendsPayload) {
     : isOutgoing
     ? "Request pending"
     : u.id === CURRENT_USER_ID
-    ? "Thatâ€™s you"
+    ? "That’s you"
     : "";
 
   const label = `${escapeHtml(u.name || u.id)} (UserID${escapeHtml(u.id)})`;
@@ -213,7 +213,7 @@ function itemOutgoing(u: SafeUser) {
           <div class="id">${escapeHtml(u.email || "")}</div>
         </div>
       </div>
-      <div class="actions"><span class="muted">Pendingâ€¦</span></div>
+      <div class="actions"><span class="muted">Pending…</span></div>
     </div>
   `;
 }
@@ -271,15 +271,15 @@ function openChat(friendId: string, friendName: string) {
   root.className = "chat-box";
   root.innerHTML = `
     <div class="chat-head">
-      <div class="title">ðŸ’¬ ${escapeHtml(friendName || friendId)} (UserID${escapeHtml(friendId)})</div>
+      <div class="title">💬 ${escapeHtml(friendName || friendId)} (UserID${escapeHtml(friendId)})</div>
       <div class="btns">
         <button data-min>_</button>
-        <button data-close>Ã—</button>
+        <button data-close>×</button>
       </div>
     </div>
     <div class="chat-msgs"></div>
     <div class="chat-compose">
-      <textarea rows="3" placeholder="Speak, ${escapeHtml(friendName || "friend")}â€¦"></textarea>
+      <textarea rows="3" placeholder="Speak, ${escapeHtml(friendName || "friend")}…"></textarea>
       <button data-send>Send</button>
     </div>
   `;
@@ -357,9 +357,6 @@ $lookup?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") lookup();
 });
 refreshLists().catch(() => {});
-
-
-
 
 
 

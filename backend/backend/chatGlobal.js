@@ -1,4 +1,4 @@
-﻿// chatGlobal.js
+// chatGlobal.js
 const { randomUUID } = require("crypto");
 const { users } = require("./db");
 
@@ -61,7 +61,7 @@ function install(app) {
 
     const client = { res };
     clients.add(client);
-    console.log(`ðŸ”Œ SSE connect (total ${clients.size})`);
+    console.log(`🔌 SSE connect (total ${clients.size})`);
 
     const ping = setInterval(() => {
       try { res.write(`event: ping\ndata: {}\n\n`); } catch {}
@@ -70,7 +70,7 @@ function install(app) {
     req.on("close", () => {
       clearInterval(ping);
       clients.delete(client);
-      console.log(`âŒ SSE disconnect (total ${clients.size})`);
+      console.log(`❌ SSE disconnect (total ${clients.size})`);
     });
   });
 
@@ -98,7 +98,6 @@ function install(app) {
 }
 
 module.exports = { install };
-
 
 
 

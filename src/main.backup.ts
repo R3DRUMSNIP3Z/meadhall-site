@@ -133,6 +133,3 @@ signupForm?.addEventListener("submit", async (e) => {
     if (signupMsg) signupMsg.textContent = "Signup failed: " + (err?.message || "Unknown error");
   }
 });
-
-
-

@@ -1,5 +1,5 @@
-﻿// src/chatGlobal.ts
-// Global chat API â€” history, live stream (SSE), send message
+// src/chatGlobal.ts
+// Global chat API — history, live stream (SSE), send message
 
 import { API_BASE } from "./base";
 
@@ -55,7 +55,7 @@ export async function sendGlobalMessage(userId: string | null, text: string) {
   return r.json() as Promise<{ ok: true; id: string }>;
 }
 
-/** Optional polling fallback if EventSource isnâ€™t available. */
+/** Optional polling fallback if EventSource isn’t available. */
 export function startGlobalPolling(
   sinceIdRef: { current: string },
   onBatch: (msgs: GlobalMsg[]) => void,
@@ -75,7 +75,4 @@ export function startGlobalPolling(
   tick(); // immediate
   return () => { if (timer) clearInterval(timer); };
 }
-
-
-
 

@@ -1,4 +1,4 @@
-﻿// ============================
+// ============================
 // Mead Hall main (Skald smooth-scroll + contest flow + strict lock w/ user-scoped sub-grace)
 // ============================
 console.log("[MH] Vite module loaded");
@@ -134,7 +134,7 @@ async function submitContestUploadThenPay_Form() {
   if (file.size > 10 * 1024 * 1024) { alert("PDF is larger than 10 MB."); return; }
 
   try {
-    if (msg) msg.textContent = "Uploadingâ€¦";
+    if (msg) msg.textContent = "Uploading…";
     const fd = new FormData();
     fd.append("name", nameInput.value);
     fd.append("userId", u.id || "");
@@ -146,7 +146,7 @@ async function submitContestUploadThenPay_Form() {
     const { entryId } = await up.json();
 
     // 2) Start $1 checkout with entryId
-    if (msg) msg.textContent = "Starting checkoutâ€¦";
+    if (msg) msg.textContent = "Starting checkout…";
     const pay = await fetch(`${base}/api/contest/checkout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -240,7 +240,7 @@ document.getElementById("btn-contest")?.addEventListener("click", (e)=>{
 const signupForm = document.getElementById("signupForm") as HTMLFormElement | null;
 const signupMsg = document.getElementById("signupMsg") as HTMLParagraphElement | null;
 signupForm?.addEventListener("submit", async (e)=>{
-  e.preventDefault(); if (signupMsg) signupMsg.textContent = "Creating your accountâ€¦";
+  e.preventDefault(); if (signupMsg) signupMsg.textContent = "Creating your account…";
   const fd = new FormData(signupForm!);
   const payload = Object.fromEntries(fd.entries());
   try {
@@ -326,7 +326,7 @@ function applyMeadLockUI(locked: boolean) {
     if (el.hasAttribute("href")) el.removeAttribute("href");
   } else {
     el.removeAttribute("tabindex");
-    el.setAttribute("href", "/");
+    el.setAttribute("href", "/meadhall.html");
   }
 }
 
@@ -376,10 +376,6 @@ window.addEventListener("storage", (e) => {
 
 // Initial run
 enforceNavLock();
-
-
-
-
 
 
 

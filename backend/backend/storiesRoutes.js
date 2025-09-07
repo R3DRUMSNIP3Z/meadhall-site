@@ -1,4 +1,4 @@
-﻿// backend/storiesRoutes.js
+// backend/storiesRoutes.js
 const { stories, users } = require("./db");
 const { v4: uuidv4 } = require("uuid");
 
@@ -44,4 +44,3 @@ function install(app) {
 }
 
 module.exports = { install };
-

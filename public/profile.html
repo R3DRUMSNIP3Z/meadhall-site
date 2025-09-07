@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mead Hall â€¢ Profile</title>
+  <title>Mead Hall • Profile</title>
   <meta name="description" content="Your Mead Hall guild profile." />
   <meta name="theme-color" content="#0b0f12" />
   <!-- Set this to your running backend -->
@@ -73,22 +73,22 @@
 
         <div class="kv" style="margin-top:18px">
           <div class="label">Name</div>
-          <div id="name" style="font-size:20px;font-weight:700">â€”</div>
+          <div id="name" style="font-size:20px;font-weight:700">—</div>
         </div>
 
         <div class="kv">
           <div class="label">Email</div>
-          <div id="email" class="muted">â€”</div>
+          <div id="email" class="muted">—</div>
         </div>
 
         <div class="kv">
           <div class="label">Bio</div>
-          <div id="bio">â€”</div>
+          <div id="bio">—</div>
         </div>
 
         <div class="kv">
           <div class="label">Interests</div>
-          <div id="interests" class="muted">â€”</div>
+          <div id="interests" class="muted">—</div>
         </div>
 
         <div class="cta-row" style="justify-content:flex-start;margin-top:14px">
@@ -108,8 +108,8 @@
 
   <footer>
     <div class="wrap">
-      <span>Â© <span id="y"></span> Mead Hall</span>
-      <span class="sep">â€¢</span>
+      <span>© <span id="y"></span> Mead Hall</span>
+      <span class="sep">•</span>
       <span>Forged in Myriador</span>
     </div>
   </footer>
@@ -148,10 +148,10 @@
     // Render helper
     function renderUser(u) {
       if (hello) hello.textContent = `Welcome, ${u.name || 'skald'}${u.id ? ` (ID: ${u.id})` : ''}.`;
-      if (nameEl) nameEl.textContent = u.name || 'â€”';
-      if (emailEl) emailEl.textContent = u.email || 'â€”';
-      if (bioEl) bioEl.textContent = u.bio || 'â€”';
-      if (interestsEl) interestsEl.textContent = u.interests || 'â€”';
+      if (nameEl) nameEl.textContent = u.name || '—';
+      if (emailEl) emailEl.textContent = u.email || '—';
+      if (bioEl) bioEl.textContent = u.bio || '—';
+      if (interestsEl) interestsEl.textContent = u.interests || '—';
       if (avatarImg && u.avatarUrl) avatarImg.src = u.avatarUrl;
     }
 
@@ -172,7 +172,7 @@
     async function init() {
       let u = getUser();
       if (!u?.id) {
-        if (hello) hello.textContent = 'Youâ€™re not signed in.';
+        if (hello) hello.textContent = 'You’re not signed in.';
         return;
       }
 
@@ -227,7 +227,4 @@
   </script>
 </body>
 </html>
-
-
-
 

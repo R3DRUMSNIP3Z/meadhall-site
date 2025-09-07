@@ -1,4 +1,4 @@
-﻿// /src/friendprofile.ts
+// /src/friendprofile.ts
 
 type SafeUser = {
   id: string;
@@ -95,7 +95,7 @@ async function loadStories(API: string, userId: string): Promise<Story[]> {
 }
 
 async function loadCompanions(API: string, userId: string) {
-  companionsEl.innerHTML = `<div class="muted">Loadingâ€¦</div>`;
+  companionsEl.innerHTML = `<div class="muted">Loading…</div>`;
   try {
     const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/companions`);
     if (!r.ok) throw new Error(String(r.status));
@@ -155,7 +155,7 @@ function ensureModal() {
   card.style.boxShadow = "0 14px 40px rgba(0,0,0,.6)";
 
   const close = document.createElement("button");
-  close.textContent = "Ã—";
+  close.textContent = "×";
   close.setAttribute("aria-label", "Close");
   close.style.position = "absolute";
   close.style.top = "8px";
@@ -220,7 +220,7 @@ function openStoryModal(story: Story) {
 
   title.textContent = story.title || "(untitled)";
   meta.textContent  = story.createdAt ? fmt(story.createdAt) : "";
-  body.innerHTML    = nl2br(story.text || story.excerpt || "â€”");
+  body.innerHTML    = nl2br(story.text || story.excerpt || "—");
 
   if (story.imageUrl) {
     img.src = story.imageUrl;
@@ -252,10 +252,10 @@ function renderStories(stories: Story[]) {
     top.append(h3, when);
     wrap.append(top);
 
-    const snippet = s.excerpt || (s.text ? s.text.slice(0, 200) + (s.text.length > 200 ? "â€¦" : "") : "");
+    const snippet = s.excerpt || (s.text ? s.text.slice(0, 200) + (s.text.length > 200 ? "…" : "") : "");
     if (snippet) wrap.append(el("div","excerpt", snippet));
 
-    // OPEN INLINE (modal) â€” not a new page
+    // OPEN INLINE (modal) — not a new page
     const btn = document.createElement("button");
     btn.textContent = "Read this saga";
     btn.style.fontSize = "13px";
@@ -347,9 +347,6 @@ async function main(){
 }
 
 main();
-
-
-
 
 
 

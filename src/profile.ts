@@ -1,4 +1,4 @@
-﻿// src/profile.ts
+// src/profile.ts
 console.log("profile.ts loaded");
 
 // ---- API base (meta > window.ENV > import.meta.env) ----
@@ -77,7 +77,7 @@ async function loadProfile() {
 
   // Load stories
   if (storiesEl) {
-    storiesEl.innerHTML = `<p class="muted">Loading storiesâ€¦</p>`;
+    storiesEl.innerHTML = `<p class="muted">Loading stories…</p>`;
     try {
       const rs = await fetch(`${API_BASE || location.origin}/api/users/${id}/stories`);
       if (rs.ok) {
@@ -122,9 +122,6 @@ logoutBtn?.addEventListener("click", (e) => {
 
 // ---- Go ----
 loadProfile();
-
-
-
 
 
 

@@ -30,3 +30,9 @@ node_modules/
 backend/backend/.env
 backend/backend/uploads/
 backend/backend/data/
+node_modules/
+dist/
+.env
+backend/backend/.env
+backend/backend/uploads/
+backend/backend/data/
