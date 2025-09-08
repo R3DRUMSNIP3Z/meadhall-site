@@ -57,6 +57,14 @@ app.use(
 );
 app.options("*", cors());},
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: (req, cb) =>
+      cb(null, req.header("Access-Control-Request-Headers") || "Content-Type, Authorization, x-user-id"),
+    maxAge: 86400,
+  })
+);
+app.options("*", cors());},
+    credentials: true,
     methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
     allowedHeaders: [
       "Content-Type",
@@ -575,6 +583,7 @@ async function sendContestEmail(entry, buyerEmail = null) {
 }
 
 app.listen(PORT, () => console.log(`ðŸ›¡ï¸ Backend listening on ${PORT}`));
+
 
 
 
