@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mead Hall â€¢ Skald Guild</title>
+  <title>Mead Hall  Skald Guild</title>
   <meta name="description" content="Raise your horn. Share your saga. Join a guild of skalds and shield-bearers forging legends by firelight." />
   <meta name="theme-color" content="#0b0f12" />
 
@@ -19,7 +19,7 @@
   <link rel="icon" href="/logo/favicon.ico" sizes="any" />
   <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png" />
   <meta property="og:image" content="/logo/logo-512.png" />
-  <meta property="og:title" content="Mead Hall â€¢ Skald Guild" />
+  <meta property="og:title" content="Mead Hall  Skald Guild" />
   <meta property="og:description" content="Forge your saga among shield-bearers and skalds." />
   <meta property="og:type" content="website" />
 
@@ -54,7 +54,7 @@
 }
 
 .navlink.sparkle::after {
-  content: "âœ§";
+  content: "";
   position: absolute;
   top: -6px;
   right: -12px;
@@ -75,11 +75,11 @@
   .navlink.sparkle::after { animation: none; }
 }
 
-/* Locked state â€” force override sparkle gradient and prevent clicks */
+/* Locked state  force override sparkle gradient and prevent clicks */
 .navlink.locked{
   opacity:.7;
   cursor:not-allowed;
-  pointer-events:none;      /* CSS says 'none'â€¦ JS will override to receive clicks */
+  pointer-events:none;      /* CSS says 'none' JS will override to receive clicks */
   background:none !important;
   -webkit-background-clip: initial !important;
   background-clip: initial !important;
@@ -88,7 +88,7 @@
   animation:none !important;
 }
 .navlink.locked::before{
-  content:"ðŸ”’";
+  content:"";
   margin-right:6px;
   color:#d4a94d;
 }
@@ -133,7 +133,7 @@
           <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
         </label>
         <label style="display:block; margin:10px 0 6px">Password
-          <input required type="password" name="password" class="input" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" autocomplete="new-password" />
+          <input required type="password" name="password" class="input" placeholder="" autocomplete="new-password" />
         </label>
         <div class="cta-row" style="margin-top:16px">
           <button class="btn btn-viking" type="submit">Create Account</button>
@@ -156,10 +156,10 @@
           <h3>Reader</h3>
           <div class="price">$7/mo</div>
           <ul class="feat">
-            <li>Unlock weekly tales</li>
-            <li>Community access</li>
-            <li>Member shield icon</li>
-          </ul>
+  <li>Weekly epics for members</li>
+  <li>Behind-the-shield lore drops</li>
+  <li>Community-forged chronicles</li>
+</ul>
           <div class="cta-row">
             <button class="btn btn-viking plan" data-plan="reader">Join Reader</button>
           </div>
@@ -169,10 +169,10 @@
           <h3>Premium</h3>
           <div class="price">$12/mo</div>
           <ul class="feat">
-            <li>All Reader perks</li>
-            <li>Early releases</li>
-            <li>Behind-the-shield lore</li>
-          </ul>
+  <li>Weekly epics for members</li>
+  <li>Behind-the-shield lore drops</li>
+  <li>Community-forged chronicles</li>
+</ul>
           <div class="cta-row">
             <button class="btn btn-viking plan" data-plan="premium">Join Premium</button>
           </div>
@@ -182,10 +182,10 @@
           <h3>Annual</h3>
           <div class="price">$70/yr</div>
           <ul class="feat">
-            <li>Two months free</li>
-            <li>Annual badge</li>
-            <li>Guild priority</li>
-          </ul>
+  <li>Weekly epics for members</li>
+  <li>Behind-the-shield lore drops</li>
+  <li>Community-forged chronicles</li>
+</ul>
           <div class="cta-row">
             <button class="btn btn-viking plan" data-plan="annual">Join Annual</button>
           </div>
@@ -237,10 +237,10 @@
           <h3>Guild Lore</h3>
           <p class="rune-sub" style="font-size:18px">Tales from Myriador and Dreadheim: sagas of shield-walls, oath-rings, and the mead of poetry.</p>
           <ul class="feat">
-            <li>ðŸ”¥ Weekly epics for members</li>
-            <li>ðŸ›¡ï¸ Behind-the-shield lore drops</li>
-            <li>ðŸ“œ Community-forged chronicles</li>
-          </ul>
+  <li>Weekly epics for members</li>
+  <li>Behind-the-shield lore drops</li>
+  <li>Community-forged chronicles</li>
+</ul>
           <div class="cta-row">
             <a class="btn btn-ghost" href="#plans">View Membership Plans</a>
             <button class="btn btn-viking" id="btn-read-sample">Read a Sample</button>
@@ -252,8 +252,8 @@
 
   <footer>
     <div class="wrap">
-      <span>Â© <span id="y"></span> Mead Hall</span>
-      <span class="sep">â€¢</span>
+      <span> <span id="y"></span> Mead Hall</span>
+      <span class="sep"></span>
       <span>Forged in Myriador</span>
     </div>
   </footer>
@@ -300,6 +300,7 @@
   <script type="module" src="/src/site.ts"></script>
 </body>
 </html>
+
 
 
 
