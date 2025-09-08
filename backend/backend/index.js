@@ -1,4 +1,4 @@
-// backend/index.js — full drop-in server
+﻿// backend/index.js â€” full drop-in server
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -39,9 +39,23 @@ const allowedOrigins = new Set([
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true); // allow curl/postman
-      cb(null, allowedOrigins.has(origin));
+      if (!origin) return cb(null, true);
+      const allow = new Set([
+        CLIENT_URL,
+        "https://meadhall-site.vercel.app",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+      ]);
+      cb(null, allow.has(origin));
     },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: (req, cb) =>
+      cb(null, req.header("Access-Control-Request-Headers") || "Content-Type, Authorization, x-user-id"),
+    maxAge: 86400,
+  })
+);
+app.options("*", cors());},
     credentials: true,
     methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
     allowedHeaders: [
@@ -112,8 +126,8 @@ if (process.env.SMTP_HOST) {
 
   // verify SMTP on boot
   mailer.verify()
-    .then(() => console.log("📨 SMTP ready:", process.env.SMTP_HOST))
-    .catch(err => console.error("❌ SMTP verify failed:", err.message));
+    .then(() => console.log("ðŸ“¨ SMTP ready:", process.env.SMTP_HOST))
+    .catch(err => console.error("âŒ SMTP verify failed:", err.message));
 }
 
 // --- Multer for contest PDF upload (safe names) ---
@@ -164,7 +178,7 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         entryId: s.metadata?.entryId || null,
       });
 
-      console.log("✅ checkout.session.completed", {
+      console.log("âœ… checkout.session.completed", {
         email: s.customer_details?.email,
         priceId,
         userId: s.metadata?.userId,
@@ -195,13 +209,13 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         if (entry && CONTEST_INBOX) {
           try {
             await sendContestEmail(entry, s.customer_details?.email || s.customer_email || null);
-            console.log("📧 Contest entry emailed:", entry.id);
+            console.log("ðŸ“§ Contest entry emailed:", entry.id);
           } catch (e) {
             console.error("Email send error:", e.message);
           }
         } else {
-          if (!entry) console.error("⚠️ Contest entry not found for entryId:", s.metadata.entryId);
-          if (!CONTEST_INBOX) console.error("⚠️ CONTEST_INBOX not set; cannot send email.");
+          if (!entry) console.error("âš ï¸ Contest entry not found for entryId:", s.metadata.entryId);
+          if (!CONTEST_INBOX) console.error("âš ï¸ CONTEST_INBOX not set; cannot send email.");
         }
       }
     }
@@ -218,7 +232,7 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         currency: inv.currency,
         invoiceId: inv.id,
       });
-      console.log("💸 invoice.payment_succeeded", { invoiceId: inv.id, amount: inv.amount_paid });
+      console.log("ðŸ’¸ invoice.payment_succeeded", { invoiceId: inv.id, amount: inv.amount_paid });
     }
 
     res.json({ received: true });
@@ -277,7 +291,7 @@ app.post("/api/auth/login", (req, res) => {
   });
 });
 
-// 🔎 Search users
+// ðŸ”Ž Search users
 app.get("/api/users/search", (req, res) => {
   const q = String(req.query.q || "").trim().toLowerCase();
   if (!q) return res.json([]);
@@ -300,7 +314,7 @@ app.get("/api/users/search", (req, res) => {
   res.json(results);
 });
 
-// 🔹 READ ONE USER
+// ðŸ”¹ READ ONE USER
 app.get("/api/users/:id", (req, res) => {
   const u = users.get(req.params.id);
   if (!u) return res.status(404).json({ error: "User not found" });
@@ -362,7 +376,7 @@ app.post("/api/stripe/checkout", async (req, res) => {
    CONTEST: upload + $1 checkout
    ============================== */
 
-// 1) Upload a PDF — returns { entryId, fileUrl }
+// 1) Upload a PDF â€” returns { entryId, fileUrl }
 app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
   try {
     const name = String(req.body.name || "").trim();
@@ -392,7 +406,7 @@ app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
   }
 });
 
-// 2) Create $1 payment session — supports either { entryId } (preferred) OR { entry:{...} } legacy
+// 2) Create $1 payment session â€” supports either { entryId } (preferred) OR { entry:{...} } legacy
 app.post("/api/contest/checkout", async (req, res) => {
   try {
     let entryId = req.body.entryId || null;
@@ -451,7 +465,7 @@ app.post("/api/contest/checkout", async (req, res) => {
   }
 });
 
-// Manual resend endpoint — returns messageId/accepted/response for debugging
+// Manual resend endpoint â€” returns messageId/accepted/response for debugging
 app.post("/api/contest/resend", async (req, res) => {
   try {
     const entryId = String(req.body.entryId || "");
@@ -511,7 +525,7 @@ chatGlobal.install(app);
 // --- helper to send email with PDF attached ---
 async function sendContestEmail(entry, buyerEmail = null) {
   if (!mailer || !CONTEST_INBOX) {
-    console.warn("Mailer not configured or CONTEST_INBOX missing — skipping email.");
+    console.warn("Mailer not configured or CONTEST_INBOX missing â€” skipping email.");
     return null;
   }
 
@@ -560,7 +574,8 @@ async function sendContestEmail(entry, buyerEmail = null) {
   return info; // expose messageId/accepted/response to callers
 }
 
-app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+app.listen(PORT, () => console.log(`ðŸ›¡ï¸ Backend listening on ${PORT}`));
+
 
 
 
