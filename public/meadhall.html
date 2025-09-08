@@ -1,12 +1,12 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mead Hall • Global Chat</title>
+  <title>Mead Hall â€¢ Global Chat</title>
 
   <!-- Backend base -->
-  <meta name="api-base" content="http://localhost:5050" />
+  <meta name="api-base" content="https://meadhall-site.onrender.com" />
 
   <style>
     body { background:#0b0e10; color:#e9e4d5; font-family:"Cinzel",serif; display:flex; flex-direction:column; height:100vh; margin:0; }
@@ -30,7 +30,7 @@
     #sendBtn, #emojiGifBtn { padding:.5rem 1rem; border:none; border-radius:6px; cursor:pointer; background:#d4a94d; color:#0b0e10; font-weight:bold; }
     .sys { text-align:center; opacity:.7; font-size:.9rem; margin:.4rem 0; }
 
-    /* Picker — now resizable */
+    /* Picker â€” now resizable */
     #picker {
       position:absolute; bottom:60px; left:10px;
       background:#151515; padding:0; border:1px solid #3b3325; border-radius:12px;
@@ -95,7 +95,7 @@
   </header>
 
   <!-- Chat Title -->
-  <div class="chat-title">⚔️ Mead Hall • Global Chat ⚔️</div>
+  <div class="chat-title">âš”ï¸ Mead Hall â€¢ Global Chat âš”ï¸</div>
 
   <div id="chatBox"></div>
 
@@ -156,14 +156,14 @@
 
   <div id="chatInputRow">
     <input id="chatInput" type="text" placeholder="Type your message..." />
-    <button id="emojiGifBtn">😀 GIF</button>
+    <button id="emojiGifBtn">ðŸ˜€ GIF</button>
     <button id="sendBtn">Send</button>
   </div>
 
   <!-- Sticker Editor Modal -->
   <div id="stickerModal">
     <div class="sticker-card">
-      <div class="sticker-head"><strong>Create sticker</strong> <button id="closeSticker" class="mini-btn">✕</button></div>
+      <div class="sticker-head"><strong>Create sticker</strong> <button id="closeSticker" class="mini-btn">âœ•</button></div>
       <div class="sticker-body">
         <div class="sticker-sidebar">
           <input type="file" id="stickerFile" accept="image/*" />
@@ -194,7 +194,7 @@
     const LS_KEY_MAIN = 'mh_user';
     const LS_KEY_FALLBACK = 'user';
     const DEFAULT_AVATAR = "/logo/logo-512.png";
-    const GIPHY_KEY = "lRzzm6u7tXqFCuDcHfuZ56RyNDMiZKar"; // ← your key
+    const GIPHY_KEY = "lRzzm6u7tXqFCuDcHfuZ56RyNDMiZKar"; // â† your key
 
     function getUser() {
       try {
@@ -278,20 +278,20 @@
       try {
         const list = await getGlobalHistory(lastId);
         for (const m of list) { renderMsg(m); if (m.id) lastId = m.id; }
-      } catch { renderSystem("⚠️ Could not load history."); }
+      } catch { renderSystem("âš ï¸ Could not load history."); }
 
       if ("EventSource" in window) {
         openGlobalStream(
           (m) => { renderMsg(m); if (m.id) lastId = m.id; },
           () => renderSystem("Connected to the mead fire."),
-          () => renderSystem("⚠️ Stream error — falling back if needed")
+          () => renderSystem("âš ï¸ Stream error â€” falling back if needed")
         );
       } else {
         const ref = { current: lastId };
         startGlobalPolling(ref, (batch) =>
           batch.forEach((m) => { renderMsg(m); ref.current = m.id || ref.current; })
         );
-        renderSystem("⚠️ No EventSource — using polling.");
+        renderSystem("âš ï¸ No EventSource â€” using polling.");
       }
     })();
 
@@ -303,9 +303,9 @@
       try {
         await sendGlobalMessage(CURRENT_USER?.id ?? null, text);
         input.value = "";
-        // do NOT echo locally; SSE/poll will deliver it once — de-duped by `seen`
+        // do NOT echo locally; SSE/poll will deliver it once â€” de-duped by `seen`
       } catch {
-        renderSystem("⚠️ Message failed to send.");
+        renderSystem("âš ï¸ Message failed to send.");
       } finally {
         sendBtn.disabled = false;
         input.focus();
@@ -525,7 +525,7 @@
 
     // ---------- STICKER VALIDATION ----------
     function alertStickerRules() {
-      alert("Sticker tips:\n• Canvas is 512×512 px (auto).\n• Upload an image file (PNG/JPG/WebP/GIF).\n• Recommended output ≤ 500 KB.\nUse Square/Resize buttons if needed.");
+      alert("Sticker tips:\nâ€¢ Canvas is 512Ã—512 px (auto).\nâ€¢ Upload an image file (PNG/JPG/WebP/GIF).\nâ€¢ Recommended output â‰¤ 500 KB.\nUse Square/Resize buttons if needed.");
     }
     function tooLargeBytes(bytes) { return bytes > 500 * 1024; } // ~500 KB guidance
     function dataUrlBytes(dataUrl) {
@@ -610,6 +610,7 @@
   </script>
 </body>
 </html>
+
 
 
 

@@ -1,4 +1,4 @@
-// src/friends.ts
+﻿// src/friends.ts
 type SafeUser = {
   id: string;
   name: string;
@@ -55,7 +55,7 @@ const say = (msg: string, kind = "") => {
 
 // ------- Guards -------
 if (!API_BASE) {
-  console.error("Missing API base. Add <meta name='api-base' content='http://localhost:5050'/>");
+  console.error("Missing API base. Add <meta name='api-base' content='https://meadhall-site.onrender.com'/>");
 }
 if (!CURRENT_USER_ID) {
   console.warn("Not signed in. mh_user / user missing in localStorage.");
@@ -101,7 +101,7 @@ async function lookup() {
   try {
     const results = await apiSearchUsers($lookup.value.trim());
     if (!Array.isArray(results) || results.length === 0) {
-      $lookupResult.innerHTML = `<div class="muted">No user found for “${escapeHtml($lookup.value)}”.</div>`;
+      $lookupResult.innerHTML = `<div class="muted">No user found for â€œ${escapeHtml($lookup.value)}â€.</div>`;
       return;
     }
     const rel = await apiGetFriends();
@@ -140,7 +140,7 @@ function buildLookupRow(u: SafeUser, rel: FriendsPayload) {
     : isOutgoing
     ? "Request pending"
     : u.id === CURRENT_USER_ID
-    ? "That’s you"
+    ? "Thatâ€™s you"
     : "";
 
   const label = `${escapeHtml(u.name || u.id)} (UserID${escapeHtml(u.id)})`;
@@ -213,7 +213,7 @@ function itemOutgoing(u: SafeUser) {
           <div class="id">${escapeHtml(u.email || "")}</div>
         </div>
       </div>
-      <div class="actions"><span class="muted">Pending…</span></div>
+      <div class="actions"><span class="muted">Pendingâ€¦</span></div>
     </div>
   `;
 }
@@ -271,15 +271,15 @@ function openChat(friendId: string, friendName: string) {
   root.className = "chat-box";
   root.innerHTML = `
     <div class="chat-head">
-      <div class="title">💬 ${escapeHtml(friendName || friendId)} (UserID${escapeHtml(friendId)})</div>
+      <div class="title">ðŸ’¬ ${escapeHtml(friendName || friendId)} (UserID${escapeHtml(friendId)})</div>
       <div class="btns">
         <button data-min>_</button>
-        <button data-close>×</button>
+        <button data-close>Ã—</button>
       </div>
     </div>
     <div class="chat-msgs"></div>
     <div class="chat-compose">
-      <textarea rows="3" placeholder="Speak, ${escapeHtml(friendName || "friend")}…"></textarea>
+      <textarea rows="3" placeholder="Speak, ${escapeHtml(friendName || "friend")}â€¦"></textarea>
       <button data-send>Send</button>
     </div>
   `;
@@ -357,6 +357,7 @@ $lookup?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") lookup();
 });
 refreshLists().catch(() => {});
+
 
 
 

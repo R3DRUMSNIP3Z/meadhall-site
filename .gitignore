@@ -36,3 +36,4 @@ dist/
 backend/backend/.env
 backend/backend/uploads/
 backend/backend/data/
+.vercel
