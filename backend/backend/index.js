@@ -42,7 +42,7 @@ app.use(
     credentials: true,
     methods: ["GET","POST","PUT","DELETE","OPTIONS"],
     allowedHeaders: ["Content-Type","Authorization","Stripe-Signature","x-user-id"],
-    maxAge: 86400,
+    maxAge: 86400
   })
 );
 app.options("*", cors());
@@ -573,6 +573,7 @@ async function sendContestEmail(entry, buyerEmail = null) {
 }
 
 app.listen(PORT, () => console.log(`ðŸ›¡ï¸ Backend listening on ${PORT}`));
+
 
 
 
