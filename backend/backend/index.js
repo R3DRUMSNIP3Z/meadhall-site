@@ -55,7 +55,7 @@ app.use(
     maxAge: 86400,
   })
 );
-app.options("*", cors());},
+app.options("*", cors());
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: (req, cb) =>
@@ -63,7 +63,7 @@ app.options("*", cors());},
     maxAge: 86400,
   })
 );
-app.options("*", cors());},
+app.options("*", cors());
     credentials: true,
     methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
     allowedHeaders: [
@@ -583,6 +583,7 @@ async function sendContestEmail(entry, buyerEmail = null) {
 }
 
 app.listen(PORT, () => console.log(`ðŸ›¡ï¸ Backend listening on ${PORT}`));
+
 
 
 
