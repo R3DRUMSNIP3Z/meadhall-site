@@ -38,20 +38,10 @@ const allowedOrigins = new Set([
 
 app.use(
   cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
-      const allow = new Set([
-        CLIENT_URL,
-        "https://meadhall-site.vercel.app",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-      ]);
-      cb(null, allow.has(origin));
-    },
+    origin: process.env.CLIENT_URL || "https://meadhall-site.vercel.app",
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: (req, cb) =>
-      cb(null, req.header("Access-Control-Request-Headers") || "Content-Type, Authorization, x-user-id"),
+    methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+    allowedHeaders: ["Content-Type","Authorization","Stripe-Signature","x-user-id"],
     maxAge: 86400,
   })
 );
@@ -583,6 +573,7 @@ async function sendContestEmail(entry, buyerEmail = null) {
 }
 
 app.listen(PORT, () => console.log(`ðŸ›¡ï¸ Backend listening on ${PORT}`));
+
 
 
 
