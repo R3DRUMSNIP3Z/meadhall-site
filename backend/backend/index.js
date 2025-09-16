@@ -18,6 +18,16 @@ const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
 
 const app = express();
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "https://meadhall-site.vercel.app",
+    credentials: true,
+    methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+    allowedHeaders: ["Content-Type","Authorization","Stripe-Signature","x-user-id"],
+    maxAge: 86400
+  })
+);
+app.options("*", cors());
 
 // --- config/env ---
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
@@ -36,17 +46,7 @@ const allowedOrigins = new Set([
   "https://meadhall-site.vercel.app",
 ]);
 
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "https://meadhall-site.vercel.app",
-    credentials: true,
-    methods: ["GET","POST","PUT","DELETE","OPTIONS"],
-    allowedHeaders: ["Content-Type","Authorization","Stripe-Signature","x-user-id"],
-    maxAge: 86400
-  })
-);
-app.options("*", cors());
-    credentials: true,
+credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: (req, cb) =>
       cb(null, req.header("Access-Control-Request-Headers") || "Content-Type, Authorization, x-user-id"),
@@ -573,6 +573,8 @@ async function sendContestEmail(entry, buyerEmail = null) {
 }
 
 app.listen(PORT, () => console.log(`ðŸ›¡ï¸ Backend listening on ${PORT}`));
+
+
 
 
 
