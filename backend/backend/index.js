@@ -1,4 +1,4 @@
-﻿// backend/index.js â€” full drop-in server
+﻿// backend/index.js — full drop-in server
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -18,26 +18,16 @@ const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
 
 const app = express();
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "https://meadhall-site.vercel.app",
-    credentials: true,
-    methods: ["GET","POST","PUT","DELETE","OPTIONS"],
-    allowedHeaders: ["Content-Type","Authorization","Stripe-Signature","x-user-id"],
-    maxAge: 86400
-  })
-);
-app.options("*", cors());
+
 // --- config/env ---
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 const PORT = Number(process.env.PORT || 5050);
 const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
 const stripe = new Stripe(STRIPE_SECRET || "sk_test_dummy", { apiVersion: "2024-06-20" });
-
 const SERVER_PUBLIC_URL = process.env.SERVER_PUBLIC_URL || `http://localhost:${PORT}`;
-const CONTEST_INBOX = process.env.CONTEST_INBOX || ""; // where contest emails go
+const CONTEST_INBOX = process.env.CONTEST_INBOX || "";
 
-// --- CORS (allow your dev origins + custom headers) ---
+// --- CORS (single, clean block) ---
 const allowedOrigins = new Set([
   CLIENT_URL,
   "http://localhost:5173",
@@ -48,19 +38,16 @@ const allowedOrigins = new Set([
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
+      if (!origin) return cb(null, true); // allow curl/postman
       cb(null, allowedOrigins.has(origin));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Stripe-Signature", "x-user-id"],
-    maxAge: 86400
+    maxAge: 86400,
   })
 );
 app.options("*", cors());
-
-// Some proxies need this for keep-alive connections (SSE etc.)
-app.set("trust proxy", 1);
 
 // --- uploads dir and static serving (avatars + contest PDFs) ---
 const uploadsDir = path.join(__dirname, "uploads");
