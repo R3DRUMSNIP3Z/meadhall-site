@@ -45,24 +45,19 @@ const allowedOrigins = new Set([
   "https://meadhall-site.vercel.app",
 ]);
 
-credentials: true,
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      cb(null, allowedOrigins.has(origin));
+    },
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: (req, cb) =>
-      cb(null, req.header("Access-Control-Request-Headers") || "Content-Type, Authorization, x-user-id"),
-    maxAge: 86400,
+    allowedHeaders: ["Content-Type", "Authorization", "Stripe-Signature", "x-user-id"],
+    maxAge: 86400
   })
 );
 app.options("*", cors());
-    credentials: true,
-    methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "x-user-id", // custom auth header if needed
-    ],
-    maxAge: 86400,
-  })
-);
 
 // Some proxies need this for keep-alive connections (SSE etc.)
 app.set("trust proxy", 1);
