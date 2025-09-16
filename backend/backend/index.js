@@ -28,7 +28,6 @@ app.use(
   })
 );
 app.options("*", cors());
-
 // --- config/env ---
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 const PORT = Number(process.env.PORT || 5050);
@@ -573,6 +572,7 @@ async function sendContestEmail(entry, buyerEmail = null) {
 }
 
 app.listen(PORT, () => console.log(`ðŸ›¡ï¸ Backend listening on ${PORT}`));
+
 
 
 
