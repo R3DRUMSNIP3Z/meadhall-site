@@ -24,10 +24,11 @@ const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 const PORT = Number(process.env.PORT || 5050);
 const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
 const stripe = new Stripe(STRIPE_SECRET || "sk_test_dummy", { apiVersion: "2024-06-20" });
+
 const SERVER_PUBLIC_URL = process.env.SERVER_PUBLIC_URL || `http://localhost:${PORT}`;
 const CONTEST_INBOX = process.env.CONTEST_INBOX || "";
 
-// --- CORS (single, clean block) ---
+// --- CORS (single clean block) ---
 const allowedOrigins = new Set([
   CLIENT_URL,
   "http://localhost:5173",
@@ -47,7 +48,11 @@ app.use(
     maxAge: 86400,
   })
 );
-app.options("*", cors());
+// Express (with newer path-to-regexp) can choke on "*" — use a regex instead:
+app.options(/.*/, cors());
+
+// Some proxies need this for keep-alive connections (SSE etc.)
+app.set("trust proxy", 1);
 
 // --- uploads dir and static serving (avatars + contest PDFs) ---
 const uploadsDir = path.join(__dirname, "uploads");
@@ -105,8 +110,8 @@ if (process.env.SMTP_HOST) {
 
   // verify SMTP on boot
   mailer.verify()
-    .then(() => console.log("ðŸ“¨ SMTP ready:", process.env.SMTP_HOST))
-    .catch(err => console.error("âŒ SMTP verify failed:", err.message));
+    .then(() => console.log("📨 SMTP ready:", process.env.SMTP_HOST))
+    .catch(err => console.error("❌ SMTP verify failed:", err.message));
 }
 
 // --- Multer for contest PDF upload (safe names) ---
@@ -157,7 +162,7 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         entryId: s.metadata?.entryId || null,
       });
 
-      console.log("âœ… checkout.session.completed", {
+      console.log("✅ checkout.session.completed", {
         email: s.customer_details?.email,
         priceId,
         userId: s.metadata?.userId,
@@ -188,13 +193,13 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         if (entry && CONTEST_INBOX) {
           try {
             await sendContestEmail(entry, s.customer_details?.email || s.customer_email || null);
-            console.log("ðŸ“§ Contest entry emailed:", entry.id);
+            console.log("📧 Contest entry emailed:", entry.id);
           } catch (e) {
             console.error("Email send error:", e.message);
           }
         } else {
-          if (!entry) console.error("âš ï¸ Contest entry not found for entryId:", s.metadata.entryId);
-          if (!CONTEST_INBOX) console.error("âš ï¸ CONTEST_INBOX not set; cannot send email.");
+          if (!entry) console.error("⚠️ Contest entry not found for entryId:", s.metadata.entryId);
+          if (!CONTEST_INBOX) console.error("⚠️ CONTEST_INBOX not set; cannot send email.");
         }
       }
     }
@@ -211,7 +216,7 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         currency: inv.currency,
         invoiceId: inv.id,
       });
-      console.log("ðŸ’¸ invoice.payment_succeeded", { invoiceId: inv.id, amount: inv.amount_paid });
+      console.log("💸 invoice.payment_succeeded", { invoiceId: inv.id, amount: inv.amount_paid });
     }
 
     res.json({ received: true });
@@ -270,7 +275,7 @@ app.post("/api/auth/login", (req, res) => {
   });
 });
 
-// ðŸ”Ž Search users
+// 🔎 Search users
 app.get("/api/users/search", (req, res) => {
   const q = String(req.query.q || "").trim().toLowerCase();
   if (!q) return res.json([]);
@@ -293,7 +298,7 @@ app.get("/api/users/search", (req, res) => {
   res.json(results);
 });
 
-// ðŸ”¹ READ ONE USER
+// 🔹 READ ONE USER
 app.get("/api/users/:id", (req, res) => {
   const u = users.get(req.params.id);
   if (!u) return res.status(404).json({ error: "User not found" });
@@ -355,7 +360,7 @@ app.post("/api/stripe/checkout", async (req, res) => {
    CONTEST: upload + $1 checkout
    ============================== */
 
-// 1) Upload a PDF â€” returns { entryId, fileUrl }
+// 1) Upload a PDF — returns { entryId, fileUrl }
 app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
   try {
     const name = String(req.body.name || "").trim();
@@ -385,13 +390,12 @@ app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
   }
 });
 
-// 2) Create $1 payment session â€” supports either { entryId } (preferred) OR { entry:{...} } legacy
+// 2) Create $1 payment session — supports either { entryId } (preferred) OR { entry:{...} } legacy
 app.post("/api/contest/checkout", async (req, res) => {
   try {
     let entryId = req.body.entryId || null;
 
     // Legacy shape: { entry: { title, email, genre, text } }
-    // We'll still allow it, but the front-end is using entryId flow now.
     if (!entryId && req.body.entry) {
       entryId = `ce_${Date.now()}`;
       // create a minimal "entry" file for legacy (no PDF)
@@ -444,7 +448,7 @@ app.post("/api/contest/checkout", async (req, res) => {
   }
 });
 
-// Manual resend endpoint â€” returns messageId/accepted/response for debugging
+// Manual resend endpoint — returns messageId/accepted/response for debugging
 app.post("/api/contest/resend", async (req, res) => {
   try {
     const entryId = String(req.body.entryId || "");
@@ -472,7 +476,7 @@ app.post("/api/test/send-email", async (_req, res) => {
     if (!CONTEST_INBOX) return res.status(400).json({ ok: false, error: "CONTEST_INBOX missing" });
 
     const info = await mailer.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER, // unchanged default
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: CONTEST_INBOX,
       subject: "[Skald Contest] Mailer test",
       text: "If you received this, SMTP is configured correctly.",
@@ -504,7 +508,7 @@ chatGlobal.install(app);
 // --- helper to send email with PDF attached ---
 async function sendContestEmail(entry, buyerEmail = null) {
   if (!mailer || !CONTEST_INBOX) {
-    console.warn("Mailer not configured or CONTEST_INBOX missing â€” skipping email.");
+    console.warn("Mailer not configured or CONTEST_INBOX missing — skipping email.");
     return null;
   }
 
@@ -533,7 +537,7 @@ async function sendContestEmail(entry, buyerEmail = null) {
   `;
 
   const info = await mailer.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER, // unchanged default
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
     to: CONTEST_INBOX,
     subject: `Skald Contest: ${entry.name || entry.id}`,
     html,
@@ -550,10 +554,11 @@ async function sendContestEmail(entry, buyerEmail = null) {
     writeContestEntries(arr);
   }
 
-  return info; // expose messageId/accepted/response to callers
+  return info;
 }
 
-app.listen(PORT, () => console.log(`ðŸ›¡ï¸ Backend listening on ${PORT}`));
+app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
