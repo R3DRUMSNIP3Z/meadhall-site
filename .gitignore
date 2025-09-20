@@ -35,3 +35,9 @@ backend/backend/.env
 backend/backend/.env.*
 backend/backend/uploads/
 backend/backend/data/
+backend/backend/.env
+backend/backend/.env.*
+backend/backend/uploads/
+backend/backend/data/
+.env
+.env.*
