@@ -1,4 +1,4 @@
-# Logs
+﻿# Logs
 logs
 *.log
 npm-debug.log*
@@ -7,12 +7,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Builds & deps
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# Editors
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,18 +23,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Env files (root & server)
 .env
+.env.*
+
+server/.env
+
+# Backend secrets/runtime (DO NOT COMMIT)
 backend/backend/.env
+backend/backend/.env.*
 backend/backend/uploads/
 backend/backend/data/
-node_modules/
-backend/backend/.env
-backend/backend/uploads/
-backend/backend/data/
-node_modules/
-dist/
-.env
-backend/backend/.env
-backend/backend/uploads/
-backend/backend/data/
-.vercel
