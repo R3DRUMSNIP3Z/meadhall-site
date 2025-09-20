@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mead Hall • Profile</title>
+  <meta name="description" content="Your Mead Hall guild profile." />
+  <meta name="theme-color" content="#0b0f12" />
+  <!-- Set this to your running backend -->
+  <meta name="api-base" content="http://localhost:5050" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+
+  <!-- Logo & favicon -->
+  <link rel="icon" href="/logo/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png" />
+  <meta property="og:image" content="/logo/logo-512.png" />
+
+  <!-- Odin theme -->
+  <link rel="stylesheet" href="/Styles/odin.css" />
+
+  <style>
+    .page{max-width:1100px;margin:110px auto 60px;padding:0 20px}
+    .row{display:grid;gap:20px;grid-template-columns:1fr}
+    @media(min-width:980px){.row{grid-template-columns:360px 1fr}}
+    .panel{
+      background:linear-gradient(180deg,var(--glass),rgba(255,255,255,.02));
+      border:1px solid rgba(200,169,107,.22);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:22px;
+    }
+    .avatar{
+      width:160px;height:160px;border-radius:50%;object-fit:cover;
+      border:2px solid rgba(200,169,107,.5);background:#222
+    }
+    .label{font-size:12px;letter-spacing:.08em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:6px}
+    .kv{margin-bottom:12px}
+    .story{padding:14px;border-radius:12px;border:1px solid rgba(200,169,107,.2);margin:10px 0;background:rgba(255,255,255,.03)}
+    .muted{color:var(--ink-dim)}
+  </style>
+</head>
+<body>
+  <!-- Header with logo (kept consistent across pages) -->
+  <header>
+    <div class="wrap" style="display:flex; gap:22px; align-items:center;">
+      <a href="/" class="brand" style="display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit">
+        <img src="/logo/logo-64.png" alt="Mead Hall" style="width:40px;height:40px;border-radius:8px;object-fit:cover"/>
+        <h1 style="margin:0">Mead Hall</h1>
+      </a>
+      <nav style="margin-left:auto; display:flex; align-items:center; gap:16px">
+        <a class="navlink" href="/">Home</a>
+        <a class="navlink" href="/#plans">Membership</a>
+        <a class="navlink" href="/#contest">Skald Contest</a>
+        <a class="navlink" href="/account.html">Edit profile</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    <h2 class="rune-title" style="margin:0 0 12px">Profile</h2>
+    <p class="rune-sub" id="hello" style="margin-top:0"></p>
+
+    <div class="row">
+      <!-- Left: profile card -->
+      <section class="panel">
+        <div style="text-align:center">
+          <img id="avatarImg" class="avatar" src="/logo/logo-512.png" alt="Avatar"/>
+        </div>
+
+        <div class="kv" style="margin-top:18px">
+          <div class="label">Name</div>
+          <div id="name" style="font-size:20px;font-weight:700">—</div>
+        </div>
+
+        <div class="kv">
+          <div class="label">Email</div>
+          <div id="email" class="muted">—</div>
+        </div>
+
+        <div class="kv">
+          <div class="label">Bio</div>
+          <div id="bio">—</div>
+        </div>
+
+        <div class="kv">
+          <div class="label">Interests</div>
+          <div id="interests" class="muted">—</div>
+        </div>
+
+        <div class="cta-row" style="justify-content:flex-start;margin-top:14px">
+          <a class="btn btn-viking" href="/account.html">Edit Profile</a>
+          <a class="btn btn-viking" href="/friends.html">Friends</a>
+          <button id="logout" class="btn btn-ghost">Log out</button>
+        </div>
+      </section>
+
+      <!-- Right: stories -->
+      <section class="panel">
+        <h3 style="margin:0 0 8px">Stories</h3>
+        <div id="stories" class="muted">No stories yet.</div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>© <span id="y"></span> Mead Hall</span>
+      <span class="sep">•</span>
+      <span>Forged in Myriador</span>
+    </div>
+  </footer>
+
+  <script type="module">
+    // Year
+    const y = document.getElementById('y');
+    if (y) y.textContent = String(new Date().getFullYear());
+
+    // API base
+    const API_BASE =
+      (document.querySelector('meta[name="api-base"]')?.content || '').trim();
+
+    // Local session helpers
+    const LS_KEY_MAIN = 'mh_user';
+    const LS_KEY_FALLBACK = 'user';
+    function getUser() {
+      try {
+        return JSON.parse(localStorage.getItem(LS_KEY_MAIN) || localStorage.getItem(LS_KEY_FALLBACK) || 'null');
+      } catch { return null; }
+    }
+    function setUser(u) {
+      localStorage.setItem(LS_KEY_MAIN, JSON.stringify(u));
+      localStorage.removeItem(LS_KEY_FALLBACK);
+    }
+
+    // Elements
+    const hello = document.getElementById('hello');
+    const nameEl = document.getElementById('name');
+    const emailEl = document.getElementById('email');
+    const bioEl = document.getElementById('bio');
+    const interestsEl = document.getElementById('interests');
+    const avatarImg = document.getElementById('avatarImg');
+    const storiesEl = document.getElementById('stories');
+
+    // Render helper
+    function renderUser(u) {
+      if (hello) hello.textContent = `Welcome, ${u.name || 'skald'}${u.id ? ` (ID: ${u.id})` : ''}.`;
+      if (nameEl) nameEl.textContent = u.name || '—';
+      if (emailEl) emailEl.textContent = u.email || '—';
+      if (bioEl) bioEl.textContent = u.bio || '—';
+      if (interestsEl) interestsEl.textContent = u.interests || '—';
+      if (avatarImg && u.avatarUrl) avatarImg.src = u.avatarUrl;
+    }
+
+    async function loadUserFresh(u) {
+      if (!API_BASE || !u?.id) return u;
+      try {
+        const r = await fetch(`${API_BASE}/api/users/${u.id}`);
+        if (!r.ok) throw new Error(await r.text());
+        const fresh = await r.json();
+        setUser(fresh);
+        return fresh;
+      } catch (err) {
+        console.warn('Could not refresh user; using cached.', err);
+        return u;
+      }
+    }
+
+    async function init() {
+      let u = getUser();
+      if (!u?.id) {
+        if (hello) hello.textContent = 'You’re not signed in.';
+        return;
+      }
+
+      // Refresh from backend so edits on account.html show here
+      u = await loadUserFresh(u);
+      renderUser(u);
+
+      // Load stories (if your backend exposes this route)
+      if (u.id && API_BASE && storiesEl) {
+        try {
+          const r = await fetch(`${API_BASE}/api/users/${u.id}/stories`);
+          const list = r.ok ? await r.json() : [];
+          if (!Array.isArray(list) || list.length === 0) {
+            storiesEl.textContent = 'No stories yet.';
+            storiesEl.classList.add('muted');
+          } else {
+            storiesEl.classList.remove('muted');
+            storiesEl.innerHTML = '';
+            for (const s of list) {
+              const div = document.createElement('div');
+              div.className = 'story';
+              const when = s.createdAt ? new Date(s.createdAt).toLocaleString() : '';
+              div.innerHTML = `<strong>${s.title || 'Untitled'}</strong>
+                <div class="muted" style="font-size:12px">${when}</div>
+                <p style="margin:.4em 0 0">${String(s.text || '').replace(/\n/g,'<br>')}</p>`;
+              storiesEl.appendChild(div);
+            }
+          }
+        } catch {
+          storiesEl.textContent = 'No stories yet.';
+          storiesEl.classList.add('muted');
+        }
+      }
+    }
+
+    // Keep in sync if another tab/page updates localStorage
+    window.addEventListener('storage', (e) => {
+      if (e.key === LS_KEY_MAIN || e.key === LS_KEY_FALLBACK) {
+        init();
+      }
+    });
+
+    // Logout
+    document.getElementById('logout')?.addEventListener('click', () => {
+      localStorage.removeItem(LS_KEY_MAIN);
+      localStorage.removeItem(LS_KEY_FALLBACK);
+      location.href = '/';
+    });
+
+    // Kick off
+    init();
+  </script>
+</body>
+</html>
+

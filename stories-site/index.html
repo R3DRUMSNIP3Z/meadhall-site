@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mead Hall</title>
+  <!-- Favicon -->
+<link rel="icon" type="image/png" href="/logo/favicon.ico.png">
+<link rel="apple-touch-icon" href="/logo/apple-touch-icon.png">
+
+  <meta name="description" content="Raise your horn. Share your saga. Join a guild of skalds and shield-bearers forging legends by firelight." />
+  <meta name="theme-color" content="#0b0f12" />
+
+  <!-- LOCAL while testing (use only one api-base) -->
+  <meta name="api-base" content="https://meadhall-site.onrender.com" />
+
+  <!-- Viking/Rune-esque fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+
+  <!-- Logo & favicon -->
+  <link rel="icon" href="/logo/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png" />
+  <meta property="og:image" content="/logo/logo-512.png" />
+  <meta property="og:title" content="Mead Hall  Skald Guild" />
+  <meta property="og:description" content="Forge your saga among shield-bearers and skalds." />
+  <meta property="og:type" content="website" />
+
+  <!-- Odin theme CSS -->
+  <link rel="stylesheet" href="/Styles/odin.css">
+
+  <style>
+/* Sparkly medieval gold style for Mead Hall link */
+.navlink.sparkle {
+  position: relative;
+  font-weight: 700;
+  color: #d4a94d; /* fallback color if clip isn't supported */
+  text-shadow: 0 0 6px rgba(212,169,77,.6), 0 0 12px rgba(212,169,77,.4);
+  background: linear-gradient(90deg, #b8860b, #ffd700, #b8860b);
+  background-size: 200% auto;
+}
+
+/* Enable gradient-as-text wherever supported */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .navlink.sparkle {
+    background-clip: text;            /* standard */
+    -webkit-background-clip: text;    /* webkit */
+    color: transparent;               /* standard way to reveal gradient */
+    -webkit-text-fill-color: transparent; /* safari/webkit */
+    animation: shimmer 4s linear infinite;
+  }
+}
+
+@keyframes shimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+.navlink.sparkle::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: -12px;
+  font-size: 14px;
+  color: #fff7d6;
+  text-shadow: 0 0 4px #ffefb0, 0 0 8px #ffd700;
+  animation: twinkle 2s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  from { opacity: 0.2; transform: scale(0.9) rotate(0deg); }
+  to   { opacity: 1;   transform: scale(1.3) rotate(20deg); }
+}
+
+/* Accessibility niceties */
+@media (prefers-reduced-motion: reduce) {
+  .navlink.sparkle { animation: none; }
+  .navlink.sparkle::after { animation: none; }
+}
+
+/* Locked state  force override sparkle gradient and prevent clicks */
+.navlink.locked{
+  opacity:.7;
+  cursor:not-allowed;
+  pointer-events:none;      /* CSS says 'none' JS will override to receive clicks */
+  background:none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  color:#d4a94d !important;
+  -webkit-text-fill-color:#d4a94d !important;
+  animation:none !important;
+}
+.navlink.locked::before{
+  content:"";
+  margin-right:6px;
+  color:#d4a94d;
+}
+.navlink.locked.sparkle::after{ display:none; }
+  </style>
+</head>
+<body>
+  <noscript style="position:fixed;inset:0;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;z-index:9999">
+    <p>This site needs JavaScript to forge your legend. Please enable it.</p>
+  </noscript>
+
+  <!-- Header -->
+  <header>
+    <div class="wrap" style="display:flex; gap:22px; align-items:center;">
+      <a href="/" class="brand" style="display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit">
+        <!-- Mead Hall logo -->
+        <img src="/logo/logo-64.png" alt="Mead Hall" style="width:40px;height:40px;border-radius:8px;object-fit:cover"/>
+        <h1 style="margin:0">Mead Hall</h1>
+      </a>
+      <nav style="margin-left:auto; display:flex; align-items:center; gap:16px">
+        <!-- Mead Hall locked by default -->
+        <a href="#" aria-disabled="true" class="navlink sparkle locked" id="nav-meadhall">Mead Hall</a>
+
+        <a href="#plans" class="navlink">Membership</a>
+        <a href="#contest" class="navlink">Skald Contest</a>
+        <a href="#lore" class="navlink">Lore</a>
+        <a href="#account" class="navlink" id="nav-account">Sign In</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Signup Modal -->
+  <div id="signupModal" class="modal" aria-hidden="true" aria-labelledby="signupTitle" role="dialog">
+    <div class="card" style="width:min(520px, 92vw);">
+      <h3 id="signupTitle" style="margin-bottom:6px">Create Your Guild Account</h3>
+      <p class="rune-sub" style="font-size:16px; margin-top:0">Free to join. Pick a name mortals will remember.</p>
+      <form id="signupForm" class="feat" style="margin-top:10px">
+        <label style="display:block; margin:10px 0 6px">Name
+          <input required name="name" class="input" placeholder="Freydis Eiriksdottir" autocomplete="name" />
+        </label>
+        <label style="display:block; margin:10px 0 6px">Email
+          <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
+        </label>
+        <label style="display:block; margin:10px 0 6px">Password
+          <input required type="password" name="password" class="input" placeholder="" autocomplete="new-password" />
+        </label>
+        <div class="cta-row" style="margin-top:16px">
+          <button class="btn btn-viking" type="submit">Create Account</button>
+          <button class="btn btn-ghost" type="button" id="closeSignup">Cancel</button>
+        </div>
+        <p id="signupMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ✨ Sign In Modal -->
+<div id="signinModal" class="modal" aria-hidden="true" aria-labelledby="signinTitle" role="dialog" style="display:none">
+  <div class="card" style="width:min(520px,92vw);">
+    <h3 id="signinTitle" style="margin-bottom:6px">Welcome Back</h3>
+    <p class="rune-sub" style="font-size:16px;margin-top:0">Enter the hall with your credentials.</p>
+    <form id="signinForm" class="feat" style="margin-top:10px">
+      <label style="display:block; margin:10px 0 6px">Email
+        <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
+      </label>
+      <label style="display:block; margin:10px 0 6px">Password
+        <input required type="password" name="password" class="input" placeholder="••••••••" autocomplete="current-password" />
+      </label>
+      <div class="cta-row" style="margin-top:16px">
+        <button class="btn btn-viking" type="submit">Sign In</button>
+        <button class="btn btn-ghost" type="button" id="closeSignin">Cancel</button>
+      </div>
+      <p class="rune-sub" style="margin:.5rem 0 0">No account yet?
+        <button type="button" id="openSignupFromSignin" class="btn btn-ghost" style="padding:.3rem .6rem">Create one</button>
+      </p>
+      <p id="signinMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ✨ Verify Code Modal -->
+<div id="verifyModal" class="modal" aria-hidden="true" aria-labelledby="verifyTitle" role="dialog" style="display:none">
+  <div class="card" style="width:min(520px,92vw);">
+    <h3 id="verifyTitle" style="margin-bottom:6px">Verify Your Email</h3>
+    <p class="rune-sub" style="font-size:16px;margin-top:0">We sent a 6-digit code to your email.</p>
+    <form id="verifyForm" class="feat" style="margin-top:10px">
+      <label style="display:block; margin:10px 0 6px">Code
+        <input required name="code" class="input" inputmode="numeric" maxlength="6" placeholder="123456" />
+      </label>
+      <div class="cta-row" style="margin-top:16px">
+        <button class="btn btn-viking" type="submit">Confirm</button>
+        <button class="btn btn-ghost" type="button" id="resendCode">Resend</button>
+        <button class="btn btn-ghost" type="button" id="closeVerify">Cancel</button>
+      </div>
+      <p id="verifyMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
+    </form>
+  </div>
+</div>
+
+
+  <!-- Membership Plans -->
+  <section id="plans" class="plans">
+    <div class="wrap">
+      <svg class="knot" viewBox="0 0 800 40" preserveAspectRatio="none">
+        <path d="M0 20 Q80 0 160 20 T320 20 T480 20 T640 20 T800 20" fill="none" stroke="rgba(200,169,107,.6)" stroke-width="3"/>
+      </svg>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Reader</h3>
+          <div class="price">$7/mo</div>
+          <ul class="feat">
+  <li>Weekly epics for members</li>
+  <li>Behind-the-shield lore drops</li>
+  <li>Community-forged chronicles</li>
+</ul>
+          <div class="cta-row">
+            <button class="btn btn-viking plan" data-plan="reader">Join Reader</button>
+          </div>
+        </div>
+
+        <div class="card" style="border-color:rgba(211,112,45,.6)">
+          <h3>Premium</h3>
+          <div class="price">$12/mo</div>
+          <ul class="feat">
+  <li>Weekly epics for members</li>
+  <li>Behind-the-shield lore drops</li>
+  <li>Community-forged chronicles</li>
+</ul>
+          <div class="cta-row">
+            <button class="btn btn-viking plan" data-plan="premium">Join Premium</button>
+          </div>
+        </div>
+
+        <div class="card" style="border-color:rgba(90,161,194,.5)">
+          <h3>Annual</h3>
+          <div class="price">$70/yr</div>
+          <ul class="feat">
+  <li>Weekly epics for members</li>
+  <li>Behind-the-shield lore drops</li>
+  <li>Community-forged chronicles</li>
+</ul>
+          <div class="cta-row">
+            <button class="btn btn-viking plan" data-plan="annual">Join Annual</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Skald Contest -->
+  <section id="contest" class="plans">
+    <div class="wrap">
+      <div class="card" style="max-width:960px; margin:0 auto">
+        <h3>Skald Contest</h3>
+        <p class="rune-sub" style="font-size:18px">
+          Offer your verse to the Allfather. $1 entry in test mode while we sharpen our axes.
+        </p>
+
+        <!-- Upload form -->
+        <form id="contestForm" style="display:grid; gap:12px; margin-top:10px">
+          <div style="display:grid; gap:6px">
+            <label for="contestName"><strong>Your name</strong></label>
+            <input id="contestName" name="name" type="text" required placeholder="E.g., Lisa Marie" style="padding:.6rem;border-radius:8px;border:1px solid #3b3325;background:#0e0e0e;color:#e9e4d5"/>
+          </div>
+
+          <div style="display:grid; gap:6px">
+            <label for="contestPdf"><strong>Story (PDF)</strong></label>
+            <input id="contestPdf" name="pdf" type="file" accept="application/pdf" required
+                   style="padding:.6rem;border-radius:8px;border:1px solid #3b3325;background:#0e0e0e;color:#e9e4d5"/>
+            <small style="opacity:.8">Upload one .pdf up to ~10 MB.</small>
+          </div>
+
+          <div class="cta-row" style="display:flex; gap:10px; align-items:center">
+            <button type="submit" class="btn btn-viking" id="btn-contest">Submit Entry ($1)</button>
+            <span id="contestMsg" style="opacity:.85"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lore -->
+  <section id="lore" class="plans" style="background: linear-gradient(180deg, rgba(8,12,14,.75), rgba(6,9,11,.95))">
+    <div class="wrap">
+      <svg class="knot" viewBox="0 0 800 40" preserveAspectRatio="none">
+        <path d="M0 20 Q80 0 160 20 T320 20 T480 20 T640 20 T800 20" fill="none" stroke="rgba(200,169,107,.6)" stroke-width="3"/>
+      </svg>
+      <div class="grid" style="grid-template-columns:1fr; max-width:980px; margin:0 auto">
+        <div class="card">
+          <h3>Guild Lore</h3>
+          <p class="rune-sub" style="font-size:18px">Tales from Myriador and Dreadheim: sagas of shield-walls, oath-rings, and the mead of poetry.</p>
+          <ul class="feat">
+  <li>Weekly epics for members</li>
+  <li>Behind-the-shield lore drops</li>
+  <li>Community-forged chronicles</li>
+</ul>
+          <div class="cta-row">
+            <a class="btn btn-ghost" href="#plans">View Membership Plans</a>
+            <button class="btn btn-viking" id="btn-read-sample">Read a Sample</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <span> <span id="y"></span> Mead Hall</span>
+      <span class="sep"></span>
+      <span>Forged in Myriador</span>
+    </div>
+  </footer>
+
+  <!-- Strong safety net: re-enable pointer-events so JS can intercept while locked -->
+  <script>
+    (() => {
+      const el = document.getElementById('nav-meadhall');
+      if (!el) return;
+
+      // Allow JS to receive clicks even though CSS sets pointer-events:none
+      el.style.pointerEvents = 'auto';
+
+      // ensure no href while locked
+      if (el.classList.contains('locked')) el.removeAttribute('href');
+
+      const stopAll = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        return false;
+      };
+
+      const guard = (e) => {
+        if (!el.classList.contains('locked')) return;
+        stopAll(e);
+        // optional: open signup
+        const modal = document.getElementById('signupModal');
+        if (modal) { modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false'); }
+      };
+
+      // capture-phase listeners
+      el.addEventListener('click', guard, true);
+      el.addEventListener('mousedown', guard, true);
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') guard(e);
+      }, true);
+    })();
+  </script>
+
+  <!-- Auth UI first (modals, sign-in, code verify) -->
+  <script type="module" src="/src/auth.ts"></script>
+  <!-- Main client logic (buttons, signup, lock/grace, etc.) -->
+  <script type="module" src="/src/main.ts"></script>
+
+  <div data-flash style="display:none;margin:12px 0;color:#b91c1c;font-weight:600;"></div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

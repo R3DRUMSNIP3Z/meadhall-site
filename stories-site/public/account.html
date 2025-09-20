@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Your Account  Mead Hall</title>
+
+  <!-- API base (local first; you can swap the value) -->
+  <meta name="api-base" content="https://meadhall-site.onrender.com" />
+
+  <!-- Fonts + Odin theme -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/Styles/odin.css"/>
+
+  <style>
+    .account-wrap{max-width:1080px;margin:110px auto 50px;padding:0 18px}
+    .row{display:grid;gap:20px;grid-template-columns:1fr}
+    @media(min-width:980px){.row{grid-template-columns:340px 1fr}}
+    .panel{background:linear-gradient(180deg,var(--glass),rgba(255,255,255,.02));border:1px solid rgba(200,169,107,.22);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+    .avatar{width:180px;height:180px;border-radius:50%;object-fit:cover;border:2px solid rgba(200,169,107,.45);background:#1a1a1a}
+    .label{font-size:12px;letter-spacing:.08em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:6px}
+    .story{padding:14px;border-radius:12px;border:1px solid rgba(200,169,107,.2);margin:10px 0;background:rgba(255,255,255,.03)}
+    .muted{color:var(--ink-dim)}
+    .story .meta{font-size:12px;color:var(--ink-dim);margin-top:4px}
+    .story .title{font-weight:700;font-size:16px;margin:0}
+    .story .text{margin:.5em 0 0;white-space:pre-wrap}
+    .story .row{display:flex;gap:8px;align-items:center}
+    .story .input{width:100%}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap" style="display:flex;gap:22px;align-items:center;">
+      <div class="brand"><div class="mark"></div><h1>Mead Hall</h1></div>
+      <nav style="margin-left:auto;display:flex;gap:16px">
+        <a class="navlink" href="/">Home</a>
+        <a class="navlink" href="/profile.html">View profile</a>
+        <a id="logout" class="navlink" href="#">Log out</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="account-wrap">
+    <h2 class="rune-title" style="margin-top:0">Your Account</h2>
+    <p class="rune-sub" id="hello" style="margin-top:4px"></p>
+
+    <div class="row">
+      <!-- LEFT: profile info -->
+      <div class="panel">
+        <div style="text-align:center">
+          <img id="avatarImg" class="avatar" alt="Avatar"/>
+          <div style="margin-top:10px">
+            <input id="avatarFile" type="file" accept="image/*"/>
+            <button class="btn btn-ghost" id="uploadBtn" style="margin-top:8px">Upload Avatar</button>
+          </div>
+        </div>
+
+        <div style="margin-top:18px">
+          <div class="label">Name</div>
+          <input id="name" class="input" placeholder="Your name"/>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="label">Email</div>
+          <input id="email" class="input" placeholder="you@example.com" disabled/>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="label">Bio</div>
+          <textarea id="bio" class="input" rows="4" placeholder="Tell us about yourself..."></textarea>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="label">Interests</div>
+          <input id="interests" class="input" placeholder="e.g., sagas, smithing, longboats"/>
+        </div>
+
+        <div class="cta-row" style="margin-top:16px;justify-content:flex-end">
+          <button class="btn btn-viking" id="saveProfile">Save Profile</button>
+        </div>
+        <p id="profileMsg" class="muted" style="margin:8px 0 0"></p>
+      </div>
+
+      <!-- RIGHT: stories -->
+      <div class="panel">
+        <h3 style="margin:0 0 8px">Your Stories</h3>
+        <div class="feat" style="margin:0 0 12px">
+          <input id="storyTitle" class="input" placeholder="Title"/>
+          <textarea id="storyText" class="input" rows="5" placeholder="Write your tale..."></textarea>
+          <div class="cta-row" style="justify-content:flex-end">
+            <button class="btn btn-ghost" id="addStory">Add Story</button>
+          </div>
+        </div>
+        <div id="stories"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap"> <span id="y"></span> Mead Hall</div>
+  </footer>
+
+  <script>
+    document.getElementById('y').textContent = new Date().getFullYear();
+  </script>
+
+  <!-- Use ONLY the external module (no inline story manager) -->
+  <script type="module" src="/src/account.ts"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
