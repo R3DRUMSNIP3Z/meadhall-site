@@ -1,16 +1,19 @@
-﻿{
-    "dependencies":  {
-                         "bcryptjs":  "^3.0.2",
-                         "cookie-parser":  "^1.4.7",
-                         "nodemailer":  "^7.0.6"
-                     },
-    "scripts":  {
-                    "preview":  "vite preview --port 5173",
-                    "build":  "vite build",
-                    "dev":  "vite"
-                },
-    "devDependencies":  {
-                            "vite":  "^5.4.8",
-                            "typescript":  "^5.5.4"
-                        }
+{
+    "dependencies": {
+        "bcryptjs": "^3.0.2",
+        "cookie-parser": "^1.4.7",
+        "nodemailer": "^7.0.6",
+        "react": "^19.1.1",
+        "react-dom": "^19.1.1"
+    },
+    "scripts": {
+        "preview": "vite preview --port 5173",
+        "build": "vite build",
+        "dev": "vite"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-react": "^5.0.3",
+        "typescript": "^5.5.4",
+        "vite": "^5.4.8"
+    }
 }
