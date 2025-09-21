@@ -1,7 +1,9 @@
 import { defineConfig } from "vite";
-import { resolve } from "node:path";
+import react from "@vitejs/plugin-react";
+import { resolve } from "path";
 
 export default defineConfig({
+  plugins: [react()],
   build: {
     rollupOptions: {
       input: {
@@ -10,9 +12,11 @@ export default defineConfig({
         friends: resolve(__dirname, "friends.html"),
         friendprofile: resolve(__dirname, "friendprofile.html"),
         profile: resolve(__dirname, "profile.html"),
+        book: resolve(__dirname, "book.html"), // <- add this
       },
     },
   },
 });
+
 
 
