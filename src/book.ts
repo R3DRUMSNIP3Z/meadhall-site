@@ -1,28 +1,43 @@
-/**
- * Mead Hall — Guild Book Reader (TypeScript)
- * - Loads story text (RTF or TXT)
- * - Front-matter: [cover:], [title:], [subtitle:], [credit:]
- * - In-body images: [image:/path] -> <img src="{ASSET_BASE}/path">
- * - Manual page breaks: [PAGEBREAK] or |PAGEBREAK|
- * - Simple pagination
- */
-
-/* ============= Meta-driven configuration ============= */
+/* Simple book reader with RTF→Unicode, cover/front-matter, images & page breaks */
 
 const API_BASE =
-  (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content?.trim() || location.origin;
+  (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content?.trim() ||
+  location.origin;
 
 const ASSET_BASE =
-  (document.querySelector('meta[name="asset-base"]') as HTMLMetaElement)?.content?.trim() || "";
+  (document.querySelector('meta[name="asset-base"]') as HTMLMetaElement)?.content?.trim() ||
+  "/guildbook/";
 
-/** join like URL.resolve but dead-simple and safe for trailing/leading slashes */
-function joinUrl(base: string, path: string): string {
-  const b = base.replace(/\/+$/, "");
-  const p = path.replace(/^\/+/, "");
-  return `${b}/${p}`;
+function assetUrl(p: string): string {
+  const s = String(p || "").trim();
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith("/")) return `${location.origin}${s}`;
+  const base = ASSET_BASE.startsWith("http")
+    ? ASSET_BASE.replace(/\/+$/, "")
+    : `${location.origin}${ASSET_BASE.startsWith("/") ? "" : "/"}${ASSET_BASE}`.replace(/\/+$/, "");
+  return `${base}/${s}`.replace(/(?<!:)\/{2,}/g, "/");
 }
 
-/* ============= DOM ============= */
+// Where to load the story from via <meta name="book-src"> or ?book=NAME
+function resolveStoryUrl(): string {
+  const meta = (document.querySelector('meta[name="book-src"]') as HTMLMetaElement)?.content?.trim();
+  if (meta) {
+    if (/^https?:\/\//i.test(meta)) return meta;
+    if (meta.startsWith("/")) return `${location.origin}${meta}`;
+    return `${location.origin}/${meta}`;
+  }
+
+  const qs = new URLSearchParams(location.search);
+  const book = (qs.get("book") || "").trim();
+  if (!book) throw new Error("No book specified. Use <meta name=\"book-src\"> or ?book=name");
+
+  const base = ASSET_BASE.startsWith("http")
+    ? ASSET_BASE.replace(/\/+$/, "")
+    : `${location.origin}${ASSET_BASE.startsWith("/") ? "" : "/"}${ASSET_BASE}`.replace(/\/+$/, "");
+
+  return `${base}/${book}.rtf||${base}/${book}.txt`;
+}
 
 const el = {
   title:  document.getElementById("bookTitle")!,
@@ -33,54 +48,43 @@ const el = {
   count:  document.getElementById("pageCount")!,
 };
 
-/* ============= Pagination ============= */
-
 const CHARS_PER_PAGE = 1450;
+
 let pages: string[] = [];
 let idx = 0;
 
-/* ============= Boot ============= */
-
 init().catch(err => {
   console.error(err);
-  el.page.innerHTML = `<p style="color:#b91c1c">Failed to load book: ${escapeHtml(String(err?.message || err))}</p>`;
+  el.page.innerHTML = `<p style="color:#b91c1c">Failed to load book: ${escapeHtml(String(err.message || err))}</p>`;
 });
 
 async function init() {
-  const src = resolveStoryUrl();
-  console.log("[Book] apiBase:", API_BASE, "assetBase:", ASSET_BASE || "(none)", "src:", src);
+  const rawUrl = resolveStoryUrl();
+  console.log("[Book] apiBase:", API_BASE, "assetBase:", ASSET_BASE, "rawSrc:", rawUrl);
 
-  // Fetch with fallback (A||B)
   let raw = "";
-  if (src.includes("||")) {
-    const [u1, u2] = src.split("||");
-    try { raw = await fetchText(u1); } catch { raw = await fetchText(u2); }
+  if (rawUrl.includes("||")) {
+    const [u1, u2] = rawUrl.split("||");
+    try { raw = await fetchText(u1); }
+    catch { raw = await fetchText(u2); }
   } else {
-    raw = await fetchText(src);
+    raw = await fetchText(rawUrl);
   }
 
-  // RTF -> text
   const isRtf = /^\s*{\\rtf/i.test(raw);
   let plain = isRtf ? rtfToText(raw) : raw;
 
-  // Front-matter
   const fm = extractFrontMatter(plain);
   plain = fm.body;
 
-  // Build HTML: paragraphs + images + pagebreaks
   const html = convertTokensToHtml(plain);
 
-  // Paginate
   pages = paginate(html, CHARS_PER_PAGE);
   if (!pages.length) pages = ["(No content)"];
 
-  // Optional cover page first
   if (fm.coverHtml) pages.unshift(fm.coverHtml);
 
-  // Title
-  el.title.textContent = fm.title || deriveTitleFromUrl(src);
-
-  // Render & wire nav
+  el.title.textContent = fm.title || deriveTitleFromUrl(rawUrl);
   el.count.textContent = String(pages.length);
   render();
 
@@ -92,32 +96,6 @@ async function init() {
   });
   updateButtons();
 }
-
-/* ============= URL resolution ============= */
-
-/**
- * Priority:
- *  1) <meta name="book-src" content="...">
- *     - absolute http(s): use as-is
- *     - relative: join with API_BASE (your backend)
- *  2) ?book=name  -> try `${API_BASE}/uploads/${name}.rtf` then `.txt`
- */
-function resolveStoryUrl(): string {
-  const meta = (document.querySelector('meta[name="book-src"]') as HTMLMetaElement)?.content?.trim();
-  if (meta) {
-    return /^https?:\/\//i.test(meta) ? meta : joinUrl(API_BASE, meta);
-  }
-
-  const qs = new URLSearchParams(location.search);
-  const book = (qs.get("book") || "").trim();
-  if (!book) throw new Error("No book specified. Use <meta name=\"book-src\"> or ?book=name");
-
-  const tryRtf = joinUrl(API_BASE, `uploads/${book}.rtf`);
-  const tryTxt = joinUrl(API_BASE, `uploads/${book}.txt`);
-  return `${tryRtf}||${tryTxt}`;
-}
-
-/* ============= Navigation/render ============= */
 
 function prev() {
   if (idx <= 0) return;
@@ -144,8 +122,6 @@ function updateButtons() {
   el.next.toggleAttribute("disabled", idx === pages.length - 1);
 }
 
-/* ============= Helpers ============= */
-
 function deriveTitleFromUrl(u: string): string {
   const path = u.split("?")[0];
   const base = path.split("/").pop() || "Guild Book";
@@ -154,47 +130,21 @@ function deriveTitleFromUrl(u: string): string {
 
 async function fetchText(url: string): Promise<string> {
   const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) {
-    let body = "";
-    try { body = await r.text(); } catch {}
-    throw new Error(`HTTP ${r.status} - ${body || "Failed to fetch"}`);
-  }
+  if (!r.ok) throw new Error(`HTTP ${r.status} - ${await r.text().catch(()=> "")}`);
   return await r.text();
 }
 
 function escapeHtml(s: string) {
-  return s.replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[ch]!));
+  return s.replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]!));
 }
 
-/**
- * Convert tokens to HTML:
- *  - [image:/path]  -> <img src="{ASSET_BASE}/path">
- *  - [PAGEBREAK] or |PAGEBREAK| -> <pagebreak/>
- *  - paragraphs from double newlines
- */
+/** Turn tokens into HTML paragraphs + image tags + manual break markers. */
 function convertTokensToHtml(txt: string): string {
-    // helper must match the one used for the cover
-  const joinUrl = (base: string, p: string) => {
-    const b = base.replace(/\/+$/, "");
-    const s = p.replace(/^\/+/, "");
-    return `${b}/${s}`;
-  };
-  const resolveAsset = (p: string) => {
-    const raw = String(p || "").trim();
-    if (!raw) return "";
-    if (/^https?:\/\//i.test(raw)) return raw;
-    const assetBase =
-      (document.querySelector('meta[name="asset-base"]') as HTMLMetaElement)?.content?.trim() || "";
-    const stripped = raw.replace(/^\/?uploads\/+/i, ""); // drop "uploads/" if present
-    const base = assetBase || API_BASE;
-    return joinUrl(base, stripped);
-  };
-
   const withImgs = txt.replace(/\[image:([^\]]+)\]/gi, (_m, p1) => {
-    const full = resolveAsset(p1);
+    const safe = String(p1 || "").trim();
+    const full = assetUrl(safe);
     return `\n\n<figure><img src="${full}" alt="illustration"/></figure>\n\n`;
   });
-
 
   const withBreaks = withImgs
     .replace(/\[pagebreak\]/gi, "\n\n<pagebreak/>\n\n")
@@ -202,26 +152,25 @@ function convertTokensToHtml(txt: string): string {
 
   return withBreaks
     .split(/\n{2,}/)
-    .map(b0 => {
-      const b = b0.trim();
+    .map(block => {
+      const b = block.trim();
       if (!b) return "";
-      if (b.toLowerCase() === "<pagebreak/>") return b;
-      if (/^<figure>/i.test(b)) return b;
+      if (b.startsWith("<figure>") || b === "<pagebreak/>") return b;
       return `<p>${escapeHtml(b)}</p>`;
     })
     .filter(Boolean)
     .join("\n");
 }
 
-/** pagination that respects <pagebreak/>; images get smaller budget */
+/** Pagination that also respects <pagebreak/> blocks. */
 function paginate(html: string, charsPerPage: number): string[] {
   const blocks = html.split(/(?=<figure>|<p>|<pagebreak\/>)/i);
   const out: string[] = [];
   let buf: string[] = [];
   let count = 0;
 
-  for (const raw of blocks) {
-    const b = (raw || "").trim();
+  for (const bRaw of blocks) {
+    const b = (bRaw || "").trim();
     if (!b) continue;
 
     if (b.toLowerCase() === "<pagebreak/>") {
@@ -247,8 +196,6 @@ function paginate(html: string, charsPerPage: number): string[] {
   if (buf.length) out.push(buf.join("\n"));
   return out;
 }
-
-/* ============= Front-matter ============= */
 
 type FrontMatter = {
   coverHtml?: string;
@@ -281,33 +228,9 @@ function extractFrontMatter(src: string): FrontMatter {
     out.push(ln);
   }
 
-      let coverHtml: string | undefined;
-
-  // Join base + path with one slash
-  const joinUrl = (base: string, p: string) => {
-    const b = base.replace(/\/+$/, "");
-    const s = p.replace(/^\/+/, "");
-    return `${b}/${s}`;
-  };
-
-  // Resolve images with preference for asset-base (Vercel), fallback to API_BASE.
-  // Also strip a leading "uploads/" segment if present in the path.
-  const resolveAsset = (p: string) => {
-    const raw = String(p || "").trim();
-    if (!raw) return "";
-    if (/^https?:\/\//i.test(raw)) return raw;
-
-    const assetBase =
-      (document.querySelector('meta[name="asset-base"]') as HTMLMetaElement)?.content?.trim() || "";
-
-    // If the file path starts with "uploads/...", drop that segment so it works with Vercel public/
-    const stripped = raw.replace(/^\/?uploads\/+/i, "");
-    const base = assetBase || API_BASE;
-    return joinUrl(base, stripped);
-  };
-
+  let coverHtml: string | undefined;
   if (cover || title || subtitle || credit) {
-    const full = resolveAsset(cover);
+    const full = cover ? assetUrl(cover) : "";
     coverHtml = `
       <section class="cover" style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
         ${full ? `<img src="${full}" alt="Cover" style="max-width:70%;height:auto;border:1px solid rgba(200,169,107,.45);border-radius:14px;margin:10px auto 18px;display:block"/>` : ""}
@@ -318,16 +241,13 @@ function extractFrontMatter(src: string): FrontMatter {
     `;
   }
 
-
-
   return { coverHtml, title, subtitle, credit, body: out.join("\n").trim() };
 }
 
-/* ============= RTF → text ============= */
+/* ---------------- RTF → Unicode text ---------------- */
 
 function rtfToText(rtf: string): string {
   let s = rtf.replace(/\r\n?/g, "\n");
-
   const dropGroups = [
     "fonttbl","colortbl","stylesheet","info","generator",
     "themedata","rsidtbl","listtable","listoverridetable",
@@ -337,14 +257,12 @@ function rtfToText(rtf: string): string {
   s = removeStarDestinations(s);
   for (let i = 0; i < 4; i++) s = s.replace(/\{\\f\d+[^{}]*\}/g, "");
 
-  // \uNNNN? (consume fallback)
   s = s.replace(/\\u(-?\d+)\??(.)?/g, (_m, n: string) => {
     let code = parseInt(n, 10);
     if (code < 0) code = 65536 + code;
     return String.fromCharCode(code);
   });
 
-  // \'hh (cp1252 bytes)
   s = s.replace(/\\'([0-9a-fA-F]{2})/g, (_m, hh: string) =>
     cp1252ByteToChar(parseInt(hh, 16))
   );
@@ -360,7 +278,6 @@ function rtfToText(rtf: string): string {
 
   return s;
 }
-
 function removeRtfGroup(src: string, name: string): string {
   const needle = "{\\" + name;
   let out = src;
@@ -390,7 +307,7 @@ function findGroupEnd(s: string, start: number): number {
     const ch = s[i];
     if (ch === "{") depth++;
     else if (ch === "}") { depth--; if (depth === 0) return i + 1; }
-    else if (ch === "\\") i++; // skip control char param
+    else if (ch === "\\") i++;
   }
   return -1;
 }
@@ -407,6 +324,7 @@ function cp1252ByteToChar(b: number): string {
   if (b >= 0xa1 && b <= 0xff) return String.fromCharCode(b);
   return "";
 }
+
 
 
 
