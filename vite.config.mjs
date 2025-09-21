@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+﻿import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 
@@ -12,11 +12,8 @@ export default defineConfig({
         friends: resolve(__dirname, "friends.html"),
         friendprofile: resolve(__dirname, "friendprofile.html"),
         profile: resolve(__dirname, "profile.html"),
-        book: resolve(__dirname, "book.html"), // <- add this
+        book: resolve(__dirname, "book.html"),
       },
     },
   },
 });
-
-
-
