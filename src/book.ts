@@ -173,13 +173,28 @@ function escapeHtml(s: string) {
  *  - paragraphs from double newlines
  */
 function convertTokensToHtml(txt: string): string {
+    // helper must match the one used for the cover
+  const joinUrl = (base: string, p: string) => {
+    const b = base.replace(/\/+$/, "");
+    const s = p.replace(/^\/+/, "");
+    return `${b}/${s}`;
+  };
+  const resolveAsset = (p: string) => {
+    const raw = String(p || "").trim();
+    if (!raw) return "";
+    if (/^https?:\/\//i.test(raw)) return raw;
+    const assetBase =
+      (document.querySelector('meta[name="asset-base"]') as HTMLMetaElement)?.content?.trim() || "";
+    const stripped = raw.replace(/^\/?uploads\/+/i, ""); // drop "uploads/" if present
+    const base = assetBase || API_BASE;
+    return joinUrl(base, stripped);
+  };
+
   const withImgs = txt.replace(/\[image:([^\]]+)\]/gi, (_m, p1) => {
-    const raw = String(p1 || "").trim();
-    const full = /^https?:\/\//i.test(raw)
-      ? raw
-      : (ASSET_BASE ? joinUrl(ASSET_BASE, raw) : raw); // if no ASSET_BASE, leave as-is
+    const full = resolveAsset(p1);
     return `\n\n<figure><img src="${full}" alt="illustration"/></figure>\n\n`;
   });
+
 
   const withBreaks = withImgs
     .replace(/\[pagebreak\]/gi, "\n\n<pagebreak/>\n\n")
@@ -266,27 +281,33 @@ function extractFrontMatter(src: string): FrontMatter {
     out.push(ln);
   }
 
-    let coverHtml: string | undefined;
+      let coverHtml: string | undefined;
 
-  // Resolve cover image path:
-  // - absolute URLs are used as-is
-  // - otherwise, prefix with meta[name="asset-base"] if present
-  // - else fall back to API_BASE
-  const resolveCover = (p: string) => {
-    const s = String(p || "").trim();
-    if (!s) return "";
-    if (/^https?:\/\//i.test(s)) return s;
+  // Join base + path with one slash
+  const joinUrl = (base: string, p: string) => {
+    const b = base.replace(/\/+$/, "");
+    const s = p.replace(/^\/+/, "");
+    return `${b}/${s}`;
+  };
+
+  // Resolve images with preference for asset-base (Vercel), fallback to API_BASE.
+  // Also strip a leading "uploads/" segment if present in the path.
+  const resolveAsset = (p: string) => {
+    const raw = String(p || "").trim();
+    if (!raw) return "";
+    if (/^https?:\/\//i.test(raw)) return raw;
 
     const assetBase =
       (document.querySelector('meta[name="asset-base"]') as HTMLMetaElement)?.content?.trim() || "";
 
+    // If the file path starts with "uploads/...", drop that segment so it works with Vercel public/
+    const stripped = raw.replace(/^\/?uploads\/+/i, "");
     const base = assetBase || API_BASE;
-    const needsSlash = !(base.endsWith("/") || s.startsWith("/"));
-    return `${base}${needsSlash ? "/" : ""}${s}`;
+    return joinUrl(base, stripped);
   };
 
   if (cover || title || subtitle || credit) {
-    const full = resolveCover(cover);
+    const full = resolveAsset(cover);
     coverHtml = `
       <section class="cover" style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
         ${full ? `<img src="${full}" alt="Cover" style="max-width:70%;height:auto;border:1px solid rgba(200,169,107,.45);border-radius:14px;margin:10px auto 18px;display:block"/>` : ""}
@@ -296,6 +317,7 @@ function extractFrontMatter(src: string): FrontMatter {
       </section>
     `;
   }
+
 
 
   return { coverHtml, title, subtitle, credit, body: out.join("\n").trim() };
