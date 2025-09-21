@@ -266,14 +266,27 @@ function extractFrontMatter(src: string): FrontMatter {
     out.push(ln);
   }
 
-  let coverHtml: string | undefined;
-  if (cover || title || subtitle || credit) {
-    const full = cover
-      ? (/^https?:\/\//i.test(cover)
-          ? cover
-          : (ASSET_BASE ? joinUrl(ASSET_BASE, cover) : cover))
-      : "";
+    let coverHtml: string | undefined;
 
+  // Resolve cover image path:
+  // - absolute URLs are used as-is
+  // - otherwise, prefix with meta[name="asset-base"] if present
+  // - else fall back to API_BASE
+  const resolveCover = (p: string) => {
+    const s = String(p || "").trim();
+    if (!s) return "";
+    if (/^https?:\/\//i.test(s)) return s;
+
+    const assetBase =
+      (document.querySelector('meta[name="asset-base"]') as HTMLMetaElement)?.content?.trim() || "";
+
+    const base = assetBase || API_BASE;
+    const needsSlash = !(base.endsWith("/") || s.startsWith("/"));
+    return `${base}${needsSlash ? "/" : ""}${s}`;
+  };
+
+  if (cover || title || subtitle || credit) {
+    const full = resolveCover(cover);
     coverHtml = `
       <section class="cover" style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
         ${full ? `<img src="${full}" alt="Cover" style="max-width:70%;height:auto;border:1px solid rgba(200,169,107,.45);border-radius:14px;margin:10px auto 18px;display:block"/>` : ""}
@@ -281,8 +294,9 @@ function extractFrontMatter(src: string): FrontMatter {
         ${subtitle ? `<div style="opacity:.85;margin:.2em 0 .5em">${escapeHtml(subtitle)}</div>` : ""}
         ${credit ? `<div style="opacity:.75;font-size:14px">${escapeHtml(credit)}</div>` : ""}
       </section>
-    `.trim();
+    `;
   }
+
 
   return { coverHtml, title, subtitle, credit, body: out.join("\n").trim() };
 }
