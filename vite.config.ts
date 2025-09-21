@@ -1,9 +1,11 @@
 ﻿import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import { resolve } from "path";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// define __dirname for ESM
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [react()],
   build: {
     rollupOptions: {
       input: {
