@@ -1,12 +1,10 @@
 ﻿import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { resolve } from "path";
 
 export default defineConfig({
   plugins: [react()],
+  // Use the default publicDir = "public" (remove any custom publicDir)
   build: {
     rollupOptions: {
       input: {
@@ -15,6 +13,7 @@ export default defineConfig({
         friends: resolve(__dirname, "friends.html"),
         friendprofile: resolve(__dirname, "friendprofile.html"),
         profile: resolve(__dirname, "profile.html"),
+        book: resolve(__dirname, "book.html"), // 👈 include book.html as an entry
       },
     },
   },
