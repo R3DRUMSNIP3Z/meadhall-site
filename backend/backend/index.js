@@ -54,8 +54,8 @@ app.options(/.*/, cors());
 // Some proxies need this for keep-alive connections (SSE etc.)
 app.set("trust proxy", 1);
 
-// --- uploads dir and static serving (avatars + contest PDFs) ---
-const uploadsDir = path.join(__dirname, "uploads");
+// --- uploads dir and static serving (avatars + contest PDFs + guildbook) ---
+const uploadsDir = path.join(__dirname, "public", "uploads"); // <-- CHANGED to include "public"
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use("/uploads", express.static(uploadsDir));
 
