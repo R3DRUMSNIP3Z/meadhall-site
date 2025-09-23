@@ -41,10 +41,16 @@ function getUserFromLS(): SafeUser | null {
 }
 function setUserToLS(u: SafeUser) { localStorage.setItem(LS_KEY, JSON.stringify(u)); }
 function normalizeId(raw: any): string { return String(raw ?? "").replace(/\s+/g, "_").trim(); }
+
+// Build an absolute URL from a possibly-relative path
 function fullUrl(p?: string) {
   if (!p) return "";
-  return /^https?:\/\//i.test(p) ? p : `${API_BASE}${p}`;
+  if (/^https?:\/\//i.test(p)) return p;
+  const base = (API_BASE || "").replace(/\/+$/, "");
+  const path = String(p).replace(/^\/+/, "");
+  return `${base}/${path}`;
 }
+
 function fmt(ts?: number | string) {
   if (!ts && ts !== 0) return "";
   const d = new Date(typeof ts === "number" ? ts : String(ts));
@@ -94,7 +100,7 @@ async function loadUser() {
     const r = await fetch(`${API_BASE}/api/users/${currentUser!.id}`);
     if (!r.ok) return;
     const u: SafeUser = await r.json();
-    if (avatarImg) avatarImg.src = u.avatarUrl ? fullUrl(u.avatarUrl) : "/images/odin-hero.jpg";
+    if (avatarImg) avatarImg.src = u.avatarUrl ? `${fullUrl(u.avatarUrl)}?t=${Date.now()}` : "/images/odin-hero.jpg";
     if (nameEl) nameEl.value = u.name || "";
     if (emailEl) emailEl.value = u.email || "";
     if (bioEl) bioEl.value = u.bio || "";
@@ -321,18 +327,38 @@ function renderStoryCard(s: Story): HTMLDivElement {
 if (!(window as any)[BIND_KEY]) {
   (window as any)[BIND_KEY] = true;
 
+  // ✅ NEW avatar flow
   uploadBtn?.addEventListener("click", async () => {
     if (!avatarFile?.files?.[0]) return alert("Choose a file first.");
     const fd = new FormData();
-    fd.append("file", avatarFile.files[0]); // server expects "file"
+    fd.append("avatar", avatarFile.files[0]); // server expects "avatar"
+
     try {
-      const r = await fetch(`${API_BASE}/api/users/${currentUser!.id}/avatar`, { method: "POST", body: fd });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) return alert((data as any)?.error || "Upload failed");
-      const raw = (data as any).avatarUrl as string;   // e.g. "/uploads/xyz.png" (or full URL)
-      const url = fullUrl(raw) || raw;
-      if (avatarImg) avatarImg.src = `${url}?t=${Date.now()}`; // cache-bust
-      setUserToLS({ ...currentUser!, avatarUrl: raw });
+      // 1) upload avatar -> { url: "/uploads/..." }
+      const up = await fetch(`${API_BASE}/api/account/avatar`, { method: "POST", body: fd });
+      const payload = await up.json().catch(() => ({} as any));
+      if (!up.ok || !payload?.url) {
+        const msg = (payload as any)?.error || "Upload failed";
+        return alert(msg);
+      }
+
+      const rawUrl = payload.url as string; // "/uploads/1699...-pic.png"
+      const absolute = fullUrl(rawUrl);
+
+      // 2) persist to user record so future loads show it
+      const put = await fetch(`${API_BASE}/api/users/${currentUser!.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl: rawUrl }),
+      });
+      if (!put.ok) {
+        const e = await put.text();
+        console.warn("Avatar uploaded but failed to persist on server:", e);
+      }
+
+      // 3) update UI + LS (cache-bust the <img>)
+      if (avatarImg) avatarImg.src = `${absolute}?t=${Date.now()}`;
+      setUserToLS({ ...currentUser!, avatarUrl: rawUrl });
     } catch (err) {
       console.error("avatar upload error", err);
       alert("Upload failed");
@@ -386,6 +412,7 @@ if (!(window as any)[BIND_KEY]) {
 /* ---------- go ---------- */
 loadUser();
 loadStories();
+
 
 
 
