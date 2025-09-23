@@ -103,8 +103,6 @@ async function startCheckout(plan: string | null) {
   if (!u) { openSignup(); return; }
   if (!plan) { alert("Missing plan"); return; }
 
- 
-
   // Optional: disable the clicked button while we work
   const active = document.activeElement as HTMLButtonElement | null;
   if (active && active.tagName === "BUTTON") active.disabled = true;
@@ -113,30 +111,8 @@ async function startCheckout(plan: string | null) {
     const r = await fetch(`${base}/api/stripe/checkout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // Add credentials if your backend uses cookies/sessions; otherwise omit.
-      // credentials: "include",
       body: JSON.stringify({ plan, userId: u.id }),
     });
-
-    // ---------------- Wire buttons/handlers ----------------
-document.querySelectorAll<HTMLButtonElement>(".plan").forEach(btn=>{
-  btn.addEventListener("click", (e)=> 
-    startCheckout((e.currentTarget as HTMLElement).getAttribute("data-plan"))
-  );
-});
-document.getElementById("btn-member")?.addEventListener("click", ()=> openSignup());
-
-
-document.getElementById("contestForm")?.addEventListener("submit", (e) => {
-  e.preventDefault();
-  submitContestUploadThenPay_Form();
-});
-
-
-
-
-
-
 
     // Try to read JSON; if it fails, fall back to text
     let data: any = null;
@@ -149,7 +125,6 @@ document.getElementById("contestForm")?.addEventListener("submit", (e) => {
     }
 
     if (data && data.url) {
-      // Same-tab navigation to Stripe
       window.location.assign(data.url);
     } else {
       throw new Error("Checkout failed: no URL returned from server.");
@@ -161,7 +136,6 @@ document.getElementById("contestForm")?.addEventListener("submit", (e) => {
     if (active && active.tagName === "BUTTON") active.disabled = false;
   }
 }
-
 
 // ---------------- Skald Contest: upload PDF -> pay $1 ----------------
 async function submitContestUploadThenPay_Form() {
@@ -185,12 +159,10 @@ async function submitContestUploadThenPay_Form() {
     fd.append("userId", u.id || "");
     fd.append("pdf", file);
 
-    // 1) Upload entry -> entryId
     const up = await fetch(`${base}/api/contest/upload`, { method: "POST", body: fd });
     if (!up.ok) throw new Error(await up.text());
     const { entryId } = await up.json();
 
-    // 2) Start $1 checkout with entryId
     if (msg) msg.textContent = "Starting checkout…";
     const pay = await fetch(`${base}/api/contest/checkout`, {
       method: "POST",
@@ -208,7 +180,7 @@ async function submitContestUploadThenPay_Form() {
   }
 }
 
-// Fallback: prompt for name, file picker, upload -> pay
+// Fallback contest flow
 async function submitContestUploadThenPay_Fallback() {
   const base = API_BASE || location.origin;
   const u = getUser();
@@ -253,19 +225,21 @@ async function submitContestUploadThenPay_Fallback() {
   picker.click();
 }
 
-
-
-// ✅ REPLACE WITH THIS:
+// ---------------- Wire buttons/handlers ----------------
+document.querySelectorAll<HTMLButtonElement>(".plan").forEach(btn=>{
+  btn.addEventListener("click", (e)=> 
+    startCheckout((e.currentTarget as HTMLElement).getAttribute("data-plan"))
+  );
+});
+document.getElementById("btn-member")?.addEventListener("click", ()=> openSignup());
 document.getElementById("btn-read-sample")?.addEventListener("click", (e) => {
   e.preventDefault();
   window.location.href = "/book.html";
 });
-
 document.getElementById("contestForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
   submitContestUploadThenPay_Form();
 });
-
 document.getElementById("btn-contest")?.addEventListener("click", (e)=>{
   const form = document.getElementById("contestForm") as HTMLFormElement | null;
   if (form) { e.preventDefault(); form.requestSubmit(); return; }
@@ -290,7 +264,6 @@ signupForm?.addEventListener("submit", async (e)=>{
     const user = await r.json();
     setUser(user);
 
-    // NEW: clear any stray grace from earlier sessions so signup stays LOCKED
     clearSubGrace();
     clearGrace(CONTEST_GRACE_KEY);
 
@@ -305,17 +278,14 @@ signupForm?.addEventListener("submit", async (e)=>{
 });
 
 // ===============================
-// Separate localStorage flags
+// LocalStorage flags
 // ===============================
-const SUB_GRACE_KEY = "mh_grace_sub_v1";          // { exp:number, plan?:string, userId:string }
-const CONTEST_GRACE_KEY = "mh_grace_contest_v1";  // { exp:number, entryId?:string, userId?:string }
-// (Legacy key intentionally NOT used anymore for unlocking)
+const SUB_GRACE_KEY = "mh_grace_sub_v1";          
+const CONTEST_GRACE_KEY = "mh_grace_contest_v1";  
 
-// durations
 const SUB_GRACE_MIN = 60;
 const CONTEST_GRACE_MIN = 30;
 
-// helpers
 function hasGrace(key: string): any | null {
   try {
     const raw = localStorage.getItem(key);
@@ -331,7 +301,6 @@ function setGraceMinutes(key: string, mins: number, extra?: Record<string, any>)
 }
 function clearGrace(key: string) { localStorage.removeItem(key); }
 
-// user-scoped subscription grace
 function hasSubGrace(): boolean {
   const g = hasGrace(SUB_GRACE_KEY);
   const uid = getCurrentUserId();
@@ -339,19 +308,18 @@ function hasSubGrace(): boolean {
 }
 function setSubGrace(plan?: string) {
   const uid = getCurrentUserId();
-  if (!uid) return; // must be logged in when starting checkout
+  if (!uid) return;
   setGraceMinutes(SUB_GRACE_KEY, SUB_GRACE_MIN, { plan: plan || null, userId: uid });
 }
 function clearSubGrace() { clearGrace(SUB_GRACE_KEY); }
 
-// contest flag (does NOT unlock meadhall)
 function setContestGrace(entryId?: string) {
   const uid = getCurrentUserId();
   setGraceMinutes(CONTEST_GRACE_KEY, CONTEST_GRACE_MIN, { entryId: entryId || null, userId: uid || null });
 }
 
 // ===============================
-// Mead Hall lock (server-verified + SUB-ONLY grace)
+// Mead Hall lock
 // ===============================
 function applyMeadLockUI(locked: boolean) {
   const el = navMeadHall;
@@ -371,7 +339,7 @@ async function enforceNavLock() {
   let u = getUser();
   if (u?.id) u = await loadUserFresh(u);
   const serverMember = computeMember(u);
-  const unlocked = serverMember || hasSubGrace(); // contest flag ignored for lock
+  const unlocked = serverMember || hasSubGrace();
   applyMeadLockUI(!unlocked);
 
   if (serverMember && hasSubGrace()) clearSubGrace();
@@ -379,12 +347,10 @@ async function enforceNavLock() {
   console.log("[MH] Lock:", { serverMember, subGrace: hasSubGrace(), contestFlag: !!hasGrace(CONTEST_GRACE_KEY) });
 }
 
-// Detect Stripe success for BOTH flows, but only sub success affects lock
 (function detectStripeSuccess() {
   const hash = location.hash || "";
   const qs = new URLSearchParams(location.search);
 
-  // STRICT: exact hash match
   const subSucceeded =
     hash === "#success" ||
     (!hash && (qs.get("success") === "true" || qs.get("redirect_status") === "succeeded"));
@@ -392,16 +358,15 @@ async function enforceNavLock() {
 
   if (subSucceeded) {
     const plan = qs.get("plan") || qs.get("price") || undefined;
-    setSubGrace(plan); // user-scoped
+    setSubGrace(plan);
     history.replaceState(null, "", location.pathname);
   } else if (contestSucceeded) {
     const entryId = qs.get("entryId") || undefined;
-    setContestGrace(entryId); // does NOT unlock
+    setContestGrace(entryId);
     history.replaceState(null, "", location.pathname);
   }
 })();
 
-// Apply lock on load/restore/visibility + keep tabs in sync
 window.addEventListener("load", enforceNavLock);
 window.addEventListener("pageshow", enforceNavLock);
 document.addEventListener("visibilitychange", () => {
@@ -411,8 +376,8 @@ window.addEventListener("storage", (e) => {
   if ([SUB_GRACE_KEY, CONTEST_GRACE_KEY, LS_KEY].includes(e.key || "")) enforceNavLock();
 });
 
-// Initial run
 enforceNavLock();
+
 
 
 
