@@ -98,25 +98,70 @@ navMeadHall?.addEventListener("click", (e) => {
 
 // ---------------- Membership checkout ----------------
 async function startCheckout(plan: string | null) {
-  const base = API_BASE || location.origin;
+  const base = (API_BASE || location.origin).replace(/\/+$/, ""); // trim trailing slashes
   const u = getUser();
   if (!u) { openSignup(); return; }
   if (!plan) { alert("Missing plan"); return; }
+
+ 
+
+  // Optional: disable the clicked button while we work
+  const active = document.activeElement as HTMLButtonElement | null;
+  if (active && active.tagName === "BUTTON") active.disabled = true;
+
   try {
     const r = await fetch(`${base}/api/stripe/checkout`, {
       method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ plan, userId: u.id })
+      headers: { "Content-Type": "application/json" },
+      // Add credentials if your backend uses cookies/sessions; otherwise omit.
+      // credentials: "include",
+      body: JSON.stringify({ plan, userId: u.id }),
     });
-    if (!r.ok) throw new Error(await r.text());
-    const d = await r.json();
-    if (d.url) location.href = d.url;
-    else alert("Checkout failed");
-  } catch (err) {
-    console.error(err);
-    alert("Checkout error");
+
+    // ---------------- Wire buttons/handlers ----------------
+document.querySelectorAll<HTMLButtonElement>(".plan").forEach(btn=>{
+  btn.addEventListener("click", (e)=> 
+    startCheckout((e.currentTarget as HTMLElement).getAttribute("data-plan"))
+  );
+});
+document.getElementById("btn-member")?.addEventListener("click", ()=> openSignup());
+
+
+document.getElementById("contestForm")?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  submitContestUploadThenPay_Form();
+});
+
+
+
+
+
+
+
+    // Try to read JSON; if it fails, fall back to text
+    let data: any = null;
+    const text = await r.text();
+    try { data = text ? JSON.parse(text) : null; } catch { /* ignore */ }
+
+    if (!r.ok) {
+      const msg = (data && (data.error || data.message)) || text || `HTTP ${r.status}`;
+      throw new Error(msg);
+    }
+
+    if (data && data.url) {
+      // Same-tab navigation to Stripe
+      window.location.assign(data.url);
+    } else {
+      throw new Error("Checkout failed: no URL returned from server.");
+    }
+  } catch (err: any) {
+    console.error("Checkout error:", err);
+    alert(`Checkout error: ${err?.message || err || "Unknown error"}`);
+  } finally {
+    if (active && active.tagName === "BUTTON") active.disabled = false;
   }
 }
+
 
 // ---------------- Skald Contest: upload PDF -> pay $1 ----------------
 async function submitContestUploadThenPay_Form() {
@@ -208,21 +253,13 @@ async function submitContestUploadThenPay_Fallback() {
   picker.click();
 }
 
-// ---------------- Optional sample download ----------------
-function readSample() {
-  const text = "\n* The Mead of Poetry *\nThey say Odin traded an eye for wisdom; we trade a verse for a night by the fire.\n";
-  const blob = new Blob([text], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = "guild-sample.txt"; a.click();
-  setTimeout(()=> URL.revokeObjectURL(url), 800);
-}
 
-// ---------------- Wire buttons/handlers ----------------
-document.querySelectorAll<HTMLButtonElement>(".plan").forEach(btn=>{
-  btn.addEventListener("click", (e)=> startCheckout((e.currentTarget as HTMLElement).getAttribute("data-plan")));
+
+// ✅ REPLACE WITH THIS:
+document.getElementById("btn-read-sample")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  window.location.href = "/book.html";
 });
-document.getElementById("btn-member")?.addEventListener("click", ()=> openSignup());
-document.getElementById("btn-read-sample")?.addEventListener("click", readSample);
 
 document.getElementById("contestForm")?.addEventListener("submit", (e) => {
   e.preventDefault();
