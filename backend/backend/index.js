@@ -55,7 +55,7 @@ app.options(/.*/, cors());
 app.set("trust proxy", 1);
 
 // --- uploads dir and static serving (avatars + contest PDFs + guildbook) ---
-const uploadsDir = path.join(__dirname, "public", "uploads"); // <-- CHANGED to include "public"
+const uploadsDir = path.join(__dirname, "public", "uploads"); // uses ./public/uploads
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use("/uploads", express.static(uploadsDir));
 
@@ -496,6 +496,28 @@ app.get("/api/contest/entry/:id", (req, res) => {
   res.json({ ok: true, entry, fileExists: exists });
 });
 
+// --- Avatar upload (NEW) ---
+// saves to uploadsDir and returns { url: "/uploads/<filename>" }
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const safe = String(file.originalname || "avatar.png").replace(/\s+/g, "_");
+    cb(null, `${Date.now()}-${safe}`);
+  },
+});
+const uploadAvatar = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
+  fileFilter: (_req, file, cb) => {
+    if (/^image\/(png|jpe?g|webp|gif)$/i.test(file.mimetype)) cb(null, true);
+    else cb(new Error("Only image files are allowed"));
+  },
+});
+app.post("/api/account/avatar", uploadAvatar.single("avatar"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+  return res.json({ url: `/uploads/${req.file.filename}` });
+});
+
 // Health check
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
@@ -558,6 +580,7 @@ async function sendContestEmail(entry, buyerEmail = null) {
 }
 
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
