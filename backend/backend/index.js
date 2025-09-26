@@ -518,6 +518,75 @@ app.post("/api/account/avatar", uploadAvatar.single("avatar"), (req, res) => {
   return res.json({ url: `/uploads/${req.file.filename}` });
 });
 
+/* ========= Email-code signup (in-memory) ========= */
+const VERIFY_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const verifyCodes = new Map(); // email(lowercase) -> { code, exp }
+
+function makeCode(len = 6) {
+  let s = "";
+  for (let i = 0; i < len; i++) s += Math.floor(Math.random() * 10);
+  return s;
+}
+const now = () => Date.now();
+
+// Request a verification code
+app.post("/api/auth/request-code", (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: "email required" });
+
+    const code = makeCode(6);
+    verifyCodes.set(email, { code, exp: now() + VERIFY_TTL_MS });
+
+    // Try to email the code (optional)
+    (async () => {
+      if (!mailer) return;
+      try {
+        await mailer.sendMail({
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          to: email,
+          subject: "Your Mead Hall verification code",
+          text: `Your code is: ${code}\nIt expires in 10 minutes.`,
+        });
+      } catch (e) {
+        console.warn("verify mail send failed:", e.message);
+      }
+    })();
+
+    const dev = String(process.env.NODE_ENV || "").toLowerCase() !== "production";
+    return res.json({ ok: true, ...(dev ? { code } : {}) });
+  } catch (e) {
+    console.error("request-code error:", e.message);
+    return res.status(500).json({ error: "failed to send code" });
+  }
+});
+
+// Confirm a code
+app.post("/api/auth/confirm", (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const code  = String(req.body?.code || "").trim();
+    if (!email || !code) return res.status(400).json({ error: "email and code required" });
+
+    const rec = verifyCodes.get(email);
+    if (!rec) return res.status(400).json({ error: "no code requested" });
+    if (now() > rec.exp) { verifyCodes.delete(email); return res.status(400).json({ error: "code expired" }); }
+    if (rec.code !== code) return res.status(400).json({ error: "invalid code" });
+
+    verifyCodes.delete(email);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("confirm error:", e.message);
+    return res.status(500).json({ error: "confirm failed" });
+  }
+});
+
+// periodic cleanup of expired codes
+setInterval(() => {
+  const t = now();
+  for (const [k, v] of verifyCodes.entries()) if (t > v.exp) verifyCodes.delete(k);
+}, 60 * 1000);
+
 // Health check
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
@@ -580,6 +649,7 @@ async function sendContestEmail(entry, buyerEmail = null) {
 }
 
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
