@@ -3,8 +3,6 @@
 // Keeps your existing main.ts logic; we intercept where needed (capture phase).
 
 const LS_KEY = "mh_user";
-const EMAIL_CACHE_KEY = "mh_last_email";
-const PENDING_SIGNUP_KEY = "mh_pending_signup";
 
 /* ---------- API base ---------- */
 function pickApiBase(s: any): string {
@@ -32,19 +30,6 @@ function setNavAccountName() {
   const u = getUser();
   if (a) a.textContent = u ? (u.name ? `${u.name} (Account)` : "Account") : "Sign In";
 }
-
-const rememberEmail = (email: string) =>
-  localStorage.setItem(EMAIL_CACHE_KEY, String(email || "").toLowerCase().trim());
-const recallEmail = () =>
-  (localStorage.getItem(EMAIL_CACHE_KEY) || "").toLowerCase().trim();
-
-const rememberPending = (p: {name:string;email:string;password:string} | null) => {
-  if (!p) { localStorage.removeItem(PENDING_SIGNUP_KEY); return; }
-  localStorage.setItem(PENDING_SIGNUP_KEY, JSON.stringify(p));
-};
-const recallPending = (): {name:string;email:string;password:string} | null => {
-  try { return JSON.parse(localStorage.getItem(PENDING_SIGNUP_KEY) || "null"); } catch { return null; }
-};
 
 /* ---------- elements ---------- */
 const navAccount  = document.getElementById("nav-account");
@@ -91,7 +76,7 @@ navAccount?.addEventListener("click", (e) => {
 signinForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (signinMsg) signinMsg.textContent = "Signing in…";
-  const fd = new FormData(signinForm!);
+  const fd = new FormData(signinForm);
   const email = String(fd.get("email") || "").trim();
   const password = String(fd.get("password") || "");
   try {
@@ -114,8 +99,8 @@ signinForm?.addEventListener("submit", async (e) => {
 });
 
 /* ---------- VERIFIED SIGNUP ---------- */
-let lastEmailForCode: string | null = recallEmail() || null;
-let pendingSignup: { name: string; email: string; password: string } | null = recallPending();
+let lastEmailForCode: string | null = null;
+let pendingSignup: { name: string; email: string; password: string } | null = null;
 let resendCooldown = 0;
 let resendTimer: number | null = null;
 
@@ -188,9 +173,6 @@ signupForm?.addEventListener("submit", async (e) => {
     }
     lastEmailForCode = email;
     pendingSignup = { name, email, password };
-    rememberEmail(email);            // <-- persist for confirm/resend
-    rememberPending(pendingSignup);  // <-- persist signup details
-
     if (signupMsg) signupMsg.textContent = "We sent you a code.";
     openModal(verifyModal);
     startResendCooldown(60);
@@ -201,13 +183,12 @@ signupForm?.addEventListener("submit", async (e) => {
 }, { capture: true });
 
 resendBtn?.addEventListener("click", async () => {
-  const email = recallEmail();             // <-- always use cached email
-  if (!email || resendCooldown > 0) return;
+  if (!lastEmailForCode || resendCooldown > 0) return;
   try {
     const r = await fetch(fullUrl("/api/auth/request-code"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email: lastEmailForCode }),
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
@@ -224,13 +205,10 @@ resendBtn?.addEventListener("click", async () => {
 
 verifyForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const fd = new FormData(verifyForm!);
+  const fd = new FormData(verifyForm);
   const code = String(fd.get("code") || "").trim();
-
-  // read from memory fallback to localStorage so we always send the same email
-  const email = (lastEmailForCode || recallEmail());
-  if (!email || !pendingSignup) {
-    if (verifyMsg) verifyMsg.textContent = "No signup in progress. Please resend the code.";
+  if (!lastEmailForCode || !pendingSignup) {
+    if (verifyMsg) verifyMsg.textContent = "No signup in progress.";
     return;
   }
   if (!code) {
@@ -242,7 +220,7 @@ verifyForm?.addEventListener("submit", async (e) => {
     const c = await fetch(fullUrl("/api/auth/confirm"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code }),
+      body: JSON.stringify({ email: lastEmailForCode, code }),
     });
     const cres = await c.json().catch(() => ({}));
     if (!c.ok) {
@@ -267,11 +245,6 @@ verifyForm?.addEventListener("submit", async (e) => {
     if (signupMsg) signupMsg.textContent = "Account created. Welcome!";
     closeModal(verifyModal);
     closeModal(signupModal);
-
-    // cleanup cache
-    rememberEmail("");
-    rememberPending(null);
-
     location.reload();
   } catch (err:any) {
     if (verifyMsg) verifyMsg.textContent = err?.message || "Verification failed.";
