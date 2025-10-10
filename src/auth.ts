@@ -1,6 +1,7 @@
-// /src/auth.ts
-// Verified signup (email code) + real Sign In modal.
-// Keeps your existing main.ts logic; we intercept where needed (capture phase).
+// /src/auth.ts — drop-in
+// Verified signup (email code) + real Sign In modal, with:
+// - email cache so confirm/resend always use SAME email
+// - 12s timeouts + clear logs
 
 const LS_KEY = "mh_user";
 
@@ -17,10 +18,35 @@ const metaContent =
 const API_BASE =
   pickApiBase({ meta: metaContent, env: (window as any).ENV || {}, vite: (import.meta as any)?.env || {} }) || "";
 
+const fullUrl = (p: string) => (/^https?:\/\//i.test(p) ? p : `${API_BASE}${p}`);
+
+// Small fetch helper with timeout + logging
+async function jfetch(url: string, init: RequestInit = {}, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const t = window.setTimeout(() => controller.abort(), timeoutMs);
+  const payload = { ...(init || {}), signal: controller.signal };
+
+  console.log("[MH] fetch →", url, payload);
+  try {
+    const r = await fetch(url, payload);
+    console.log("[MH] ←", r.status, r.statusText, url);
+    return r;
+  } finally {
+    window.clearTimeout(t);
+  }
+}
+
+console.log("[MH] API_BASE =", API_BASE);
+
 /* ---------- utils ---------- */
 const getUser = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || "null"); } catch { return null; } };
 const setUser = (u: any) => localStorage.setItem(LS_KEY, JSON.stringify(u));
-const fullUrl = (p: string) => (/^https?:\/\//i.test(p) ? p : `${API_BASE}${p}`);
+
+const EMAIL_CACHE_KEY = "mh_last_email";
+const rememberEmail = (email: string) =>
+  localStorage.setItem(EMAIL_CACHE_KEY, String(email || "").toLowerCase().trim());
+const recallEmail = () =>
+  (localStorage.getItem(EMAIL_CACHE_KEY) || "").toLowerCase().trim();
 
 function openModal(el: HTMLElement | null){ if (el){ el.style.display = "flex"; el.setAttribute("aria-hidden","false"); } }
 function closeModal(el: HTMLElement | null){ if (el){ el.style.display = "none"; el.setAttribute("aria-hidden","true"); } }
@@ -76,11 +102,11 @@ navAccount?.addEventListener("click", (e) => {
 signinForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (signinMsg) signinMsg.textContent = "Signing in…";
-  const fd = new FormData(signinForm);
+  const fd = new FormData(signinForm!);
   const email = String(fd.get("email") || "").trim();
   const password = String(fd.get("password") || "");
   try {
-    const r = await fetch(fullUrl("/api/auth/login"), {
+    const r = await jfetch(fullUrl("/api/auth/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
@@ -93,8 +119,9 @@ signinForm?.addEventListener("submit", async (e) => {
     setUser(data);
     setNavAccountName();
     location.reload(); // let main.ts re-evaluate lock etc
-  } catch (err:any) {
-    if (signinMsg) signinMsg.textContent = err?.message || "Sign in failed.";
+  } catch (err: any) {
+    console.error("[MH] sign-in error:", err);
+    if (signinMsg) signinMsg.textContent = err?.message || "Sign in failed (network).";
   }
 });
 
@@ -161,7 +188,7 @@ signupForm?.addEventListener("submit", async (e) => {
   }
 
   try {
-    const r = await fetch(fullUrl("/api/auth/request-code"), {
+    const r = await jfetch(fullUrl("/api/auth/request-code"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -172,23 +199,28 @@ signupForm?.addEventListener("submit", async (e) => {
       return;
     }
     lastEmailForCode = email;
+    rememberEmail(email);                 // 🔑 cache email for confirm/resend
     pendingSignup = { name, email, password };
     if (signupMsg) signupMsg.textContent = "We sent you a code.";
     openModal(verifyModal);
     startResendCooldown(60);
     if ((data as any)?.code && verifyMsg) verifyMsg.textContent = `DEV CODE: ${(data as any).code}`;
-  } catch (err:any) {
-    if (signupMsg) signupMsg.textContent = err?.message || "Failed to send code.";
+  } catch (err: any) {
+    console.error("[MH] request-code error:", err);
+    if (signupMsg) signupMsg.textContent = err?.name === "AbortError"
+      ? "Request timed out. Please try again."
+      : (err?.message || "Failed to send code.");
   }
 }, { capture: true });
 
 resendBtn?.addEventListener("click", async () => {
-  if (!lastEmailForCode || resendCooldown > 0) return;
+  const cached = (lastEmailForCode || recallEmail()); // 🔑 always same email
+  if (!cached || resendCooldown > 0) return;
   try {
-    const r = await fetch(fullUrl("/api/auth/request-code"), {
+    const r = await jfetch(fullUrl("/api/auth/request-code"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: lastEmailForCode }),
+      body: JSON.stringify({ email: cached }),
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
@@ -198,17 +230,22 @@ resendBtn?.addEventListener("click", async () => {
     if (verifyMsg) verifyMsg.textContent = "Code resent.";
     startResendCooldown(60);
     if ((data as any)?.code && verifyMsg) verifyMsg.textContent += ` DEV CODE: ${(data as any).code}`;
-  } catch (err:any) {
-    if (verifyMsg) verifyMsg.textContent = err?.message || "Resend failed.";
+  } catch (err: any) {
+    console.error("[MH] resend error:", err);
+    if (verifyMsg) verifyMsg.textContent = err?.name === "AbortError"
+      ? "Resend timed out. Try again."
+      : (err?.message || "Resend failed.");
   }
 });
 
 verifyForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const fd = new FormData(verifyForm);
+  const fd = new FormData(verifyForm!);
   const code = String(fd.get("code") || "").trim();
-  if (!lastEmailForCode || !pendingSignup) {
-    if (verifyMsg) verifyMsg.textContent = "No signup in progress.";
+
+  const email = (lastEmailForCode || recallEmail()); // 🔑 same email as request
+  if (!email || !pendingSignup) {
+    if (verifyMsg) verifyMsg.textContent = "No signup in progress. Please resend the code.";
     return;
   }
   if (!code) {
@@ -217,10 +254,10 @@ verifyForm?.addEventListener("submit", async (e) => {
   }
   try {
     // confirm
-    const c = await fetch(fullUrl("/api/auth/confirm"), {
+    const c = await jfetch(fullUrl("/api/auth/confirm"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: lastEmailForCode, code }),
+      body: JSON.stringify({ email, code }),
     });
     const cres = await c.json().catch(() => ({}));
     if (!c.ok) {
@@ -229,7 +266,7 @@ verifyForm?.addEventListener("submit", async (e) => {
     }
 
     // create account
-    const create = await fetch(fullUrl("/api/users"), {
+    const create = await jfetch(fullUrl("/api/users"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(pendingSignup),
@@ -246,8 +283,11 @@ verifyForm?.addEventListener("submit", async (e) => {
     closeModal(verifyModal);
     closeModal(signupModal);
     location.reload();
-  } catch (err:any) {
-    if (verifyMsg) verifyMsg.textContent = err?.message || "Verification failed.";
+  } catch (err: any) {
+    console.error("[MH] verify/confirm error:", err);
+    if (verifyMsg) verifyMsg.textContent = err?.name === "AbortError"
+      ? "Confirmation timed out. Try again."
+      : (err?.message || "Verification failed.");
   }
 });
 
