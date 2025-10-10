@@ -1,4 +1,4 @@
-﻿// backend/index.js — full drop-in server
+﻿// backend/index.js — full drop-in server (email-verify fix, better logging)
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -19,7 +19,7 @@ const chatGlobal = require("./chatGlobal");
 
 const app = express();
 
-// --- config/env ---
+/* ----------------------- config/env ----------------------- */
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 const PORT = Number(process.env.PORT || 5050);
 const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
@@ -28,7 +28,7 @@ const stripe = new Stripe(STRIPE_SECRET || "sk_test_dummy", { apiVersion: "2024-
 const SERVER_PUBLIC_URL = process.env.SERVER_PUBLIC_URL || `http://localhost:${PORT}`;
 const CONTEST_INBOX = process.env.CONTEST_INBOX || "";
 
-// --- CORS (single clean block) ---
+/* ----------------------- CORS ----------------------- */
 const allowedOrigins = new Set([
   CLIENT_URL,
   "http://localhost:5173",
@@ -54,12 +54,12 @@ app.options(/.*/, cors());
 // Some proxies need this for keep-alive connections (SSE etc.)
 app.set("trust proxy", 1);
 
-// --- uploads dir and static serving (avatars + contest PDFs + guildbook) ---
-const uploadsDir = path.join(__dirname, "public", "uploads"); // uses ./public/uploads
+/* ----------------------- static/uploads ----------------------- */
+const uploadsDir = path.join(__dirname, "public", "uploads"); // ./public/uploads
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use("/uploads", express.static(uploadsDir));
 
-// --- simple JSON "DB" for purchases ---
+/* ----------------------- simple JSON "DB" ----------------------- */
 const DATA_DIR = path.join(__dirname, "data");
 const PURCHASES_FILE = path.join(DATA_DIR, "purchases.json");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -74,7 +74,7 @@ function appendRecord(rec) {
   }
 }
 
-// --- simple JSON "DB" for contest entries ---
+/* ----------------------- contest entries "DB" ----------------------- */
 const CONTEST_FILE = path.join(DATA_DIR, "contest_entries.json");
 if (!fs.existsSync(CONTEST_FILE)) fs.writeFileSync(CONTEST_FILE, "[]");
 
@@ -95,7 +95,7 @@ function findContestEntry(id) {
   return arr.find(e => String(e.id) === String(id)) || null;
 }
 
-// --- Nodemailer setup (optional but recommended) ---
+/* ----------------------- Nodemailer ----------------------- */
 let mailer = null;
 if (process.env.SMTP_HOST) {
   mailer = nodemailer.createTransport({
@@ -106,6 +106,9 @@ if (process.env.SMTP_HOST) {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    // make SMTP reasons visible in logs:
+    logger: true,
+    debug: true,
   });
 
   // verify SMTP on boot
@@ -114,7 +117,7 @@ if (process.env.SMTP_HOST) {
     .catch(err => console.error("❌ SMTP verify failed:", err.message));
 }
 
-// --- Multer for contest PDF upload (safe names) ---
+/* ----------------------- Multer: contest PDF ----------------------- */
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
@@ -128,10 +131,10 @@ const uploadPDF = multer({
     if (file.mimetype === "application/pdf") cb(null, true);
     else cb(new Error("Only PDF files allowed"));
   },
-  limits: { fileSize: 12 * 1024 * 1024 }, // ~12MB hard cap
+  limits: { fileSize: 12 * 1024 * 1024 }, // ~12MB
 });
 
-// --- Stripe webhook BEFORE json middleware ---
+/* ----------------------- Stripe webhook BEFORE json ----------------------- */
 app.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
   try {
     const sig = req.headers["stripe-signature"];
@@ -170,11 +173,11 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         mode: s.mode,
       });
 
-      // If this was a CONTEST payment, email the entry to the inbox
+      // Contest payment: email the entry
       if (s.mode === "payment" && s.metadata?.entryId) {
-        // fallback if JSON file isn't found (e.g., different instance)
         let entry = findContestEntry(s.metadata.entryId);
 
+        // fallback if JSON not found (e.g., different instance)
         if (!entry && s.metadata?.fileBasename) {
           const fn = s.metadata.fileBasename;
           const fp = path.join(uploadsDir, fn);
@@ -226,10 +229,10 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
   }
 });
 
-// JSON routes AFTER webhook
+/* ----------------------- JSON routes AFTER webhook ----------------------- */
 app.use(bodyParser.json());
 
-// --- In-memory Users (shared via ./db) ---
+/* ----------------------- Users / Auth ----------------------- */
 let uid = 1;
 
 // Create free account
@@ -325,7 +328,7 @@ app.get("/api/subscription/by-email", (req, res) => {
   }
 });
 
-// Stripe price ids
+/* ----------------------- Stripe checkout ----------------------- */
 const PRICE = {
   reader: process.env.STRIPE_PRICE_READER,
   premium: process.env.STRIPE_PRICE_PREMIUM,
@@ -390,7 +393,7 @@ app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
   }
 });
 
-// 2) Create $1 payment session — supports either { entryId } (preferred) OR { entry:{...} } legacy
+// 2) Create $1 payment session
 app.post("/api/contest/checkout", async (req, res) => {
   try {
     let entryId = req.body.entryId || null;
@@ -470,18 +473,20 @@ app.post("/api/contest/resend", async (req, res) => {
 });
 
 // Simple test route to verify SMTP without Stripe/webhook
-app.post("/api/test/send-email", async (_req, res) => {
+app.post("/api/test/send-email", async (req, res) => {
   try {
     if (!mailer) return res.status(500).json({ ok: false, error: "Mailer not configured" });
-    if (!CONTEST_INBOX) return res.status(400).json({ ok: false, error: "CONTEST_INBOX missing" });
+
+    const to = String(req.body?.to || CONTEST_INBOX || "").trim();
+    if (!to) return res.status(400).json({ ok: false, error: "Provide 'to' or set CONTEST_INBOX" });
 
     const info = await mailer.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: CONTEST_INBOX,
+      to,
       subject: "[Skald Contest] Mailer test",
       text: "If you received this, SMTP is configured correctly.",
     });
-    res.json({ ok: true, id: info.messageId });
+    res.json({ ok: true, id: info.messageId, accepted: info.accepted, response: info.response });
   } catch (e) {
     console.error("TEST SEND ERROR:", e.message);
     res.status(500).json({ ok: false, error: e.message });
@@ -496,8 +501,7 @@ app.get("/api/contest/entry/:id", (req, res) => {
   res.json({ ok: true, entry, fileExists: exists });
 });
 
-// --- Avatar upload (NEW) ---
-// saves to uploadsDir and returns { url: "/uploads/<filename>" }
+/* ----------------------- Avatar upload ----------------------- */
 const avatarStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
@@ -518,7 +522,7 @@ app.post("/api/account/avatar", uploadAvatar.single("avatar"), (req, res) => {
   return res.json({ url: `/uploads/${req.file.filename}` });
 });
 
-/* ========= Email-code signup (in-memory) ========= */
+/* ----------------------- Email-code signup (in-memory) ----------------------- */
 const VERIFY_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const verifyCodes = new Map(); // email(lowercase) -> { code, exp }
 
@@ -529,8 +533,8 @@ function makeCode(len = 6) {
 }
 const now = () => Date.now();
 
-// Request a verification code
-app.post("/api/auth/request-code", (req, res) => {
+// Request a verification code (await + bubble errors)
+app.post("/api/auth/request-code", async (req, res) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
     if (!email) return res.status(400).json({ error: "email required" });
@@ -538,25 +542,27 @@ app.post("/api/auth/request-code", (req, res) => {
     const code = makeCode(6);
     verifyCodes.set(email, { code, exp: now() + VERIFY_TTL_MS });
 
-    // Try to email the code (optional)
-    (async () => {
-      if (!mailer) return;
-      try {
-        await mailer.sendMail({
-          from: process.env.SMTP_FROM || process.env.SMTP_USER,
-          to: email,
-          subject: "Your Mead Hall verification code",
-          text: `Your code is: ${code}\nIt expires in 10 minutes.`,
-        });
-      } catch (e) {
-        console.warn("verify mail send failed:", e.message);
-      }
-    })();
+    if (!mailer) {
+      console.warn("[verify] mailer not configured; code stored but no email sent");
+      const dev = String(process.env.NODE_ENV || "").toLowerCase() !== "production";
+      return res.json({ ok: true, ...(dev ? { code } : {}) });
+    }
+
+    const info = await mailer.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: email,
+      subject: "Your Mead Hall verification code",
+      text: `Your code is: ${code}\nIt expires in 10 minutes.`,
+    });
+
+    console.log("[verify] email sent:", {
+      to: email, messageId: info?.messageId, accepted: info?.accepted, response: info?.response
+    });
 
     const dev = String(process.env.NODE_ENV || "").toLowerCase() !== "production";
     return res.json({ ok: true, ...(dev ? { code } : {}) });
   } catch (e) {
-    console.error("request-code error:", e.message);
+    console.error("[verify] send failed:", e.message);
     return res.status(500).json({ error: "failed to send code" });
   }
 });
@@ -587,16 +593,15 @@ setInterval(() => {
   for (const [k, v] of verifyCodes.entries()) if (t > v.exp) verifyCodes.delete(k);
 }, 60 * 1000);
 
-// Health check
+/* ----------------------- Health & mounts ----------------------- */
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-// Mount routes
 accountRoutes.install(app);
 friendsRoutes.install(app);
 chatRoutes.install(app);
 chatGlobal.install(app);
 
-// --- helper to send email with PDF attached ---
+/* ----------------------- helper: email contest entry ----------------------- */
 async function sendContestEmail(entry, buyerEmail = null) {
   if (!mailer || !CONTEST_INBOX) {
     console.warn("Mailer not configured or CONTEST_INBOX missing — skipping email.");
@@ -648,7 +653,9 @@ async function sendContestEmail(entry, buyerEmail = null) {
   return info;
 }
 
+/* ----------------------- start server ----------------------- */
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
