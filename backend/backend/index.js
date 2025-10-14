@@ -102,6 +102,7 @@ const resendClient = HAVE_RESEND ? new Resend(process.env.RESEND_API_KEY) : null
 
 let smtpTransport = null;
 if (process.env.SMTP_HOST) {
+  // original base transport (kept)
   smtpTransport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),               // 587 for STARTTLS
@@ -118,9 +119,70 @@ if (process.env.SMTP_HOST) {
     },
   });
 
-  smtpTransport.verify()
-    .then(() => console.log("📨 SMTP ready:", process.env.SMTP_HOST))
-    .catch(err => console.error("❌ SMTP verify failed:", err.message));
+  // ⬇️ ADD: IPv4 + pooling + stronger timeouts + servername
+  const forceIPv4AndPooling = {
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 50,
+    keepAlive: true,
+    family: 4,
+    socketTimeout: 30000,
+    tls: {
+      ...(typeof (smtpTransport?.options?.tls) === "object" ? smtpTransport.options.tls : {}),
+      servername: process.env.SMTP_HOST,
+      rejectUnauthorized: false,
+      minVersion: "TLSv1.2",
+    },
+  };
+
+  // ⬇️ ADD: recreate with augmented options (same host/port/secure/auth)
+  smtpTransport = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: String(process.env.SMTP_SECURE || "false") === "true",
+    auth: (process.env.SMTP_USER && process.env.SMTP_PASS)
+      ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+      : undefined,
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+    ...forceIPv4AndPooling,
+  });
+
+  // ⬇️ ADD: verify with 587→465 fallback
+  async function verifyOrFallback() {
+    try {
+      await smtpTransport.verify();
+      console.log(
+        "📨 SMTP ready:",
+        `${process.env.SMTP_HOST}:${smtpTransport.options.port}`,
+        smtpTransport.options.secure ? "(SMTPS 465)" : "(STARTTLS 587)"
+      );
+    } catch (err) {
+      console.error("❌ SMTP verify failed:", err.message);
+      const on587 = Number(process.env.SMTP_PORT || 587) === 587 && String(process.env.SMTP_SECURE || "false") !== "true";
+      if (on587) {
+        console.warn("↪️ Retrying via 465/SMTPS with IPv4 + pool…");
+        smtpTransport = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: 465,
+          secure: true,
+          auth: (process.env.SMTP_USER && process.env.SMTP_PASS)
+            ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+            : undefined,
+          connectionTimeout: 15000,
+          greetingTimeout: 10000,
+          ...forceIPv4AndPooling,
+        });
+        await smtpTransport.verify();
+        console.log("✅ SMTP fallback ready: smtp.gmail.com:465 (SMTPS)");
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  // replace original verify with the resilient one
+  verifyOrFallback().catch(e => console.error("SMTP setup error:", e.message));
 }
 
 // unified email helper
@@ -264,6 +326,23 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
 
 // JSON routes AFTER webhook
 app.use(bodyParser.json());
+
+// ⬇️ ADD: Quick SMTP verify endpoint
+app.get("/api/smtp/verify", async (_req, res) => {
+  try {
+    if (!smtpTransport) return res.status(400).json({ ok: false, error: "SMTP not configured" });
+    await smtpTransport.verify();
+    res.json({
+      ok: true,
+      using: `${smtpTransport.options.host}:${smtpTransport.options.port}`,
+      mode: smtpTransport.options.secure ? "SMTPS (465)" : "STARTTLS (587)",
+      ipv: smtpTransport.options.family === 4 ? "IPv4" : "default",
+      pooled: !!smtpTransport.options.pool,
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || String(e) });
+  }
+});
 
 // --- In-memory Users ---
 let uid = 1;
@@ -651,6 +730,8 @@ async function sendContestEmail(entry, buyerEmail = null) {
 }
 
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
+
 
 
 
