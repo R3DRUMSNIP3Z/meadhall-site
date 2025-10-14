@@ -1,4 +1,4 @@
-﻿// backend/index.js — full drop-in server
+﻿// backend/index.js — full drop-in server (Resend-first + SMTP(587) fallback)
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -8,6 +8,10 @@ const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
 const nodemailer = require("nodemailer");
+
+// Optional Resend (HTTPS email API)
+let Resend = null;
+try { Resend = require("resend").Resend; } catch { /* not installed; fine */ }
 
 const { users } = require("./db");
 
@@ -48,14 +52,11 @@ app.use(
     maxAge: 86400,
   })
 );
-// Express (with newer path-to-regexp) can choke on "*" — use a regex instead:
 app.options(/.*/, cors());
-
-// Some proxies need this for keep-alive connections (SSE etc.)
 app.set("trust proxy", 1);
 
-// --- uploads dir and static serving (avatars + contest PDFs + guildbook) ---
-const uploadsDir = path.join(__dirname, "public", "uploads"); // uses ./public/uploads
+// --- uploads dir and static serving (avatars + contest PDFs) ---
+const uploadsDir = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use("/uploads", express.static(uploadsDir));
 
@@ -77,44 +78,80 @@ function appendRecord(rec) {
 // --- simple JSON "DB" for contest entries ---
 const CONTEST_FILE = path.join(DATA_DIR, "contest_entries.json");
 if (!fs.existsSync(CONTEST_FILE)) fs.writeFileSync(CONTEST_FILE, "[]");
-
-function readContestEntries() {
+const readContestEntries = () => {
   try { return JSON.parse(fs.readFileSync(CONTEST_FILE, "utf8")); }
   catch { return []; }
-}
-function writeContestEntries(arr) {
+};
+const writeContestEntries = (arr) => {
   fs.writeFileSync(CONTEST_FILE, JSON.stringify(arr, null, 2));
-}
-function saveContestEntry(entry) {
+};
+const saveContestEntry = (entry) => {
   const arr = readContestEntries();
   arr.push(entry);
   writeContestEntries(arr);
-}
-function findContestEntry(id) {
+};
+const findContestEntry = (id) => {
   const arr = readContestEntries();
   return arr.find(e => String(e.id) === String(id)) || null;
-}
+};
 
-// --- Nodemailer setup (optional but recommended) ---
-let mailer = null;
+// --- Email setup: Resend (preferred) + SMTP fallback ---
+const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
+const HAVE_RESEND = !!(process.env.RESEND_API_KEY && FROM_EMAIL && Resend);
+const resendClient = HAVE_RESEND ? new Resend(process.env.RESEND_API_KEY) : null;
+
+let smtpTransport = null;
 if (process.env.SMTP_HOST) {
-  mailer = nodemailer.createTransport({
+  smtpTransport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || "false") === "true",
-    auth: {
+    port: Number(process.env.SMTP_PORT || 587),               // 587 for STARTTLS
+    secure: String(process.env.SMTP_SECURE || "false") === "true", // false for 587
+    auth: (process.env.SMTP_USER && process.env.SMTP_PASS) ? {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
+    } : undefined,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    tls: {
+      rejectUnauthorized: false,
+      minVersion: "TLSv1.2",
     },
   });
 
-  // verify SMTP on boot
-  mailer.verify()
+  smtpTransport.verify()
     .then(() => console.log("📨 SMTP ready:", process.env.SMTP_HOST))
     .catch(err => console.error("❌ SMTP verify failed:", err.message));
 }
 
-// --- Multer for contest PDF upload (safe names) ---
+// unified email helper
+async function sendEmail({ to, subject, text, html, attachments }) {
+  // 1) Try Resend (HTTPS)
+  if (resendClient) {
+    try {
+      const r = await resendClient.emails.send({
+        from: FROM_EMAIL,
+        to,
+        subject,
+        text,
+        html,
+        attachments, // Resend supports basic attachments too
+      });
+      return { ok: true, provider: "resend", id: r?.id || null };
+    } catch (e) {
+      console.warn("sendEmail via Resend failed:", e.message);
+    }
+  }
+  // 2) Fallback to SMTP if configured
+  if (smtpTransport) {
+    const from = FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
+    const info = await smtpTransport.sendMail({ from, to, subject, text, html, attachments });
+    return { ok: true, provider: "smtp", id: info?.messageId || null };
+  }
+
+  throw new Error("No email provider configured");
+}
+
+// --- Multer for contest PDF upload ---
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
@@ -128,7 +165,7 @@ const uploadPDF = multer({
     if (file.mimetype === "application/pdf") cb(null, true);
     else cb(new Error("Only PDF files allowed"));
   },
-  limits: { fileSize: 12 * 1024 * 1024 }, // ~12MB hard cap
+  limits: { fileSize: 12 * 1024 * 1024 },
 });
 
 // --- Stripe webhook BEFORE json middleware ---
@@ -170,9 +207,8 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         mode: s.mode,
       });
 
-      // If this was a CONTEST payment, email the entry to the inbox
+      // Contest email on success
       if (s.mode === "payment" && s.metadata?.entryId) {
-        // fallback if JSON file isn't found (e.g., different instance)
         let entry = findContestEntry(s.metadata.entryId);
 
         if (!entry && s.metadata?.fileBasename) {
@@ -229,7 +265,7 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
 // JSON routes AFTER webhook
 app.use(bodyParser.json());
 
-// --- In-memory Users (shared via ./db) ---
+// --- In-memory Users ---
 let uid = 1;
 
 // Create free account
@@ -255,7 +291,7 @@ app.post("/api/users", (req, res) => {
   });
 });
 
-// Basic login (optional)
+// Basic login
 app.post("/api/auth/login", (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).send("Missing credentials");
@@ -369,7 +405,7 @@ app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
     if (!name) return res.status(400).send("Missing name");
 
     const entryId = `ce_${Date.now()}`;
-    const filePath = req.file.path; // absolute path
+    const filePath = req.file.path;
     const fileUrl = `/uploads/${path.basename(req.file.path)}`;
 
     saveContestEntry({
@@ -377,10 +413,10 @@ app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
       name,
       userId: userId || null,
       filePath,
-      fileUrl,           // served by backend
+      fileUrl,
       originalName: req.file.originalname || "story.pdf",
       uploadedAt: Date.now(),
-      emailed: false,    // set true after email (in webhook)
+      emailed: false,
     });
 
     res.json({ entryId, fileUrl });
@@ -390,15 +426,14 @@ app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
   }
 });
 
-// 2) Create $1 payment session — supports either { entryId } (preferred) OR { entry:{...} } legacy
+// 2) Create $1 payment session
 app.post("/api/contest/checkout", async (req, res) => {
   try {
     let entryId = req.body.entryId || null;
 
-    // Legacy shape: { entry: { title, email, genre, text } }
+    // Legacy: { entry: { title, email, genre, text } }
     if (!entryId && req.body.entry) {
       entryId = `ce_${Date.now()}`;
-      // create a minimal "entry" file for legacy (no PDF)
       const fauxPath = path.join(uploadsDir, `${entryId}.txt`);
       fs.writeFileSync(fauxPath, String(req.body.entry.text || "No text"), "utf8");
       saveContestEntry({
@@ -432,7 +467,6 @@ app.post("/api/contest/checkout", async (req, res) => {
       ],
       success_url: `${CLIENT_URL}/#contest-success`,
       cancel_url: `${CLIENT_URL}/#contest-canceled`,
-      // include filename + name so webhook can always reconstruct
       metadata: {
         entryId: entry.id,
         userId: entry.userId || "",
@@ -459,9 +493,8 @@ app.post("/api/contest/resend", async (req, res) => {
     return res.json({
       ok: true,
       resent: entryId,
-      messageId: info?.messageId || null,
-      accepted: info?.accepted || [],
-      response: info?.response || null
+      provider: info?.provider || null,
+      id: info?.id || null,
     });
   } catch (e) {
     console.error("resend error:", e.message);
@@ -469,19 +502,16 @@ app.post("/api/contest/resend", async (req, res) => {
   }
 });
 
-// Simple test route to verify SMTP without Stripe/webhook
+// Test route to verify email
 app.post("/api/test/send-email", async (_req, res) => {
   try {
-    if (!mailer) return res.status(500).json({ ok: false, error: "Mailer not configured" });
     if (!CONTEST_INBOX) return res.status(400).json({ ok: false, error: "CONTEST_INBOX missing" });
-
-    const info = await mailer.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    const info = await sendEmail({
       to: CONTEST_INBOX,
       subject: "[Skald Contest] Mailer test",
-      text: "If you received this, SMTP is configured correctly.",
+      text: "If you received this, email is configured correctly.",
     });
-    res.json({ ok: true, id: info.messageId });
+    res.json({ ok: true, provider: info.provider, id: info.id });
   } catch (e) {
     console.error("TEST SEND ERROR:", e.message);
     res.status(500).json({ ok: false, error: e.message });
@@ -496,8 +526,7 @@ app.get("/api/contest/entry/:id", (req, res) => {
   res.json({ ok: true, entry, fileExists: exists });
 });
 
-// --- Avatar upload (NEW) ---
-// saves to uploadsDir and returns { url: "/uploads/<filename>" }
+// --- Avatar upload ---
 const avatarStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
@@ -507,7 +536,7 @@ const avatarStorage = multer.diskStorage({
 });
 const uploadAvatar = multer({
   storage: avatarStorage,
-  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
+  limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (/^image\/(png|jpe?g|webp|gif)$/i.test(file.mimetype)) cb(null, true);
     else cb(new Error("Only image files are allowed"));
@@ -521,16 +550,11 @@ app.post("/api/account/avatar", uploadAvatar.single("avatar"), (req, res) => {
 /* ========= Email-code signup (in-memory) ========= */
 const VERIFY_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const verifyCodes = new Map(); // email(lowercase) -> { code, exp }
-
-function makeCode(len = 6) {
-  let s = "";
-  for (let i = 0; i < len; i++) s += Math.floor(Math.random() * 10);
-  return s;
-}
+const makeCode = (len = 6) => Array.from({ length: len }, () => Math.floor(Math.random() * 10)).join("");
 const now = () => Date.now();
 
 // Request a verification code
-app.post("/api/auth/request-code", (req, res) => {
+app.post("/api/auth/request-code", async (req, res) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
     if (!email) return res.status(400).json({ error: "email required" });
@@ -538,24 +562,19 @@ app.post("/api/auth/request-code", (req, res) => {
     const code = makeCode(6);
     verifyCodes.set(email, { code, exp: now() + VERIFY_TTL_MS });
 
-    // Try to email the code (optional)
-    (async () => {
-      if (!mailer) return;
-      try {
-        await mailer.sendMail({
-          from: process.env.SMTP_FROM || process.env.SMTP_USER,
-          to: email,
-          subject: "Your Mead Hall verification code",
-          text: `Your code is: ${code}\nIt expires in 10 minutes.`,
-        });
-      } catch (e) {
-        console.warn("verify mail send failed:", e.message);
-      }
-    })();
+    // Try to email the code (Resend first, then SMTP)
+    try {
+      await sendEmail({
+        to: email,
+        subject: "Your Mead Hall verification code",
+        text: `Your code is: ${code}\nIt expires in 10 minutes.`,
+      });
+    } catch (e) {
+      console.warn("verify mail send failed:", e.message);
+    }
 
-    // ✅ CHANGE: show code if VERIFY_DEBUG=true OR mailer is not configured
-    const show = String(process.env.VERIFY_DEBUG || "false") === "true" || !mailer;
-    return res.json({ ok: true, ...(show ? { code } : {}) });
+    const dev = String(process.env.NODE_ENV || "").toLowerCase() !== "production" || String(process.env.VERIFY_DEBUG || "").toLowerCase() === "true";
+    return res.json({ ok: true, ...(dev ? { code } : {}) });
   } catch (e) {
     console.error("request-code error:", e.message);
     return res.status(500).json({ error: "failed to send code" });
@@ -597,13 +616,8 @@ friendsRoutes.install(app);
 chatRoutes.install(app);
 chatGlobal.install(app);
 
-// --- helper to send email with PDF attached ---
+// --- helper to send contest email with PDF attached ---
 async function sendContestEmail(entry, buyerEmail = null) {
-  if (!mailer || !CONTEST_INBOX) {
-    console.warn("Mailer not configured or CONTEST_INBOX missing — skipping email.");
-    return null;
-  }
-
   const attach = [];
   if (entry.filePath && fs.existsSync(entry.filePath)) {
     attach.push({
@@ -613,10 +627,7 @@ async function sendContestEmail(entry, buyerEmail = null) {
     });
   }
 
-  const fileLink = entry.fileUrl
-    ? `${SERVER_PUBLIC_URL}${entry.fileUrl}`
-    : "";
-
+  const fileLink = entry.fileUrl ? `${SERVER_PUBLIC_URL}${entry.fileUrl}` : "";
   const html = `
     <div>
       <h2>New Skald Contest Entry</h2>
@@ -628,28 +639,19 @@ async function sendContestEmail(entry, buyerEmail = null) {
     </div>
   `;
 
-  const info = await mailer.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+  if (!CONTEST_INBOX) throw new Error("CONTEST_INBOX not set");
+
+  // Use same unified email helper
+  return await sendEmail({
     to: CONTEST_INBOX,
     subject: `Skald Contest: ${entry.name || entry.id}`,
     html,
     attachments: attach,
   });
-
-  console.log("[EMAIL] sent", info.messageId, "accepted:", info.accepted, "response:", info.response);
-
-  // mark as emailed
-  const arr = readContestEntries();
-  const idx = arr.findIndex(e => e.id === entry.id);
-  if (idx !== -1) {
-    arr[idx].emailed = true;
-    writeContestEntries(arr);
-  }
-
-  return info;
 }
 
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
