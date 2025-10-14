@@ -1,4 +1,4 @@
-﻿// backend/index.js — full drop-in server (disk-persisted verify codes + CORS hardening)
+﻿// backend/index.js — full drop-in server
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -19,7 +19,7 @@ const chatGlobal = require("./chatGlobal");
 
 const app = express();
 
-/* ----------------------- config/env ----------------------- */
+// --- config/env ---
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 const PORT = Number(process.env.PORT || 5050);
 const STRIPE_SECRET = process.env.STRIPE_SECRET || "";
@@ -28,7 +28,7 @@ const stripe = new Stripe(STRIPE_SECRET || "sk_test_dummy", { apiVersion: "2024-
 const SERVER_PUBLIC_URL = process.env.SERVER_PUBLIC_URL || `http://localhost:${PORT}`;
 const CONTEST_INBOX = process.env.CONTEST_INBOX || "";
 
-/* ----------------------- CORS ----------------------- */
+// --- CORS (single clean block) ---
 const allowedOrigins = new Set([
   CLIENT_URL,
   "http://localhost:5173",
@@ -40,9 +40,7 @@ app.use(
   cors({
     origin: (origin, cb) => {
       if (!origin) return cb(null, true); // allow curl/postman
-      const ok = allowedOrigins.has(origin);
-      if (!ok) console.warn("[CORS] blocked origin:", origin);
-      cb(null, ok);
+      cb(null, allowedOrigins.has(origin));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -50,31 +48,18 @@ app.use(
     maxAge: 86400,
   })
 );
-// Fast OPTIONS handler to avoid preflight hangs
-app.use((req, res, next) => {
-  if (req.method !== "OPTIONS") return next();
-  const origin = req.headers.origin;
-  if (!origin || allowedOrigins.has(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin || "*");
-    res.setHeader("Vary", "Origin");
-  }
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Stripe-Signature, x-user-id");
-  return res.sendStatus(204);
-});
 // Express (with newer path-to-regexp) can choke on "*" — use a regex instead:
 app.options(/.*/, cors());
 
 // Some proxies need this for keep-alive connections (SSE etc.)
 app.set("trust proxy", 1);
 
-/* ----------------------- static/uploads ----------------------- */
-const uploadsDir = path.join(__dirname, "public", "uploads"); // ./public/uploads
+// --- uploads dir and static serving (avatars + contest PDFs + guildbook) ---
+const uploadsDir = path.join(__dirname, "public", "uploads"); // uses ./public/uploads
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use("/uploads", express.static(uploadsDir));
 
-/* ----------------------- simple JSON "DB" ----------------------- */
+// --- simple JSON "DB" for purchases ---
 const DATA_DIR = path.join(__dirname, "data");
 const PURCHASES_FILE = path.join(DATA_DIR, "purchases.json");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -89,7 +74,7 @@ function appendRecord(rec) {
   }
 }
 
-/* ----------------------- contest entries "DB" ----------------------- */
+// --- simple JSON "DB" for contest entries ---
 const CONTEST_FILE = path.join(DATA_DIR, "contest_entries.json");
 if (!fs.existsSync(CONTEST_FILE)) fs.writeFileSync(CONTEST_FILE, "[]");
 
@@ -110,45 +95,7 @@ function findContestEntry(id) {
   return arr.find(e => String(e.id) === String(id)) || null;
 }
 
-/* ----------------------- VERIFY CODES (disk-persisted) ----------------------- */
-const VERIFY_FILE = path.join(DATA_DIR, "verify_codes.json");
-if (!fs.existsSync(VERIFY_FILE)) fs.writeFileSync(VERIFY_FILE, "{}");
-
-function now() { return Date.now(); }
-const VERIFY_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
-function readVerifyCodes() {
-  try { return JSON.parse(fs.readFileSync(VERIFY_FILE, "utf8")); }
-  catch { return {}; }
-}
-function writeVerifyCodes(obj) {
-  fs.writeFileSync(VERIFY_FILE, JSON.stringify(obj, null, 2));
-}
-function setVerifyCode(emailLower, code) {
-  const db = readVerifyCodes();
-  db[emailLower] = { code, exp: now() + VERIFY_TTL_MS };
-  writeVerifyCodes(db);
-}
-function getVerifyCode(emailLower) {
-  const db = readVerifyCodes();
-  return db[emailLower] || null;
-}
-function deleteVerifyCode(emailLower) {
-  const db = readVerifyCodes();
-  if (db[emailLower]) { delete db[emailLower]; writeVerifyCodes(db); }
-}
-// periodic cleanup (optional robustness)
-setInterval(() => {
-  const t = now();
-  const db = readVerifyCodes();
-  let dirty = false;
-  for (const [k, v] of Object.entries(db)) {
-    if (!v || typeof v.exp !== "number" || t > v.exp) { delete db[k]; dirty = true; }
-  }
-  if (dirty) writeVerifyCodes(db);
-}, 60 * 1000);
-
-/* ----------------------- Nodemailer ----------------------- */
+// --- Nodemailer setup (optional but recommended) ---
 let mailer = null;
 if (process.env.SMTP_HOST) {
   mailer = nodemailer.createTransport({
@@ -159,8 +106,6 @@ if (process.env.SMTP_HOST) {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
-    logger: true,
-    debug: true,
   });
 
   // verify SMTP on boot
@@ -169,7 +114,7 @@ if (process.env.SMTP_HOST) {
     .catch(err => console.error("❌ SMTP verify failed:", err.message));
 }
 
-/* ----------------------- Multer: contest PDF ----------------------- */
+// --- Multer for contest PDF upload (safe names) ---
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
@@ -183,10 +128,10 @@ const uploadPDF = multer({
     if (file.mimetype === "application/pdf") cb(null, true);
     else cb(new Error("Only PDF files allowed"));
   },
-  limits: { fileSize: 12 * 1024 * 1024 }, // ~12MB
+  limits: { fileSize: 12 * 1024 * 1024 }, // ~12MB hard cap
 });
 
-/* ----------------------- Stripe webhook BEFORE json ----------------------- */
+// --- Stripe webhook BEFORE json middleware ---
 app.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
   try {
     const sig = req.headers["stripe-signature"];
@@ -205,7 +150,7 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
       }
 
       appendRecord({
-        ts: now(),
+        ts: Date.now(),
         event: "checkout.session.completed",
         mode: s.mode,
         sessionId: s.id,
@@ -225,11 +170,11 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         mode: s.mode,
       });
 
-      // Contest payment: email the entry
+      // If this was a CONTEST payment, email the entry to the inbox
       if (s.mode === "payment" && s.metadata?.entryId) {
+        // fallback if JSON file isn't found (e.g., different instance)
         let entry = findContestEntry(s.metadata.entryId);
 
-        // fallback if JSON not found (e.g., different instance)
         if (!entry && s.metadata?.fileBasename) {
           const fn = s.metadata.fileBasename;
           const fp = path.join(uploadsDir, fn);
@@ -240,7 +185,7 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
             filePath: fp,
             fileUrl: `/uploads/${fn}`,
             originalName: fn,
-            uploadedAt: now(),
+            uploadedAt: Date.now(),
             emailed: false,
           };
         }
@@ -262,7 +207,7 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
     if (event.type === "invoice.payment_succeeded") {
       const inv = event.data.object;
       appendRecord({
-        ts: now(),
+        ts: Date.now(),
         event: "invoice.payment_succeeded",
         customerId: inv.customer || null,
         customerEmail: inv.customer_email || null,
@@ -281,10 +226,10 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
   }
 });
 
-/* ----------------------- JSON routes AFTER webhook ----------------------- */
+// JSON routes AFTER webhook
 app.use(bodyParser.json());
 
-/* ----------------------- Users / Auth ----------------------- */
+// --- In-memory Users (shared via ./db) ---
 let uid = 1;
 
 // Create free account
@@ -380,7 +325,7 @@ app.get("/api/subscription/by-email", (req, res) => {
   }
 });
 
-/* ----------------------- Stripe checkout ----------------------- */
+// Stripe price ids
 const PRICE = {
   reader: process.env.STRIPE_PRICE_READER,
   premium: process.env.STRIPE_PRICE_PREMIUM,
@@ -423,7 +368,7 @@ app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
     if (!req.file) return res.status(400).send("No file");
     if (!name) return res.status(400).send("Missing name");
 
-    const entryId = `ce_${now()}`;
+    const entryId = `ce_${Date.now()}`;
     const filePath = req.file.path; // absolute path
     const fileUrl = `/uploads/${path.basename(req.file.path)}`;
 
@@ -434,7 +379,7 @@ app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
       filePath,
       fileUrl,           // served by backend
       originalName: req.file.originalname || "story.pdf",
-      uploadedAt: now(),
+      uploadedAt: Date.now(),
       emailed: false,    // set true after email (in webhook)
     });
 
@@ -445,14 +390,14 @@ app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
   }
 });
 
-// 2) Create $1 payment session
+// 2) Create $1 payment session — supports either { entryId } (preferred) OR { entry:{...} } legacy
 app.post("/api/contest/checkout", async (req, res) => {
   try {
     let entryId = req.body.entryId || null;
 
     // Legacy shape: { entry: { title, email, genre, text } }
     if (!entryId && req.body.entry) {
-      entryId = `ce_${now()}`;
+      entryId = `ce_${Date.now()}`;
       // create a minimal "entry" file for legacy (no PDF)
       const fauxPath = path.join(uploadsDir, `${entryId}.txt`);
       fs.writeFileSync(fauxPath, String(req.body.entry.text || "No text"), "utf8");
@@ -463,7 +408,7 @@ app.post("/api/contest/checkout", async (req, res) => {
         filePath: fauxPath,
         fileUrl: `/uploads/${path.basename(fauxPath)}`,
         originalName: "entry.txt",
-        uploadedAt: now(),
+        uploadedAt: Date.now(),
         emailed: false,
       });
     }
@@ -525,20 +470,18 @@ app.post("/api/contest/resend", async (req, res) => {
 });
 
 // Simple test route to verify SMTP without Stripe/webhook
-app.post("/api/test/send-email", async (req, res) => {
+app.post("/api/test/send-email", async (_req, res) => {
   try {
     if (!mailer) return res.status(500).json({ ok: false, error: "Mailer not configured" });
-
-    const to = String(req.body?.to || CONTEST_INBOX || "").trim();
-    if (!to) return res.status(400).json({ ok: false, error: "Provide 'to' or set CONTEST_INBOX" });
+    if (!CONTEST_INBOX) return res.status(400).json({ ok: false, error: "CONTEST_INBOX missing" });
 
     const info = await mailer.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to,
+      to: CONTEST_INBOX,
       subject: "[Skald Contest] Mailer test",
       text: "If you received this, SMTP is configured correctly.",
     });
-    res.json({ ok: true, id: info.messageId, accepted: info.accepted, response: info.response });
+    res.json({ ok: true, id: info.messageId });
   } catch (e) {
     console.error("TEST SEND ERROR:", e.message);
     res.status(500).json({ ok: false, error: e.message });
@@ -553,7 +496,8 @@ app.get("/api/contest/entry/:id", (req, res) => {
   res.json({ ok: true, entry, fileExists: exists });
 });
 
-/* ----------------------- Avatar upload ----------------------- */
+// --- Avatar upload (NEW) ---
+// saves to uploadsDir and returns { url: "/uploads/<filename>" }
 const avatarStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
@@ -574,38 +518,46 @@ app.post("/api/account/avatar", uploadAvatar.single("avatar"), (req, res) => {
   return res.json({ url: `/uploads/${req.file.filename}` });
 });
 
-/* ----------------------- Email-code signup (disk-persisted) ----------------------- */
+/* ========= Email-code signup (in-memory) ========= */
+const VERIFY_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const verifyCodes = new Map(); // email(lowercase) -> { code, exp }
+
+function makeCode(len = 6) {
+  let s = "";
+  for (let i = 0; i < len; i++) s += Math.floor(Math.random() * 10);
+  return s;
+}
+const now = () => Date.now();
 
 // Request a verification code
-app.post("/api/auth/request-code", async (req, res) => {
+app.post("/api/auth/request-code", (req, res) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
     if (!email) return res.status(400).json({ error: "email required" });
 
     const code = makeCode(6);
-    setVerifyCode(email, code); // persist to disk
+    verifyCodes.set(email, { code, exp: now() + VERIFY_TTL_MS });
 
-    if (!mailer) {
-      console.warn("[verify] mailer not configured; code stored but no email sent");
-      const dev = String(process.env.NODE_ENV || "").toLowerCase() !== "production";
-      return res.json({ ok: true, ...(dev ? { code } : {}) });
-    }
+    // Try to email the code (optional)
+    (async () => {
+      if (!mailer) return;
+      try {
+        await mailer.sendMail({
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          to: email,
+          subject: "Your Mead Hall verification code",
+          text: `Your code is: ${code}\nIt expires in 10 minutes.`,
+        });
+      } catch (e) {
+        console.warn("verify mail send failed:", e.message);
+      }
+    })();
 
-    const info = await mailer.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: email,
-      subject: "Your Mead Hall verification code",
-      text: `Your code is: ${code}\nIt expires in 10 minutes.`,
-    });
-
-    console.log("[verify] email sent:", {
-      to: email, messageId: info?.messageId, accepted: info?.accepted, response: info?.response
-    });
-
-    const dev = String(process.env.NODE_ENV || "").toLowerCase() !== "production";
-    return res.json({ ok: true, ...(dev ? { code } : {}) });
+    // ✅ CHANGE: show code if VERIFY_DEBUG=true OR mailer is not configured
+    const show = String(process.env.VERIFY_DEBUG || "false") === "true" || !mailer;
+    return res.json({ ok: true, ...(show ? { code } : {}) });
   } catch (e) {
-    console.error("[verify] send failed:", e.message);
+    console.error("request-code error:", e.message);
     return res.status(500).json({ error: "failed to send code" });
   }
 });
@@ -617,12 +569,12 @@ app.post("/api/auth/confirm", (req, res) => {
     const code  = String(req.body?.code || "").trim();
     if (!email || !code) return res.status(400).json({ error: "email and code required" });
 
-    const rec = getVerifyCode(email);
+    const rec = verifyCodes.get(email);
     if (!rec) return res.status(400).json({ error: "no code requested" });
-    if (now() > rec.exp) { deleteVerifyCode(email); return res.status(400).json({ error: "code expired" }); }
+    if (now() > rec.exp) { verifyCodes.delete(email); return res.status(400).json({ error: "code expired" }); }
     if (rec.code !== code) return res.status(400).json({ error: "invalid code" });
 
-    deleteVerifyCode(email);
+    verifyCodes.delete(email);
     return res.json({ ok: true });
   } catch (e) {
     console.error("confirm error:", e.message);
@@ -630,15 +582,22 @@ app.post("/api/auth/confirm", (req, res) => {
   }
 });
 
-/* ----------------------- Health & mounts ----------------------- */
+// periodic cleanup of expired codes
+setInterval(() => {
+  const t = now();
+  for (const [k, v] of verifyCodes.entries()) if (t > v.exp) verifyCodes.delete(k);
+}, 60 * 1000);
+
+// Health check
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
+// Mount routes
 accountRoutes.install(app);
 friendsRoutes.install(app);
 chatRoutes.install(app);
 chatGlobal.install(app);
 
-/* ----------------------- helper: email contest entry ----------------------- */
+// --- helper to send email with PDF attached ---
 async function sendContestEmail(entry, buyerEmail = null) {
   if (!mailer || !CONTEST_INBOX) {
     console.warn("Mailer not configured or CONTEST_INBOX missing — skipping email.");
@@ -690,15 +649,8 @@ async function sendContestEmail(entry, buyerEmail = null) {
   return info;
 }
 
-/* ----------------------- start server ----------------------- */
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
 
-/* ----------------------- helpers ----------------------- */
-function makeCode(len = 6) {
-  let s = "";
-  for (let i = 0; i < len; i++) s += Math.floor(Math.random() * 10);
-  return s;
-}
 
 
 
