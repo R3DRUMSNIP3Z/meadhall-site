@@ -95,6 +95,20 @@ const findContestEntry = (id) => {
   return arr.find(e => String(e.id) === String(id)) || null;
 };
 
+/* ==============================
+   simple JSON "DB" for users
+   ============================== */
+const USERS_FILE = path.join(DATA_DIR, "users.json");
+if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, "[]");
+
+function loadUsersFromDisk() {
+  try { return JSON.parse(fs.readFileSync(USERS_FILE, "utf8")); }
+  catch { return []; }
+}
+function saveUsersToDisk(arr) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(arr, null, 2));
+}
+
 // --- Email setup: Resend (preferred) + SMTP fallback ---
 const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
 const HAVE_RESEND = !!(process.env.RESEND_API_KEY && FROM_EMAIL && Resend);
@@ -347,6 +361,19 @@ app.get("/api/smtp/verify", async (_req, res) => {
 // --- In-memory Users ---
 let uid = 1;
 
+/* hydrate users from disk and bump uid high-water mark */
+(function bootstrapUsers() {
+  const arr = loadUsersFromDisk();
+  users.clear();
+  let maxNum = 0;
+  for (const u of arr) {
+    users.set(u.id, u);
+    const m = /^u_(\d+)$/.exec(String(u.id));
+    if (m) maxNum = Math.max(maxNum, Number(m[1]));
+  }
+  uid = Math.max(uid, maxNum + 1);
+})();
+
 // Create free account
 app.post("/api/users", (req, res) => {
   const { name, email, password } = req.body || {};
@@ -357,8 +384,13 @@ app.post("/api/users", (req, res) => {
   );
   if (exists) return res.status(409).send("Email already registered");
 
-  const user = { id: `u_${uid++}`, name, email, password, avatarUrl: "", bio: "", interests: "" };
+  const user = { id: `u_${uid++}`, name, email, password, avatarUrl: "", bio: "", interests: "", createdAt: Date.now() };
   users.set(user.id, user);
+
+  // ⬇️ persist to disk
+  const disk = loadUsersFromDisk();
+  disk.push(user);
+  saveUsersToDisk(disk);
 
   res.json({
     id: user.id,
@@ -730,6 +762,8 @@ async function sendContestEmail(entry, buyerEmail = null) {
 }
 
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
+
 
 
 
