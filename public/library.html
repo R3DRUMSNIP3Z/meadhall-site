@@ -222,7 +222,7 @@
       const cover = item.cover ? `<img src="${item.cover}" alt="">` : `<div style="color:#aa8a28">📖 Mead Hall</div>`;
       const tags = (item.tags||[]).map(t=>`<span class="t">${t}</span>`).join('');
       const readHref = readerUrl(item);
-      const dl = item.pdfUrl ? `<a class="btn" href="${item.pdfUrl}" target="_blank" rel="noopener"></a>` : '';
+      const dl = item.pdfUrl ? `<a class="btn" href="${item.pdfUrl}" target="_blank" </a>` : '';
       el.innerHTML = `
         <div class="cover">${cover}</div>
         <div class="head">
