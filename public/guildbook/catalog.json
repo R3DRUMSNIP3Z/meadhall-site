@@ -1,0 +1,20 @@
+[
+  {
+    "id": "thorvald",
+    "title": "Thorvald Eiriksson",
+    "author": "Lisa",
+    "tags": ["Viking","Greenland","Saga"],
+    "summary": "A windswept morning above Brattahlíð...",
+    "src": "/guildbook/fullstorythorvald.rtf",
+    "cover": "/guildbook/thorvald-cover.jpg"
+  },
+  {
+    "id": "Roman",
+    "title": "Quillian The Devil's Son",
+    "author": "Lisa",
+    "tags": ["fictioning","roman"],
+    "summary": "On the eve of battle, a vow binds two fates.",
+    "src": "/guildbook/fullstoryRoman.rtf",
+    "cover": "/guildbook/quillian-cover.jpg"
+  }
+]
