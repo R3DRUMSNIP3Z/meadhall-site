@@ -8,12 +8,15 @@
   <link rel="icon" type="image/png" href="/logo/favicon.ico.png">
   <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png">
 
-  <title>SampleBook • Thorvald</title>
+  <!-- Keep title generic; book.ts will set this dynamically -->
+  <title>Mead Hall • Book</title>
 
-  <meta name="book-src"  content="/guildbook/samplestorythorvald.rtf">
-<meta name="asset-base" content="/guildbook/">
-<script type="module" src="/src/book.js"></script>
-
+  <!-- Backends & assets -->
+  <meta name="api-base" content="https://meadhall-site.onrender.com">
+  <!-- meta book-src is a fallback when no ?src= is provided -->
+  <meta name="book-src" content="/guildbook/samplestorythorvald.rtf">
+  <meta name="asset-base" content="/guildbook/">
+  <meta name="color-scheme" content="dark light">
 
   <!-- Fonts + Odin theme -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,15 +25,8 @@
   <link rel="stylesheet" href="/Styles/odin.css"/>
 
   <style>
-    :root {
-      --paper: #0d0f12;
-      --ink: #e9e4d5;
-      --gold: rgba(200,169,107,.45);
-    }
-    body {
-      background: radial-gradient(1200px 600px at 50% -10%, rgba(255,255,255,.06), transparent), #0b0f12;
-      color: var(--ink);
-    }
+    :root { --paper:#0d0f12; --ink:#e9e4d5; --gold:rgba(200,169,107,.45); }
+    body { background: radial-gradient(1200px 600px at 50% -10%, rgba(255,255,255,.06), transparent), #0b0f12; color: var(--ink); }
 
     /* Header */
     header .wrap { display:flex; gap:16px; align-items:center; padding:14px 0; }
@@ -42,7 +38,6 @@
     .nav a:hover { opacity:1 }
 
     /* Book shell */
-    /* Extra top margin so the header never overlaps the title bar */
     .book-wrap { margin:110px auto 70px; width:min(980px, 95vw); }
     .book-chrome {
       display:flex; align-items:center; justify-content:space-between; gap:12px;
@@ -61,7 +56,7 @@
       background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
       min-height:70vh;
       display:grid;
-      grid-template-columns: 56px 1fr 56px;
+      grid-template-columns:56px 1fr 56px;
     }
     .edge {
       display:flex; align-items:center; justify-content:center;
@@ -72,8 +67,7 @@
     .page {
       position:relative;
       padding:28px clamp(18px, 4vw, 42px);
-      max-width:70ch;
-      margin:0 auto;
+      max-width:70ch; margin:0 auto;
       font-size:18px; line-height:1.6;
     }
     .page h2 { font-family:"Cinzel",serif; margin:.2em 0 .6em; font-size:28px; }
@@ -84,13 +78,16 @@
       border-radius:12px; border:1px solid var(--gold); margin:10px auto;
     }
 
-    /* “Flip” animation */
+    /* Flip animation with reduced-motion respect */
     .page.turning { animation: turn .44s ease-in-out; transform-origin: 100% 50%; }
     @keyframes turn {
       0% { transform: rotateY(0deg); filter:brightness(1) }
       49% { filter:brightness(.85) }
       70% { transform: rotateY(-10deg) }
       100% { transform: rotateY(0deg); filter:brightness(1) }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .page.turning { animation: none; }
     }
 
     .footer { margin-top:10px; padding:8px 0; font-size:12px; opacity:.75; text-align:center; }
@@ -104,29 +101,33 @@
         <h1 style="margin:0">Mead Hall</h1>
       </a>
       <nav class="nav">
-        <a href="/" class="navlink">← Back</a>
+        <a href="/library.html" class="navlink" aria-label="Back to Library">← Back</a>
         <a href="/account.html" class="navlink">Account</a>
       </nav>
     </div>
   </header>
 
-  <main class="book-wrap">
+  <main class="book-wrap" aria-label="Book reader">
     <div class="book-chrome">
-      <div class="title" id="bookTitle">Guild Book</div>
+      <div class="title" id="bookTitle" aria-live="polite">Guild Book</div>
       <div class="progress"><span id="pageNum">1</span>/<span id="pageCount">1</span></div>
     </div>
 
-    <section class="book">
-      <button class="edge" id="prevBtn" aria-label="Previous page"><span class="chev">⟨</span></button>
-      <article class="page" id="page"></article>
-      <button class="edge" id="nextBtn" aria-label="Next page"><span class="chev">⟩</span></button>
+    <section class="book" role="region" aria-label="Page content">
+      <button class="edge" id="prevBtn" type="button" aria-label="Previous page"><span class="chev">⟨</span></button>
+      <article class="page" id="page" aria-live="polite"></article>
+      <button class="edge" id="nextBtn" type="button" aria-label="Next page"><span class="chev">⟩</span></button>
     </section>
 
     <div class="footer">Tip: tap left/right edges or use ← → keys to turn pages.</div>
+
+    <noscript>
+      <p style="text-align:center;opacity:.8">This reader requires JavaScript to load your book.</p>
+    </noscript>
   </main>
 
   <!-- Reader logic -->
-  <script type="module" src="/src/book.js"></script>
+  <script type="module" src="/src/book.ts"></script>
 </body>
 </html>
 
