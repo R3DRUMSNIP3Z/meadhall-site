@@ -123,6 +123,12 @@
     const API_BASE =
       (document.querySelector('meta[name="api-base"]')?.content || '').trim();
 
+    // ✅ Fix relative URLs like "/uploads/..." → full backend path
+    const fullUrl = (p) =>
+      /^https?:\/\//i.test(p)
+        ? p
+        : `${API_BASE.replace(/\/+$/, '')}/${String(p || '').replace(/^\/+/, '')}`;
+
     // Local session helpers
     const LS_KEY_MAIN = 'mh_user';
     const LS_KEY_FALLBACK = 'user';
@@ -152,7 +158,13 @@
       if (emailEl) emailEl.textContent = u.email || '';
       if (bioEl) bioEl.textContent = u.bio || '';
       if (interestsEl) interestsEl.textContent = u.interests || '';
-      if (avatarImg && u.avatarUrl) avatarImg.src = u.avatarUrl;
+      if (avatarImg) {
+        const src = u.avatarUrl
+          ? `${fullUrl(u.avatarUrl)}?t=${Date.now()}`
+          : '/logo/logo-512.png';
+        avatarImg.src = src;
+        avatarImg.onerror = () => { avatarImg.src = '/logo/logo-512.png'; };
+      }
     }
 
     async function loadUserFresh(u) {
@@ -228,6 +240,8 @@
   <script type="module" src="/src/profile.ts"></script>
 </body>
 </html>
+
+
 
 
 

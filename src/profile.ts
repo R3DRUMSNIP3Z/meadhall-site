@@ -12,6 +12,15 @@ function pickApiBase(sources: any): string {
 const META = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content || "";
 const API_BASE = pickApiBase({ meta: META, env: (window as any).ENV || {}, vite: (import.meta as any)?.env || {} }) || "";
 
+// ✅ Make relative paths absolute to the backend (e.g., "/uploads/…")
+function fullUrl(p?: string | null): string {
+  if (!p) return "";
+  if (/^https?:\/\//i.test(p)) return p;
+  const base = (API_BASE || "").replace(/\/+$/, "");
+  const path = String(p).replace(/^\/+/, "");
+  return `${base}/${path}`;
+}
+
 // ---- Session helpers ----
 const LS_KEY = "mh_user";
 const getLocalUser = () => {
@@ -19,8 +28,12 @@ const getLocalUser = () => {
 };
 
 // ---- DOM ----
-const avatarEl  = document.getElementById("avatar") as HTMLImageElement | null
-               || document.getElementById("viewAvatar") as HTMLImageElement | null;
+// ✅ Add support for "avatarImg" (your profile.html uses this id)
+const avatarEl  =
+  (document.getElementById("avatar") as HTMLImageElement | null) ||
+  (document.getElementById("viewAvatar") as HTMLImageElement | null) ||
+  (document.getElementById("avatarImg") as HTMLImageElement | null);
+
 const nameEl    = document.getElementById("name") as HTMLElement | null;
 const emailEl   = document.getElementById("email") as HTMLElement | null;
 const roleEl    = document.getElementById("role") as HTMLElement | null;
@@ -35,9 +48,15 @@ function qsId(): string | null {
 function setText(el: HTMLElement | null, text: string) {
   if (el) el.textContent = text;
 }
+// ✅ Use fullUrl + cache-busting + fallback for avatar
 function setAvatar(url?: string | null) {
-  const src = url && url.trim() ? url : "/logo/avatar-placeholder.svg";
-  if (avatarEl) avatarEl.src = src;
+  const src = url && url.trim()
+    ? `${fullUrl(url)}?t=${Date.now()}`
+    : "/logo/avatar-placeholder.svg";
+  if (avatarEl) {
+    avatarEl.src = src;
+    avatarEl.onerror = () => { avatarEl.src = "/logo/avatar-placeholder.svg"; };
+  }
 }
 
 // ---- Load user & stories ----
@@ -81,7 +100,7 @@ async function loadProfile() {
     try {
       const rs = await fetch(`${API_BASE || location.origin}/api/users/${id}/stories`);
       if (rs.ok) {
-        const list: Array<{id:string; title:string; text:string; createdAt:number}> = await rs.json();
+        const list: Array<{id:string; title:string; text:string; createdAt:number; updatedAt?: number}> = await rs.json();
         if (!list.length) {
           storiesEl.innerHTML = `<p class="muted">No stories yet.</p>`;
         } else {
@@ -89,10 +108,12 @@ async function loadProfile() {
           for (const s of list) {
             const div = document.createElement("div");
             div.className = "story";
+            const when = s.createdAt ? new Date(s.createdAt).toLocaleString() : "";
+            const upd  = s.updatedAt ? ` • Updated ${new Date(s.updatedAt).toLocaleString()}` : "";
             div.innerHTML =
               `<strong>${escapeHtml(s.title)}</strong>` +
-              `<div class="muted" style="font-size:12px">${new Date(s.createdAt).toLocaleString()}</div>` +
-              `<p>${escapeHtml(s.text)}</p>`;
+              `<div class="muted" style="font-size:12px">${when}${upd}</div>` +
+              `<p style="white-space:pre-wrap;margin:.4em 0 0">${escapeHtml(s.text)}</p>`;
             storiesEl.appendChild(div);
           }
         }
@@ -122,6 +143,7 @@ logoutBtn?.addEventListener("click", (e) => {
 
 // ---- Go ----
 loadProfile();
+
 
 
 
