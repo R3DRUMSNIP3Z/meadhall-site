@@ -1,7 +1,7 @@
 // src/chatGlobal.ts
 // Global chat API — history, live stream (SSE), send message
 
-import { API_BASE } from "./base";
+import { API as API_BASE } from "./base";
 
 export type GlobalUser = {
   id: string | null;
