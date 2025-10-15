@@ -1,4 +1,5 @@
-/* Simple book reader with RTF→Unicode, cover/front-matter, images & page breaks */
+/* Simple book reader with RTF→Unicode, cover/front-matter, images & page breaks
+   + URL param support (?src, ?title, ?cover) that overrides meta tags. */
 
 const API_BASE =
   (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content?.trim() ||
@@ -7,6 +8,12 @@ const API_BASE =
 const ASSET_BASE =
   (document.querySelector('meta[name="asset-base"]') as HTMLMetaElement)?.content?.trim() ||
   "/guildbook/";
+
+// ---- URL params (override metas when present)
+const QS = new URLSearchParams(location.search);
+const URL_SRC   = (QS.get("src")   || "").trim();   // e.g. /guildbook/samplestorythorvald.rtf
+const URL_TITLE = (QS.get("title") || "").trim();   // e.g. Thorvald Eiriksson
+const URL_COVER = (QS.get("cover") || "").trim();   // e.g. /guildbook/thorvald-cover.jpg
 
 function assetUrl(p: string): string {
   const s = String(p || "").trim();
@@ -19,8 +26,15 @@ function assetUrl(p: string): string {
   return `${base}/${s}`.replace(/(?<!:)\/{2,}/g, "/");
 }
 
-// Where to load the story from via <meta name="book-src"> or ?book=NAME
+// Where to load the story from via URL ?src, or <meta name="book-src">, or ?book=NAME
 function resolveStoryUrl(): string {
+  // 1) ?src=... (absolute, root-relative, or relative to ASSET_BASE)
+  if (URL_SRC) {
+    if (/^https?:\/\//i.test(URL_SRC)) return URL_SRC;
+    return assetUrl(URL_SRC); // handles /path and relative
+  }
+
+  // 2) <meta name="book-src">
   const meta = (document.querySelector('meta[name="book-src"]') as HTMLMetaElement)?.content?.trim();
   if (meta) {
     if (/^https?:\/\//i.test(meta)) return meta;
@@ -28,14 +42,15 @@ function resolveStoryUrl(): string {
     return `${location.origin}/${meta}`;
   }
 
-  const qs = new URLSearchParams(location.search);
-  const book = (qs.get("book") || "").trim();
-  if (!book) throw new Error("No book specified. Use <meta name=\"book-src\"> or ?book=name");
+  // 3) ?book=name  → try .rtf then .txt
+  const book = (QS.get("book") || "").trim();
+  if (!book) throw new Error('No book specified. Use ?src=… or <meta name="book-src"> or ?book=name');
 
   const base = ASSET_BASE.startsWith("http")
     ? ASSET_BASE.replace(/\/+$/, "")
     : `${location.origin}${ASSET_BASE.startsWith("/") ? "" : "/"}${ASSET_BASE}`.replace(/\/+$/, "");
 
+  // special "dual" URL format understood by init() below
   return `${base}/${book}.rtf||${base}/${book}.txt`;
 }
 
@@ -74,17 +89,35 @@ async function init() {
   const isRtf = /^\s*{\\rtf/i.test(raw);
   let plain = isRtf ? rtfToText(raw) : raw;
 
+  // Parse front-matter (cover/title/subtitle/credit)
   const fm = extractFrontMatter(plain);
   plain = fm.body;
+
+  // If URL provided a cover/title, they override front-matter.
+  if (URL_TITLE) fm.title = URL_TITLE;
+  if (URL_COVER) {
+    const full = assetUrl(URL_COVER);
+    fm.coverHtml = `
+      <section class="cover" style="min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+        <img src="${full}" alt="Cover" style="max-width:70%;height:auto;border:1px solid rgba(200,169,107,.45);border-radius:14px;margin:10px auto 18px;display:block"/>
+        ${fm.title ? `<h2 style="font-family:'Cinzel',serif;font-size:38px;margin:.2em 0 .2em">${escapeHtml(fm.title)}</h2>` : ""}
+        ${fm.subtitle ? `<div style="opacity:.85;margin:.2em 0 .5em">${escapeHtml(fm.subtitle)}</div>` : ""}
+        ${fm.credit ? `<div style="opacity:.75;font-size:14px">${escapeHtml(fm.credit)}</div>` : ""}
+      </section>
+    `;
+  }
 
   const html = convertTokensToHtml(plain);
 
   pages = paginate(html, CHARS_PER_PAGE);
   if (!pages.length) pages = ["(No content)"];
 
+  // Insert cover/front matter as page 1 if defined
   if (fm.coverHtml) pages.unshift(fm.coverHtml);
 
-  el.title.textContent = fm.title || deriveTitleFromUrl(rawUrl);
+  const finalTitle = fm.title || deriveTitleFromUrl(rawUrl) || "Guild Book";
+  (document.title = `Mead Hall • ${finalTitle}`), (el.title.textContent = finalTitle);
+
   el.count.textContent = String(pages.length);
   render();
 
@@ -125,7 +158,7 @@ function updateButtons() {
 function deriveTitleFromUrl(u: string): string {
   const path = u.split("?")[0];
   const base = path.split("/").pop() || "Guild Book";
-  return base.replace(/\.(rtf|txt)$/i, "").replace(/[_-]+/g, " ").toUpperCase();
+  return base.replace(/\.(rtf|txt)$/i, "").replace(/[_-]+/g, " ").trim();
 }
 
 async function fetchText(url: string): Promise<string> {
@@ -324,6 +357,7 @@ function cp1252ByteToChar(b: number): string {
   if (b >= 0xa1 && b <= 0xff) return String.fromCharCode(b);
   return "";
 }
+
 
 
 
