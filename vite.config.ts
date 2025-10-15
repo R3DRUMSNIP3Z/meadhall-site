@@ -14,8 +14,9 @@ export default defineConfig({
         friendprofile: resolve(__dirname, "friendprofile.html"),
         profile:       resolve(__dirname, "profile.html"),
         book:          resolve(__dirname, "book.html"),
-        meadhall:      resolve(__dirname, "meadhall.html"),   // ← add this
-        library:       resolve(__dirname, "library.html"),    // ← and this
+        // ❌ remove or comment out these:
+        // meadhall: resolve(__dirname, "meadhall.html"),
+        // library:  resolve(__dirname, "library.html"),
       },
     },
   },
