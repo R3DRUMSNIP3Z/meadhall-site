@@ -127,13 +127,20 @@ async function loadCompanions(API: string, userId: string) {
       companionsEl.innerHTML = `<div class="muted">No companions listed.</div>`;
       return;
     }
+
+    // dual fallback for avatars
+    const backendLogo = `${API.replace(/\/+$/, "")}/logo/logo-512.png`;
+    const frontendLogo = `/logo/logo-512.png`;
+
     for (const u of list) {
       const row = document.createElement("div");
       row.className = "comp-item";
-      const avatar = bust(makeFullUrl(API, u.avatarUrl)) || "/logo/logo-512.png";
+      const uploaded = bust(makeFullUrl(API, u.avatarUrl));
+      const src = uploaded || backendLogo;
+
       row.innerHTML = `
         <div class="comp-meta">
-          <img src="${esc(avatar)}" alt="" onerror="this.src='/logo/logo-512.png'">
+          <img src="${esc(src)}" alt="" onerror="this.onerror=null;this.src='${backendLogo}';this.onerror=()=>{this.src='${frontendLogo}'}">
           <div>
             <div class="comp-name">${esc(u.name || u.id)}</div>
             <div class="muted" style="font-size:12px">${esc(u.email || u.id)}</div>
@@ -331,11 +338,25 @@ async function main(){
     // Profile
     const user = await loadUser(API, userId);
 
-    // Avatar — absolute URL + cache-bust, with fallback.
-    const av = bust(makeFullUrl(API, user.avatarUrl)) || "/logo/logo-512.png";
-    avatarImg.src = av;
+    // -------- Avatar (uploaded -> backend logo -> frontend logo) --------
+    const backendLogo = `${API.replace(/\/+$/, "")}/logo/logo-512.png`;
+    const frontendLogo = `/logo/logo-512.png`;
+
+    const uploaded = bust(makeFullUrl(API, user.avatarUrl));
+    const firstChoice = uploaded || backendLogo;
+
+    avatarImg.src = firstChoice;
     avatarImg.alt = user.name ? `${user.name} avatar` : "avatar";
-    avatarImg.onerror = () => { avatarImg.src = "/logo/logo-512.png"; };
+    avatarImg.referrerPolicy = "no-referrer";
+    avatarImg.onerror = () => {
+      // try backend logo first, then frontend
+      if (avatarImg.src !== backendLogo) {
+        avatarImg.src = backendLogo;
+      } else {
+        avatarImg.onerror = null;
+        avatarImg.src = frontendLogo;
+      }
+    };
 
     nameH1.textContent = `Saga of ${user.name || "Wanderer"}`;
     emailSmall.textContent = user.email || "";
@@ -376,6 +397,7 @@ async function main(){
 }
 
 main();
+
 
 
 
