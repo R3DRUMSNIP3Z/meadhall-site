@@ -94,37 +94,63 @@ async function loadStories(API: string, userId: string): Promise<Story[]> {
   return Array.isArray(raw) ? raw : (raw?.items ?? []);
 }
 
+// ---- FIXED COMPANIONS LOADER -----------------------------------------------
 async function loadCompanions(API: string, userId: string) {
   companionsEl.innerHTML = `<div class="muted">Loading…</div>`;
-  try {
-    const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/companions`);
-    if (!r.ok) throw new Error(String(r.status));
-    const list: SafeUser[] = await r.json();
 
-    companionsEl.innerHTML = "";
-    if (!Array.isArray(list) || list.length === 0) {
-      companionsEl.innerHTML = `<div class="muted">No companions listed.</div>`;
-      return;
-    }
-    for (const u of list) {
-      const row = document.createElement("div");
-      row.className = "comp-item";
-      row.innerHTML = `
-        <div class="comp-meta">
-          <img src="${esc(u.avatarUrl || "/logo/logo-512.png")}" alt="">
-          <div>
-            <div class="comp-name">${esc(u.name || u.id)}</div>
-            <div class="muted" style="font-size:12px">${esc(u.email || u.id)}</div>
-          </div>
-        </div>
-        <div class="comp-actions">
-          <a class="btn ghost" href="/friendprofile.html?user=${encodeURIComponent(u.id)}">View</a>
-        </div>
-      `;
-      companionsEl.appendChild(row);
-    }
+  let headers: Record<string,string> = {};
+  try {
+    const local = JSON.parse(localStorage.getItem("mh_user") || "null");
+    if (local?.id) headers["x-user-id"] = local.id;
+  } catch {}
+
+  async function tryFetch(path: string) {
+    const r = await fetch(`${API}${path}`, { headers });
+    if (!r.ok) throw new Error(String(r.status));
+    return r.json();
+  }
+
+  let list: SafeUser[] | null = null;
+  try {
+    list = await tryFetch(`/api/users/${encodeURIComponent(userId)}/companions`);
   } catch {
-    companionsEl.innerHTML = `<div class="muted">Companions unavailable (add <code>/api/users/:id/companions</code> on the backend to enable).</div>`;
+    try {
+      list = await tryFetch(`/api/users/${encodeURIComponent(userId)}/friends`);
+    } catch {
+      try {
+        const data = await tryFetch(`/api/friends?user=${encodeURIComponent(userId)}`);
+        list = Array.isArray((data as any)?.friends)
+          ? (data as any).friends
+          : Array.isArray(data) ? (data as any)
+          : [];
+      } catch {
+        list = null;
+      }
+    }
+  }
+
+  companionsEl.innerHTML = "";
+  if (!list || !Array.isArray(list) || list.length === 0) {
+    companionsEl.innerHTML = `<div class="muted">No companions to show (or companions are private).</div>`;
+    return;
+  }
+
+  for (const u of list) {
+    const row = document.createElement("div");
+    row.className = "comp-item";
+    row.innerHTML = `
+      <div class="comp-meta">
+        <img src="${esc(u.avatarUrl || "/logo/logo-512.png")}" alt="">
+        <div>
+          <div class="comp-name">${esc(u.name || u.id)}</div>
+          <div class="muted" style="font-size:12px">${esc(u.email || u.id)}</div>
+        </div>
+      </div>
+      <div class="comp-actions">
+        <a class="btn ghost" href="/friendprofile.html?user=${encodeURIComponent(u.id)}">View</a>
+      </div>
+    `;
+    companionsEl.appendChild(row);
   }
 }
 
@@ -187,7 +213,7 @@ function ensureModal() {
   img.style.borderRadius = "10px";
   img.style.border = "1px solid var(--line)";
   img.style.margin = "8px 0 10px 0";
-  img.style.display = "none"; // hidden by default
+  img.style.display = "none";
 
   const body = document.createElement("div");
   body.id = "storyModalBody";
@@ -201,7 +227,7 @@ function ensureModal() {
 
   const hide = () => {
     modalRoot!.style.display = "none";
-    document.body.style.overflow = ""; // re-enable scroll
+    document.body.style.overflow = "";
   };
 
   close.addEventListener("click", hide);
@@ -231,7 +257,7 @@ function openStoryModal(story: Story) {
   }
 
   root.style.display = "flex";
-  document.body.style.overflow = "hidden"; // prevent background scroll
+  document.body.style.overflow = "hidden";
 }
 
 // ---- Renderers -------------------------------------------------------------
@@ -241,7 +267,6 @@ function renderStories(stories: Story[]) {
     sagaList.appendChild(el("div","saga","No sagas told yet."));
     return;
   }
-  // newest first
   stories.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
 
   for (const s of stories) {
@@ -255,7 +280,6 @@ function renderStories(stories: Story[]) {
     const snippet = s.excerpt || (s.text ? s.text.slice(0, 200) + (s.text.length > 200 ? "…" : "") : "");
     if (snippet) wrap.append(el("div","excerpt", snippet));
 
-    // OPEN INLINE (modal) — not a new page
     const btn = document.createElement("button");
     btn.textContent = "Read this saga";
     btn.style.fontSize = "13px";
@@ -304,7 +328,6 @@ async function main(){
   }
 
   try {
-    // Profile
     const user = await loadUser(API, userId);
     avatarImg.src = user.avatarUrl || "/logo/logo-512.png";
     avatarImg.alt = user.name ? `${user.name} avatar` : "avatar";
@@ -317,16 +340,13 @@ async function main(){
     if (user.bio)       { bioRow.textContent = user.bio; anyIntro = true; }
     introCard.style.display = anyIntro ? "" : "none";
 
-    // Stories + Gallery
     const stories = await loadStories(API, userId);
     renderStories(stories);
     renderGalleryFromStories(stories);
 
-    // Tabs boot
     const hash = (location.hash || "#stories").replace("#","") as "stories"|"companions"|"gallery";
     showTab(hash);
 
-    // Lazy load companions only when that tab is opened
     let companionsLoaded = false;
     const ensureCompanions = async ()=> {
       if (!companionsLoaded) {
@@ -347,6 +367,7 @@ async function main(){
 }
 
 main();
+
 
 
 
