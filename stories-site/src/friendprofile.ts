@@ -106,12 +106,12 @@ async function loadUser(API: string, userId: string): Promise<SafeUser> {
 
 async function loadStories(API: string, userId: string): Promise<Story[]> {
   const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/stories`);
-  const raw = await r.json();
-  const list = Array.isArray(raw) ? raw : (raw?.items ?? []);
+  const raw: any = await r.json();
+  const list: Story[] = Array.isArray(raw) ? (raw as Story[]) : ((raw?.items ?? []) as Story[]);
   // ensure image URLs are absolute
-  return list.map(s => ({
+  return list.map((s: Story) => ({
     ...s,
-    imageUrl: s.imageUrl ? makeFullUrl(API, s.imageUrl) ?? s.imageUrl : undefined
+    imageUrl: s?.imageUrl ? makeFullUrl(API, s.imageUrl) ?? s.imageUrl : undefined
   }));
 }
 
@@ -297,8 +297,8 @@ function renderStories(stories: Story[]) {
 function renderGalleryFromStories(stories: Story[]) {
   galleryGrid.innerHTML = "";
   const imgs = stories
-    .filter(s => !!s.imageUrl)
-    .map(s => ({ src: s.imageUrl!, alt: s.title || "story image" }));
+    .filter((s: Story) => !!s.imageUrl)
+    .map((s: Story) => ({ src: s.imageUrl!, alt: s.title || "story image" }));
 
   if (!imgs.length) {
     galleryGrid.innerHTML = `<div class="muted">No images yet.</div>`;
@@ -331,7 +331,7 @@ async function main(){
     // Profile
     const user = await loadUser(API, userId);
 
-    // Avatar — FIX: use absolute URL and cache-bust, with fallback.
+    // Avatar — absolute URL + cache-bust, with fallback.
     const av = bust(makeFullUrl(API, user.avatarUrl)) || "/logo/logo-512.png";
     avatarImg.src = av;
     avatarImg.alt = user.name ? `${user.name} avatar` : "avatar";
@@ -376,6 +376,8 @@ async function main(){
 }
 
 main();
+
+
 
 
 
