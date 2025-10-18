@@ -29,6 +29,9 @@ function persistUser(u) {
   saveUsersToDisk(disk);
 }
 
+// who is signed in (same convention as other routes)
+const currentUserId = (req) => (req.get("x-user-id") || "").trim();
+
 // Multer storage for avatars (safe filenames)
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
@@ -43,7 +46,7 @@ const upload = multer({ storage });
 function safeUser(u) {
   if (!u) return null;
   const { id, name, email, avatarUrl, bio, interests, createdAt } = u;
-  return { id, name, email, avatarUrl, bio, interests, createdAt };
+  return { id, name, email, avatarUrl: avatarUrl || "", bio: bio || "", interests: interests || "", createdAt };
 }
 
 // Helper: find a story by id within a user's list; returns { list, idx }
@@ -65,6 +68,56 @@ function findStoryGlobal(sid) {
 function install(app) {
   // NOTE: Static /uploads is served in index.js:
   // app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
+
+  /* ======================
+     ACCOUNT convenience
+     ====================== */
+
+  // Who am I (safe fields)?
+  app.get("/api/account/me", (req, res) => {
+    const me = currentUserId(req);
+    const u = users.get(me);
+    if (!me || !u) return res.status(401).json({ error: "Not signed in" });
+    if (!u.createdAt) { u.createdAt = Date.now(); users.set(u.id, u); persistUser(u); }
+    res.json(safeUser(u));
+  });
+
+  // Update my own profile (no :id needed)
+  app.put("/api/account", (req, res) => {
+    const me = currentUserId(req);
+    const u = users.get(me);
+    if (!me || !u) return res.status(401).json({ error: "Not signed in" });
+
+    const { name, bio, interests, avatarUrl } = req.body || {};
+    if (typeof name === "string") u.name = name;
+    if (typeof bio === "string") u.bio = bio;
+    if (typeof interests === "string") u.interests = interests;
+    if (typeof avatarUrl === "string") u.avatarUrl = avatarUrl;
+
+    users.set(u.id, u);
+    persistUser(u);
+    res.json(safeUser(u));
+  });
+
+  // After uploading with /api/account/avatar (in index.js), call this to persist the URL.
+  app.post("/api/account/avatar-link", (req, res) => {
+    const me = currentUserId(req);
+    const u = users.get(me);
+    if (!me || !u) return res.status(401).json({ error: "Not signed in" });
+
+    const url = String(req.body?.url || "").trim();
+    if (!url) return res.status(400).json({ error: "url required" });
+
+    u.avatarUrl = url;
+    users.set(u.id, u);
+    persistUser(u);
+
+    res.json({ ok: true, avatarUrl: u.avatarUrl });
+  });
+
+  /* ======================
+     Users (public/safe)
+     ====================== */
 
   // 🔎 Search users by name/email/id — MUST be before "/api/users/:id"
   app.get("/api/users/search", (req, res) => {
@@ -90,7 +143,7 @@ function install(app) {
     res.json(safeUser(u));
   });
 
-  // Update profile fields and persist to disk
+  // Update profile fields and persist to disk (admin/owner callers)
   app.put("/api/users/:id", (req, res) => {
     const u = users.get(req.params.id);
     if (!u) return res.status(404).json({ error: "User not found" });
@@ -107,14 +160,12 @@ function install(app) {
     res.json(safeUser(u));
   });
 
-  // Upload avatar (per-user endpoint). NOTE: your frontend currently uses /api/account/avatar;
-  // this route is still useful if you switch to per-user uploads later.
+  // Upload avatar (per-user endpoint). Keeps relative path so /uploads static works.
   app.post("/api/users/:id/avatar", upload.single("file"), (req, res) => {
     const u = users.get(req.params.id);
     if (!u) return res.status(404).json({ error: "User not found" });
     if (!req.file) return res.status(400).json({ error: "No file" });
 
-    // store relative path so index.js static /uploads works
     u.avatarUrl = `/uploads/${req.file.filename}`;
     users.set(u.id, u);
     persistUser(u);
@@ -122,7 +173,9 @@ function install(app) {
     res.json(safeUser(u));
   });
 
-  // ===== STORIES =====
+  /* ==============
+     STORIES
+     ============== */
 
   // List stories for a user
   app.get("/api/users/:id/stories", (req, res) => {
@@ -204,6 +257,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 
