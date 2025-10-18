@@ -13,11 +13,12 @@ const nodemailer = require("nodemailer");
 let Resend = null;
 try { Resend = require("resend").Resend; } catch { /* not installed; fine */ }
 
-const { users } = require("./db");
+// Shared in-memory DB
+const { users, ensureFriendState } = require("./db");
 
 // Routes
 const accountRoutes = require("./accountRoutes");
-const friendsRoutes = require("./friendsRoutes"); // exports { install, state, listFriendsOf }
+const friendsRoutes = require("./friendsRoutes");
 const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
 
@@ -116,7 +117,7 @@ const resendClient = HAVE_RESEND ? new Resend(process.env.RESEND_API_KEY) : null
 
 let smtpTransport = null;
 if (process.env.SMTP_HOST) {
-  // base transport (kept)
+  // base transport
   smtpTransport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),               // 587 for STARTTLS
@@ -709,7 +710,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // Mount routes
 accountRoutes.install(app);
-friendsRoutes.install(app); // <-- populates in-memory friends state (pending + links)
+friendsRoutes.install(app);
 chatRoutes.install(app);
 chatGlobal.install(app);
 
@@ -747,44 +748,35 @@ async function sendContestEmail(entry, buyerEmail = null) {
   });
 }
 
-/* ======== Friends-of-User (public read-only) — uses friendsRoutes store ======== */
-/* These power friendprofile.html Companions tab and keep data in sync with /api/friends */
-(() => {
-  const { listFriendsOf } = friendsRoutes; // same module already required above
+/* ======== Friends-of-User (public read-only) — used by friendprofile.html ======== */
+function safeUser(u) {
+  if (!u) return null;
+  const { id, name, email, avatarUrl, bio, interests } = u;
+  return { id, name, email, avatarUrl, bio, interests };
+}
+function listFriendsOf(userId) {
+  const rec = ensureFriendState(userId);
+  return [...rec.friends].map(fid => safeUser(users.get(fid))).filter(Boolean);
+}
 
-  function ensureUserExists(id) {
-    const u = users?.get && users.get(id);
-    return !!u;
-  }
+// GET /api/users/:id/friends
+app.get("/api/users/:id/friends", (req, res) => {
+  const id = String(req.params.id || "");
+  if (!id) return res.status(400).json({ error: "Missing id" });
+  if (!users.has(id)) return res.status(404).json({ error: "User not found" });
+  return res.json(listFriendsOf(id));
+});
 
-  // GET /api/users/:id/friends
-  app.get("/api/users/:id/friends", (req, res) => {
-    try {
-      const id = String(req.params.id || "");
-      if (!id) return res.status(400).json({ error: "Missing id" });
-      if (!ensureUserExists(id)) return res.status(404).json({ error: "User not found" });
-      return res.json(listFriendsOf(id)); // reads the same accepted-links store
-    } catch (e) {
-      console.error("friends-of error:", e);
-      return res.status(500).json({ error: "Failed to load friends" });
-    }
-  });
-
-  // Alias so friendprofile.ts can call /companions
-  app.get("/api/users/:id/companions", (req, res) => {
-    try {
-      const id = String(req.params.id || "");
-      if (!id) return res.status(400).json({ error: "Missing id" });
-      if (!ensureUserExists(id)) return res.status(404).json({ error: "User not found" });
-      return res.json(listFriendsOf(id));
-    } catch (e) {
-      console.error("companions-of error:", e);
-      return res.status(500).json({ error: "Failed to load companions" });
-    }
-  });
-})();
+// GET /api/users/:id/companions (alias for friends)
+app.get("/api/users/:id/companions", (req, res) => {
+  const id = String(req.params.id || "");
+  if (!id) return res.status(400).json({ error: "Missing id" });
+  if (!users.has(id)) return res.status(404).json({ error: "User not found" });
+  return res.json(listFriendsOf(id));
+});
 
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
