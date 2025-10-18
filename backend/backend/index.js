@@ -17,7 +17,7 @@ const { users } = require("./db");
 
 // Routes
 const accountRoutes = require("./accountRoutes");
-const friendsRoutes = require("./friendsRoutes");
+const friendsRoutes = require("./friendsRoutes"); // exports { install, state, listFriendsOf }
 const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
 
@@ -116,7 +116,7 @@ const resendClient = HAVE_RESEND ? new Resend(process.env.RESEND_API_KEY) : null
 
 let smtpTransport = null;
 if (process.env.SMTP_HOST) {
-  // original base transport (kept)
+  // base transport (kept)
   smtpTransport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),               // 587 for STARTTLS
@@ -133,7 +133,7 @@ if (process.env.SMTP_HOST) {
     },
   });
 
-  // ⬇️ ADD: IPv4 + pooling + stronger timeouts + servername
+  // IPv4 + pooling + stronger timeouts + servername
   const forceIPv4AndPooling = {
     pool: true,
     maxConnections: 3,
@@ -149,7 +149,7 @@ if (process.env.SMTP_HOST) {
     },
   };
 
-  // ⬇️ ADD: recreate with augmented options (same host/port/secure/auth)
+  // recreate with augmented options
   smtpTransport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
@@ -162,8 +162,8 @@ if (process.env.SMTP_HOST) {
     ...forceIPv4AndPooling,
   });
 
-  // ⬇️ ADD: verify with 587→465 fallback
-  async function verifyOrFallback() {
+  // verify with 587→465 fallback
+  (async function verifyOrFallback() {
     try {
       await smtpTransport.verify();
       console.log(
@@ -189,14 +189,9 @@ if (process.env.SMTP_HOST) {
         });
         await smtpTransport.verify();
         console.log("✅ SMTP fallback ready: smtp.gmail.com:465 (SMTPS)");
-      } else {
-        throw err;
       }
     }
-  }
-
-  // replace original verify with the resilient one
-  verifyOrFallback().catch(e => console.error("SMTP setup error:", e.message));
+  })().catch(e => console.error("SMTP setup error:", e.message));
 }
 
 // unified email helper
@@ -210,20 +205,19 @@ async function sendEmail({ to, subject, text, html, attachments }) {
         subject,
         text,
         html,
-        attachments, // Resend supports basic attachments too
+        attachments,
       });
       return { ok: true, provider: "resend", id: r?.id || null };
     } catch (e) {
       console.warn("sendEmail via Resend failed:", e.message);
     }
   }
-  // 2) Fallback to SMTP if configured
+  // 2) SMTP fallback
   if (smtpTransport) {
     const from = FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
     const info = await smtpTransport.sendMail({ from, to, subject, text, html, attachments });
     return { ok: true, provider: "smtp", id: info?.messageId || null };
   }
-
   throw new Error("No email provider configured");
 }
 
@@ -273,14 +267,6 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         userId: s.metadata?.userId || null,
         priceId,
         entryId: s.metadata?.entryId || null,
-      });
-
-      console.log("✅ checkout.session.completed", {
-        email: s.customer_details?.email,
-        priceId,
-        userId: s.metadata?.userId,
-        entryId: s.metadata?.entryId,
-        mode: s.mode,
       });
 
       // Contest email on success
@@ -341,7 +327,7 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
 // JSON routes AFTER webhook
 app.use(bodyParser.json());
 
-// ⬇️ ADD: Quick SMTP verify endpoint
+// SMTP verify endpoint
 app.get("/api/smtp/verify", async (_req, res) => {
   try {
     if (!smtpTransport) return res.status(400).json({ ok: false, error: "SMTP not configured" });
@@ -387,7 +373,7 @@ app.post("/api/users", (req, res) => {
   const user = { id: `u_${uid++}`, name, email, password, avatarUrl: "", bio: "", interests: "", createdAt: Date.now() };
   users.set(user.id, user);
 
-  // ⬇️ persist to disk
+  // persist to disk
   const disk = loadUsersFromDisk();
   disk.push(user);
   saveUsersToDisk(disk);
@@ -723,7 +709,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // Mount routes
 accountRoutes.install(app);
-friendsRoutes.install(app);
+friendsRoutes.install(app); // <-- populates in-memory friends state (pending + links)
 chatRoutes.install(app);
 chatGlobal.install(app);
 
@@ -761,112 +747,36 @@ async function sendContestEmail(entry, buyerEmail = null) {
   });
 }
 
-/* ======== Friends-of-User (public read-only) ======== */
-/* Added above app.listen(...) */
-(function addFriendsOfUserRoutes() {
-  // Optional friendship structures if you keep them in db.js
-  let friendships, friendLinks;
-  try {
-    const db = require("./db");
-    friendships = db.friendships;   // optional Set<string> of "a|b"
-    friendLinks = db.friendLinks;   // optional Map<string, Set<string>>
-  } catch {}
+/* ======== Friends-of-User (public read-only) — uses friendsRoutes store ======== */
+/* These power friendprofile.html Companions tab and keep data in sync with /api/friends */
+(() => {
+  const { listFriendsOf } = friendsRoutes; // same module already required above
 
-  function getUserSafe(u) {
-    if (!u) return null;
-    return {
-      id: u.id,
-      name: u.name || u.id,
-      email: u.email || null,
-      avatarUrl: u.avatarUrl || null,
-    };
+  function ensureUserExists(id) {
+    const u = users?.get && users.get(id);
+    return !!u;
   }
 
-  function friendsFromUserField(targetId) {
-    // Case 1: you store u.friends = [ids...]
-    const u = users?.get && users.get(targetId);
-    if (!u || !Array.isArray(u.friends)) return null;
-    return u.friends
-      .map((fid) => users?.get && users.get(fid))
-      .filter(Boolean)
-      .map(getUserSafe);
-  }
-
-  function friendsFromFriendLinks(targetId) {
-    // Case 2: you store a Map<id, Set<id>>
-    if (!friendLinks || !friendLinks.get) return null;
-    const set = friendLinks.get(targetId);
-    if (!set) return [];
-    return Array.from(set)
-      .map((fid) => users?.get && users.get(fid))
-      .filter(Boolean)
-      .map(getUserSafe);
-  }
-
-  function friendsFromFriendshipsSet(targetId) {
-    // Case 3: you store a Set of canonical "a|b" pairs
-    if (!friendships || !friendships.forEach) return null;
-    const out = [];
-    friendships.forEach((pair) => {
-      const [a, b] = String(pair).split("|");
-      if (a === targetId || b === targetId) {
-        const other = a === targetId ? b : a;
-        const u = users?.get && users.get(other);
-        if (u) out.push(getUserSafe(u));
-      }
-    });
-    return out;
-  }
-
-  function getFriendsOf(targetId) {
-    let list =
-      friendsFromUserField(targetId) ??
-      friendsFromFriendLinks(targetId) ??
-      friendsFromFriendshipsSet(targetId);
-
-    if (!Array.isArray(list)) list = [];
-
-    // Dedup + sort
-    const seen = new Set();
-    const dedup = [];
-    for (const u of list) {
-      if (u && !seen.has(u.id)) {
-        seen.add(u.id);
-        dedup.push(u);
-      }
-    }
-    dedup.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
-    return dedup;
-  }
-
-  // Primary endpoint
+  // GET /api/users/:id/friends
   app.get("/api/users/:id/friends", (req, res) => {
     try {
       const id = String(req.params.id || "");
       if (!id) return res.status(400).json({ error: "Missing id" });
-
-      const exists = users?.get && users.get(id);
-      if (!exists) return res.status(404).json({ error: "User not found" });
-
-      const list = getFriendsOf(id);
-      return res.json(list);
+      if (!ensureUserExists(id)) return res.status(404).json({ error: "User not found" });
+      return res.json(listFriendsOf(id)); // reads the same accepted-links store
     } catch (e) {
       console.error("friends-of error:", e);
       return res.status(500).json({ error: "Failed to load friends" });
     }
   });
 
-  // Alias for TS that calls /companions
+  // Alias so friendprofile.ts can call /companions
   app.get("/api/users/:id/companions", (req, res) => {
     try {
       const id = String(req.params.id || "");
       if (!id) return res.status(400).json({ error: "Missing id" });
-
-      const exists = users?.get && users.get(id);
-      if (!exists) return res.status(404).json({ error: "User not found" });
-
-      const list = getFriendsOf(id);
-      return res.json(list);
+      if (!ensureUserExists(id)) return res.status(404).json({ error: "User not found" });
+      return res.json(listFriendsOf(id));
     } catch (e) {
       console.error("companions-of error:", e);
       return res.status(500).json({ error: "Failed to load companions" });
@@ -875,6 +785,7 @@ async function sendContestEmail(entry, buyerEmail = null) {
 })();
 
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
