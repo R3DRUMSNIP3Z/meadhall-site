@@ -761,7 +761,121 @@ async function sendContestEmail(entry, buyerEmail = null) {
   });
 }
 
+/* ======== Friends-of-User (public read-only) ======== */
+/* Added above app.listen(...) */
+(function addFriendsOfUserRoutes() {
+  // Optional friendship structures if you keep them in db.js
+  let friendships, friendLinks;
+  try {
+    const db = require("./db");
+    friendships = db.friendships;   // optional Set<string> of "a|b"
+    friendLinks = db.friendLinks;   // optional Map<string, Set<string>>
+  } catch {}
+
+  function getUserSafe(u) {
+    if (!u) return null;
+    return {
+      id: u.id,
+      name: u.name || u.id,
+      email: u.email || null,
+      avatarUrl: u.avatarUrl || null,
+    };
+  }
+
+  function friendsFromUserField(targetId) {
+    // Case 1: you store u.friends = [ids...]
+    const u = users?.get && users.get(targetId);
+    if (!u || !Array.isArray(u.friends)) return null;
+    return u.friends
+      .map((fid) => users?.get && users.get(fid))
+      .filter(Boolean)
+      .map(getUserSafe);
+  }
+
+  function friendsFromFriendLinks(targetId) {
+    // Case 2: you store a Map<id, Set<id>>
+    if (!friendLinks || !friendLinks.get) return null;
+    const set = friendLinks.get(targetId);
+    if (!set) return [];
+    return Array.from(set)
+      .map((fid) => users?.get && users.get(fid))
+      .filter(Boolean)
+      .map(getUserSafe);
+  }
+
+  function friendsFromFriendshipsSet(targetId) {
+    // Case 3: you store a Set of canonical "a|b" pairs
+    if (!friendships || !friendships.forEach) return null;
+    const out = [];
+    friendships.forEach((pair) => {
+      const [a, b] = String(pair).split("|");
+      if (a === targetId || b === targetId) {
+        const other = a === targetId ? b : a;
+        const u = users?.get && users.get(other);
+        if (u) out.push(getUserSafe(u));
+      }
+    });
+    return out;
+  }
+
+  function getFriendsOf(targetId) {
+    let list =
+      friendsFromUserField(targetId) ??
+      friendsFromFriendLinks(targetId) ??
+      friendsFromFriendshipsSet(targetId);
+
+    if (!Array.isArray(list)) list = [];
+
+    // Dedup + sort
+    const seen = new Set();
+    const dedup = [];
+    for (const u of list) {
+      if (u && !seen.has(u.id)) {
+        seen.add(u.id);
+        dedup.push(u);
+      }
+    }
+    dedup.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+    return dedup;
+  }
+
+  // Primary endpoint
+  app.get("/api/users/:id/friends", (req, res) => {
+    try {
+      const id = String(req.params.id || "");
+      if (!id) return res.status(400).json({ error: "Missing id" });
+
+      const exists = users?.get && users.get(id);
+      if (!exists) return res.status(404).json({ error: "User not found" });
+
+      const list = getFriendsOf(id);
+      return res.json(list);
+    } catch (e) {
+      console.error("friends-of error:", e);
+      return res.status(500).json({ error: "Failed to load friends" });
+    }
+  });
+
+  // Alias for TS that calls /companions
+  app.get("/api/users/:id/companions", (req, res) => {
+    try {
+      const id = String(req.params.id || "");
+      if (!id) return res.status(400).json({ error: "Missing id" });
+
+      const exists = users?.get && users.get(id);
+      if (!exists) return res.status(404).json({ error: "User not found" });
+
+      const list = getFriendsOf(id);
+      return res.json(list);
+    } catch (e) {
+      console.error("companions-of error:", e);
+      return res.status(500).json({ error: "Failed to load companions" });
+    }
+  });
+})();
+
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
