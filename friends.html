@@ -3,74 +3,68 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Mead Hall  Friends & Chat</title>
+  <title>Mead Hall • Friends & Chat</title>
 
-  <!-- Match your profile.html -->
+  <!-- Match the rest of the site -->
   <meta name="api-base" content="https://meadhall-site.onrender.com" />
+  <link rel="stylesheet" href="/Styles/odin.css" />
 
   <style>
+    /* Page-specific light touch so it still feels like the rest of Mead Hall */
     :root{
-      --bg:#0f0f0f; --wood:#22170f; --wood2:#2a1d14; --parch:#e9dbb9;
-      --parch-ink:#2b261a; --iron:#51483e; --gold:#c6a05d; --green:#2f4f39;
-      --red:#7a2b2b; --text:#eee9df; --muted:#bdb6a3;
+      --mh-wood:#22170f;
+      --mh-wood2:#2a1d14;
+      --mh-iron:#3b3325;
+      --mh-parch:#f3e9c9;
+      --mh-parch-ink:#2b261a;
+      --mh-gold:#aa8a28;
+      --mh-green:#2f4f39;
+      --mh-red:#7a2b2b;
+      --mh-text:#e9e4d5;
     }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; font-family:"Georgia",serif; color:var(--text);
-      background:
-        radial-gradient(60% 60% at 50% 20%, rgba(198,160,93,0.12), transparent 60%),
-        linear-gradient(180deg, rgba(47,79,57,0.12), rgba(47,79,57,0) 45%),
-        var(--bg);
-      display:flex; flex-direction:column; min-height:100vh;
-    }
-    header{
-      background:linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.2)), var(--wood2);
-      border-bottom:3px solid var(--iron);
-      padding:10px 12px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-    }
-    header h1{margin:0; font-size:1.3rem; color:var(--gold); letter-spacing:.4px}
-    nav{display:flex; gap:12px; margin-left:auto}
-    nav a{color:var(--gold); text-decoration:none; border-bottom:1px dashed var(--gold)}
-    nav a:hover{color:#ffd68e}
 
-    .home-strip{
-      background:#2a1a0a; padding:8px 12px; border-bottom:1px solid var(--iron);
-      text-align:center;
-    }
-    .home-strip a{ color:var(--gold); text-decoration:none; font-weight:bold }
-    .home-strip a:hover{ color:#fff }
+    /* Layout containers align with .wrap used elsewhere */
+    main .wrap { max-width: 980px; margin: 1rem auto; padding: 0 12px; }
 
-    main{max-width:980px; width:100%; margin:18px auto; padding:0 12px}
+    /* Cards match your parchment panels */
     .card{
-      background:linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.08)), var(--wood);
-      border:2px solid var(--iron); border-radius:10px; overflow:hidden; margin-bottom:16px;
+      background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.06)), var(--mh-wood);
+      border: 1px solid var(--mh-iron);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.35);
     }
     .card h2{
-      margin:0; padding:12px; color:var(--gold);
-      border-bottom:2px solid var(--iron); background:var(--wood2);
-      font-size:1.05rem;
+      margin:0; padding:10px 12px; font-size:1.05rem; color:var(--mh-gold);
+      background: var(--mh-wood2);
+      border-bottom: 1px solid var(--mh-iron);
+      letter-spacing:.3px;
     }
-    .body{padding:12px; background:var(--parch); color:var(--parch-ink)}
+    .body{ padding:12px; background:var(--mh-parch); color:var(--mh-parch-ink); }
+
+    /* Inputs / buttons blend with odin.css look */
     .row{display:flex; gap:8px; flex-wrap:wrap}
-    input[type="text"]{
-      flex:1; min-width:240px; padding:10px; border:2px solid var(--iron);
-      background:var(--parch); color:var(--parch-ink); border-radius:8px
+    input[type="text"], textarea{
+      flex:1; min-width:240px; padding:10px;
+      border:1px solid var(--mh-iron); border-radius:10px;
+      background:var(--mh-parch); color:var(--mh-parch-ink);
+      font-family: inherit;
     }
     button{
-      padding:10px 12px; border:2px solid var(--gold); background:var(--green);
-      color:var(--text); cursor:pointer; border-radius:8px
+      padding:10px 12px; border:1px solid var(--mh-gold); border-radius:10px;
+      background:var(--mh-green); color:var(--mh-text); cursor:pointer;
     }
-    button.secondary{background:transparent; color:var(--parch-ink)}
-    button:hover{background:var(--red)}
+    button.secondary{ background:transparent; color:var(--mh-parch-ink) }
+    button:hover{ background:var(--mh-red) }
 
     .note{font-size:.9rem}
     .muted{opacity:.75}
 
-    /* Lookup results */
+    /* Lookup result row */
     .result{
       margin-top:10px; display:flex; align-items:center; gap:12px;
-      background:#f3e9c9; border:1px solid #c8bc99; border-radius:10px; padding:10px;
+      background:var(--mh-parch); border:1px solid #c8bc99; border-radius:10px; padding:10px;
     }
     .result img{ width:48px; height:48px; border-radius:50%; object-fit:cover; border:1px solid #c8bc99; background:#ddd }
 
@@ -78,7 +72,7 @@
     .list{display:grid; gap:8px}
     .item{
       display:flex; align-items:center; justify-content:space-between; gap:10px;
-      background:#f3e9c9; border:1px solid #c8bc99; border-radius:10px; padding:8px 10px;
+      background:var(--mh-parch); border:1px solid #c8bc99; border-radius:10px; padding:8px 10px;
     }
     .meta{display:flex; align-items:center; gap:10px}
     .meta img{width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #c8bc99; background:#ddd}
@@ -86,81 +80,94 @@
     .id{opacity:.65; font-size:.9rem}
     .actions{display:flex; gap:6px}
 
-    /* Chat dock */
+    /* Chat dock matches parchment + wood chrome */
     .chat-dock{
       position:fixed; right:16px; bottom:12px; display:flex; gap:10px;
       align-items:flex-end; z-index:50; flex-wrap:wrap-reverse; max-width:90vw
     }
     .chat-box{
       width:320px; max-height:60vh; display:flex; flex-direction:column;
-      background:linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.08)), var(--wood);
-      border:2px solid var(--iron); border-radius:10px; overflow:hidden;
+      background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.06)), var(--mh-wood);
+      border:1px solid var(--mh-iron); border-radius:12px; overflow:hidden;
       box-shadow:0 6px 24px rgba(0,0,0,.45)
     }
     .chat-head{display:flex; align-items:center; justify-content:space-between;
-      padding:8px 10px; background:var(--wood2); border-bottom:2px solid var(--iron); color:var(--gold)}
-    .chat-head .title{font-weight:bold; font-size:.98rem}
+      padding:8px 10px; background:var(--mh-wood2); border-bottom:1px solid var(--mh-iron); color:var(--mh-gold)}
+    .chat-head .title{font-weight:bold; font-size:.98rem; letter-spacing:.2px}
     .chat-head .btns{display:flex; gap:6px}
-    .chat-head button{padding:4px 8px; border:2px solid var(--gold); background:transparent; color:var(--text); cursor:pointer; border-radius:6px}
-    .chat-head button:hover{background:var(--red)}
-    .chat-msgs{background:var(--parch); color:var(--parch-ink); padding:10px; display:flex; flex-direction:column; gap:6px; overflow:auto}
+    .chat-head button{padding:4px 8px; border:1px solid var(--mh-gold); background:transparent; color:var(--mh-text); cursor:pointer; border-radius:8px}
+    .chat-head button:hover{background:var(--mh-red)}
+    .chat-msgs{background:var(--mh-parch); color:var(--mh-parch-ink); padding:10px; display:flex; flex-direction:column; gap:6px; overflow:auto}
     .msg{max-width:78%; padding:8px 10px; border-radius:10px; border:1px solid #c8bc99; background:#efe5c9; align-self:flex-start}
-    .msg.mine{background:var(--green); color:var(--text); border-color:#365543; align-self:flex-end}
+    .msg.mine{background:var(--mh-green); color:var(--mh-text); border-color:#365543; align-self:flex-end}
     .msg time{display:block; font-size:.7rem; opacity:.7; margin-top:4px}
-    .chat-compose{display:flex; gap:8px; padding:8px; background:var(--wood2); border-top:2px solid var(--iron)}
-    .chat-compose textarea{flex:1; min-height:54px; padding:8px; border:2px solid var(--iron); background:var(--parch); color:var(--parch-ink); border-radius:8px}
-    .chat-compose button{padding:8px 12px; border:2px solid var(--gold); background:var(--green); color:var(--text); cursor:pointer; border-radius:8px}
-    .chat-compose button:hover{background:var(--red)}
+    .chat-compose{display:flex; gap:8px; padding:8px; background:var(--mh-wood2); border-top:1px solid var(--mh-iron)}
+    .chat-compose textarea{flex:1; min-height:54px}
+
+    /* Thin home strip already exists site-wide, keep it */
+    .home-strip{
+      background:#1b120a; padding:8px 12px; border-bottom:1px solid var(--mh-iron);
+      text-align:center;
+    }
+    .home-strip a{ color:var(--mh-gold); text-decoration:none; font-weight:600 }
+    .home-strip a:hover{ color:#fff }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Mead Hall</h1>
-    <nav>
-      <a href="index.html">Back to Home</a>
-    </nav>
+  <!-- Standard site header -->
+  <header class="site-header">
+    <div class="wrap">
+      <h1>Mead Hall</h1>
+      <nav>
+        <a href="index.html">Home</a>
+      </nav>
+    </div>
   </header>
 
+  <!-- Slim home strip (same as other pages) -->
   <div class="home-strip">
     <a href="index.html">Back to Home</a>
   </div>
 
   <main>
-    <!-- Lookup / Add by USERNAME -->
-    <div class="card">
-      <h2>Find a Friend</h2>
-      <div class="body">
-        <div class="row">
-          <input id="lookupId" type="text" placeholder="Search by username (e.g., lady2)" />
-          <button id="lookupBtn">Search</button>
+    <div class="wrap">
+      <!-- Lookup / Add by USERNAME -->
+      <div class="card">
+        <h2>Find a Friend</h2>
+        <div class="body">
+          <div class="row">
+            <input id="lookupId" type="text" placeholder="Search by username (e.g., lady2)" />
+            <button id="lookupBtn">Search</button>
+          </div>
+          <div id="lookupResult"></div>
+          <div id="notice" class="note" style="margin-top:8px;"></div>
         </div>
-        <div id="lookupResult"></div>
-        <div id="notice" class="note" style="margin-top:8px;"></div>
       </div>
-    </div>
 
-    <!-- Friends -->
-    <div class="card">
-      <h2>Friends</h2>
-      <div id="friendsList" class="body list"><div class="muted">Loading</div></div>
-    </div>
+      <!-- Friends -->
+      <div class="card">
+        <h2>Friends</h2>
+        <div id="friendsList" class="body list"><div class="muted">Loading</div></div>
+      </div>
 
-    <!-- Incoming -->
-    <div class="card">
-      <h2>Incoming Requests</h2>
-      <div id="incomingList" class="body list"><div class="muted">Loading</div></div>
-    </div>
+      <!-- Incoming -->
+      <div class="card">
+        <h2>Incoming Requests</h2>
+        <div id="incomingList" class="body list"><div class="muted">Loading</div></div>
+      </div>
 
-    <!-- Outgoing -->
-    <div class="card">
-      <h2>Outgoing Requests</h2>
-      <div id="outgoingList" class="body list"><div class="muted">Loading</div></div>
+      <!-- Outgoing -->
+      <div class="card">
+        <h2>Outgoing Requests</h2>
+        <div id="outgoingList" class="body list"><div class="muted">Loading</div></div>
+      </div>
     </div>
   </main>
 
   <!-- Chat dock -->
   <div id="chatDock" class="chat-dock"></div>
 
+  <!-- Scripts unchanged -->
   <script type="module">
     // ------- CONFIG & AUTH -------
     const API_BASE = document.querySelector('meta[name="api-base"]')?.content?.replace(/\/$/, '') || '';
@@ -286,7 +293,7 @@
 
     // ------- Lists (friends/incoming/outgoing) -------
     function itemFriend(u){
-      const href = `friendprofile.html?user=${encodeURIComponent(u.id)}`; /* < added */
+      const href = `friendprofile.html?user=${encodeURIComponent(u.id)}`;
       return `
         <div class="item">
           <div class="meta">
@@ -448,6 +455,7 @@
   <script type="module" src="/src/friends.ts"></script>
 </body>
 </html>
+
 
 
 

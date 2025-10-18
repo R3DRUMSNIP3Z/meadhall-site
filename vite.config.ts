@@ -2,24 +2,29 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
+import { existsSync } from "fs";
+
+const html = (...p: string[]) => {
+  const f = resolve(__dirname, ...p);
+  return existsSync(f) ? f : undefined;
+};
+
+const inputs: Record<string, string> = {
+  main:          resolve(__dirname, "index.html"),
+  account:       html("account.html")!,
+  friends:       html("friends.html")!,
+  friendprofile: html("friendprofile.html")!,
+  profile:       html("profile.html")!,
+  book:          html("book.html")!,
+  meadhall:      html("meadhall.html")!,   // <-- include so Vite builds it
+};
+// drop undefined entries
+Object.keys(inputs).forEach(k => inputs[k] === undefined && delete inputs[k]);
 
 export default defineConfig({
   plugins: [react()],
-  build: {
-    rollupOptions: {
-      input: {
-        main:          resolve(__dirname, "index.html"),
-        account:       resolve(__dirname, "account.html"),
-        friends:       resolve(__dirname, "friends.html"),
-        friendprofile: resolve(__dirname, "friendprofile.html"),
-        profile:       resolve(__dirname, "profile.html"),
-        book:          resolve(__dirname, "book.html"),
-        // ❌ remove or comment out these:
-        // meadhall: resolve(__dirname, "meadhall.html"),
-        // library:  resolve(__dirname, "library.html"),
-      },
-    },
-  },
+  build: { rollupOptions: { input: inputs } },
 });
+
 
 
