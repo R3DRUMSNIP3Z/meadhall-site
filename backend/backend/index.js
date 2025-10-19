@@ -56,15 +56,17 @@ app.use(
 app.options(/.*/, cors());
 app.set("trust proxy", 1);
 
-// --- uploads dir and static serving (avatars + contest PDFs) ---
+// --- uploads dir and static serving (avatars + contest PDFs + gallery) ---
 const uploadsDir = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use("/uploads", express.static(uploadsDir));
 
-// --- simple JSON "DB" for purchases ---
+// --- simple JSON "DB" base dir ---
 const DATA_DIR = path.join(__dirname, "data");
-const PURCHASES_FILE = path.join(DATA_DIR, "purchases.json");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+// --- simple JSON "DB" for purchases ---
+const PURCHASES_FILE = path.join(DATA_DIR, "purchases.json");
 if (!fs.existsSync(PURCHASES_FILE)) fs.writeFileSync(PURCHASES_FILE, "[]");
 function appendRecord(rec) {
   try {
@@ -109,6 +111,26 @@ function loadUsersFromDisk() {
 function saveUsersToDisk(arr) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(arr, null, 2));
 }
+
+/* ==============================
+   JSON "DB" for gallery
+   ============================== */
+const GALLERY_FILE = path.join(DATA_DIR, "gallery.json");
+if (!fs.existsSync(GALLERY_FILE)) fs.writeFileSync(GALLERY_FILE, "{}");
+
+function loadGalleryMapFromDisk() {
+  try {
+    const obj = JSON.parse(fs.readFileSync(GALLERY_FILE, "utf8"));
+    // ensure shape { [userId]: [{id,url,createdAt}] }
+    return typeof obj === "object" && obj ? obj : {};
+  } catch {
+    return {};
+  }
+}
+function saveGalleryMapToDisk(mapObj) {
+  fs.writeFileSync(GALLERY_FILE, JSON.stringify(mapObj, null, 2));
+}
+const galleryMap = loadGalleryMapFromDisk(); // in-memory object keyed by userId
 
 // --- Email setup: Resend (preferred) + SMTP fallback ---
 const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
@@ -714,6 +736,100 @@ friendsRoutes.install(app);
 chatRoutes.install(app);
 chatGlobal.install(app);
 
+/* ======== Friends-of-User (public read-only) — used by friendprofile.html ======== */
+function safeUser(u) {
+  if (!u) return null;
+  const { id, name, email, avatarUrl, bio, interests } = u;
+  return { id, name, email, avatarUrl, bio, interests };
+}
+function listFriendsOf(userId) {
+  const rec = ensureFriendState(userId);
+  return [...rec.friends].map(fid => safeUser(users.get(fid))).filter(Boolean);
+}
+
+// GET /api/users/:id/friends
+app.get("/api/users/:id/friends", (req, res) => {
+  const id = String(req.params.id || "");
+  if (!id) return res.status(400).json({ error: "Missing id" });
+  if (!users.has(id)) return res.status(404).json({ error: "User not found" });
+  return res.json(listFriendsOf(id));
+});
+
+// GET /api/users/:id/companions (alias for friends)
+app.get("/api/users/:id/companions", (req, res) => {
+  const id = String(req.params.id || "");
+  if (!id) return res.status(400).json({ error: "Missing id" });
+  if (!users.has(id)) return res.status(404).json({ error: "User not found" });
+  return res.json(listFriendsOf(id));
+});
+
+/* ==============================
+   GALLERY ROUTES (JSON-persistent)
+   ============================== */
+
+// Multer for gallery images (can upload multiple)
+const galleryStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const safe = String(file.originalname || "photo").replace(/\s+/g, "_");
+    cb(null, `${Date.now()}-${safe}`);
+  },
+});
+const uploadGallery = multer({
+  storage: galleryStorage,
+  limits: { fileSize: 12 * 1024 * 1024 }, // 12MB per image
+  fileFilter: (_req, file, cb) => {
+    if (/^image\/(png|jpe?g|webp|gif|avif)$/i.test(file.mimetype)) cb(null, true);
+    else cb(new Error("Only image files are allowed"));
+  },
+});
+
+// helper to read user id from header
+function headerUserId(req) {
+  return (req.headers["x-user-id"] || "").toString().trim();
+}
+
+// GET user gallery
+app.get("/api/users/:id/gallery", (req, res) => {
+  const uid = String(req.params.id || "");
+  const list = Array.isArray(galleryMap[uid]) ? galleryMap[uid] : [];
+  res.json(list);
+});
+
+// POST upload photos -> field: "photos"
+app.post("/api/account/gallery", uploadGallery.array("photos"), (req, res) => {
+  const uid = headerUserId(req);
+  if (!uid) return res.status(401).json({ error: "Missing user id (x-user-id)" });
+  if (!req.files?.length) return res.status(400).json({ error: "No files uploaded" });
+
+  const curr = Array.isArray(galleryMap[uid]) ? galleryMap[uid] : [];
+  for (const f of req.files) {
+    curr.push({
+      id: f.filename,
+      url: `/uploads/${f.filename}`, // relative; frontend will prefix with api-base
+      createdAt: Date.now(),
+    });
+  }
+  galleryMap[uid] = curr;
+  saveGalleryMapToDisk(galleryMap);
+
+  res.json({ ok: true, items: curr });
+});
+
+// DELETE a photo
+app.delete("/api/users/:id/gallery/:photoId", (req, res) => {
+  const uid = String(req.params.id || "");
+  const pid = String(req.params.photoId || "");
+  const curr = Array.isArray(galleryMap[uid]) ? galleryMap[uid] : [];
+  const next = curr.filter((p) => String(p.id) !== pid);
+  galleryMap[uid] = next;
+  saveGalleryMapToDisk(galleryMap);
+
+  // best-effort file removal
+  try { fs.unlinkSync(path.join(uploadsDir, pid)); } catch {}
+  res.json({ ok: true });
+});
+
 // --- helper to send contest email with PDF attached ---
 async function sendContestEmail(entry, buyerEmail = null) {
   const attach = [];
@@ -748,34 +864,8 @@ async function sendContestEmail(entry, buyerEmail = null) {
   });
 }
 
-/* ======== Friends-of-User (public read-only) — used by friendprofile.html ======== */
-function safeUser(u) {
-  if (!u) return null;
-  const { id, name, email, avatarUrl, bio, interests } = u;
-  return { id, name, email, avatarUrl, bio, interests };
-}
-function listFriendsOf(userId) {
-  const rec = ensureFriendState(userId);
-  return [...rec.friends].map(fid => safeUser(users.get(fid))).filter(Boolean);
-}
-
-// GET /api/users/:id/friends
-app.get("/api/users/:id/friends", (req, res) => {
-  const id = String(req.params.id || "");
-  if (!id) return res.status(400).json({ error: "Missing id" });
-  if (!users.has(id)) return res.status(404).json({ error: "User not found" });
-  return res.json(listFriendsOf(id));
-});
-
-// GET /api/users/:id/companions (alias for friends)
-app.get("/api/users/:id/companions", (req, res) => {
-  const id = String(req.params.id || "");
-  if (!id) return res.status(400).json({ error: "Missing id" });
-  if (!users.has(id)) return res.status(404).json({ error: "User not found" });
-  return res.json(listFriendsOf(id));
-});
-
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
