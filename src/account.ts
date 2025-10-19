@@ -1,3 +1,4 @@
+// /src/account.ts  — DROP-IN REPLACEMENT with Gallery support
 console.log("account.ts loaded");
 
 /* ---------- Types ---------- */
@@ -17,6 +18,12 @@ type Story = {
   text: string;
   createdAt: number | string;
   updatedAt?: number | string;
+};
+
+type Photo = {
+  id: string;            // server id or derived from url
+  url: string;           // absolute or relative
+  createdAt?: number | string;
 };
 
 /* ---------- API base ---------- */
@@ -51,6 +58,12 @@ function fullUrl(p?: string) {
   return `${base}/${path}`;
 }
 
+function cacheBust(u: string) {
+  if (!u) return u;
+  const t = `t=${Date.now()}`;
+  return u.includes("?") ? `${u}&${t}` : `${u}?${t}`;
+}
+
 function fmt(ts?: number | string) {
   if (!ts && ts !== 0) return "";
   const d = new Date(typeof ts === "number" ? ts : String(ts));
@@ -80,6 +93,12 @@ const storiesEl    = document.getElementById("stories") as HTMLDivElement | null
 
 const logoutLink   = document.getElementById("logout") as HTMLAnchorElement | null;
 
+// Gallery elements (from your new HTML)
+const galleryFiles = document.getElementById("galleryFiles") as HTMLInputElement | null;
+const uploadPhotosBtn = document.getElementById("uploadPhotos") as HTMLButtonElement | null;
+const galleryMsg   = document.getElementById("galleryMsg") as HTMLElement | null;
+const galleryGrid  = document.getElementById("galleryGrid") as HTMLDivElement | null;
+
 /* ---------- init ---------- */
 let currentUser = getUserFromLS();
 if (!currentUser?.id) {
@@ -100,7 +119,11 @@ async function loadUser() {
     const r = await fetch(`${API_BASE}/api/users/${currentUser!.id}`);
     if (!r.ok) return;
     const u: SafeUser = await r.json();
-    if (avatarImg) avatarImg.src = u.avatarUrl ? `${fullUrl(u.avatarUrl)}?t=${Date.now()}` : "/images/odin-hero.jpg";
+    if (avatarImg) {
+      const src = u.avatarUrl ? cacheBust(fullUrl(u.avatarUrl)) : "/images/odin-hero.jpg";
+      avatarImg.src = src;
+      avatarImg.onerror = () => { avatarImg.src = "/images/odin-hero.jpg"; };
+    }
     if (nameEl) nameEl.value = u.name || "";
     if (emailEl) emailEl.value = u.email || "";
     if (bioEl) bioEl.value = u.bio || "";
@@ -117,6 +140,161 @@ async function fetchStories(): Promise<Story[]> {
   const list: Story[] = await r.json();
   return Array.isArray(list) ? list : [];
 }
+
+/* ---------- GALLERY: fetch / upload / delete ---------- */
+
+function normalizePhotoArray(raw: any): Photo[] {
+  // Accept: [{id,url}, ...] or [{_id,url}] or ["url", ...]
+  if (!Array.isArray(raw)) return [];
+  return raw.map((p: any, i: number) => {
+    if (typeof p === "string") return { id: String(i), url: p };
+    const id = p.id || p._id || String(i);
+    const url = p.url || p.path || p.src || "";
+    return { id: String(id), url };
+  }).filter(p => p.url);
+}
+
+async function fetchGallery(): Promise<Photo[]> {
+  // Try a couple of likely endpoints
+  const endpoints = [
+    `${API_BASE}/api/users/${currentUser!.id}/gallery`,
+    `${API_BASE}/api/gallery?user=${encodeURIComponent(currentUser!.id)}`
+  ];
+  for (const u of endpoints) {
+    try {
+      const r = await fetch(u);
+      if (!r.ok) continue;
+      const data = await r.json();
+      const list = Array.isArray(data?.items) ? data.items : data;
+      const photos = normalizePhotoArray(list);
+      return photos;
+    } catch {}
+  }
+  return [];
+}
+
+async function uploadPhotos(files: FileList): Promise<Photo[]> {
+  // Build FormData (support backends that expect "photos" or "photo[]")
+  const fd = new FormData();
+  Array.from(files).forEach((f) => {
+    fd.append("photos", f);
+    fd.append("photo[]", f);
+  });
+
+  // Try a few routes; server should return { items: [{id,url}...] } or a single {id,url}
+  const endpoints = [
+    `${API_BASE}/api/account/gallery`,
+    `${API_BASE}/api/users/${currentUser!.id}/gallery`,
+    `${API_BASE}/api/uploads/photos`,
+  ];
+
+  for (const u of endpoints) {
+    try {
+      const r = await fetch(u, { method: "POST", body: fd });
+      const payload = await r.json().catch(() => ({}));
+      if (!r.ok) continue;
+
+      const items = Array.isArray(payload?.items) ? payload.items
+                  : Array.isArray(payload) ? payload
+                  : payload?.photo ? [payload.photo]
+                  : payload?.url ? [payload]
+                  : [];
+
+      const photos = normalizePhotoArray(items);
+      if (photos.length) return photos;
+    } catch (e) {
+      // try next endpoint
+    }
+  }
+  throw new Error("Upload failed (no matching endpoint)");
+}
+
+async function deletePhotoOnServer(photoId: string): Promise<void> {
+  const urls = [
+    `${API_BASE}/api/users/${currentUser!.id}/gallery/${encodeURIComponent(photoId)}`,
+    `${API_BASE}/api/gallery/${encodeURIComponent(photoId)}`,
+  ];
+  for (const u of urls) {
+    try {
+      const r = await fetch(u, { method: "DELETE" });
+      if (r.ok || r.status === 204) return;
+    } catch {}
+  }
+  throw new Error("Delete failed (no matching endpoint)");
+}
+
+/* ---------- gallery UI ---------- */
+
+function clearGalleryUI() {
+  if (!galleryGrid) return;
+  galleryGrid.innerHTML = "";
+}
+
+function renderGallery(photos: Photo[]) {
+  if (!galleryGrid) return;
+
+  clearGalleryUI();
+  if (!photos.length) {
+    galleryGrid.innerHTML = `<div class="muted">No photos yet.</div>`;
+    return;
+  }
+
+  for (const p of photos) {
+    const wrap = document.createElement("div");
+    wrap.style.position = "relative";
+
+    const img = document.createElement("img");
+    img.src = cacheBust(fullUrl(p.url));
+    img.alt = "gallery photo";
+    img.style.width = "100%";
+    img.style.aspectRatio = "1 / 1";
+    img.style.objectFit = "cover";
+    img.style.borderRadius = "10px";
+    img.style.border = "1px solid rgba(200,169,107,.2)";
+    img.onerror = () => { img.style.opacity = "0.4"; };
+
+    const del = document.createElement("button");
+    del.textContent = "×";
+    del.title = "Remove photo";
+    del.style.position = "absolute";
+    del.style.top = "6px";
+    del.style.right = "6px";
+    del.style.width = "26px";
+    del.style.height = "26px";
+    del.style.borderRadius = "8px";
+    del.style.border = "1px solid rgba(200,169,107,.5)";
+    del.style.background = "rgba(0,0,0,.55)";
+    del.style.color = "white";
+    del.style.cursor = "pointer";
+    del.addEventListener("click", async () => {
+      if (!confirm("Remove this photo from your gallery?")) return;
+      try {
+        await deletePhotoOnServer(p.id);
+      } catch (e) {
+        // If server can't find by id, try to pass URL as id once:
+        try { await deletePhotoOnServer(encodeURIComponent(p.id || p.url)); } catch {}
+      }
+      await loadGallery();
+    });
+
+    wrap.appendChild(img);
+    wrap.appendChild(del);
+    galleryGrid.appendChild(wrap);
+  }
+}
+
+async function loadGallery() {
+  if (!galleryGrid) return;
+  galleryGrid.innerHTML = `<div class="muted">Loading…</div>`;
+  try {
+    const items = await fetchGallery();
+    renderGallery(items);
+  } catch (e) {
+    galleryGrid.innerHTML = `<div class="muted">Failed to load gallery.</div>`;
+  }
+}
+
+/* ---------- stories UI ---------- */
 
 function clearStoriesUI() {
   if (!storiesEl) return;
@@ -327,7 +505,7 @@ function renderStoryCard(s: Story): HTMLDivElement {
 if (!(window as any)[BIND_KEY]) {
   (window as any)[BIND_KEY] = true;
 
-  // ✅ NEW avatar flow
+  // Avatar upload (already present)
   uploadBtn?.addEventListener("click", async () => {
     if (!avatarFile?.files?.[0]) return alert("Choose a file first.");
     const fd = new FormData();
@@ -357,7 +535,7 @@ if (!(window as any)[BIND_KEY]) {
       }
 
       // 3) update UI + LS (cache-bust the <img>)
-      if (avatarImg) avatarImg.src = `${absolute}?t=${Date.now()}`;
+      if (avatarImg) avatarImg.src = cacheBust(absolute);
       setUserToLS({ ...currentUser!, avatarUrl: rawUrl });
     } catch (err) {
       console.error("avatar upload error", err);
@@ -365,6 +543,7 @@ if (!(window as any)[BIND_KEY]) {
     }
   });
 
+  // Save profile
   saveBtn?.addEventListener("click", async () => {
     if (profileMsg) profileMsg.textContent = "Saving...";
     const body = {
@@ -386,6 +565,7 @@ if (!(window as any)[BIND_KEY]) {
     }
   });
 
+  // Add story
   addStoryBtn?.addEventListener("click", async () => {
     const title = storyTitleEl?.value?.trim();
     const text  = storyTextEl?.value?.trim();
@@ -402,16 +582,38 @@ if (!(window as any)[BIND_KEY]) {
     }
   });
 
+  // Logout
   logoutLink?.addEventListener("click", (e) => {
     e.preventDefault();
     localStorage.removeItem(LS_KEY);
     location.href = "/";
+  });
+
+  // ✅ Gallery: upload photos
+  uploadPhotosBtn?.addEventListener("click", async () => {
+    if (!galleryFiles?.files || galleryFiles.files.length === 0) {
+      alert("Choose one or more images first.");
+      return;
+    }
+    try {
+      if (galleryMsg) galleryMsg.textContent = "Uploading…";
+      await uploadPhotos(galleryFiles.files);
+      if (galleryFiles) galleryFiles.value = "";
+      await loadGallery();
+      if (galleryMsg) galleryMsg.textContent = "Upload complete.";
+      setTimeout(() => { if (galleryMsg) galleryMsg.textContent = ""; }, 1500);
+    } catch (e: any) {
+      console.error(e);
+      if (galleryMsg) galleryMsg.textContent = e?.message || "Upload failed.";
+    }
   });
 }
 
 /* ---------- go ---------- */
 loadUser();
 loadStories();
+loadGallery();
+
 
 
 

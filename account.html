@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Your Account  Mead Hall</title>
+  <title>Your Account · Mead Hall</title>
 
   <!-- API base (local first; you can swap the value) -->
   <meta name="api-base" content="https://meadhall-site.onrender.com" />
@@ -22,12 +22,12 @@
     .avatar{width:180px;height:180px;border-radius:50%;object-fit:cover;border:2px solid rgba(200,169,107,.45);background:#1a1a1a}
     .label{font-size:12px;letter-spacing:.08em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:6px}
     .story{padding:14px;border-radius:12px;border:1px solid rgba(200,169,107,.2);margin:10px 0;background:rgba(255,255,255,.03)}
-    .muted{color:var(--ink-dim)}
     .story .meta{font-size:12px;color:var(--ink-dim);margin-top:4px}
     .story .title{font-weight:700;font-size:16px;margin:0}
     .story .text{margin:.5em 0 0;white-space:pre-wrap}
     .story .row{display:flex;gap:8px;align-items:center}
     .story .input{width:100%}
+    .muted{color:var(--ink-dim)}
   </style>
 </head>
 <body>
@@ -95,6 +95,24 @@
         </div>
         <div id="stories"></div>
       </div>
+
+      <!-- RIGHT: gallery -->
+      <div class="panel">
+        <h3 style="margin:0 0 8px">Your Gallery</h3>
+
+        <div class="feat" style="margin:0 0 12px">
+          <input id="galleryFiles" type="file" accept="image/*" multiple />
+          <div class="cta-row" style="justify-content:flex-end;margin-top:8px">
+            <button class="btn btn-ghost" id="uploadPhotos">Upload Photos</button>
+          </div>
+          <div id="galleryMsg" class="muted" style="margin-top:6px"></div>
+        </div>
+
+        <div id="galleryGrid"
+             style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px">
+          <div class="muted">Loading…</div>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -106,10 +124,11 @@
     document.getElementById('y').textContent = new Date().getFullYear();
   </script>
 
-  <!-- Use ONLY the external module (no inline story manager) -->
+  <!-- Use ONLY the external module (no inline story/gallery logic here) -->
   <script type="module" src="/src/account.ts"></script>
 </body>
 </html>
+
 
 
 
