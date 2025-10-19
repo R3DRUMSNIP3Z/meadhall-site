@@ -1,4 +1,4 @@
-﻿// /src/friendprofile.ts
+﻿// /src/friendprofile.ts  (DROP-IN REPLACEMENT)
 
 type SafeUser = {
   id: string;
@@ -15,10 +15,11 @@ type Story = {
   title?: string;
   text?: string;
   excerpt?: string;
-  imageUrl?: string;
+  imageUrl?: string;   // may be relative (e.g. "/uploads/...")
   createdAt?: number;
 };
 
+/* ------------------ helpers ------------------ */
 function pickApiBase(): string {
   const m = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content?.trim();
   // @ts-ignore vite env support if present
@@ -30,7 +31,8 @@ function qs(k: string): string | null {
 }
 function fmt(ts?: number): string {
   if (!ts) return "";
-  try { return new Date(ts).toLocaleString(); } catch { return ""; }
+  const d = new Date(ts);
+  return isNaN(d.getTime()) ? "" : d.toLocaleString();
 }
 function el<K extends keyof HTMLElementTagNameMap>(t: K, cls?: string, txt?: string) {
   const n = document.createElement(t);
@@ -45,7 +47,24 @@ function nl2br(s: string) {
   return esc(s).replace(/\n/g, "<br>");
 }
 
-// ---- DOM refs (match your HTML) -------------------------------------------
+// Build an absolute URL from a possibly-relative path like "/uploads/..."
+function fullUrl(p?: string | null): string {
+  if (!p) return "";
+  if (/^https?:\/\//i.test(p)) return p;
+  const API = pickApiBase();
+  const base = (API || "").replace(/\/+$/, "");
+  const path = String(p).replace(/^\/+/, "");
+  return `${base}/${path}`;
+}
+
+// Avatar resolver with cache-busting + safe fallback
+function avatarSrc(p?: string | null): string {
+  const src = p && p.trim() ? fullUrl(p) : "/logo/avatar-placeholder.svg";
+  const bust = `t=${Date.now()}`;
+  return src.includes("?") ? `${src}&${bust}` : `${src}?${bust}`;
+}
+
+/* ------------------ DOM refs ------------------ */
 const avatarImg  = document.getElementById("avatar") as HTMLImageElement;
 const nameH1     = document.getElementById("username") as HTMLElement;
 const emailSmall = document.getElementById("useremail") as HTMLElement;
@@ -72,7 +91,6 @@ function showTab(tab: "stories"|"companions"|"gallery"){
   Object.entries(sections).forEach(([k, el]) => el.classList.toggle("active", k === tab));
   if (location.hash !== `#${tab}`) history.replaceState(null, "", `#${tab}${location.search ? "" : ""}`);
 }
-
 tabLinks.forEach(a=>{
   a.addEventListener("click", (e)=>{
     e.preventDefault();
@@ -81,7 +99,7 @@ tabLinks.forEach(a=>{
   });
 });
 
-// ---- Data loaders ----------------------------------------------------------
+/* ------------------ loaders ------------------ */
 async function loadUser(API: string, userId: string): Promise<SafeUser> {
   const res = await fetch(`${API}/api/users/${encodeURIComponent(userId)}`);
   if (!res.ok) throw new Error(`User not found (HTTP ${res.status})`);
@@ -91,11 +109,13 @@ async function loadUser(API: string, userId: string): Promise<SafeUser> {
 async function loadStories(API: string, userId: string): Promise<Story[]> {
   const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/stories`);
   const raw = await r.json();
-  return Array.isArray(raw) ? raw : (raw?.items ?? []);
+  const list: Story[] = Array.isArray(raw) ? raw : (raw?.items ?? []);
+  // Normalize imageUrl to absolute, if present
+  return list.map(s => ({ ...s, imageUrl: s.imageUrl ? fullUrl(s.imageUrl) : undefined }));
 }
 
 async function loadCompanions(API: string, userId: string) {
-  companionsEl.innerHTML = `<div class="muted">Loadingâ€¦</div>`;
+  companionsEl.innerHTML = `<div class="muted">Loading…</div>`;
   try {
     const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/companions`);
     if (!r.ok) throw new Error(String(r.status));
@@ -111,7 +131,7 @@ async function loadCompanions(API: string, userId: string) {
       row.className = "comp-item";
       row.innerHTML = `
         <div class="comp-meta">
-          <img src="${esc(u.avatarUrl || "/logo/logo-512.png")}" alt="">
+          <img src="${avatarSrc(u.avatarUrl)}" alt="" onerror="this.src='/logo/avatar-placeholder.svg'">
           <div>
             <div class="comp-name">${esc(u.name || u.id)}</div>
             <div class="muted" style="font-size:12px">${esc(u.email || u.id)}</div>
@@ -128,7 +148,7 @@ async function loadCompanions(API: string, userId: string) {
   }
 }
 
-// ---- Modal (inline overlay) for reading a saga -----------------------------
+/* ------------------ story modal ------------------ */
 let modalRoot: HTMLDivElement | null = null;
 function ensureModal() {
   if (modalRoot) return modalRoot;
@@ -155,7 +175,7 @@ function ensureModal() {
   card.style.boxShadow = "0 14px 40px rgba(0,0,0,.6)";
 
   const close = document.createElement("button");
-  close.textContent = "Ã—";
+  close.textContent = "×";
   close.setAttribute("aria-label", "Close");
   close.style.position = "absolute";
   close.style.top = "8px";
@@ -220,12 +240,15 @@ function openStoryModal(story: Story) {
 
   title.textContent = story.title || "(untitled)";
   meta.textContent  = story.createdAt ? fmt(story.createdAt) : "";
-  body.innerHTML    = nl2br(story.text || story.excerpt || "â€”");
+  body.innerHTML    = nl2br(story.text || story.excerpt || "—");
 
   if (story.imageUrl) {
-    img.src = story.imageUrl;
+    const src = fullUrl(story.imageUrl); // normalize just in case
+    img.src = src;
     img.alt = story.title || "story image";
     img.style.display = "";
+    img.onerror = () => { img.style.display = "none"; };
+    img.referrerPolicy = "no-referrer";
   } else {
     img.style.display = "none";
   }
@@ -234,7 +257,7 @@ function openStoryModal(story: Story) {
   document.body.style.overflow = "hidden"; // prevent background scroll
 }
 
-// ---- Renderers -------------------------------------------------------------
+/* ------------------ renderers ------------------ */
 function renderStories(stories: Story[]) {
   sagaList.innerHTML = "";
   if (!stories.length) {
@@ -252,10 +275,9 @@ function renderStories(stories: Story[]) {
     top.append(h3, when);
     wrap.append(top);
 
-    const snippet = s.excerpt || (s.text ? s.text.slice(0, 200) + (s.text.length > 200 ? "â€¦" : "") : "");
+    const snippet = s.excerpt || (s.text ? s.text.slice(0, 200) + (s.text.length > 200 ? "…" : "") : "");
     if (snippet) wrap.append(el("div","excerpt", snippet));
 
-    // OPEN INLINE (modal) â€” not a new page
     const btn = document.createElement("button");
     btn.textContent = "Read this saga";
     btn.style.fontSize = "13px";
@@ -275,7 +297,7 @@ function renderGalleryFromStories(stories: Story[]) {
   galleryGrid.innerHTML = "";
   const imgs = stories
     .filter(s => !!s.imageUrl)
-    .map(s => ({ src: s.imageUrl!, alt: s.title || "story image" }));
+    .map(s => ({ src: fullUrl(s.imageUrl!), alt: s.title || "story image" }));
 
   if (!imgs.length) {
     galleryGrid.innerHTML = `<div class="muted">No images yet.</div>`;
@@ -285,12 +307,14 @@ function renderGalleryFromStories(stories: Story[]) {
     const img = new Image();
     img.src = im.src;
     img.alt = im.alt;
+    img.loading = "lazy";
     img.referrerPolicy = "no-referrer";
+    img.onerror = () => { img.remove(); };
     galleryGrid.appendChild(img);
   }
 }
 
-// ---- MAIN ------------------------------------------------------------------
+/* ------------------ MAIN ------------------ */
 async function main(){
   const API = pickApiBase();
   const userId = qs("user");
@@ -306,8 +330,13 @@ async function main(){
   try {
     // Profile
     const user = await loadUser(API, userId);
-    avatarImg.src = user.avatarUrl || "/logo/logo-512.png";
+
+    // ✅ avatar: absolute URL + cache-busting + safe fallback
+    avatarImg.src = avatarSrc(user.avatarUrl);
     avatarImg.alt = user.name ? `${user.name} avatar` : "avatar";
+    avatarImg.loading = "eager";
+    avatarImg.onerror = () => { avatarImg.src = "/logo/avatar-placeholder.svg"; };
+
     nameH1.textContent = `Saga of ${user.name || "Wanderer"}`;
     emailSmall.textContent = user.email || "";
 
@@ -317,7 +346,7 @@ async function main(){
     if (user.bio)       { bioRow.textContent = user.bio; anyIntro = true; }
     introCard.style.display = anyIntro ? "" : "none";
 
-    // Stories + Gallery
+    // Stories + Gallery (image URLs normalized inside loaders/renderers)
     const stories = await loadStories(API, userId);
     renderStories(stories);
     renderGalleryFromStories(stories);
@@ -347,6 +376,7 @@ async function main(){
 }
 
 main();
+
 
 
 
