@@ -7,7 +7,7 @@ type SafeUser = {
   avatarUrl?: string;
   bio?: string;
   interests?: string;
-  createdAt?: number; // epoch ms if present
+  createdAt?: number;
 };
 
 type Story = {
@@ -15,13 +15,13 @@ type Story = {
   title?: string;
   text?: string;
   excerpt?: string;
-  imageUrl?: string;   // may be relative
+  imageUrl?: string;
   createdAt?: number;
 };
 
 /* ------------------ constants ------------------ */
 
-// Absolute fallback logo served by your backend (do NOT use a relative /logo path on Vercel)
+// Absolute fallback logo served by your backend
 const FALLBACK_LOGO = "https://meadhall-site.onrender.com/logo/logo-512.png";
 
 /* ------------------ helpers ------------------ */
@@ -61,6 +61,29 @@ function makeFullUrl(API: string, p?: string | null): string | null {
   const path = String(p).replace(/^\/+/, "");
   return `${base}/${path}`;
 }
+
+/** If url is absolute but on a different host, and it points to /uploads or /logo,
+ * rewrite it to use the API host. Keeps the pathname + query.
+ */
+function rehomeToApi(API: string, url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const api = new URL(API);
+    // Support relative stored values immediately
+    if (!/^https?:\/\//i.test(url)) return makeFullUrl(API, url);
+
+    const u = new URL(url);
+    const isAsset = u.pathname.startsWith("/uploads/") || u.pathname.startsWith("/logo/");
+    if (isAsset && u.origin !== api.origin) {
+      // rehost to API origin
+      return `${api.origin}${u.pathname}${u.search}`;
+    }
+    return url;
+  } catch {
+    return makeFullUrl(API, url); // best effort
+  }
+}
+
 /** Append cache-buster so new avatars show up immediately */
 function bust(u: string | null): string | null {
   return u ? `${u}${u.includes("?") ? "&" : "?"}t=${Date.now()}` : u;
@@ -115,7 +138,7 @@ async function loadStories(API: string, userId: string): Promise<Story[]> {
   const list: Story[] = Array.isArray(raw) ? (raw as Story[]) : ((raw as any)?.items ?? []);
   return list.map((s: Story) => ({
     ...s,
-    imageUrl: s?.imageUrl ? (makeFullUrl(API, s.imageUrl) ?? s.imageUrl) : undefined
+    imageUrl: s?.imageUrl ? (rehomeToApi(API, s.imageUrl) ?? s.imageUrl) : undefined
   }));
 }
 
@@ -134,7 +157,7 @@ async function loadCompanions(API: string, userId: string) {
     for (const u of list) {
       const row = document.createElement("div");
       row.className = "comp-item";
-      const avatar = bust(makeFullUrl(API, u.avatarUrl)) || FALLBACK_LOGO;
+      const avatar = bust(rehomeToApi(API, u.avatarUrl)) || FALLBACK_LOGO;
       row.innerHTML = `
         <div class="comp-meta">
           <img src="${esc(avatar)}" alt="" onerror="this.src='${FALLBACK_LOGO}'">
@@ -258,7 +281,7 @@ function openStoryModal(story: Story) {
   }
 
   root.style.display = "flex";
-  document.body.style.overflow = "hidden"; // prevent background scroll
+  document.body.style.overflow = "hidden";
 }
 
 /* ------------------ Renderers ------------------ */
@@ -268,7 +291,7 @@ function renderStories(stories: Story[]) {
     sagaList.appendChild(el("div","saga","No sagas told yet."));
     return;
   }
-  stories.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)); // newest first
+  stories.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
 
   for (const s of stories) {
     const wrap = el("article","saga");
@@ -333,8 +356,8 @@ async function main(){
     // Profile
     const user = await loadUser(API, userId);
 
-    // Avatar — absolute URL + cache-bust, with absolute fallback (Render).
-    const av = bust(makeFullUrl(API, user.avatarUrl)) || FALLBACK_LOGO;
+    // Avatar — rehome to API host + cache-bust, with absolute fallback
+    const av = bust(rehomeToApi(API, user.avatarUrl)) || FALLBACK_LOGO;
     avatarImg.src = av;
     avatarImg.alt = user.name ? `${user.name} avatar` : "avatar";
     avatarImg.onerror = () => { avatarImg.src = FALLBACK_LOGO; };
@@ -378,6 +401,7 @@ async function main(){
 }
 
 main();
+
 
 
 
