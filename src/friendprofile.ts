@@ -1,4 +1,4 @@
-﻿// /src/friendprofile.ts  (DROP-IN REPLACEMENT)
+﻿// /src/friendprofile.ts — Final clean version
 
 type SafeUser = {
   id: string;
@@ -7,7 +7,7 @@ type SafeUser = {
   avatarUrl?: string;
   bio?: string;
   interests?: string;
-  createdAt?: number; // epoch ms if present
+  createdAt?: number;
 };
 
 type Story = {
@@ -15,9 +15,11 @@ type Story = {
   title?: string;
   text?: string;
   excerpt?: string;
-  imageUrl?: string;   // may be relative (e.g. "/uploads/...")
+  imageUrl?: string;
   createdAt?: number;
 };
+
+type Photo = { id: string; url: string; createdAt?: number | string };
 
 /* ------------------ helpers ------------------ */
 function pickApiBase(): string {
@@ -25,29 +27,35 @@ function pickApiBase(): string {
   // @ts-ignore vite env support if present
   return m || (import.meta?.env?.VITE_API_BASE ?? "");
 }
+
 function qs(k: string): string | null {
   const v = new URLSearchParams(location.search).get(k);
   return v && v.trim() ? v.trim() : null;
 }
+
 function fmt(ts?: number): string {
   if (!ts) return "";
   const d = new Date(ts);
   return isNaN(d.getTime()) ? "" : d.toLocaleString();
 }
+
 function el<K extends keyof HTMLElementTagNameMap>(t: K, cls?: string, txt?: string) {
   const n = document.createElement(t);
   if (cls) n.className = cls;
   if (txt != null) n.textContent = txt;
   return n as HTMLElementTagNameMap[K];
 }
+
 function esc(s: any) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;", '"':"&quot;","'":"&#39;" }[c]!));
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as Record<string, string>)[c]!
+  );
 }
+
 function nl2br(s: string) {
   return esc(s).replace(/\n/g, "<br>");
 }
 
-// Build an absolute URL from a possibly-relative path like "/uploads/..."
 function fullUrl(p?: string | null): string {
   if (!p) return "";
   if (/^https?:\/\//i.test(p)) return p;
@@ -57,7 +65,6 @@ function fullUrl(p?: string | null): string {
   return `${base}/${path}`;
 }
 
-// Avatar resolver with cache-busting + safe fallback
 function avatarSrc(p?: string | null): string {
   const src = p && p.trim() ? fullUrl(p) : "/logo/avatar-placeholder.svg";
   const bust = `t=${Date.now()}`;
@@ -65,20 +72,19 @@ function avatarSrc(p?: string | null): string {
 }
 
 /* ------------------ DOM refs ------------------ */
-const avatarImg  = document.getElementById("avatar") as HTMLImageElement;
-const nameH1     = document.getElementById("username") as HTMLElement;
+const avatarImg = document.getElementById("avatar") as HTMLImageElement;
+const nameH1 = document.getElementById("username") as HTMLElement;
 const emailSmall = document.getElementById("useremail") as HTMLElement;
 
-const introCard    = document.getElementById("introCard") as HTMLElement;
-const joinedRow    = document.getElementById("joinedRow") as HTMLElement;
+const joinedRow = document.getElementById("joinedRow") as HTMLElement;
 const interestsRow = document.getElementById("interestsRow") as HTMLElement;
-const bioRow       = document.getElementById("bioRow") as HTMLElement;
+const bioRow = document.getElementById("bioRow") as HTMLElement;
 
-const sagaList     = document.getElementById("sagaList") as HTMLElement;
+const sagaList = document.getElementById("sagaList") as HTMLElement;
 const companionsEl = document.getElementById("companionsList") as HTMLElement;
-const galleryGrid  = document.getElementById("galleryGrid") as HTMLElement;
+const galleryGrid = document.getElementById("galleryGrid") as HTMLElement;
 
-// Tabs
+/* ------------------ Tabs ------------------ */
 const tabLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('.tabs a[data-tab]'));
 const sections: Record<string, HTMLElement> = {
   stories: document.getElementById("tab-stories") as HTMLElement,
@@ -86,20 +92,21 @@ const sections: Record<string, HTMLElement> = {
   gallery: document.getElementById("tab-gallery") as HTMLElement,
 };
 
-function showTab(tab: "stories"|"companions"|"gallery"){
-  tabLinks.forEach(a => a.classList.toggle("active", a.dataset.tab === tab));
+function showTab(tab: "stories" | "companions" | "gallery") {
+  tabLinks.forEach((a) => a.classList.toggle("active", a.dataset.tab === tab));
   Object.entries(sections).forEach(([k, el]) => el.classList.toggle("active", k === tab));
   if (location.hash !== `#${tab}`) history.replaceState(null, "", `#${tab}${location.search ? "" : ""}`);
 }
-tabLinks.forEach(a=>{
-  a.addEventListener("click", (e)=>{
+
+tabLinks.forEach((a) => {
+  a.addEventListener("click", (e) => {
     e.preventDefault();
-    const target = (e.currentTarget as HTMLAnchorElement).dataset.tab as "stories"|"companions"|"gallery";
+    const target = (e.currentTarget as HTMLAnchorElement).dataset.tab as "stories" | "companions" | "gallery";
     showTab(target);
   });
 });
 
-/* ------------------ loaders ------------------ */
+/* ------------------ Loaders ------------------ */
 async function loadUser(API: string, userId: string): Promise<SafeUser> {
   const res = await fetch(`${API}/api/users/${encodeURIComponent(userId)}`);
   if (!res.ok) throw new Error(`User not found (HTTP ${res.status})`);
@@ -109,9 +116,28 @@ async function loadUser(API: string, userId: string): Promise<SafeUser> {
 async function loadStories(API: string, userId: string): Promise<Story[]> {
   const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/stories`);
   const raw = await r.json();
-  const list: Story[] = Array.isArray(raw) ? raw : (raw?.items ?? []);
-  // Normalize imageUrl to absolute, if present
-  return list.map(s => ({ ...s, imageUrl: s.imageUrl ? fullUrl(s.imageUrl) : undefined }));
+  const list: Story[] = Array.isArray(raw) ? raw : raw?.items ?? [];
+  return list.map((s) => ({ ...s, imageUrl: s.imageUrl ? fullUrl(s.imageUrl) : undefined }));
+}
+
+function normalizePhotoArray(raw: any): Photo[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((p: any, i: number) => {
+      if (typeof p === "string") return { id: String(i), url: p };
+      const id = p.id || p._id || String(i);
+      const url = p.url || p.path || p.src || "";
+      return { id: String(id), url };
+    })
+    .filter((p) => p.url);
+}
+
+async function loadGallery(API: string, userId: string): Promise<Photo[]> {
+  const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/gallery`);
+  if (!r.ok) return [];
+  const data = await r.json();
+  const list = Array.isArray(data?.items) ? data.items : data;
+  return normalizePhotoArray(list);
 }
 
 async function loadCompanions(API: string, userId: string) {
@@ -144,50 +170,54 @@ async function loadCompanions(API: string, userId: string) {
       companionsEl.appendChild(row);
     }
   } catch {
-    companionsEl.innerHTML = `<div class="muted">Companions unavailable (add <code>/api/users/:id/companions</code> on the backend to enable).</div>`;
+    companionsEl.innerHTML = `<div class="muted">Companions unavailable.</div>`;
   }
 }
 
-/* ------------------ story modal ------------------ */
+/* ------------------ Story Modal ------------------ */
 let modalRoot: HTMLDivElement | null = null;
 function ensureModal() {
   if (modalRoot) return modalRoot;
   modalRoot = document.createElement("div");
   modalRoot.id = "storyModal";
-  modalRoot.style.position = "fixed";
-  modalRoot.style.inset = "0";
-  modalRoot.style.background = "rgba(0,0,0,.55)";
-  modalRoot.style.display = "none";
-  modalRoot.style.alignItems = "center";
-  modalRoot.style.justifyContent = "center";
-  modalRoot.style.zIndex = "9999";
+  Object.assign(modalRoot.style, {
+    position: "fixed",
+    inset: "0",
+    background: "rgba(0,0,0,.55)",
+    display: "none",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: "9999",
+  });
 
   const card = document.createElement("div");
-  card.style.width = "min(860px, 92vw)";
-  card.style.maxHeight = "82vh";
-  card.style.overflow = "auto";
-  card.style.background = "linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.15)), #151515d0";
-  card.style.border = "1px solid #3b3325";
-  card.style.borderRadius = "14px";
-  card.style.padding = "16px 18px 18px";
-  card.style.position = "relative";
-  card.style.color = "var(--ink)";
-  card.style.boxShadow = "0 14px 40px rgba(0,0,0,.6)";
+  Object.assign(card.style, {
+    width: "min(860px,92vw)",
+    maxHeight: "82vh",
+    overflow: "auto",
+    background: "linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.15)),#151515d0",
+    border: "1px solid #3b3325",
+    borderRadius: "14px",
+    padding: "16px 18px 18px",
+    position: "relative",
+    color: "var(--ink)",
+    boxShadow: "0 14px 40px rgba(0,0,0,.6)",
+  });
 
   const close = document.createElement("button");
   close.textContent = "×";
-  close.setAttribute("aria-label", "Close");
-  close.style.position = "absolute";
-  close.style.top = "8px";
-  close.style.right = "12px";
-  close.style.border = "1px solid #3b3325";
-  close.style.background = "rgba(0,0,0,.35)";
-  close.style.color = "var(--ink)";
-  close.style.fontSize = "20px";
-  close.style.lineHeight = "1";
-  close.style.borderRadius = "10px";
-  close.style.padding = "6px 10px";
-  close.style.cursor = "pointer";
+  Object.assign(close.style, {
+    position: "absolute",
+    top: "8px",
+    right: "12px",
+    border: "1px solid #3b3325",
+    background: "rgba(0,0,0,.35)",
+    color: "var(--ink)",
+    fontSize: "20px",
+    borderRadius: "10px",
+    padding: "6px 10px",
+    cursor: "pointer",
+  });
 
   const title = document.createElement("h3");
   title.id = "storyModalTitle";
@@ -203,17 +233,21 @@ function ensureModal() {
 
   const img = document.createElement("img");
   img.id = "storyModalImage";
-  img.style.maxWidth = "100%";
-  img.style.borderRadius = "10px";
-  img.style.border = "1px solid var(--line)";
-  img.style.margin = "8px 0 10px 0";
-  img.style.display = "none"; // hidden by default
+  Object.assign(img.style, {
+    maxWidth: "100%",
+    borderRadius: "10px",
+    border: "1px solid var(--line)",
+    margin: "8px 0 10px 0",
+    display: "none",
+  });
 
   const body = document.createElement("div");
   body.id = "storyModalBody";
-  body.style.whiteSpace = "pre-wrap";
-  body.style.lineHeight = "1.5";
-  body.style.color = "#e3decd";
+  Object.assign(body.style, {
+    whiteSpace: "pre-wrap",
+    lineHeight: "1.5",
+    color: "#e3decd",
+  });
 
   card.append(close, title, meta, img, body);
   modalRoot.appendChild(card);
@@ -221,12 +255,15 @@ function ensureModal() {
 
   const hide = () => {
     modalRoot!.style.display = "none";
-    document.body.style.overflow = ""; // re-enable scroll
+    document.body.style.overflow = "";
   };
-
   close.addEventListener("click", hide);
-  modalRoot.addEventListener("click", (e) => { if (e.target === modalRoot) hide(); });
-  document.addEventListener("keydown", (e) => { if (modalRoot!.style.display !== "none" && e.key === "Escape") hide(); });
+  modalRoot.addEventListener("click", (e) => {
+    if (e.target === modalRoot) hide();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (modalRoot!.style.display !== "none" && e.key === "Escape") hide();
+  });
 
   return modalRoot;
 }
@@ -234,49 +271,44 @@ function ensureModal() {
 function openStoryModal(story: Story) {
   const root = ensureModal();
   const title = root.querySelector<HTMLHeadingElement>("#storyModalTitle")!;
-  const meta  = root.querySelector<HTMLDivElement>("#storyModalMeta")!;
-  const body  = root.querySelector<HTMLDivElement>("#storyModalBody")!;
-  const img   = root.querySelector<HTMLImageElement>("#storyModalImage")!;
+  const meta = root.querySelector<HTMLDivElement>("#storyModalMeta")!;
+  const body = root.querySelector<HTMLDivElement>("#storyModalBody")!;
+  const img = root.querySelector<HTMLImageElement>("#storyModalImage")!;
 
   title.textContent = story.title || "(untitled)";
-  meta.textContent  = story.createdAt ? fmt(story.createdAt) : "";
-  body.innerHTML    = nl2br(story.text || story.excerpt || "—");
+  meta.textContent = story.createdAt ? fmt(story.createdAt) : "";
+  body.innerHTML = nl2br(story.text || story.excerpt || "—");
 
   if (story.imageUrl) {
-    const src = fullUrl(story.imageUrl); // normalize just in case
-    img.src = src;
+    img.src = fullUrl(story.imageUrl);
     img.alt = story.title || "story image";
     img.style.display = "";
-    img.onerror = () => { img.style.display = "none"; };
-    img.referrerPolicy = "no-referrer";
   } else {
     img.style.display = "none";
   }
 
   root.style.display = "flex";
-  document.body.style.overflow = "hidden"; // prevent background scroll
+  document.body.style.overflow = "hidden";
 }
 
-/* ------------------ renderers ------------------ */
+/* ------------------ Renderers ------------------ */
 function renderStories(stories: Story[]) {
   sagaList.innerHTML = "";
   if (!stories.length) {
-    sagaList.appendChild(el("div","saga","No sagas told yet."));
+    sagaList.appendChild(el("div", "saga", "No sagas told yet."));
     return;
   }
-  // newest first
-  stories.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-
+  stories.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   for (const s of stories) {
-    const wrap = el("article","saga");
-    const top  = el("div","top");
-    const h3   = el("h3","", s.title || "(untitled)");
-    const when = el("time","", fmt(s.createdAt));
+    const wrap = el("article", "saga");
+    const top = el("div", "top");
+    const h3 = el("h3", "", s.title || "(untitled)");
+    const when = el("time", "", fmt(s.createdAt));
     top.append(h3, when);
     wrap.append(top);
 
     const snippet = s.excerpt || (s.text ? s.text.slice(0, 200) + (s.text.length > 200 ? "…" : "") : "");
-    if (snippet) wrap.append(el("div","excerpt", snippet));
+    if (snippet) wrap.append(el("div", "excerpt", snippet));
 
     const btn = document.createElement("button");
     btn.textContent = "Read this saga";
@@ -293,89 +325,73 @@ function renderStories(stories: Story[]) {
   }
 }
 
-function renderGalleryFromStories(stories: Story[]) {
+function renderGalleryFromPhotos(photos: Photo[]) {
   galleryGrid.innerHTML = "";
-  const imgs = stories
-    .filter(s => !!s.imageUrl)
-    .map(s => ({ src: fullUrl(s.imageUrl!), alt: s.title || "story image" }));
-
-  if (!imgs.length) {
+  if (!photos.length) {
     galleryGrid.innerHTML = `<div class="muted">No images yet.</div>`;
     return;
   }
-  for (const im of imgs) {
+  for (const p of photos) {
     const img = new Image();
-    img.src = im.src;
-    img.alt = im.alt;
+    img.src = fullUrl(p.url);
+    img.alt = "gallery image";
     img.loading = "lazy";
     img.referrerPolicy = "no-referrer";
-    img.onerror = () => { img.remove(); };
+    Object.assign(img.style, {
+      width: "100%",
+      aspectRatio: "1/1",
+      objectFit: "cover",
+      borderRadius: "10px",
+      border: "1px solid var(--line)",
+    });
     galleryGrid.appendChild(img);
   }
 }
 
 /* ------------------ MAIN ------------------ */
-async function main(){
+async function main() {
   const API = pickApiBase();
   const userId = qs("user");
-  if (!userId) {
-    sagaList.innerHTML = `<div class="saga">Missing query. Open like <code>friendprofile.html?user=&lt;id&gt;</code>.</div>`;
-    return;
-  }
-  if (!API) {
-    sagaList.innerHTML = `<div class="saga">Missing API base. Add &lt;meta name="api-base" content="https://meadhall-site.onrender.com"&gt;.</div>`;
-    return;
-  }
+  if (!userId || !API) return;
 
   try {
-    // Profile
     const user = await loadUser(API, userId);
-
-    // ✅ avatar: absolute URL + cache-busting + safe fallback
     avatarImg.src = avatarSrc(user.avatarUrl);
-    avatarImg.alt = user.name ? `${user.name} avatar` : "avatar";
-    avatarImg.loading = "eager";
-    avatarImg.onerror = () => { avatarImg.src = "/logo/avatar-placeholder.svg"; };
-
     nameH1.textContent = `Saga of ${user.name || "Wanderer"}`;
     emailSmall.textContent = user.email || "";
+    if (user.createdAt) joinedRow.textContent = `Joined on ${new Date(user.createdAt).toLocaleDateString()}`;
+    if (user.interests) interestsRow.textContent = `Interests: ${user.interests}`;
+    if (user.bio) bioRow.textContent = user.bio;
 
-    let anyIntro = false;
-    if (user.createdAt) { joinedRow.textContent = `Joined the Hall on ${new Date(user.createdAt).toLocaleDateString()}`; anyIntro = true; }
-    if (user.interests) { interestsRow.textContent = `Interests: ${user.interests}`; anyIntro = true; }
-    if (user.bio)       { bioRow.textContent = user.bio; anyIntro = true; }
-    introCard.style.display = anyIntro ? "" : "none";
-
-    // Stories + Gallery (image URLs normalized inside loaders/renderers)
     const stories = await loadStories(API, userId);
     renderStories(stories);
-    renderGalleryFromStories(stories);
 
-    // Tabs boot
-    const hash = (location.hash || "#stories").replace("#","") as "stories"|"companions"|"gallery";
+    const photos = await loadGallery(API, userId);
+    renderGalleryFromPhotos(photos);
+
+    const hash = (location.hash || "#stories").replace("#", "") as "stories" | "companions" | "gallery";
     showTab(hash);
-
-    // Lazy load companions only when that tab is opened
     let companionsLoaded = false;
-    const ensureCompanions = async ()=> {
+    const ensureCompanions = async () => {
       if (!companionsLoaded) {
         companionsLoaded = true;
         await loadCompanions(API, userId);
       }
     };
     if (hash === "companions") ensureCompanions();
-    tabLinks.forEach(a=>{
-      a.addEventListener("click", ()=>{
+    tabLinks.forEach((a) => {
+      a.addEventListener("click", () => {
         if (a.dataset.tab === "companions") ensureCompanions();
       });
     });
-
-  } catch (e:any) {
+  } catch (e: any) {
     sagaList.innerHTML = `<div class="saga">Error: ${esc(e?.message || "Failed to load profile")}</div>`;
   }
 }
 
 main();
+
+
 
 
 
