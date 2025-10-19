@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Mead Hall • Friends & Chat</title>
 
-  <!-- Match the rest of the site -->
+  <!-- ✅ Points to your Render backend -->
   <meta name="api-base" content="https://meadhall-site.onrender.com" />
+
   <link rel="stylesheet" href="/Styles/odin.css" />
 
   <style>
-    /* Page-specific light touch so it still feels like the rest of Mead Hall */
     :root{
       --mh-wood:#22170f;
       --mh-wood2:#2a1d14;
@@ -23,10 +23,8 @@
       --mh-text:#e9e4d5;
     }
 
-    /* Layout containers align with .wrap used elsewhere */
     main .wrap { max-width: 980px; margin: 1rem auto; padding: 0 12px; }
 
-    /* Cards match your parchment panels */
     .card{
       background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.06)), var(--mh-wood);
       border: 1px solid var(--mh-iron);
@@ -43,7 +41,6 @@
     }
     .body{ padding:12px; background:var(--mh-parch); color:var(--mh-parch-ink); }
 
-    /* Inputs / buttons blend with odin.css look */
     .row{display:flex; gap:8px; flex-wrap:wrap}
     input[type="text"], textarea{
       flex:1; min-width:240px; padding:10px;
@@ -61,14 +58,12 @@
     .note{font-size:.9rem}
     .muted{opacity:.75}
 
-    /* Lookup result row */
     .result{
       margin-top:10px; display:flex; align-items:center; gap:12px;
       background:var(--mh-parch); border:1px solid #c8bc99; border-radius:10px; padding:10px;
     }
     .result img{ width:48px; height:48px; border-radius:50%; object-fit:cover; border:1px solid #c8bc99; background:#ddd }
 
-    /* Lists */
     .list{display:grid; gap:8px}
     .item{
       display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -80,7 +75,6 @@
     .id{opacity:.65; font-size:.9rem}
     .actions{display:flex; gap:6px}
 
-    /* Chat dock matches parchment + wood chrome */
     .chat-dock{
       position:fixed; right:16px; bottom:12px; display:flex; gap:10px;
       align-items:flex-end; z-index:50; flex-wrap:wrap-reverse; max-width:90vw
@@ -104,7 +98,6 @@
     .chat-compose{display:flex; gap:8px; padding:8px; background:var(--mh-wood2); border-top:1px solid var(--mh-iron)}
     .chat-compose textarea{flex:1; min-height:54px}
 
-    /* Thin home strip already exists site-wide, keep it */
     .home-strip{
       background:#1b120a; padding:8px 12px; border-bottom:1px solid var(--mh-iron);
       text-align:center;
@@ -116,15 +109,17 @@
 <body>
   <!-- Standard site header -->
   <header class="site-header">
-    <div class="wrap">
-      <h1>Mead Hall</h1>
-      <nav>
-        <a href="index.html">Home</a>
+    <div class="wrap" style="display:flex;gap:22px;align-items:center;">
+      <div class="brand"><div class="mark"></div><h1>Mead Hall</h1></div>
+      <nav style="margin-left:auto;display:flex;gap:16px">
+        <a class="navlink" href="index.html">Home</a>
+        <a class="navlink" href="/profile.html">Profile</a>
+        <a class="navlink" href="/account.html">Account</a>
       </nav>
     </div>
   </header>
 
-  <!-- Slim home strip (same as other pages) -->
+  <!-- Slim home strip -->
   <div class="home-strip">
     <a href="index.html">Back to Home</a>
   </div>
@@ -147,19 +142,19 @@
       <!-- Friends -->
       <div class="card">
         <h2>Friends</h2>
-        <div id="friendsList" class="body list"><div class="muted">Loading</div></div>
+        <div id="friendsList" class="body list"><div class="muted">Loading…</div></div>
       </div>
 
       <!-- Incoming -->
       <div class="card">
         <h2>Incoming Requests</h2>
-        <div id="incomingList" class="body list"><div class="muted">Loading</div></div>
+        <div id="incomingList" class="body list"><div class="muted">Loading…</div></div>
       </div>
 
       <!-- Outgoing -->
       <div class="card">
         <h2>Outgoing Requests</h2>
-        <div id="outgoingList" class="body list"><div class="muted">Loading</div></div>
+        <div id="outgoingList" class="body list"><div class="muted">Loading…</div></div>
       </div>
     </div>
   </main>
@@ -167,294 +162,11 @@
   <!-- Chat dock -->
   <div id="chatDock" class="chat-dock"></div>
 
-  <!-- Scripts unchanged -->
-  <script type="module">
-    // ------- CONFIG & AUTH -------
-    const API_BASE = document.querySelector('meta[name="api-base"]')?.content?.replace(/\/$/, '') || '';
-    const mhUser = (() => {
-      try { return JSON.parse(localStorage.getItem('mh_user') || localStorage.getItem('user') || 'null'); }
-      catch { return null; }
-    })();
-    const CURRENT_USER_ID = mhUser?.id || '';
-
-    const headers = {
-      'Content-Type':'application/json',
-      'x-user-id': CURRENT_USER_ID || ''
-    };
-
-    const $ = (id)=>document.getElementById(id);
-    const $friends = $('friendsList'), $incoming=$('incomingList'), $outgoing=$('outgoingList');
-    const $notice = $('notice'), $dock = $('chatDock'), $lookup = $('lookupId'), $lookupBtn = $('lookupBtn'), $lookupResult = $('lookupResult');
-
-    const esc = (s)=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-    function say(msg, kind=''){ $notice.innerHTML = msg ? `<span class="${kind}">${esc(msg)}</span>` : ''; }
-
-    function requireReady(){
-      if (!API_BASE) { say('Missing API base meta tag.', 'err'); throw new Error('No API base'); }
-      if (!CURRENT_USER_ID) { say('Not signed in. Please log in first.', 'err'); throw new Error('No user'); }
-    }
-    requireReady();
-
-    // ------- HTTP -------
-    async function http(method, path, body){
-      const r = await fetch(API_BASE + path, {
-        method,
-        headers,
-        body: method==='GET' ? undefined : JSON.stringify(body||{})
-      });
-      if (!r.ok) {
-        const ct = r.headers.get('content-type') || '';
-        const t = await (ct.includes('json') ? r.json() : r.text());
-        const msg = typeof t === 'string' ? t : (t?.error || ('HTTP '+r.status));
-        throw new Error(msg);
-      }
-      return r.json();
-    }
-
-    // ------- Backend APIs -------
-    const getUser = (id)=> http('GET', '/api/users/' + encodeURIComponent(id));
-    const searchUsers = (q)=> http('GET','/api/users/search?q=' + encodeURIComponent(q));
-    const apiGetFriends = ()=> http('GET','/api/friends');
-    const apiSendFriendRequest = (toUserId)=> http('POST','/api/friends/request',{ toUserId });
-    const apiRespondFriendRequest = (fromUserId, accept)=> http('POST','/api/friends/respond',{ fromUserId, accept });
-    const apiGetHistory = (withId)=> http('GET','/api/chat/history?with=' + encodeURIComponent(withId));
-    const apiSendMessage = (to,text)=> http('POST','/api/chat/send',{ to, text });
-
-    // ------- Lookup by username -------
-    async function lookup() {
-      $lookupResult.innerHTML = '';
-      say('');
-      const term = ($lookup.value || '').trim();
-      if (!term) return;
-
-      // Prevent adding yourself by name
-      if ((mhUser?.name || '').toLowerCase() === term.toLowerCase()) {
-        say('Thats you.', 'err'); return;
-      }
-
-      let results = [];
-      try {
-        // name/email/id search
-        results = await searchUsers(term);
-      } catch (e) {
-        say(e.message || 'Search failed.', 'err');
-        return;
-      }
-
-      if (!Array.isArray(results) || results.length === 0) {
-        say('No user found matching "' + term + '".', 'err');
-        return;
-      }
-
-      // Show multiple matches (avatars + names)
-      const rel = await apiGetFriends();
-      $lookupResult.innerHTML = results.map(u => buildLookupRow(u, rel)).join('');
-      // bind buttons
-      results.forEach(u => {
-        const btn = document.getElementById('addBtn_' + u.id);
-        if (btn && !btn.disabled) {
-          btn.onclick = async () => {
-            try {
-              await apiSendFriendRequest(u.id);
-              say('Request sent to ' + (u.name || u.id) + '.', 'ok');
-              await refreshLists();
-              lookup(); // refresh the lookup state (disables button etc.)
-            } catch (e) { say(e.message || 'Failed to send request.', 'err'); }
-          };
-        }
-      });
-    }
-
-    function buildLookupRow(u, rel) {
-      const isFriend   = rel.friends.some(x => x.id === u.id);
-      const isIncoming = rel.incoming.some(x => x.id === u.id);
-      const isOutgoing = rel.outgoing.some(x => x.id === u.id);
-      const disabled = isFriend || isIncoming || isOutgoing || (u.id === CURRENT_USER_ID);
-      const status = isFriend
-        ? 'Already friends'
-        : isIncoming ? 'They requested you (see Incoming)'
-        : isOutgoing ? 'Request pending'
-        : (u.id === CURRENT_USER_ID ? 'Thats you' : '');
-
-      return `
-        <div class="result">
-          <img src="${esc(u.avatarUrl || '/logo/logo-512.png')}" alt="avatar"/>
-          <div style="flex:1; min-width:0">
-            <div><strong>${esc(u.name || u.id)}</strong></div>
-            <div class="muted" style="font-size:.9rem">${esc(u.id)} ${u.email ? ' ' + esc(u.email) : ''}</div>
-          </div>
-          <div>
-            <button id="addBtn_${u.id}" ${disabled ? 'disabled' : ''}>Add Friend</button>
-            ${status ? `<div class="muted" style="margin-top:4px; font-size:.85rem">${esc(status)}</div>` : ''}
-          </div>
-        </div>
-      `;
-    }
-
-    // ------- Lists (friends/incoming/outgoing) -------
-    function itemFriend(u){
-      const href = `friendprofile.html?user=${encodeURIComponent(u.id)}`;
-      return `
-        <div class="item">
-          <div class="meta">
-            <a href="${href}">
-              <img src="${esc(u.avatarUrl || '/logo/logo-512.png')}" alt="">
-            </a>
-            <div>
-              <div class="name">${esc(u.name || u.id)}</div>
-              <div class="id">${esc(u.id)}</div>
-            </div>
-          </div>
-          <div class="actions">
-            <button onclick="openChat('${u.id}','${esc(u.name || u.id)}')">Chat</button>
-          </div>
-        </div>
-      `;
-    }
-    function itemIncoming(u){
-      return `
-        <div class="item">
-          <div class="meta">
-            <img src="${esc(u.avatarUrl || '/logo/logo-512.png')}" alt="">
-            <div>
-              <div class="name">${esc(u.name || u.id)}</div>
-              <div class="id">${esc(u.id)}</div>
-            </div>
-          </div>
-          <div class="actions">
-            <button onclick="respond('${u.id}', true)">Accept</button>
-            <button class="secondary" onclick="respond('${u.id}', false)">Decline</button>
-          </div>
-        </div>
-      `;
-    }
-    function itemOutgoing(u){
-      return `
-        <div class="item">
-          <div class="meta">
-            <img src="${esc(u.avatarUrl || '/logo/logo-512.png')}" alt="">
-            <div>
-              <div class="name">${esc(u.name || u.id)}</div>
-              <div class="id">${esc(u.id)}</div>
-            </div>
-          </div>
-          <div class="actions"><span class="muted">Pending</span></div>
-        </div>
-      `;
-    }
-
-    async function refreshLists(){
-      try{
-        const data = await apiGetFriends();
-        $('friendsList').innerHTML  = data.friends.length  ? data.friends.map(itemFriend).join('')    : `<div class="muted">No friends yet.</div>`;
-        $('incomingList').innerHTML = data.incoming.length ? data.incoming.map(itemIncoming).join('') : `<div class="muted">None.</div>`;
-        $('outgoingList').innerHTML = data.outgoing.length ? data.outgoing.map(itemOutgoing).join('') : `<div class="muted">None.</div>`;
-      }catch(e){
-        say(e.message || 'Failed to load lists', 'err');
-      }
-    }
-
-    async function respond(fromUserId, accept){
-      try{
-        await apiRespondFriendRequest(fromUserId, !!accept);
-        await refreshLists();
-        say(accept ? 'Friend request accepted.' : 'Request declined.', 'ok');
-      }catch(e){ say(e.message || 'Failed to respond.', 'err'); }
-    }
-    window.respond = respond;
-
-    // ------- Chat (popup) -------
-    const openWindows = new Map(); // friendId -> {root, msgsEl, ta, pollId}
-
-    async function renderHistory(friendId){
-      const w = openWindows.get(friendId); if(!w) return;
-      const list = await apiGetHistory(friendId);
-      w.msgsEl.innerHTML = '';
-      list.forEach(m=>{
-        const div = document.createElement('div');
-        div.className = 'msg ' + (m.from === CURRENT_USER_ID ? 'mine' : '');
-        div.innerHTML = `<div>${esc(m.text)}</div><time>${new Date(m.ts).toLocaleTimeString()}</time>`;
-        w.msgsEl.appendChild(div);
-      });
-      w.msgsEl.scrollTop = w.msgsEl.scrollHeight;
-    }
-
-    function openChat(friendId, friendName){
-      if(openWindows.has(friendId)){
-        const { root } = openWindows.get(friendId);
-        root.style.display='flex';
-        root.querySelector('textarea')?.focus();
-        return;
-      }
-      const root=document.createElement('div');
-      root.className='chat-box';
-      root.innerHTML=`
-        <div class="chat-head">
-          <div class="title"> ${esc(friendName||friendId)}</div>
-          <div class="btns">
-            <button data-min>_</button>
-            <button data-close></button>
-          </div>
-        </div>
-        <div class="chat-msgs"></div>
-        <div class="chat-compose">
-          <textarea rows="3" placeholder="Speak, ${esc(friendName||'friend')}"></textarea>
-          <button data-send>Send</button>
-        </div>
-      `;
-      const msgsEl = root.querySelector('.chat-msgs');
-      const ta = root.querySelector('textarea');
-      const sendBtn = root.querySelector('[data-send]');
-      const btnMin = root.querySelector('[data-min]');
-      const btnClose = root.querySelector('[data-close]');
-
-      sendBtn.addEventListener('click', async ()=>{
-        const text=(ta.value||'').trim(); if(!text) return;
-        await apiSendMessage(friendId, text);
-        ta.value=''; renderHistory(friendId);
-      });
-      ta.addEventListener('keydown', async (e)=>{
-        if(e.key==='Enter' && !e.shiftKey){
-          e.preventDefault();
-          const text=(ta.value||'').trim(); if(!text) return;
-          await apiSendMessage(friendId, text);
-          ta.value=''; renderHistory(friendId);
-        }
-      });
-      btnMin.addEventListener('click', ()=>{
-        const body=root.querySelector('.chat-msgs');
-        const comp=root.querySelector('.chat-compose');
-        const hidden=body.style.display==='none';
-        body.style.display=hidden?'flex':'none';
-        comp.style.display=hidden?'flex':'none';
-      });
-      btnClose.addEventListener('click', ()=>{
-        const w=openWindows.get(friendId);
-        if(w?.pollId) clearInterval(w.pollId);
-        openWindows.delete(friendId);
-        root.remove();
-      });
-
-      document.getElementById('chatDock').appendChild(root);
-      openWindows.set(friendId, { root, msgsEl, ta, pollId:null });
-
-      renderHistory(friendId).then(()=>{
-        const pollId=setInterval(()=>renderHistory(friendId), 3000);
-        const w=openWindows.get(friendId);
-        if(w) w.pollId=pollId;
-      });
-      ta.focus();
-    }
-    window.openChat = openChat;
-
-    // ------- Init -------
-    $lookupBtn.addEventListener('click', lookup);
-    $lookup.addEventListener('keydown', e => { if (e.key === 'Enter') lookup(); });
-    refreshLists();
-  </script>
+  <!-- ✅ Single source of truth JS (handles avatars via fullUrl + cache-bust) -->
   <script type="module" src="/src/friends.ts"></script>
 </body>
 </html>
+
 
 
 
