@@ -767,6 +767,12 @@ app.get("/api/users/:id/companions", (req, res) => {
    GALLERY ROUTES (JSON-persistent)
    ============================== */
 
+// Helper: absolute public URL for a stored filename
+function publicUrlFor(fileName, bust = Date.now()) {
+  const base = String(SERVER_PUBLIC_URL || "").replace(/\/+$/, "");
+  return `${base}/uploads/${encodeURIComponent(fileName)}?t=${bust}`;
+}
+
 // Multer for gallery images (can upload multiple)
 const galleryStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
@@ -789,31 +795,49 @@ function headerUserId(req) {
   return (req.headers["x-user-id"] || "").toString().trim();
 }
 
-// GET user gallery
+// GET user gallery  -> always return absolute imageUrl
 app.get("/api/users/:id/gallery", (req, res) => {
   const uid = String(req.params.id || "");
   const list = Array.isArray(galleryMap[uid]) ? galleryMap[uid] : [];
-  res.json(list);
+  const mapped = list.map((p) => {
+    const fp = path.join(uploadsDir, p.id);
+    let bust = p.createdAt || Date.now();
+    try { bust = (fs.statSync(fp).mtimeMs | 0) || bust; } catch {}
+    return {
+      id: p.id,
+      createdAt: p.createdAt,
+      imageUrl: publicUrlFor(p.id, bust), // absolute URL like https://meadhall-site.onrender.com/uploads/123.png?t=...
+    };
+  });
+  res.json(mapped);
 });
 
 // POST upload photos -> field: "photos"
+// Returns { ok, items:[{id, createdAt, imageUrl}] } with absolute URLs
 app.post("/api/account/gallery", uploadGallery.array("photos"), (req, res) => {
   const uid = headerUserId(req);
   if (!uid) return res.status(401).json({ error: "Missing user id (x-user-id)" });
   if (!req.files?.length) return res.status(400).json({ error: "No files uploaded" });
 
   const curr = Array.isArray(galleryMap[uid]) ? galleryMap[uid] : [];
+  const nowTs = Date.now();
   for (const f of req.files) {
     curr.push({
       id: f.filename,
-      url: `/uploads/${f.filename}`, // relative; frontend will prefix with api-base
-      createdAt: Date.now(),
+      createdAt: nowTs,
+      // (we store only id + createdAt; URL is derived)
     });
   }
   galleryMap[uid] = curr;
   saveGalleryMapToDisk(galleryMap);
 
-  res.json({ ok: true, items: curr });
+  const items = curr.slice(-req.files.length).map((p) => ({
+    id: p.id,
+    createdAt: p.createdAt,
+    imageUrl: publicUrlFor(p.id, p.createdAt),
+  }));
+
+  res.json({ ok: true, items });
 });
 
 // DELETE a photo
@@ -829,6 +853,7 @@ app.delete("/api/users/:id/gallery/:photoId", (req, res) => {
   try { fs.unlinkSync(path.join(uploadsDir, pid)); } catch {}
   res.json({ ok: true });
 });
+
 
 // --- helper to send contest email with PDF attached ---
 async function sendContestEmail(entry, buyerEmail = null) {
