@@ -190,7 +190,11 @@ async function uploadPhotos(files: FileList): Promise<Photo[]> {
 
   for (const u of endpoints) {
     try {
-      const r = await fetch(u, { method: "POST", body: fd });
+      const r = await fetch(u, {
+  method: "POST",
+  body: fd,
+  headers: { "x-user-id": currentUser!.id },   // <-- REQUIRED
+});
       const payload = await r.json().catch(() => ({}));
       if (!r.ok) continue;
 

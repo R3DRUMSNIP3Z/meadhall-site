@@ -1,75 +1,78 @@
-// backend/backend/galleryRoutes.js
-import express from "express";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
+// backend/backend/galleryRoutes.js (CommonJS)
+const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
-const router = express.Router();
+function install(app) {
+  const router = express.Router();
 
-// ---------- storage ----------
-const uploadRoot = path.join(process.cwd(), "public", "uploads");
-fs.mkdirSync(uploadRoot, { recursive: true });
+  // Use the SAME uploads dir that index.js serves at /uploads
+  const uploadRoot =
+    app.locals?.uploadsDir ||
+    path.join(__dirname, "public", "uploads");
+  fs.mkdirSync(uploadRoot, { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadRoot),
-  filename: (_req, file, cb) => {
-    const safe = file.originalname.replace(/\s+/g, "_");
-    cb(null, `${Date.now()}-${safe}`);
-  },
-});
-const upload = multer({ storage });
+  // Storage
+  const storage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadRoot),
+    filename: (_req, file, cb) => {
+      const safe = String(file.originalname || "photo").replace(/\s+/g, "_");
+      cb(null, `${Date.now()}-${safe}`);
+    },
+  });
+  const upload = multer({
+    storage,
+    limits: { fileSize: 12 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (/^image\/(png|jpe?g|webp|gif|avif)$/i.test(file.mimetype)) cb(null, true);
+      else cb(new Error("Only image files are allowed"));
+    },
+  });
 
-// ---------- in-memory gallery (userId -> photos[]) ----------
-/** @type {Map<string, Array<{id:string,url:string,createdAt:number}>>} */
-const gallery = new Map();
+  // Simple in-memory map (userId -> [{id,url,createdAt}])
+  const gallery = app.locals.galleryMap || (app.locals.galleryMap = new Map());
 
-// helper
-function getUserId(req) {
-  // Same header your frontend already sends
-  return (req.headers["x-user-id"] || "").toString().trim();
+  const getUserId = (req) => (req.headers["x-user-id"] || "").toString().trim();
+
+  // GET user gallery (array)
+  router.get("/api/users/:id/gallery", (req, res) => {
+    const uid = String(req.params.id || "");
+    const list = gallery.get(uid) || [];
+    res.json(list);
+  });
+
+  // POST upload (field: "photos")
+  router.post("/api/account/gallery", upload.array("photos"), (req, res) => {
+    const uid = getUserId(req);
+    if (!uid) return res.status(401).json({ error: "Missing user id (x-user-id)" });
+    if (!req.files?.length) return res.status(400).json({ error: "No files uploaded" });
+
+    const curr = gallery.get(uid) || [];
+    for (const f of req.files) {
+      curr.push({
+        id: f.filename,
+        url: `/uploads/${f.filename}`,     // relative; frontend will prefix with API_BASE
+        createdAt: Date.now(),
+      });
+    }
+    gallery.set(uid, curr);
+    res.json({ ok: true, items: curr.slice(-req.files.length) });
+  });
+
+  // DELETE one photo
+  router.delete("/api/users/:id/gallery/:photoId", (req, res) => {
+    const { id: uid, photoId } = req.params;
+    const curr = gallery.get(uid) || [];
+    const next = curr.filter((p) => String(p.id) !== String(photoId));
+    gallery.set(uid, next);
+    try { fs.unlinkSync(path.join(uploadRoot, photoId)); } catch {}
+    res.json({ ok: true });
+  });
+
+  app.use(router);
 }
 
-// ---------- routes ----------
+module.exports = { install };
 
-// GET: list a user's photos
-router.get("/api/users/:id/gallery", (req, res) => {
-  const uid = String(req.params.id);
-  const list = gallery.get(uid) || [];
-  // Return plain array; your frontend accepts array or {items:[]}
-  res.json(list);
-});
-
-// POST: upload photos for current user (field: "photos")
-router.post("/api/account/gallery", upload.array("photos"), (req, res) => {
-  const uid = getUserId(req);
-  if (!uid) return res.status(401).json({ error: "Missing user id (x-user-id header)" });
-  if (!req.files?.length) return res.status(400).json({ error: "No files uploaded" });
-
-  const curr = gallery.get(uid) || [];
-  for (const f of req.files) {
-    curr.push({
-      id: f.filename,
-      // return RELATIVE url so frontend fullUrl() can prefix with API_BASE
-      url: `/uploads/${f.filename}`,
-      createdAt: Date.now(),
-    });
-  }
-  gallery.set(uid, curr);
-  res.json({ ok: true, items: curr });
-});
-
-// DELETE: remove one photo
-router.delete("/api/users/:id/gallery/:photoId", (req, res) => {
-  const { id: uid, photoId } = req.params;
-  const list = gallery.get(uid) || [];
-  const next = list.filter((p) => p.id !== photoId);
-  gallery.set(uid, next);
-
-  // best-effort file delete
-  try { fs.unlinkSync(path.join(uploadRoot, photoId)); } catch {}
-
-  res.json({ ok: true });
-});
-
-export default router;
 

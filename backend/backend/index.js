@@ -21,6 +21,7 @@ const accountRoutes = require("./accountRoutes");
 const friendsRoutes = require("./friendsRoutes");
 const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
+const galleryRoutes = require("./galleryRoutes"); // ⬅️ add
 
 const app = express();
 
@@ -60,6 +61,9 @@ app.set("trust proxy", 1);
 const uploadsDir = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use("/uploads", express.static(uploadsDir));
+// expose for other routers (galleryRoutes will read this)
+app.locals.uploadsDir = uploadsDir;
+console.log("Uploads dir:", uploadsDir, "Exists:", fs.existsSync(uploadsDir));
 
 // --- simple JSON "DB" base dir ---
 const DATA_DIR = path.join(__dirname, "data");
@@ -113,7 +117,7 @@ function saveUsersToDisk(arr) {
 }
 
 /* ==============================
-   JSON "DB" for gallery
+   JSON "DB" for gallery (persisted as object)
    ============================== */
 const GALLERY_FILE = path.join(DATA_DIR, "gallery.json");
 if (!fs.existsSync(GALLERY_FILE)) fs.writeFileSync(GALLERY_FILE, "{}");
@@ -121,7 +125,6 @@ if (!fs.existsSync(GALLERY_FILE)) fs.writeFileSync(GALLERY_FILE, "{}");
 function loadGalleryMapFromDisk() {
   try {
     const obj = JSON.parse(fs.readFileSync(GALLERY_FILE, "utf8"));
-    // ensure shape { [userId]: [{id,url,createdAt}] }
     return typeof obj === "object" && obj ? obj : {};
   } catch {
     return {};
@@ -130,7 +133,9 @@ function loadGalleryMapFromDisk() {
 function saveGalleryMapToDisk(mapObj) {
   fs.writeFileSync(GALLERY_FILE, JSON.stringify(mapObj, null, 2));
 }
-const galleryMap = loadGalleryMapFromDisk(); // in-memory object keyed by userId
+// keep a JSON-backed object available to routes that want it
+app.locals.galleryJson = loadGalleryMapFromDisk();
+app.locals.saveGalleryJson = () => saveGalleryMapToDisk(app.locals.galleryJson);
 
 // --- Email setup: Resend (preferred) + SMTP fallback ---
 const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
@@ -735,6 +740,7 @@ accountRoutes.install(app);
 friendsRoutes.install(app);
 chatRoutes.install(app);
 chatGlobal.install(app);
+galleryRoutes.install(app); // ⬅️ mount the gallery routes
 
 /* ======== Friends-of-User (public read-only) — used by friendprofile.html ======== */
 function safeUser(u) {
@@ -762,98 +768,6 @@ app.get("/api/users/:id/companions", (req, res) => {
   if (!users.has(id)) return res.status(404).json({ error: "User not found" });
   return res.json(listFriendsOf(id));
 });
-
-/* ==============================
-   GALLERY ROUTES (JSON-persistent)
-   ============================== */
-
-// Helper: absolute public URL for a stored filename
-function publicUrlFor(fileName, bust = Date.now()) {
-  const base = String(SERVER_PUBLIC_URL || "").replace(/\/+$/, "");
-  return `${base}/uploads/${encodeURIComponent(fileName)}?t=${bust}`;
-}
-
-// Multer for gallery images (can upload multiple)
-const galleryStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const safe = String(file.originalname || "photo").replace(/\s+/g, "_");
-    cb(null, `${Date.now()}-${safe}`);
-  },
-});
-const uploadGallery = multer({
-  storage: galleryStorage,
-  limits: { fileSize: 12 * 1024 * 1024 }, // 12MB per image
-  fileFilter: (_req, file, cb) => {
-    if (/^image\/(png|jpe?g|webp|gif|avif)$/i.test(file.mimetype)) cb(null, true);
-    else cb(new Error("Only image files are allowed"));
-  },
-});
-
-// helper to read user id from header
-function headerUserId(req) {
-  return (req.headers["x-user-id"] || "").toString().trim();
-}
-
-// GET user gallery  -> always return absolute imageUrl
-app.get("/api/users/:id/gallery", (req, res) => {
-  const uid = String(req.params.id || "");
-  const list = Array.isArray(galleryMap[uid]) ? galleryMap[uid] : [];
-  const mapped = list.map((p) => {
-    const fp = path.join(uploadsDir, p.id);
-    let bust = p.createdAt || Date.now();
-    try { bust = (fs.statSync(fp).mtimeMs | 0) || bust; } catch {}
-    return {
-      id: p.id,
-      createdAt: p.createdAt,
-      imageUrl: publicUrlFor(p.id, bust), // absolute URL like https://meadhall-site.onrender.com/uploads/123.png?t=...
-    };
-  });
-  res.json(mapped);
-});
-
-// POST upload photos -> field: "photos"
-// Returns { ok, items:[{id, createdAt, imageUrl}] } with absolute URLs
-app.post("/api/account/gallery", uploadGallery.array("photos"), (req, res) => {
-  const uid = headerUserId(req);
-  if (!uid) return res.status(401).json({ error: "Missing user id (x-user-id)" });
-  if (!req.files?.length) return res.status(400).json({ error: "No files uploaded" });
-
-  const curr = Array.isArray(galleryMap[uid]) ? galleryMap[uid] : [];
-  const nowTs = Date.now();
-  for (const f of req.files) {
-    curr.push({
-      id: f.filename,
-      createdAt: nowTs,
-      // (we store only id + createdAt; URL is derived)
-    });
-  }
-  galleryMap[uid] = curr;
-  saveGalleryMapToDisk(galleryMap);
-
-  const items = curr.slice(-req.files.length).map((p) => ({
-    id: p.id,
-    createdAt: p.createdAt,
-    imageUrl: publicUrlFor(p.id, p.createdAt),
-  }));
-
-  res.json({ ok: true, items });
-});
-
-// DELETE a photo
-app.delete("/api/users/:id/gallery/:photoId", (req, res) => {
-  const uid = String(req.params.id || "");
-  const pid = String(req.params.photoId || "");
-  const curr = Array.isArray(galleryMap[uid]) ? galleryMap[uid] : [];
-  const next = curr.filter((p) => String(p.id) !== pid);
-  galleryMap[uid] = next;
-  saveGalleryMapToDisk(galleryMap);
-
-  // best-effort file removal
-  try { fs.unlinkSync(path.join(uploadsDir, pid)); } catch {}
-  res.json({ ok: true });
-});
-
 
 // --- helper to send contest email with PDF attached ---
 async function sendContestEmail(entry, buyerEmail = null) {
@@ -889,10 +803,8 @@ async function sendContestEmail(entry, buyerEmail = null) {
   });
 }
 
-
-
-
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
