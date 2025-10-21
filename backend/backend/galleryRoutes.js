@@ -1,3 +1,4 @@
+// backend/backend/galleryRoutes.js
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
@@ -6,33 +7,11 @@ const fs = require("fs");
 function install(app) {
   const router = express.Router();
 
-  // ✅ use same /uploads folder as avatars and contests
+  // ✅ use the same uploads dir the server already exposes at /uploads
   const uploadRoot =
-    app.locals?.uploadsDir || path.join(__dirname, "public", "uploads");
+    app.locals?.uploadsDir ||
+    path.join(__dirname, "public", "uploads");
   fs.mkdirSync(uploadRoot, { recursive: true });
-
-  // 📘 gallery.json persistence file
-  const dataDir = path.join(__dirname, "data");
-  const galleryFile = path.join(dataDir, "gallery.json");
-  fs.mkdirSync(dataDir, { recursive: true });
-  if (!fs.existsSync(galleryFile)) fs.writeFileSync(galleryFile, "{}");
-
-  const loadGalleryFromDisk = () => {
-    try {
-      return JSON.parse(fs.readFileSync(galleryFile, "utf8"));
-    } catch {
-      return {};
-    }
-  };
-  const saveGalleryToDisk = (data) =>
-    fs.writeFileSync(galleryFile, JSON.stringify(data, null, 2));
-
-  // Load initial memory cache
-  const gallery = app.locals.galleryMap || (app.locals.galleryMap = new Map());
-  const json = loadGalleryFromDisk();
-  for (const [uid, list] of Object.entries(json)) gallery.set(uid, list);
-
-  const getUserId = (req) => (req.headers["x-user-id"] || "").toString().trim();
 
   // --- Multer setup
   const storage = multer.diskStorage({
@@ -46,13 +25,18 @@ function install(app) {
     storage,
     limits: { fileSize: 12 * 1024 * 1024 },
     fileFilter: (_req, file, cb) => {
-      if (/^image\/(png|jpe?g|webp|gif|avif)$/i.test(file.mimetype)) cb(null, true);
+      if (/^image\/(png|jpe?g|webp|gif|avif)$/i.test(file.mimetype))
+        cb(null, true);
       else cb(new Error("Only image files allowed"));
     },
   });
 
+  // --- In-memory list (userId → [{id,url,createdAt}])
+  const gallery = app.locals.galleryMap || (app.locals.galleryMap = new Map());
+  const getUserId = (req) => (req.headers["x-user-id"] || "").toString().trim();
+
   /* ---------------------------------------------------
-     GET /api/users/:id/gallery   → list user's photos
+     1️⃣ GET /api/users/:id/gallery   → list user photos
   --------------------------------------------------- */
   router.get("/api/users/:id/gallery", (req, res) => {
     const uid = String(req.params.id || "");
@@ -61,7 +45,7 @@ function install(app) {
   });
 
   /* ---------------------------------------------------
-     POST /api/account/gallery   → upload new photos
+     2️⃣ POST /api/account/gallery    → upload new photos
   --------------------------------------------------- */
   router.post("/api/account/gallery", upload.array("photos"), (req, res) => {
     const uid = getUserId(req);
@@ -79,24 +63,20 @@ function install(app) {
       });
     }
     gallery.set(uid, curr);
-
-    // 💾 persist to disk
-    const data = Object.fromEntries(gallery);
-    saveGalleryToDisk(data);
-
     res.json({ ok: true, items: curr.slice(-req.files.length) });
   });
 
   /* ---------------------------------------------------
-     DELETE /api/users/:id/gallery/:photoId
+     3️⃣ DELETE /api/users/:id/gallery/:photoId  → remove
   --------------------------------------------------- */
   router.delete("/api/users/:id/gallery/:photoId", (req, res) => {
     const { id: uid, photoId } = req.params;
     const curr = gallery.get(uid) || [];
     const next = curr.filter((p) => String(p.id) !== String(photoId));
     gallery.set(uid, next);
-    try { fs.unlinkSync(path.join(uploadRoot, photoId)); } catch {}
-    saveGalleryToDisk(Object.fromEntries(gallery));
+    try {
+      fs.unlinkSync(path.join(uploadRoot, photoId));
+    } catch {}
     res.json({ ok: true });
   });
 
@@ -104,6 +84,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 
