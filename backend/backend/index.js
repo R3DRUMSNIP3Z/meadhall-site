@@ -62,7 +62,8 @@ app.use(
 );
 
 // Answer ALL preflights immediately
-app.options("*", (req, res) => res.status(204).end());
+// Express 5: use a regex instead of "*" to avoid path-to-regexp error
+app.options("(.*)", (req, res) => res.status(204).end());
 
 app.set("trust proxy", 1);
 /* ------------------- END ROBUST CORS --------------------- */

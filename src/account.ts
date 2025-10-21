@@ -1,4 +1,4 @@
-// /src/account.ts  — DROP-IN REPLACEMENT with Gallery support (CORB-safe image URLs)
+// /src/account.ts  — DROP-IN REPLACEMENT with Gallery support (Cloudinary-safe + CORB-safe image URLs)
 console.log("account.ts loaded");
 
 /* ---------- Types ---------- */
@@ -22,7 +22,7 @@ type Story = {
 
 type Photo = {
   id: string;            // server id or derived from url
-  url: string;           // absolute or relative
+  url: string;           // absolute or relative (Cloudinary or /uploads)
   createdAt?: number | string;
 };
 
@@ -58,14 +58,24 @@ function fullUrl(p?: string) {
   return `${base}/${path}`;
 }
 
-// Force URL to use the backend origin (prevents CORB when frontend is on vercel.app)
+// Force URL to use the backend origin for *relative/backend* assets,
+// but DO NOT rewrite absolute third-party hosts (e.g., Cloudinary).
 function forceBackendHost(u: string) {
-  const abs = fullUrl(u); // make absolute first
+  // If it's already an absolute URL to a different host (Cloudinary, etc), keep it.
+  if (/^https?:\/\//i.test(u)) {
+    try {
+      const backend = new URL(API_BASE || window.location.origin);
+      const urlObj = new URL(u);
+      if (urlObj.host !== backend.host) return u;
+    } catch { /* ignore */ }
+  }
+  // Otherwise, resolve relative against backend and pin to backend host.
+  const abs = fullUrl(u);
   try {
-    const target = new URL(API_BASE || window.location.origin);
+    const backend = new URL(API_BASE || window.location.origin);
     const out = new URL(abs);
-    out.protocol = target.protocol;
-    out.host = target.host;
+    out.protocol = backend.protocol;
+    out.host = backend.host;
     return out.toString();
   } catch {
     return abs;
@@ -189,15 +199,12 @@ async function fetchGallery(): Promise<Photo[]> {
 
 async function uploadPhotos(files: FileList): Promise<Photo[]> {
   const fd = new FormData();
-  Array.from(files).forEach((f) => {
-    fd.append("photos", f);
-    fd.append("photo[]", f);
-  });
+  // Only one field name needed; backend accepts "photos" or "photo[]"
+  Array.from(files).forEach((f) => fd.append("photos", f));
 
   const endpoints = [
     `${API_BASE}/api/account/gallery`,
     `${API_BASE}/api/users/${currentUser!.id}/gallery`,
-    `${API_BASE}/api/uploads/photos`,
   ];
 
   for (const u of endpoints) {
@@ -205,24 +212,23 @@ async function uploadPhotos(files: FileList): Promise<Photo[]> {
       const r = await fetch(u, {
         method: "POST",
         body: fd,
-        headers: { "x-user-id": currentUser!.id },   // REQUIRED by backend
+        headers: { "x-user-id": currentUser!.id }, // server also accepts param/query/body
       });
       const payload = await r.json().catch(() => ({}));
-      if (!r.ok) continue;
+      if (!r.ok) throw new Error((payload && (payload.error || payload.message)) || `HTTP ${r.status}`);
 
       const items = Array.isArray(payload?.items) ? payload.items
                   : Array.isArray(payload) ? payload
                   : payload?.photo ? [payload.photo]
                   : payload?.url ? [payload]
                   : [];
-
       const photos = normalizePhotoArray(items);
       if (photos.length) return photos;
     } catch {
       // try next endpoint
     }
   }
-  throw new Error("Upload failed (no matching endpoint)");
+  throw new Error("Upload failed (no working endpoint)");
 }
 
 async function deletePhotoOnServer(photoId: string): Promise<void> {
@@ -260,7 +266,7 @@ function renderGallery(photos: Photo[]) {
     wrap.style.position = "relative";
 
     const img = document.createElement("img");
-    // ⬇️ Force backend host to avoid CORB when frontend is on Vercel
+    // Force backend only for relative/backend assets; Cloudinary stays untouched.
     img.src = cacheBust(forceBackendHost(p.url));
     img.alt = "gallery photo";
     img.style.width = "100%";
@@ -619,6 +625,7 @@ if (!(window as any)[BIND_KEY]) {
 loadUser();
 loadStories();
 loadGallery();
+
 
 
 
