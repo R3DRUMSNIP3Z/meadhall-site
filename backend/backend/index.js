@@ -71,25 +71,50 @@ app.set("trust proxy", 1);
 const uploadsDir = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-// Serve /uploads with permissive headers so Vercel can embed images (CORB/CORP safe)
-app.use(
-  "/uploads",
-  (req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");             // images can be hotlinked
-    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"); // important for images
-    next();
+// Serve /uploads with headers that are safe for cross-origin <img> on Vercel
+const ALLOWED_UPLOAD_ORIGINS = new Set([
+  "https://meadhall-site.vercel.app",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+]);
+
+app.use("/uploads", (req, res, next) => {
+  const origin = req.headers.origin || "";
+  if (ALLOWED_UPLOAD_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    // default to your Vercel site so hotlinks still work in prod
+    res.setHeader("Access-Control-Allow-Origin", "https://meadhall-site.vercel.app");
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range");
+
+  // ✅ Key for cross-origin images (prevents CORB/CORP issues)
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+
+  // Nice-to-have safety
+  res.setHeader("X-Content-Type-Options", "nosniff");
+
+  // Handle preflight quickly
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  next();
+},
+express.static(uploadsDir, {
+  setHeaders(res, filePath) {
+    if (/\.(png|jpe?g|webp|gif|avif)$/i.test(filePath)) {
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      res.setHeader("Accept-Ranges", "bytes");
+      // express.static already sets correct Content-Type, nosniff above helps Chrome
+    } else if (/\.pdf$/i.test(filePath)) {
+      res.setHeader("Cache-Control", "public, max-age=86400");
+    }
   },
-  express.static(uploadsDir, {
-    setHeaders(res, filePath) {
-      if (/\.(png|jpe?g|webp|gif|avif)$/i.test(filePath)) {
-        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-        res.setHeader("Accept-Ranges", "bytes");
-      } else if (/\.pdf$/i.test(filePath)) {
-        res.setHeader("Cache-Control", "public, max-age=86400");
-      }
-    },
-  })
-);
+}));
+
 
 // expose uploadsDir so galleryRoutes uses the same folder
 app.locals.uploadsDir = uploadsDir;
