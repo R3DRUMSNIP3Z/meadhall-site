@@ -7,10 +7,8 @@ const fs = require("fs");
 function install(app) {
   const router = express.Router();
 
-  // Use the SAME uploads dir that index.js serves at /uploads
-  const uploadRoot =
-    app.locals?.uploadsDir ||
-    path.join(__dirname, "public", "uploads");
+  // Use SAME uploads dir index.js serves at /uploads
+  const uploadRoot = app.locals?.uploadsDir || path.join(__dirname, "public", "uploads");
   fs.mkdirSync(uploadRoot, { recursive: true });
 
   // Storage
@@ -30,49 +28,78 @@ function install(app) {
     },
   });
 
-  // Simple in-memory map (userId -> [{id,url,createdAt}])
+  // In-memory map (userId -> [{id,url,createdAt}])
   const gallery = app.locals.galleryMap || (app.locals.galleryMap = new Map());
 
   const getUserId = (req) => (req.headers["x-user-id"] || "").toString().trim();
+  const toItem = (fn) => ({ id: fn, url: `/uploads/${fn}`, createdAt: Date.now() });
 
-  // GET user gallery (array)
+  // ---------- READ ----------
   router.get("/api/users/:id/gallery", (req, res) => {
     const uid = String(req.params.id || "");
+    return res.json(gallery.get(uid) || []);
+  });
+
+  // Alias used by the TS fallback: /api/gallery?user=u_123
+  router.get("/api/gallery", (req, res) => {
+    const uid = String(req.query.user || "");
+    if (!uid) return res.status(400).json({ error: "user is required" });
     const list = gallery.get(uid) || [];
-    res.json(list);
+    return res.json({ items: list });
   });
 
-  // POST upload (field: "photos")
-  router.post("/api/account/gallery", upload.array("photos"), (req, res) => {
-    const uid = getUserId(req);
-    if (!uid) return res.status(401).json({ error: "Missing user id (x-user-id)" });
-    if (!req.files?.length) return res.status(400).json({ error: "No files uploaded" });
+  // ---------- CREATE (UPLOAD) ----------
+  // Accept BOTH "photos" and "photo[]" like the TS expects.
+  router.post(
+    "/api/account/gallery",
+    (req, res, next) => upload.array("photos", 20)(req, res, (err) => {
+      if (err && err.message !== "Unexpected field") return next(err);
+      // if nothing captured under "photos", try "photo[]"
+      if (!req.files || req.files.length === 0) {
+        return upload.array("photo[]", 20)(req, res, next);
+      }
+      next();
+    }),
+    (req, res) => {
+      const uid = getUserId(req);
+      if (!uid) return res.status(401).json({ error: "Missing user id (x-user-id)" });
+      if (!req.files?.length) return res.status(400).json({ error: "No files uploaded" });
 
-    const curr = gallery.get(uid) || [];
-    for (const f of req.files) {
-      curr.push({
-        id: f.filename,
-        url: `/uploads/${f.filename}`,     // relative; frontend will prefix with API_BASE
-        createdAt: Date.now(),
-      });
+      const curr = gallery.get(uid) || [];
+      const added = [];
+      for (const f of req.files) {
+        const item = toItem(f.filename);
+        curr.push(item);
+        added.push(item);
+      }
+      gallery.set(uid, curr);
+      return res.json({ ok: true, items: added });
     }
-    gallery.set(uid, curr);
-    res.json({ ok: true, items: curr.slice(-req.files.length) });
+  );
+
+  // Multer/other errors: return readable 400/500 instead of generic 500
+  router.use((err, _req, res, _next) => {
+    if (err) {
+      const msg = err.message || String(err);
+      const code = /file/i.test(msg) ? 400 : 500;
+      return res.status(code).json({ error: msg });
+    }
   });
 
-  // DELETE one photo
+  // ---------- DELETE ----------
   router.delete("/api/users/:id/gallery/:photoId", (req, res) => {
     const { id: uid, photoId } = req.params;
     const curr = gallery.get(uid) || [];
     const next = curr.filter((p) => String(p.id) !== String(photoId));
     gallery.set(uid, next);
     try { fs.unlinkSync(path.join(uploadRoot, photoId)); } catch {}
-    res.json({ ok: true });
+    return res.status(204).end();
   });
 
   app.use(router);
 }
 
 module.exports = { install };
+
 
 
