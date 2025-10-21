@@ -1,34 +1,23 @@
 // backend/backend/cloudy.js
 const cloudinary = require("cloudinary").v2;
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const multer = require("multer");
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || "";
+const API_KEY    = process.env.CLOUDINARY_API_KEY || "";
+const API_SECRET = process.env.CLOUDINARY_API_SECRET || "";
 
-// Reusable storage for gallery uploads (you can tweak folder name)
-const galleryStorage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "meadhall/gallery",
-    resource_type: "image",
-    overwrite: false,
-  },
-});
+const HAVE_CLOUD = !!(CLOUD_NAME && API_KEY && API_SECRET);
 
-const uploadCloud = multer({
-  storage: galleryStorage,
-  limits: { fileSize: 12 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (/^image\/(png|jpe?g|webp|gif|avif)$/i.test(file.mimetype)) cb(null, true);
-    else cb(new Error("Only image files are allowed"));
-  },
-});
+if (HAVE_CLOUD) {
+  cloudinary.config({
+    cloud_name: CLOUD_NAME,
+    api_key: API_KEY,
+    api_secret: API_SECRET,
+    secure: true,
+  });
+}
 
-module.exports = { cloudinary, uploadCloud };
+module.exports = { cloudinary, HAVE_CLOUD };
+
 
 
 
