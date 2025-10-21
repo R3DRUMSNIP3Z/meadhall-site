@@ -1,4 +1,4 @@
-﻿// backend/index.js — full drop-in (your original + gallery)
+﻿// backend/index.js — full drop-in (with uploads CORS/CORP + single /api/_routes)
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -21,11 +21,11 @@ const accountRoutes = require("./accountRoutes");
 const friendsRoutes = require("./friendsRoutes");
 const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
-const galleryRoutes = require("./galleryRoutes"); // ⬅️ NEW
+const galleryRoutes = require("./galleryRoutes"); // ⬅️ gallery API
 
 const app = express();
 
-// (optional) very small request logger
+// very small request logger
 app.use((req, _res, next) => { console.log(`[req] ${req.method} ${req.url}`); next(); });
 
 // --- config/env ---
@@ -63,7 +63,26 @@ app.set("trust proxy", 1);
 // --- uploads dir and static serving (avatars + contest PDFs + gallery) ---
 const uploadsDir = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-app.use("/uploads", express.static(uploadsDir));
+
+// ✅ Serve /uploads with permissive headers so Vercel can embed images (fixes CORB)
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");               // or set to your exact Vercel origin
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");   // important for images
+    next();
+  },
+  express.static(uploadsDir, {
+    setHeaders(res, filePath) {
+      if (/\.(png|jpe?g|webp|gif|avif)$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        res.setHeader("Accept-Ranges", "bytes");
+      } else if (/\.pdf$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "public, max-age=86400");
+      }
+    },
+  })
+);
 
 // expose uploadsDir so galleryRoutes uses the same folder
 app.locals.uploadsDir = uploadsDir;
@@ -739,22 +758,7 @@ app.use((err, req, res, _next) => {
   res.status(500).json({ ok: false, error: String(err && (err.message || err)) });
 });
 
-// quick route dumper
-app.get("/api/_routes", (_req, res) => {
-  const routes = [];
-  app._router.stack.forEach((m) => {
-    if (m.route && m.route.path) {
-      routes.push({ method: Object.keys(m.route.methods)[0].toUpperCase(), path: m.route.path });
-    } else if (m.name === "router" && m.handle?.stack) {
-      m.handle.stack.forEach((h) => {
-        const r = h.route;
-        if (r) routes.push({ method: Object.keys(r.methods)[0].toUpperCase(), path: r.path });
-      });
-    }
-  });
-  res.json(routes);
-});
-// Debug: list all mounted routes
+// Debug: list all mounted routes (one endpoint)
 app.get("/api/_routes", (_req, res) => {
   const routes = [];
   app._router.stack.forEach((m) => {
@@ -770,8 +774,8 @@ app.get("/api/_routes", (_req, res) => {
   res.json(routes);
 });
 
-
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
