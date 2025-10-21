@@ -1,4 +1,4 @@
-// backend/galleryRoutes.js (CommonJS) — absolute URLs based on request + JSON store
+// backend/galleryRoutes.js (CommonJS) — disk uploads + absolute URLs in responses
 const express = require("express");
 const multer  = require("multer");
 const path    = require("path");
@@ -19,9 +19,9 @@ function bucketFor(store, userId) {
 }
 
 /* ---------- helpers ---------- */
-// Build a public base like "https://meadhall-site.onrender.com"
+// Public base like "https://meadhall-site.onrender.com"
 function publicBase(req) {
-  const fromEnv = (process.env.SERVER_PUBLIC_URL || "").replace(/\/+$/,"");
+  const fromEnv = (process.env.SERVER_PUBLIC_URL || "").replace(/\/+$/, "");
   if (fromEnv) return fromEnv;
   const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https").split(",")[0].trim();
   const host  = req.headers["x-forwarded-host"] || req.headers.host;
@@ -34,11 +34,11 @@ const relUpload = (fn) => `/uploads/${fn}`;
 function install(app) {
   const router = express.Router();
 
-  // Use SAME uploads dir as index.js
+  // Use SAME uploads dir as index.js configured (app.locals.uploadsDir)
   const uploadRoot = app.locals?.uploadsDir || path.join(__dirname, "public", "uploads");
   fs.mkdirSync(uploadRoot, { recursive: true });
 
-  // Multer config
+  // Multer config (disk)
   const storage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, uploadRoot),
     filename: (_req, file, cb) => {
@@ -69,7 +69,6 @@ function install(app) {
     const userId = String(req.params.id || "");
     const store = readStore();
     const { items } = bucketFor(store, userId);
-    // Always respond with absolute URLs
     return res.json(items.map((it) => withAbsoluteUrl(req, it)));
   });
 
@@ -109,10 +108,10 @@ function install(app) {
       const added = [];
       for (const f of req.files) {
         const filename = path.basename(f.path);
-        // Store RELATIVE url so the file can be moved or base can change
+        // Store RELATIVE url; respond with ABSOLUTE for convenience
         const item = { id: filename, url: relUpload(filename), createdAt: Date.now() };
         bucket.items.push(item);
-        added.push(withAbsoluteUrl(req, item)); // respond with absolute for convenience
+        added.push(withAbsoluteUrl(req, item));
       }
 
       writeStore(store);
@@ -151,6 +150,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 
