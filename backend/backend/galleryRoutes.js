@@ -1,58 +1,42 @@
-// backend/backend/galleryRoutes.js (CommonJS)
+// backend/galleryRoutes.js (CommonJS) — absolute URLs based on request + JSON store
 const express = require("express");
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+const multer  = require("multer");
+const path    = require("path");
+const fs      = require("fs");
 
 /* ---------- tiny JSON persistence ---------- */
-function dataDir() {
-  return path.join(__dirname, "data");
-}
+function dataDir()  { return path.join(__dirname, "data"); }
 function dataFile() {
   const dir = dataDir();
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, "gallery.json");
 }
-function readStore() {
-  try { return JSON.parse(fs.readFileSync(dataFile(), "utf8")); }
-  catch { return {}; } // { [userId]: { items: [ {id, url, createdAt} ] } }
-}
-function writeStore(store) {
-  fs.writeFileSync(dataFile(), JSON.stringify(store, null, 2));
-}
+function readStore() { try { return JSON.parse(fs.readFileSync(dataFile(), "utf8")); } catch { return {}; } }
+function writeStore(store) { fs.writeFileSync(dataFile(), JSON.stringify(store, null, 2)); }
 function bucketFor(store, userId) {
   if (!store[userId]) store[userId] = { items: [] };
   return store[userId];
 }
 
+/* ---------- helpers ---------- */
+// Build a public base like "https://meadhall-site.onrender.com"
+function publicBase(req) {
+  const fromEnv = (process.env.SERVER_PUBLIC_URL || "").replace(/\/+$/,"");
+  if (fromEnv) return fromEnv;
+  const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https").split(",")[0].trim();
+  const host  = req.headers["x-forwarded-host"] || req.headers.host;
+  return `${proto}://${host}`;
+}
+const isAbs = (u) => /^https?:\/\//i.test(u);
+const relUpload = (fn) => `/uploads/${fn}`;
+
 /* ---------- installer ---------- */
 function install(app) {
   const router = express.Router();
 
-  // Use the SAME uploads dir index.js exposes at /uploads
+  // Use SAME uploads dir as index.js
   const uploadRoot = app.locals?.uploadsDir || path.join(__dirname, "public", "uploads");
   fs.mkdirSync(uploadRoot, { recursive: true });
-
-  // Absolute public base for returned URLs
-  const BASE = (process.env.SERVER_PUBLIC_URL || "").replace(/\/+$/, "");
-  const urlFor = (filename) =>
-    BASE ? `${BASE}/uploads/${filename}` : `/uploads/${filename}`;
-
-  // Normalize any stored item (heal old relative URLs or bad hosts)
-  const normalizeItem = (it) => {
-    if (!it) return it;
-    // Prefer id (filename) if present
-    const file = path.basename(it.id || it.url || "");
-    if (!file) return it;
-
-    // If url already absolute to BASE, keep it. Otherwise rebuild.
-    const u = String(it.url || "");
-    const abs = /^https?:\/\//i.test(u);
-    const sameHost = abs && BASE && u.startsWith(BASE + "/");
-    const url = sameHost ? u : urlFor(file);
-
-    return { ...it, id: file, url };
-  };
 
   // Multer config
   const storage = multer.diskStorage({
@@ -64,35 +48,41 @@ function install(app) {
   });
   const upload = multer({
     storage,
-    limits: { fileSize: 12 * 1024 * 1024 }, // 12MB per image
-    fileFilter: (_req, file, cb) => {
-      if (/^image\/(png|jpe?g|webp|gif|avif)$/i.test(file.mimetype)) cb(null, true);
-      else cb(new Error("Only image files are allowed"));
-    },
+    limits: { fileSize: 12 * 1024 * 1024 }, // 12MB
+    fileFilter: (_req, file, cb) =>
+      /^image\/(png|jpe?g|webp|gif|avif)$/i.test(file.mimetype)
+        ? cb(null, true)
+        : cb(new Error("Only image files are allowed")),
   });
 
   const getUid = (req) => (req.headers["x-user-id"] || "").toString().trim();
-  const toItem = (fn) => ({ id: fn, url: urlFor(fn), createdAt: Date.now() });
+
+  // Ensure every item we return has an ABSOLUTE url for the frontend
+  function withAbsoluteUrl(req, item) {
+    if (isAbs(item.url)) return item;
+    const base = publicBase(req);
+    return { ...item, url: `${base}${item.url}` };
+  }
 
   /* ---------- READ ---------- */
   router.get("/api/users/:id/gallery", (req, res) => {
     const userId = String(req.params.id || "");
     const store = readStore();
     const { items } = bucketFor(store, userId);
-    // ✅ normalize before returning (fixes old relative/bad-host URLs)
-    return res.json(items.map(normalizeItem));
+    // Always respond with absolute URLs
+    return res.json(items.map((it) => withAbsoluteUrl(req, it)));
   });
 
+  // Alias used by some clients
   router.get("/api/gallery", (req, res) => {
     const userId = String(req.query.user || "");
     if (!userId) return res.status(400).json({ error: "user is required" });
     const store = readStore();
     const { items } = bucketFor(store, userId);
-    // ✅ normalize here too
-    return res.json({ items: items.map(normalizeItem) });
+    return res.json({ items: items.map((it) => withAbsoluteUrl(req, it)) });
   });
 
-  // Helper for quick sanity checks in a browser
+  // Helper for sanity checks
   router.get("/api/account/gallery", (req, res) => {
     const uid = getUid(req);
     if (!uid) return res.status(400).json({ ok: false, error: "Use POST with x-user-id and files" });
@@ -100,14 +90,12 @@ function install(app) {
   });
 
   /* ---------- CREATE (UPLOAD) ---------- */
-  // Accept BOTH field names: "photos" and "photo[]"
+  // Accept both field names: photos, photo[]
   router.post(
     "/api/account/gallery",
     (req, res, next) => upload.array("photos", 20)(req, res, (err) => {
       if (err && err.message !== "Unexpected field") return next(err);
-      if (!req.files || req.files.length === 0) {
-        return upload.array("photo[]", 20)(req, res, next);
-      }
+      if (!req.files || req.files.length === 0) return upload.array("photo[]", 20)(req, res, next);
       next();
     }),
     (req, res) => {
@@ -121,9 +109,10 @@ function install(app) {
       const added = [];
       for (const f of req.files) {
         const filename = path.basename(f.path);
-        const item = toItem(filename);           // always absolute URL
+        // Store RELATIVE url so the file can be moved or base can change
+        const item = { id: filename, url: relUpload(filename), createdAt: Date.now() };
         bucket.items.push(item);
-        added.push(item);
+        added.push(withAbsoluteUrl(req, item)); // respond with absolute for convenience
       }
 
       writeStore(store);
@@ -145,10 +134,9 @@ function install(app) {
     const [removed] = bucket.items.splice(idx, 1);
     writeStore(store);
 
-    // Best-effort file delete (safe: only within uploads folder)
-    const fp = path.join(uploadRoot, path.basename(removed.url || removed.id || photoId));
-    fs.promises.unlink(fp).catch(() => { /* ignore */ });
-
+    // Best-effort file delete
+    const fileName = removed?.id || path.basename(removed?.url || "");
+    fs.promises.unlink(path.join(uploadRoot, fileName)).catch(() => {});
     return res.status(204).end();
   });
 
@@ -163,6 +151,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 
