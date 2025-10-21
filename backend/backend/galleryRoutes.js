@@ -32,8 +32,7 @@ function publicBase(req) {
   return `${proto}://${host}`;
 }
 const isAbs = (u) => /^https?:\/\//i.test(u);
-const isCloudUrl = (u = "") => /(?:res\.cloudinary\.com|cloudinary\.com)/i.test(u);
-const relUpload = (fn) => `/uploads/${fn}`;
+const isCloudUrl = (u = "") => /res\.cloudinary\.com/i.test(u);
 
 // Accept user id from header, param, query, or body
 const getUid = (req) => {
@@ -45,7 +44,7 @@ const getUid = (req) => {
   return "";
 };
 
-// Ensure every item we return has an ABSOLUTE url for the frontend (no-op for Cloudinary)
+// Ensure items have ABSOLUTE url when not Cloudinary
 function withAbsoluteUrl(req, item) {
   if (isAbs(item.url)) return item;
   const base = publicBase(req);
@@ -68,11 +67,12 @@ function install(app) {
       return {
         folder: `meadhall/gallery/${uid}`,
         resource_type: "image",
+        // Cloudinary accepts snake_case:
         allowed_formats: ["png", "jpg", "jpeg", "webp", "gif", "avif"],
         use_filename: false,
         unique_filename: true,
         overwrite: false,
-        // Optional: limit originals a bit to keep usage sane
+        // Keep originals sane (optional):
         // transformation: [{ width: 2000, height: 2000, crop: "limit" }],
       };
     },
@@ -108,7 +108,7 @@ function install(app) {
   router.get("/api/account/gallery", (req, res) => {
     const uid = getUid(req);
     if (!uid) return res.status(400).json({ ok: false, error: "Use POST with x-user-id and files" });
-    return res.json({ ok: true, hint: "POST here with field 'photos' or 'photo[]' and header x-user-id" });
+    return res.json({ ok: true, hint: "POST here with field 'photos', 'photo[]', or 'photo' and header x-user-id" });
   });
 
   /* ---------- CREATE (UPLOAD via Cloudinary) ---------- */
@@ -122,16 +122,16 @@ function install(app) {
 
     const added = [];
     for (const f of req.files) {
-      // multer-storage-cloudinary v4 provides:
-      // f.path (secure URL), f.filename (public_id)
+      // multer-storage-cloudinary v4 puts Cloudinary info on the file object:
+      // f.path (secure URL), f.filename (public_id), f.mimetype, f.size, etc.
       const publicId = String(f.filename || f.public_id || "").trim();
       const url = String(f.path || f.secure_url || f.url || "").trim();
       if (!publicId || !url) continue;
 
       const item = {
-        id: publicId,         // use Cloudinary public_id as our stable id
+        id: publicId,           // stable id = Cloudinary public_id (includes folder)
         publicId,
-        url,                  // absolute Cloudinary secure_url
+        url,                    // absolute Cloudinary secure_url
         createdAt: Date.now(),
       };
       bucket.items.push(item);
@@ -139,29 +139,27 @@ function install(app) {
     }
 
     writeStore(store);
-    // Already absolute for Cloudinary; keep helper for legacy parity
     return res.json({ ok: true, items: added.map((it) => withAbsoluteUrl(req, it)) });
   }
 
-  // Accept both field names: photos, photo[]
+  // Accept 'photos', fallback to 'photo[]', then single 'photo'
+  const acceptMany = (field) => (req, res, next) =>
+    upload.array(field, 20)(req, res, (err) => (err && err.message !== "Unexpected field") ? next(err) : next());
+
   router.post(
     "/api/account/gallery",
-    (req, res, next) => upload.array("photos", 20)(req, res, (err) => {
-      if (err && err.message !== "Unexpected field") return next(err);
-      if (!req.files || req.files.length === 0) return upload.array("photo[]", 20)(req, res, next);
-      next();
-    }),
+    acceptMany("photos"),
+    (req, res, next) => (req.files?.length ? next() : acceptMany("photo[]")(req, res, next)),
+    (req, res, next) => (req.files?.length ? next() : upload.array("photo", 20)(req, res, next)),
     handleUpload
   );
 
   // Param-style alias: POST /api/users/:id/gallery (no need for x-user-id header)
   router.post(
     "/api/users/:id/gallery",
-    (req, res, next) => upload.array("photos", 20)(req, res, (err) => {
-      if (err && err.message !== "Unexpected field") return next(err);
-      if (!req.files || req.files.length === 0) return upload.array("photo[]", 20)(req, res, next);
-      next();
-    }),
+    acceptMany("photos"),
+    (req, res, next) => (req.files?.length ? next() : acceptMany("photo[]")(req, res, next)),
+    (req, res, next) => (req.files?.length ? next() : upload.array("photo", 20)(req, res, next)),
     handleUpload
   );
 
@@ -179,18 +177,18 @@ function install(app) {
     const [removed] = bucket.items.splice(idx, 1);
     writeStore(store);
 
-    // Try Cloudinary delete (preferred); fall back to local unlink for legacy items
+    // Prefer Cloudinary delete; fall back to local unlink for legacy
     try {
       if (removed && (removed.publicId || isCloudUrl(removed.url))) {
-        const pid = removed.publicId || removed.id;
+        const pid = removed.publicId || removed.id; // includes folder
         await cloudinary.uploader.destroy(pid, { resource_type: "image" });
       } else {
         const fileName = removed?.id || path.basename(removed?.url || "");
         fs.promises.unlink(path.join(uploadRoot, fileName)).catch(() => {});
       }
     } catch (e) {
-      console.warn("Delete issue (cloud/local):", e && e.message);
-      // not fatal; item already removed from store
+      console.warn("[gallery] delete warning:", e && e.message);
+      // not fatal
     }
 
     return res.status(204).end();
@@ -200,7 +198,10 @@ function install(app) {
   router.use((err, _req, res, _next) => {
     const msg = err?.message || String(err);
     const code = /file|multer|cloudinary/i.test(msg) ? 400 : 500;
-    const pretty = /File too large/i.test(msg) ? "Image exceeds 12MB limit" : msg;
+    const pretty =
+      /File too large/i.test(msg) ? "Image exceeds 12MB limit" :
+      /Only image files/i.test(msg) ? "Only image files are allowed" :
+      msg;
     return res.status(code).json({ error: pretty });
   });
 
@@ -208,6 +209,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 
