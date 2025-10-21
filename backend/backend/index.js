@@ -1,5 +1,4 @@
-﻿// backend/index.js — full drop-in server (Resend-first + SMTP(587) fallback)
-require("dotenv").config();
+﻿require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -23,7 +22,15 @@ const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
 const galleryRoutes = require("./galleryRoutes"); // ⬅️ add
 
+// ✅ CREATE APP BEFORE using app.use()
 const app = express();
+
+// (optional request logger)
+app.use((req, _res, next) => {
+  console.log(`[req] ${req.method} ${req.url}`);
+  next();
+});
+
 
 // --- config/env ---
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
@@ -802,6 +809,13 @@ async function sendContestEmail(entry, buyerEmail = null) {
     attachments: attach,
   });
 }
+
+// Global error handler so 500s show the real cause in response + logs
+app.use((err, req, res, _next) => {
+  console.error("[error]", err && (err.stack || err.message || err));
+  res.status(500).json({ ok: false, error: String(err && (err.message || err)) });
+});
+
 
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
 
