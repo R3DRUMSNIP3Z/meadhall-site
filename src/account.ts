@@ -1,4 +1,4 @@
-// /src/account.ts  — DROP-IN REPLACEMENT with Gallery support
+// /src/account.ts  — DROP-IN REPLACEMENT with Gallery support (CORB-safe image URLs)
 console.log("account.ts loaded");
 
 /* ---------- Types ---------- */
@@ -58,6 +58,20 @@ function fullUrl(p?: string) {
   return `${base}/${path}`;
 }
 
+// Force URL to use the backend origin (prevents CORB when frontend is on vercel.app)
+function forceBackendHost(u: string) {
+  const abs = fullUrl(u); // make absolute first
+  try {
+    const target = new URL(API_BASE || window.location.origin);
+    const out = new URL(abs);
+    out.protocol = target.protocol;
+    out.host = target.host;
+    return out.toString();
+  } catch {
+    return abs;
+  }
+}
+
 function cacheBust(u: string) {
   if (!u) return u;
   const t = `t=${Date.now()}`;
@@ -93,7 +107,7 @@ const storiesEl    = document.getElementById("stories") as HTMLDivElement | null
 
 const logoutLink   = document.getElementById("logout") as HTMLAnchorElement | null;
 
-// Gallery elements (from your new HTML)
+// Gallery elements
 const galleryFiles = document.getElementById("galleryFiles") as HTMLInputElement | null;
 const uploadPhotosBtn = document.getElementById("uploadPhotos") as HTMLButtonElement | null;
 const galleryMsg   = document.getElementById("galleryMsg") as HTMLElement | null;
@@ -120,7 +134,9 @@ async function loadUser() {
     if (!r.ok) return;
     const u: SafeUser = await r.json();
     if (avatarImg) {
-      const src = u.avatarUrl ? cacheBust(fullUrl(u.avatarUrl)) : "/images/odin-hero.jpg";
+      const src = u.avatarUrl
+        ? cacheBust(forceBackendHost(u.avatarUrl))
+        : "/images/odin-hero.jpg";
       avatarImg.src = src;
       avatarImg.onerror = () => { avatarImg.src = "/images/odin-hero.jpg"; };
     }
@@ -144,7 +160,6 @@ async function fetchStories(): Promise<Story[]> {
 /* ---------- GALLERY: fetch / upload / delete ---------- */
 
 function normalizePhotoArray(raw: any): Photo[] {
-  // Accept: [{id,url}, ...] or [{_id,url}] or ["url", ...]
   if (!Array.isArray(raw)) return [];
   return raw.map((p: any, i: number) => {
     if (typeof p === "string") return { id: String(i), url: p };
@@ -155,7 +170,6 @@ function normalizePhotoArray(raw: any): Photo[] {
 }
 
 async function fetchGallery(): Promise<Photo[]> {
-  // Try a couple of likely endpoints
   const endpoints = [
     `${API_BASE}/api/users/${currentUser!.id}/gallery`,
     `${API_BASE}/api/gallery?user=${encodeURIComponent(currentUser!.id)}`
@@ -174,14 +188,12 @@ async function fetchGallery(): Promise<Photo[]> {
 }
 
 async function uploadPhotos(files: FileList): Promise<Photo[]> {
-  // Build FormData (support backends that expect "photos" or "photo[]")
   const fd = new FormData();
   Array.from(files).forEach((f) => {
     fd.append("photos", f);
     fd.append("photo[]", f);
   });
 
-  // Try a few routes; server should return { items: [{id,url}...] } or a single {id,url}
   const endpoints = [
     `${API_BASE}/api/account/gallery`,
     `${API_BASE}/api/users/${currentUser!.id}/gallery`,
@@ -191,10 +203,10 @@ async function uploadPhotos(files: FileList): Promise<Photo[]> {
   for (const u of endpoints) {
     try {
       const r = await fetch(u, {
-  method: "POST",
-  body: fd,
-  headers: { "x-user-id": currentUser!.id },   // <-- REQUIRED
-});
+        method: "POST",
+        body: fd,
+        headers: { "x-user-id": currentUser!.id },   // REQUIRED by backend
+      });
       const payload = await r.json().catch(() => ({}));
       if (!r.ok) continue;
 
@@ -206,7 +218,7 @@ async function uploadPhotos(files: FileList): Promise<Photo[]> {
 
       const photos = normalizePhotoArray(items);
       if (photos.length) return photos;
-    } catch (e) {
+    } catch {
       // try next endpoint
     }
   }
@@ -248,7 +260,8 @@ function renderGallery(photos: Photo[]) {
     wrap.style.position = "relative";
 
     const img = document.createElement("img");
-    img.src = cacheBust(fullUrl(p.url));
+    // ⬇️ Force backend host to avoid CORB when frontend is on Vercel
+    img.src = cacheBust(forceBackendHost(p.url));
     img.alt = "gallery photo";
     img.style.width = "100%";
     img.style.aspectRatio = "1 / 1";
@@ -274,8 +287,7 @@ function renderGallery(photos: Photo[]) {
       if (!confirm("Remove this photo from your gallery?")) return;
       try {
         await deletePhotoOnServer(p.id);
-      } catch (e) {
-        // If server can't find by id, try to pass URL as id once:
+      } catch {
         try { await deletePhotoOnServer(encodeURIComponent(p.id || p.url)); } catch {}
       }
       await loadGallery();
@@ -293,7 +305,7 @@ async function loadGallery() {
   try {
     const items = await fetchGallery();
     renderGallery(items);
-  } catch (e) {
+  } catch {
     galleryGrid.innerHTML = `<div class="muted">Failed to load gallery.</div>`;
   }
 }
@@ -313,7 +325,6 @@ function renderStories(list: Story[]) {
     return;
   }
 
-  // hard de-dupe by id
   const seen = new Set<string>();
   for (const s of list) {
     const id = storyId(s);
@@ -344,7 +355,6 @@ async function createStory(title: string, text: string): Promise<void> {
     body: JSON.stringify({ title, text }),
   });
   if (!r.ok) throw new Error(await r.text());
-  // Reload once to avoid local/prepend collisions
   await loadStories();
 }
 
@@ -419,7 +429,6 @@ function renderStoryCard(s: Story): HTMLDivElement {
   actions.appendChild(editBtn);
   actions.appendChild(delBtn);
 
-  // --- Edit mode
   const editWrap = document.createElement("div");
   editWrap.style.display = "none";
 
@@ -451,14 +460,12 @@ function renderStoryCard(s: Story): HTMLDivElement {
   editWrap.appendChild(editText);
   editWrap.appendChild(editBtns);
 
-  // Compose
   div.appendChild(titleEl);
   div.appendChild(metaEl);
   div.appendChild(textEl);
   div.appendChild(actions);
   div.appendChild(editWrap);
 
-  // --- Handlers
   function enterEdit() {
     editTitle.value = s.title || "";
     editText.value = s.text || "";
@@ -483,7 +490,7 @@ function renderStoryCard(s: Story): HTMLDivElement {
 
     try {
       await updateStoryOnServer(id, { title: newTitle, text: newText });
-      await loadStories(); // reload to avoid any drift/dup
+      await loadStories();
     } catch (err) {
       console.error(err);
       alert("Failed to save story.");
@@ -505,18 +512,16 @@ function renderStoryCard(s: Story): HTMLDivElement {
 }
 
 /* ---------- actions ---------- */
-// Singleton guard: prevent double-binding if the script is accidentally loaded twice
 if (!(window as any)[BIND_KEY]) {
   (window as any)[BIND_KEY] = true;
 
-  // Avatar upload (already present)
+  // Avatar upload
   uploadBtn?.addEventListener("click", async () => {
     if (!avatarFile?.files?.[0]) return alert("Choose a file first.");
     const fd = new FormData();
-    fd.append("avatar", avatarFile.files[0]); // server expects "avatar"
+    fd.append("avatar", avatarFile.files[0]);
 
     try {
-      // 1) upload avatar -> { url: "/uploads/..." }
       const up = await fetch(`${API_BASE}/api/account/avatar`, { method: "POST", body: fd });
       const payload = await up.json().catch(() => ({} as any));
       if (!up.ok || !payload?.url) {
@@ -525,9 +530,8 @@ if (!(window as any)[BIND_KEY]) {
       }
 
       const rawUrl = payload.url as string; // "/uploads/1699...-pic.png"
-      const absolute = fullUrl(rawUrl);
+      const absolute = forceBackendHost(rawUrl);
 
-      // 2) persist to user record so future loads show it
       const put = await fetch(`${API_BASE}/api/users/${currentUser!.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -538,7 +542,6 @@ if (!(window as any)[BIND_KEY]) {
         console.warn("Avatar uploaded but failed to persist on server:", e);
       }
 
-      // 3) update UI + LS (cache-bust the <img>)
       if (avatarImg) avatarImg.src = cacheBust(absolute);
       setUserToLS({ ...currentUser!, avatarUrl: rawUrl });
     } catch (err) {
@@ -579,7 +582,6 @@ if (!(window as any)[BIND_KEY]) {
       await createStory(title, text);
       if (storyTitleEl) storyTitleEl.value = "";
       if (storyTextEl)  storyTextEl.value = "";
-      // loadStories() is called inside createStory
     } catch (err) {
       console.error("addStory error", err);
       alert("Add story failed");
@@ -593,7 +595,7 @@ if (!(window as any)[BIND_KEY]) {
     location.href = "/";
   });
 
-  // ✅ Gallery: upload photos
+  // Gallery: upload photos
   uploadPhotosBtn?.addEventListener("click", async () => {
     if (!galleryFiles?.files || galleryFiles.files.length === 0) {
       alert("Choose one or more images first.");
@@ -617,6 +619,7 @@ if (!(window as any)[BIND_KEY]) {
 loadUser();
 loadStories();
 loadGallery();
+
 
 
 
