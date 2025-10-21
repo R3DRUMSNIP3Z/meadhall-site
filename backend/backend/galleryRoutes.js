@@ -33,9 +33,26 @@ function install(app) {
   const uploadRoot = app.locals?.uploadsDir || path.join(__dirname, "public", "uploads");
   fs.mkdirSync(uploadRoot, { recursive: true });
 
-  // Public base (absolute URLs)
+  // Absolute public base for returned URLs
   const BASE = (process.env.SERVER_PUBLIC_URL || "").replace(/\/+$/, "");
-  const urlFor = (filename) => BASE ? `${BASE}/uploads/${filename}` : `/uploads/${filename}`;
+  const urlFor = (filename) =>
+    BASE ? `${BASE}/uploads/${filename}` : `/uploads/${filename}`;
+
+  // Normalize any stored item (heal old relative URLs or bad hosts)
+  const normalizeItem = (it) => {
+    if (!it) return it;
+    // Prefer id (filename) if present
+    const file = path.basename(it.id || it.url || "");
+    if (!file) return it;
+
+    // If url already absolute to BASE, keep it. Otherwise rebuild.
+    const u = String(it.url || "");
+    const abs = /^https?:\/\//i.test(u);
+    const sameHost = abs && BASE && u.startsWith(BASE + "/");
+    const url = sameHost ? u : urlFor(file);
+
+    return { ...it, id: file, url };
+  };
 
   // Multer config
   const storage = multer.diskStorage({
@@ -58,21 +75,21 @@ function install(app) {
   const toItem = (fn) => ({ id: fn, url: urlFor(fn), createdAt: Date.now() });
 
   /* ---------- READ ---------- */
-  // Main: list a user's gallery (array of items)
   router.get("/api/users/:id/gallery", (req, res) => {
     const userId = String(req.params.id || "");
     const store = readStore();
     const { items } = bucketFor(store, userId);
-    return res.json(items);
+    // ✅ normalize before returning (fixes old relative/bad-host URLs)
+    return res.json(items.map(normalizeItem));
   });
 
-  // Alias used by the frontend's fallback
   router.get("/api/gallery", (req, res) => {
     const userId = String(req.query.user || "");
     if (!userId) return res.status(400).json({ error: "user is required" });
     const store = readStore();
     const { items } = bucketFor(store, userId);
-    return res.json({ items });
+    // ✅ normalize here too
+    return res.json({ items: items.map(normalizeItem) });
   });
 
   // Helper for quick sanity checks in a browser
@@ -104,7 +121,7 @@ function install(app) {
       const added = [];
       for (const f of req.files) {
         const filename = path.basename(f.path);
-        const item = toItem(filename);
+        const item = toItem(filename);           // always absolute URL
         bucket.items.push(item);
         added.push(item);
       }
@@ -146,6 +163,8 @@ function install(app) {
 }
 
 module.exports = { install };
+
+
 
 
 
