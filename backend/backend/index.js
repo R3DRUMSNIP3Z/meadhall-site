@@ -1,4 +1,5 @@
-﻿require("dotenv").config();
+﻿// backend/index.js — full drop-in (your original + gallery)
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -20,17 +21,12 @@ const accountRoutes = require("./accountRoutes");
 const friendsRoutes = require("./friendsRoutes");
 const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
-const galleryRoutes = require("./galleryRoutes"); // ⬅️ add
+const galleryRoutes = require("./galleryRoutes"); // ⬅️ NEW
 
-// ✅ CREATE APP BEFORE using app.use()
 const app = express();
 
-// (optional request logger)
-app.use((req, _res, next) => {
-  console.log(`[req] ${req.method} ${req.url}`);
-  next();
-});
-
+// (optional) very small request logger
+app.use((req, _res, next) => { console.log(`[req] ${req.method} ${req.url}`); next(); });
 
 // --- config/env ---
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
@@ -68,16 +64,14 @@ app.set("trust proxy", 1);
 const uploadsDir = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use("/uploads", express.static(uploadsDir));
-// expose for other routers (galleryRoutes will read this)
-app.locals.uploadsDir = uploadsDir;
-console.log("Uploads dir:", uploadsDir, "Exists:", fs.existsSync(uploadsDir));
 
-// --- simple JSON "DB" base dir ---
-const DATA_DIR = path.join(__dirname, "data");
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+// expose uploadsDir so galleryRoutes uses the same folder
+app.locals.uploadsDir = uploadsDir;
 
 // --- simple JSON "DB" for purchases ---
+const DATA_DIR = path.join(__dirname, "data");
 const PURCHASES_FILE = path.join(DATA_DIR, "purchases.json");
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(PURCHASES_FILE)) fs.writeFileSync(PURCHASES_FILE, "[]");
 function appendRecord(rec) {
   try {
@@ -123,27 +117,6 @@ function saveUsersToDisk(arr) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(arr, null, 2));
 }
 
-/* ==============================
-   JSON "DB" for gallery (persisted as object)
-   ============================== */
-const GALLERY_FILE = path.join(DATA_DIR, "gallery.json");
-if (!fs.existsSync(GALLERY_FILE)) fs.writeFileSync(GALLERY_FILE, "{}");
-
-function loadGalleryMapFromDisk() {
-  try {
-    const obj = JSON.parse(fs.readFileSync(GALLERY_FILE, "utf8"));
-    return typeof obj === "object" && obj ? obj : {};
-  } catch {
-    return {};
-  }
-}
-function saveGalleryMapToDisk(mapObj) {
-  fs.writeFileSync(GALLERY_FILE, JSON.stringify(mapObj, null, 2));
-}
-// keep a JSON-backed object available to routes that want it
-app.locals.galleryJson = loadGalleryMapFromDisk();
-app.locals.saveGalleryJson = () => saveGalleryMapToDisk(app.locals.galleryJson);
-
 // --- Email setup: Resend (preferred) + SMTP fallback ---
 const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
 const HAVE_RESEND = !!(process.env.RESEND_API_KEY && FROM_EMAIL && Resend);
@@ -154,34 +127,21 @@ if (process.env.SMTP_HOST) {
   // base transport
   smtpTransport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),               // 587 for STARTTLS
-    secure: String(process.env.SMTP_SECURE || "false") === "true", // false for 587
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: String(process.env.SMTP_SECURE || "false") === "true",
     auth: (process.env.SMTP_USER && process.env.SMTP_PASS) ? {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     } : undefined,
     connectionTimeout: 10000,
     greetingTimeout: 10000,
-    tls: {
-      rejectUnauthorized: false,
-      minVersion: "TLSv1.2",
-    },
+    tls: { rejectUnauthorized: false, minVersion: "TLSv1.2" },
   });
 
   // IPv4 + pooling + stronger timeouts + servername
   const forceIPv4AndPooling = {
-    pool: true,
-    maxConnections: 3,
-    maxMessages: 50,
-    keepAlive: true,
-    family: 4,
-    socketTimeout: 30000,
-    tls: {
-      ...(typeof (smtpTransport?.options?.tls) === "object" ? smtpTransport.options.tls : {}),
-      servername: process.env.SMTP_HOST,
-      rejectUnauthorized: false,
-      minVersion: "TLSv1.2",
-    },
+    pool: true, maxConnections: 3, maxMessages: 50, keepAlive: true, family: 4, socketTimeout: 30000,
+    tls: { ...(smtpTransport.options.tls || {}), servername: process.env.SMTP_HOST, rejectUnauthorized: false, minVersion: "TLSv1.2" },
   };
 
   // recreate with augmented options
@@ -235,12 +195,7 @@ async function sendEmail({ to, subject, text, html, attachments }) {
   if (resendClient) {
     try {
       const r = await resendClient.emails.send({
-        from: FROM_EMAIL,
-        to,
-        subject,
-        text,
-        html,
-        attachments,
+        from: FROM_EMAIL, to, subject, text, html, attachments,
       });
       return { ok: true, provider: "resend", id: r?.id || null };
     } catch (e) {
@@ -742,12 +697,14 @@ setInterval(() => {
 // Health check
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-// Mount routes
+// Mount routes (your originals)
 accountRoutes.install(app);
 friendsRoutes.install(app);
 chatRoutes.install(app);
 chatGlobal.install(app);
-galleryRoutes.install(app); // ⬅️ mount the gallery routes
+
+// ⬅️ Mount the gallery routes (uses app.locals.uploadsDir)
+galleryRoutes.install(app);
 
 /* ======== Friends-of-User (public read-only) — used by friendprofile.html ======== */
 function safeUser(u) {
@@ -776,48 +733,16 @@ app.get("/api/users/:id/companions", (req, res) => {
   return res.json(listFriendsOf(id));
 });
 
-// --- helper to send contest email with PDF attached ---
-async function sendContestEmail(entry, buyerEmail = null) {
-  const attach = [];
-  if (entry.filePath && fs.existsSync(entry.filePath)) {
-    attach.push({
-      filename: entry.originalName || path.basename(entry.filePath),
-      path: entry.filePath,
-      contentType: "application/pdf",
-    });
-  }
-
-  const fileLink = entry.fileUrl ? `${SERVER_PUBLIC_URL}${entry.fileUrl}` : "";
-  const html = `
-    <div>
-      <h2>New Skald Contest Entry</h2>
-      <p><strong>Name:</strong> ${entry.name || "Unknown"}</p>
-      <p><strong>User ID:</strong> ${entry.userId || "-"}</p>
-      ${buyerEmail ? `<p><strong>Buyer Email (Stripe):</strong> ${buyerEmail}</p>` : ""}
-      ${fileLink ? `<p><strong>File:</strong> <a href="${fileLink}">${fileLink}</a></p>` : "<p><em>No link available</em></p>"}
-      <p>Attached: ${attach.length ? attach[0].filename : "none"}</p>
-    </div>
-  `;
-
-  if (!CONTEST_INBOX) throw new Error("CONTEST_INBOX not set");
-
-  // Use same unified email helper
-  return await sendEmail({
-    to: CONTEST_INBOX,
-    subject: `Skald Contest: ${entry.name || entry.id}`,
-    html,
-    attachments: attach,
-  });
-}
-
-// Global error handler so 500s show the real cause in response + logs
+// Global error handler — makes 500s readable
 app.use((err, req, res, _next) => {
   console.error("[error]", err && (err.stack || err.message || err));
   res.status(500).json({ ok: false, error: String(err && (err.message || err)) });
 });
 
-
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
+
+
 
 
 
