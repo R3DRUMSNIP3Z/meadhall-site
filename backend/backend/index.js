@@ -739,6 +739,23 @@ app.use((err, req, res, _next) => {
   res.status(500).json({ ok: false, error: String(err && (err.message || err)) });
 });
 
+// quick route dumper
+app.get("/api/_routes", (_req, res) => {
+  const routes = [];
+  app._router.stack.forEach((m) => {
+    if (m.route && m.route.path) {
+      routes.push({ method: Object.keys(m.route.methods)[0].toUpperCase(), path: m.route.path });
+    } else if (m.name === "router" && m.handle?.stack) {
+      m.handle.stack.forEach((h) => {
+        const r = h.route;
+        if (r) routes.push({ method: Object.keys(r.methods)[0].toUpperCase(), path: r.path });
+      });
+    }
+  });
+  res.json(routes);
+});
+
+
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
 
 
