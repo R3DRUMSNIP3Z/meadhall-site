@@ -1,22 +1,26 @@
-// backend/backend/cloudy.js
+// backend/cloudy.js
 const cloudinary = require("cloudinary").v2;
 
-const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || "";
-const API_KEY    = process.env.CLOUDINARY_API_KEY || "";
-const API_SECRET = process.env.CLOUDINARY_API_SECRET || "";
+const required = [
+  "CLOUDINARY_CLOUD_NAME",
+  "CLOUDINARY_API_KEY",
+  "CLOUDINARY_API_SECRET",
+];
 
-const HAVE_CLOUD = !!(CLOUD_NAME && API_KEY && API_SECRET);
-
-if (HAVE_CLOUD) {
-  cloudinary.config({
-    cloud_name: CLOUD_NAME,
-    api_key: API_KEY,
-    api_secret: API_SECRET,
-    secure: true,
-  });
+for (const k of required) {
+  if (!process.env[k] || String(process.env[k]).trim() === "") {
+    throw new Error(`Missing required env var: ${k}`);
+  }
 }
 
-module.exports = { cloudinary, HAVE_CLOUD };
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+module.exports = { cloudinary };
+
 
 
 

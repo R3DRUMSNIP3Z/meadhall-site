@@ -1,26 +1,27 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Mead Hall backend server",
+  "private": true,
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
-  "keywords": [],
-  "author": "Lisa",
-  "license": "ISC",
+  "engines": {
+    "node": ">=18 <23"
+  },
   "dependencies": {
     "body-parser": "^2.2.0",
+    "cloudinary": "^1.41.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
-    "express": "4.19.2",
+    "express": "^5.1.0",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
-    "cloudinary": "^1.41.3",
     "nodemailer": "^7.0.5",
     "stripe": "^18.5.0"
   }
 }
+
 
 
