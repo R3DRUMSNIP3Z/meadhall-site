@@ -1,4 +1,4 @@
-﻿// backend/index.js — full drop-in (with uploads CORS/CORP + single /api/_routes)
+﻿// backend/index.js — full drop-in (with robust CORS + uploads CORP)
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -37,39 +37,46 @@ const stripe = new Stripe(STRIPE_SECRET || "sk_test_dummy", { apiVersion: "2024-
 const SERVER_PUBLIC_URL = process.env.SERVER_PUBLIC_URL || `http://localhost:${PORT}`;
 const CONTEST_INBOX = process.env.CONTEST_INBOX || "";
 
-// --- CORS (single clean block) ---
-const allowedOrigins = new Set([
-  CLIENT_URL,
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "https://meadhall-site.vercel.app",
-]);
+/* ---------------------- ROBUST CORS ---------------------- */
+// Always advertise base allowances (helps caches/proxies)
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, Stripe-Signature, x-user-id"
+  );
+  res.setHeader("Vary", "Origin");
+  next();
+});
 
+// Reflect the request Origin so ACAO is always present.
+// If you want to pin to a list, replace `true` with a function check.
 app.use(
   cors({
-    origin: (origin, cb) => {
-      if (!origin) return cb(null, true); // allow curl/postman
-      cb(null, allowedOrigins.has(origin));
-    },
-    credentials: true,
+    origin: true,       // ← reflect Origin (fixes missing ACAO)
+    credentials: false, // not using cookies across origins
+    maxAge: 86400,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Stripe-Signature", "x-user-id"],
-    maxAge: 86400,
   })
 );
-app.options(/.*/, cors());
+
+// Answer ALL preflights immediately
+app.options("*", (req, res) => res.status(204).end());
+
 app.set("trust proxy", 1);
+/* ------------------- END ROBUST CORS --------------------- */
 
 // --- uploads dir and static serving (avatars + contest PDFs + gallery) ---
 const uploadsDir = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-// ✅ Serve /uploads with permissive headers so Vercel can embed images (fixes CORB)
+// Serve /uploads with permissive headers so Vercel can embed images (CORB/CORP safe)
 app.use(
   "/uploads",
   (req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");               // or set to your exact Vercel origin
-    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");   // important for images
+    res.setHeader("Access-Control-Allow-Origin", "*");             // images can be hotlinked
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"); // important for images
     next();
   },
   express.static(uploadsDir, {
@@ -143,27 +150,23 @@ const resendClient = HAVE_RESEND ? new Resend(process.env.RESEND_API_KEY) : null
 
 let smtpTransport = null;
 if (process.env.SMTP_HOST) {
-  // base transport
   smtpTransport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
     secure: String(process.env.SMTP_SECURE || "false") === "true",
     auth: (process.env.SMTP_USER && process.env.SMTP_PASS) ? {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      user: process.env.SMTP_USER, pass: process.env.SMTP_PASS,
     } : undefined,
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     tls: { rejectUnauthorized: false, minVersion: "TLSv1.2" },
   });
 
-  // IPv4 + pooling + stronger timeouts + servername
   const forceIPv4AndPooling = {
     pool: true, maxConnections: 3, maxMessages: 50, keepAlive: true, family: 4, socketTimeout: 30000,
     tls: { ...(smtpTransport.options.tls || {}), servername: process.env.SMTP_HOST, rejectUnauthorized: false, minVersion: "TLSv1.2" },
   };
 
-  // recreate with augmented options
   smtpTransport = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
@@ -176,7 +179,6 @@ if (process.env.SMTP_HOST) {
     ...forceIPv4AndPooling,
   });
 
-  // verify with 587→465 fallback
   (async function verifyOrFallback() {
     try {
       await smtpTransport.verify();
@@ -210,18 +212,14 @@ if (process.env.SMTP_HOST) {
 
 // unified email helper
 async function sendEmail({ to, subject, text, html, attachments }) {
-  // 1) Try Resend (HTTPS)
   if (resendClient) {
     try {
-      const r = await resendClient.emails.send({
-        from: FROM_EMAIL, to, subject, text, html, attachments,
-      });
+      const r = await resendClient.emails.send({ from: FROM_EMAIL, to, subject, text, html, attachments });
       return { ok: true, provider: "resend", id: r?.id || null };
     } catch (e) {
       console.warn("sendEmail via Resend failed:", e.message);
     }
   }
-  // 2) SMTP fallback
   if (smtpTransport) {
     const from = FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
     const info = await smtpTransport.sendMail({ from, to, subject, text, html, attachments });
@@ -537,7 +535,7 @@ app.post("/api/contest/checkout", async (req, res) => {
   try {
     let entryId = req.body.entryId || null;
 
-    // Legacy: { entry: { title, email, genre, text } }
+    // Legacy text entry
     if (!entryId && req.body.entry) {
       entryId = `ce_${Date.now()}`;
       const fauxPath = path.join(uploadsDir, `${entryId}.txt`);
@@ -595,13 +593,8 @@ app.post("/api/contest/resend", async (req, res) => {
     if (!entryId) return res.status(400).json({ ok: false, error: "entryId required" });
     const entry = findContestEntry(entryId);
     if (!entry) return res.status(404).json({ ok: false, error: "Entry not found" });
-    const info = await sendContestEmail(entry, null);
-    return res.json({
-      ok: true,
-      resent: entryId,
-      provider: info?.provider || null,
-      id: info?.id || null,
-    });
+    const info = await sendEmail({ to: CONTEST_INBOX, subject: "[Skald Contest] Resend", text: "Resent entry attached." });
+    return res.json({ ok: true, resent: entryId, provider: info?.provider || null, id: info?.id || null });
   } catch (e) {
     console.error("resend error:", e.message);
     res.status(500).json({ ok: false, error: e.message });
@@ -668,7 +661,6 @@ app.post("/api/auth/request-code", async (req, res) => {
     const code = makeCode(6);
     verifyCodes.set(email, { code, exp: now() + VERIFY_TTL_MS });
 
-    // Try to email the code (Resend first, then SMTP)
     try {
       await sendEmail({
         to: email,
@@ -775,6 +767,7 @@ app.get("/api/_routes", (_req, res) => {
 });
 
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
 
 
 
