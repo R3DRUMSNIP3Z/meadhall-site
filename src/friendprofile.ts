@@ -1,4 +1,4 @@
-﻿// /src/friendprofile.ts — Final clean version (gallery-only tweaks)
+﻿// /src/friendprofile.ts — Final clean version with LIGHTBOX for gallery
 
 type SafeUser = {
   id: string;
@@ -125,12 +125,8 @@ async function loadStories(API: string, userId: string): Promise<Story[]> {
   return list.map((s) => ({ ...s, imageUrl: s.imageUrl ? fullUrl(s.imageUrl) : undefined }));
 }
 
-/* ------ Only gallery functions changed below ------ */
+/* ------ GALLERY + LIGHTBOX ------ */
 function normalizePhotoArray(raw: any): Photo[] {
-  // Accept:
-  // - Array of objects with {url|path|src}
-  // - Array of strings (paths)
-  // - Objects like {items: [...]}
   const arr = Array.isArray(raw) ? raw : (Array.isArray(raw?.items) ? raw.items : []);
   if (!Array.isArray(arr)) return [];
   return arr
@@ -144,6 +140,134 @@ function normalizePhotoArray(raw: any): Photo[] {
     .filter((p) => !!p.url);
 }
 
+// Lightbox singleton
+const LB = {
+  root: null as HTMLDivElement | null,
+  img: null as HTMLImageElement | null,
+  prevBtn: null as HTMLButtonElement | null,
+  nextBtn: null as HTMLButtonElement | null,
+  closeBtn: null as HTMLButtonElement | null,
+  counter: null as HTMLSpanElement | null,
+  urls: [] as string[],
+  index: 0,
+  ensureDom() {
+    if (this.root) return;
+    const div = document.createElement("div");
+    div.className = "lightbox";
+    div.setAttribute("aria-hidden", "true");
+    div.innerHTML = `
+      <button class="lb-close" aria-label="Close (Esc)">✕</button>
+      <button class="lb-prev"  aria-label="Previous (←)">‹</button>
+      <div class="lb-stage"><img class="lb-img" alt="Photo" draggable="false"/></div>
+      <button class="lb-next"  aria-label="Next (→)">›</button>
+      <div class="lb-meta"><span class="lb-counter">1 / 1</span></div>
+    `;
+    // styles inline so no HTML/CSS edits needed
+    Object.assign(div.style, {
+      position: "fixed", inset: "0", background: "rgba(0,0,0,.85)",
+      display: "none", opacity: "0", transition: "opacity .18s ease", zIndex: "9999"
+    } as CSSStyleDeclaration);
+
+    const stage = div.querySelector(".lb-stage") as HTMLDivElement;
+    Object.assign(stage.style, {
+      position: "absolute", inset: "0",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: "60px 80px"
+    });
+
+    const img = div.querySelector(".lb-img") as HTMLImageElement;
+    Object.assign(img.style, {
+      maxWidth: "min(92vw,1400px)",
+      maxHeight: "86vh",
+      borderRadius: "12px",
+      boxShadow: "0 10px 40px rgba(0,0,0,.6)",
+      background: "#111",
+      objectFit: "contain",
+      userSelect: "none"
+    });
+
+    const btnBase = {
+      position: "absolute", top: "50%", transform: "translateY(-50%)",
+      background: "rgba(20,20,20,.5)",
+      border: "1px solid rgba(200,169,107,.35)",
+      color: "#e9e4d5", width: "44px", height: "44px",
+      borderRadius: "999px", display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: "22px", cursor: "pointer", userSelect: "none",
+      backdropFilter: "blur(4px)"
+    } as CSSStyleDeclaration;
+
+    const prev = div.querySelector(".lb-prev") as HTMLButtonElement;
+    Object.assign(prev.style, { ...btnBase, left: "18px" });
+
+    const next = div.querySelector(".lb-next") as HTMLButtonElement;
+    Object.assign(next.style, { ...btnBase, right: "18px" });
+
+    const close = div.querySelector(".lb-close") as HTMLButtonElement;
+    Object.assign(close.style, { ...btnBase, top: "18px", right: "18px", transform: "none", width: "42px", height: "42px", fontSize: "20px" });
+
+    const meta = div.querySelector(".lb-meta") as HTMLDivElement;
+    Object.assign(meta.style, {
+      position: "absolute", left: "0", right: "0", bottom: "10px",
+      textAlign: "center", color: "#d8caa6", fontSize: "13px", letterSpacing: ".04em", opacity: ".9"
+    });
+
+    document.body.appendChild(div);
+    this.root = div;
+    this.img = img;
+    this.prevBtn = prev;
+    this.nextBtn = next;
+    this.closeBtn = close;
+    this.counter = meta.querySelector(".lb-counter") as HTMLSpanElement;
+
+    // Events
+    div.addEventListener("click", (e) => { if (e.target === div) this.close(); });
+    close.addEventListener("click", () => this.close());
+    prev.addEventListener("click", () => this.prev());
+    next.addEventListener("click", () => this.next());
+
+    window.addEventListener("keydown", (e) => {
+      if (div.style.display !== "block") return;
+      if (e.key === "Escape") this.close();
+      else if (e.key === "ArrowLeft") this.prev();
+      else if (e.key === "ArrowRight") this.next();
+    });
+
+    // swipe/drag
+    let startX: number | null = null;
+    img.addEventListener("pointerdown", (e) => { startX = e.clientX; img.setPointerCapture(e.pointerId); });
+    img.addEventListener("pointerup", (e) => {
+      if (startX == null) return;
+      const dx = e.clientX - startX;
+      startX = null;
+      if (dx > 40) this.prev(); else if (dx < -40) this.next();
+    });
+  },
+  open(i = 0) {
+    this.ensureDom();
+    if (!this.root || !this.img || !this.urls.length) return;
+    this.index = (i + this.urls.length) % this.urls.length;
+    this.img.src = this.urls[this.index];
+    if (this.counter) this.counter.textContent = `${this.index + 1} / ${this.urls.length}`;
+    this.root.style.display = "block";
+    requestAnimationFrame(() => (this.root!.style.opacity = "1"));
+    document.body.style.overflow = "hidden";
+    this.preloadNeighbors();
+  },
+  close() {
+    if (!this.root) return;
+    this.root.style.opacity = "0";
+    setTimeout(() => { if (this.root) this.root.style.display = "none"; }, 180);
+    document.body.style.overflow = "";
+    if (this.img) this.img.src = "";
+  },
+  next() { this.open(this.index + 1); },
+  prev() { this.open(this.index - 1); },
+  preloadNeighbors() {
+    const a = new Image(); a.src = this.urls[(this.index + 1) % this.urls.length] || "";
+    const b = new Image(); b.src = this.urls[(this.index - 1 + this.urls.length) % this.urls.length] || "";
+  }
+};
+
 async function loadGallery(API: string, userId: string): Promise<Photo[]> {
   const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/gallery`);
   if (!r.ok) return [];
@@ -155,11 +279,17 @@ function renderGalleryFromPhotos(photos: Photo[]) {
   galleryGrid.innerHTML = "";
   if (!photos.length) {
     galleryGrid.innerHTML = `<div class="muted">No images yet.</div>`;
+    LB.urls = [];
     return;
   }
-  for (const p of photos) {
+
+  // Build ordered URL list for lightbox
+  LB.urls = photos.map((p) => cacheBust(fullUrl(p.url)));
+
+  photos.forEach((_p, i) => {
     const img = new Image();
-    img.src = cacheBust(fullUrl(p.url));
+    const url = LB.urls[i];
+    img.src = url;
     img.alt = "gallery image";
     img.loading = "lazy";
     img.referrerPolicy = "no-referrer";
@@ -169,12 +299,14 @@ function renderGalleryFromPhotos(photos: Photo[]) {
       objectFit: "cover",
       borderRadius: "10px",
       border: "1px solid var(--line)",
+      cursor: "zoom-in",
     });
     img.onerror = () => { img.style.opacity = "0.35"; };
+    img.addEventListener("click", () => LB.open(i));
     galleryGrid.appendChild(img);
-  }
+  });
 }
-/* ------ end gallery changes ------ */
+/* ------ end gallery + lightbox ------ */
 
 async function loadCompanions(API: string, userId: string) {
   companionsEl.innerHTML = `<div class="muted">Loading…</div>`;
@@ -200,7 +332,7 @@ async function loadCompanions(API: string, userId: string) {
           </div>
         </div>
         <div class="comp-actions">
-          <a class="btn ghost" href="/friendprofile.html?user=${encodeURIComponent(u.id)}">View</a>
+          <a class="btn ghost" href="/friendprofile.html?user=${encodeURIComponent(u.id)}#gallery">View</a>
         </div>
       `;
       companionsEl.appendChild(row);
@@ -403,6 +535,7 @@ async function main() {
 }
 
 main();
+
 
 
 
