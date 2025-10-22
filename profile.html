@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mead Hall  Profile</title>
+  <title>Mead Hall Profile</title>
   <meta name="description" content="Your Mead Hall guild profile." />
   <meta name="theme-color" content="#0b0f12" />
+
   <!-- Set this to your running backend -->
   <meta name="api-base" content="https://meadhall-site.onrender.com" />
 
@@ -41,10 +42,22 @@
     .kv{margin-bottom:12px}
     .story{padding:14px;border-radius:12px;border:1px solid rgba(200,169,107,.2);margin:10px 0;background:rgba(255,255,255,.03)}
     .muted{color:var(--ink-dim)}
+    .gallery-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+      gap:10px;
+    }
+    .gallery-grid img{
+      width:100%;
+      aspect-ratio:1 / 1;
+      object-fit:cover;
+      border-radius:10px;
+      border:1px solid rgba(200,169,107,.2);
+      background:#111;
+    }
   </style>
 </head>
 <body>
-  <!-- Header with logo (kept consistent across pages) -->
   <header>
     <div class="wrap" style="display:flex; gap:22px; align-items:center;">
       <a href="/" class="brand" style="display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit">
@@ -98,17 +111,24 @@
         </div>
       </section>
 
-      <!-- Right: stories -->
+      <!-- Right: stories + gallery -->
       <section class="panel">
         <h3 style="margin:0 0 8px">Stories</h3>
         <div id="stories" class="muted">No stories yet.</div>
+
+        <hr style="border:none;border-top:1px solid rgba(200,169,107,.15);margin:18px 0">
+
+        <h3 style="margin:0 0 8px">Gallery</h3>
+        <div id="galleryGrid" class="gallery-grid">
+          <div class="muted">Loading…</div>
+        </div>
       </section>
     </div>
   </main>
 
   <footer>
     <div class="wrap">
-      <span> <span id="y"></span> Mead Hall</span>
+      <span><span id="y"></span> Mead Hall</span>
       <span class="sep"></span>
       <span>Forged in Myriador</span>
     </div>
@@ -120,27 +140,16 @@
     if (y) y.textContent = String(new Date().getFullYear());
 
     // API base
-    const API_BASE =
-      (document.querySelector('meta[name="api-base"]')?.content || '').trim();
+    const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || '').trim();
 
-    // ✅ Fix relative URLs like "/uploads/..." → full backend path
-    const fullUrl = (p) =>
-      /^https?:\/\//i.test(p)
-        ? p
-        : `${API_BASE.replace(/\/+$/, '')}/${String(p || '').replace(/^\/+/, '')}`;
+    // Build full URL for relative paths like "/uploads/..."
+    const fullUrl = (p) => /^https?:\/\//i.test(p) ? p : `${API_BASE.replace(/\/+$/, '')}/${String(p||'').replace(/^\/+/, '')}`;
+    const cacheBust = (u) => u ? (u.includes('?') ? `${u}&t=${Date.now()}` : `${u}?t=${Date.now()}`) : u;
 
     // Local session helpers
-    const LS_KEY_MAIN = 'mh_user';
-    const LS_KEY_FALLBACK = 'user';
-    function getUser() {
-      try {
-        return JSON.parse(localStorage.getItem(LS_KEY_MAIN) || localStorage.getItem(LS_KEY_FALLBACK) || 'null');
-      } catch { return null; }
-    }
-    function setUser(u) {
-      localStorage.setItem(LS_KEY_MAIN, JSON.stringify(u));
-      localStorage.removeItem(LS_KEY_FALLBACK);
-    }
+    const LS_KEY = 'mh_user';
+    function getUser(){ try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch { return null; } }
+    function setUser(u){ localStorage.setItem(LS_KEY, JSON.stringify(u)); }
 
     // Elements
     const hello = document.getElementById('hello');
@@ -150,8 +159,9 @@
     const interestsEl = document.getElementById('interests');
     const avatarImg = document.getElementById('avatarImg');
     const storiesEl = document.getElementById('stories');
+    const galleryGrid = document.getElementById('galleryGrid');
 
-    // Render helper
+    // ---- render user
     function renderUser(u) {
       if (hello) hello.textContent = `Welcome, ${u.name || 'skald'}${u.id ? ` (ID: ${u.id})` : ''}.`;
       if (nameEl) nameEl.textContent = u.name || '';
@@ -159,14 +169,75 @@
       if (bioEl) bioEl.textContent = u.bio || '';
       if (interestsEl) interestsEl.textContent = u.interests || '';
       if (avatarImg) {
-        const src = u.avatarUrl
-          ? `${fullUrl(u.avatarUrl)}?t=${Date.now()}`
-          : '/logo/logo-512.png';
+        const src = u.avatarUrl ? cacheBust(fullUrl(u.avatarUrl)) : '/logo/logo-512.png';
         avatarImg.src = src;
         avatarImg.onerror = () => { avatarImg.src = '/logo/logo-512.png'; };
       }
     }
 
+    // ---- stories
+    async function loadStories(uid) {
+      if (!storiesEl) return;
+      storiesEl.textContent = 'Loading…';
+      try {
+        const r = await fetch(`${API_BASE}/api/users/${uid}/stories`);
+        const list = r.ok ? await r.json() : [];
+        if (!Array.isArray(list) || list.length === 0) {
+          storiesEl.textContent = 'No stories yet.';
+          storiesEl.classList.add('muted');
+        } else {
+          storiesEl.classList.remove('muted');
+          storiesEl.innerHTML = '';
+          for (const s of list) {
+            const div = document.createElement('div');
+            div.className = 'story';
+            const when = s.createdAt ? new Date(s.createdAt).toLocaleString() : '';
+            div.innerHTML = `<strong>${s.title || 'Untitled'}</strong>
+              <div class="muted" style="font-size:12px">${when}</div>
+              <p style="margin:.4em 0 0">${String(s.text || '').replace(/\n/g,'<br>')}</p>`;
+            storiesEl.appendChild(div);
+          }
+        }
+      } catch {
+        storiesEl.textContent = 'No stories yet.';
+        storiesEl.classList.add('muted');
+      }
+    }
+
+    // ---- gallery
+    const normalizePhotos = (raw) => {
+      if (Array.isArray(raw)) return raw;
+      if (Array.isArray(raw?.items)) return raw.items;
+      return [];
+    };
+    const toImgUrl = (p) => /^https?:\/\//i.test(p || '') ? p : fullUrl(p);
+
+    async function loadGallery(uid){
+      if (!galleryGrid) return;
+      galleryGrid.innerHTML = `<div class="muted">Loading…</div>`;
+      try {
+        const r = await fetch(`${API_BASE}/api/users/${uid}/gallery`);
+        const data = r.ok ? await r.json() : [];
+        const photos = normalizePhotos(data);
+        if (!photos.length) {
+          galleryGrid.innerHTML = `<div class="muted">No photos yet.</div>`;
+          return;
+        }
+        galleryGrid.innerHTML = '';
+        for (const p of photos) {
+          const img = document.createElement('img');
+          img.loading = 'lazy';
+          img.alt = 'Gallery photo';
+          img.src = cacheBust(toImgUrl(p.url || p.path || ''));
+          img.onerror = () => { img.style.opacity = '0.3'; };
+          galleryGrid.appendChild(img);
+        }
+      } catch {
+        galleryGrid.innerHTML = `<div class="muted">Failed to load photos.</div>`;
+      }
+    }
+
+    // ---- refresh user from backend
     async function loadUserFresh(u) {
       if (!API_BASE || !u?.id) return u;
       try {
@@ -175,71 +246,39 @@
         const fresh = await r.json();
         setUser(fresh);
         return fresh;
-      } catch (err) {
-        console.warn('Could not refresh user; using cached.', err);
+      } catch {
         return u;
       }
     }
 
-    async function init() {
+    async function init(){
       let u = getUser();
       if (!u?.id) {
-        if (hello) hello.textContent = 'Youre not signed in.';
+        if (hello) hello.textContent = "You're not signed in.";
         return;
       }
-
-      // Refresh from backend so edits on account.html show here
       u = await loadUserFresh(u);
       renderUser(u);
-
-      // Load stories (if your backend exposes this route)
-      if (u.id && API_BASE && storiesEl) {
-        try {
-          const r = await fetch(`${API_BASE}/api/users/${u.id}/stories`);
-          const list = r.ok ? await r.json() : [];
-          if (!Array.isArray(list) || list.length === 0) {
-            storiesEl.textContent = 'No stories yet.';
-            storiesEl.classList.add('muted');
-          } else {
-            storiesEl.classList.remove('muted');
-            storiesEl.innerHTML = '';
-            for (const s of list) {
-              const div = document.createElement('div');
-              div.className = 'story';
-              const when = s.createdAt ? new Date(s.createdAt).toLocaleString() : '';
-              div.innerHTML = `<strong>${s.title || 'Untitled'}</strong>
-                <div class="muted" style="font-size:12px">${when}</div>
-                <p style="margin:.4em 0 0">${String(s.text || '').replace(/\n/g,'<br>')}</p>`;
-              storiesEl.appendChild(div);
-            }
-          }
-        } catch {
-          storiesEl.textContent = 'No stories yet.';
-          storiesEl.classList.add('muted');
-        }
-      }
+      await loadStories(u.id);
+      await loadGallery(u.id);
     }
 
-    // Keep in sync if another tab/page updates localStorage
+    // Keep in sync if another tab updates localStorage
     window.addEventListener('storage', (e) => {
-      if (e.key === LS_KEY_MAIN || e.key === LS_KEY_FALLBACK) {
-        init();
-      }
+      if (e.key === 'mh_user') init();
     });
 
     // Logout
     document.getElementById('logout')?.addEventListener('click', () => {
-      localStorage.removeItem(LS_KEY_MAIN);
-      localStorage.removeItem(LS_KEY_FALLBACK);
+      localStorage.removeItem('mh_user');
       location.href = '/';
     });
 
-    // Kick off
     init();
   </script>
-  <script type="module" src="/src/profile.ts"></script>
 </body>
 </html>
+
 
 
 
