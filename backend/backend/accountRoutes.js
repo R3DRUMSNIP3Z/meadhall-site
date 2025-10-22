@@ -2,7 +2,10 @@
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
-const { users, stories } = require("./db"); // stories: Map<userId, Story[]>
+const { users, stories: _stories } = require("./db"); // stories: Map<userId, Story[]>
+
+// Ensure stories map exists (defensive)
+const stories = _stories || new Map();
 
 // === paths (match index.js) ===
 const uploadsDir = path.join(__dirname, "public", "uploads");
@@ -32,15 +35,22 @@ function persistUser(u) {
 // who is signed in (same convention as other routes)
 const currentUserId = (req) => (req.get("x-user-id") || "").trim();
 
-// Multer storage for avatars (safe filenames)
-const storage = multer.diskStorage({
+// Multer storage for avatars (safe filenames) — with limits + image-only
+const avatarStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
     const safe = String(file.originalname || "upload").replace(/\s+/g, "_");
     cb(null, `${Date.now()}-${safe}`);
   },
 });
-const upload = multer({ storage });
+const uploadAvatar = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB
+  fileFilter: (_req, file, cb) => {
+    if (/^image\/(png|jpe?g|webp|gif|avif)$/i.test(file.mimetype)) cb(null, true);
+    else cb(new Error("Only image files are allowed"));
+  },
+});
 
 // Strip password etc.
 function safeUser(u) {
@@ -161,10 +171,10 @@ function install(app) {
   });
 
   // Upload avatar (per-user endpoint). Keeps relative path so /uploads static works.
-  app.post("/api/users/:id/avatar", upload.single("file"), (req, res) => {
+  app.post("/api/users/:id/avatar", uploadAvatar.single("file"), (req, res) => {
     const u = users.get(req.params.id);
     if (!u) return res.status(404).json({ error: "User not found" });
-    if (!req.file) return res.status(400).json({ error: "No file" });
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
     u.avatarUrl = `/uploads/${req.file.filename}`;
     users.set(u.id, u);
@@ -257,6 +267,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 
