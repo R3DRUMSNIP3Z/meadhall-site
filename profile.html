@@ -54,7 +54,57 @@
       border-radius:10px;
       border:1px solid rgba(200,169,107,.2);
       background:#111;
+      cursor:zoom-in;
     }
+
+    /* ------ LIGHTBOX ------ */
+    .lightbox{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.85);
+      display:none; opacity:0;
+      transition:opacity .18s ease;
+      z-index:9999;
+    }
+    .lightbox.open{ display:block; opacity:1; }
+
+    .lb-stage{
+      position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      padding:60px 80px; /* room for controls */
+    }
+    .lb-img{
+      max-width:min(92vw,1400px);
+      max-height:86vh;
+      border-radius:12px;
+      box-shadow:0 10px 40px rgba(0,0,0,.6);
+      background:#111;
+      object-fit:contain;
+      user-select:none;
+    }
+
+    .lb-close, .lb-prev, .lb-next{
+      position:absolute; top:50%;
+      transform:translateY(-50%);
+      background:rgba(20,20,20,.5);
+      border:1px solid rgba(200,169,107,.35);
+      color:#e9e4d5;
+      width:44px; height:44px; border-radius:999px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:22px; cursor:pointer; user-select:none;
+      backdrop-filter: blur(4px);
+    }
+    .lb-prev{ left:18px; }
+    .lb-next{ right:18px; }
+    .lb-close{
+      top:18px; right:18px; transform:none; width:42px;height:42px; font-size:20px;
+    }
+    .lb-meta{
+      position:absolute; left:0; right:0; bottom:10px;
+      text-align:center; color:#d8caa6; font-size:13px; letter-spacing:.04em;
+      opacity:.9; padding:4px 10px;
+    }
+    .lb-counter{ opacity:.8; font-variant-numeric:tabular-nums; }
+    .lb-hidden{ display:none !important; }
   </style>
 </head>
 <body>
@@ -134,6 +184,19 @@
     </div>
   </footer>
 
+  <!-- ===== LIGHTBOX ROOT (added) ===== -->
+  <div id="lightbox" class="lightbox" aria-hidden="true">
+    <button class="lb-close" id="lbClose" aria-label="Close (Esc)">✕</button>
+    <button class="lb-prev"  id="lbPrev"  aria-label="Previous (←)">‹</button>
+    <div class="lb-stage">
+      <img id="lbImg" class="lb-img" alt="Photo" draggable="false" />
+    </div>
+    <button class="lb-next"  id="lbNext"  aria-label="Next (→)">›</button>
+    <div class="lb-meta">
+      <span id="lbCounter" class="lb-counter">1 / 1</span>
+    </div>
+  </div>
+
   <script type="module">
     // Year
     const y = document.getElementById('y');
@@ -160,6 +223,42 @@
     const avatarImg = document.getElementById('avatarImg');
     const storiesEl = document.getElementById('stories');
     const galleryGrid = document.getElementById('galleryGrid');
+
+    // Lightbox elements
+    const lbRoot   = document.getElementById('lightbox');
+    const lbImg    = document.getElementById('lbImg');
+    const lbPrev   = document.getElementById('lbPrev');
+    const lbNext   = document.getElementById('lbNext');
+    const lbClose  = document.getElementById('lbClose');
+    const lbCount  = document.getElementById('lbCounter');
+
+    // Lightbox state
+    const LB = {
+      urls: [],          // ordered list of image URLs
+      index: 0,
+      open(i = 0){
+        if (!this.urls.length) return;
+        this.index = (i + this.urls.length) % this.urls.length;
+        lbImg.src = this.urls[this.index];
+        if (lbCount) lbCount.textContent = (this.index + 1) + ' / ' + this.urls.length;
+        lbRoot.classList.add('open');
+        lbRoot.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        this.preloadNeighbors();
+      },
+      close(){
+        lbRoot.classList.remove('open');
+        lbRoot.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        lbImg.src = '';
+      },
+      next(){ this.open(this.index + 1); },
+      prev(){ this.open(this.index - 1); },
+      preloadNeighbors(){
+        const a = new Image(); a.src = this.urls[(this.index + 1) % this.urls.length] || '';
+        const b = new Image(); b.src = this.urls[(this.index - 1 + this.urls.length) % this.urls.length] || '';
+      }
+    };
 
     // ---- render user
     function renderUser(u) {
@@ -219,21 +318,37 @@
         const r = await fetch(`${API_BASE}/api/users/${uid}/gallery`);
         const data = r.ok ? await r.json() : [];
         const photos = normalizePhotos(data);
+
         if (!photos.length) {
           galleryGrid.innerHTML = `<div class="muted">No photos yet.</div>`;
+          LB.urls = [];
           return;
         }
+
         galleryGrid.innerHTML = '';
-        for (const p of photos) {
+        LB.urls = []; // reset, then fill in same order as thumbnails
+
+        photos.forEach((p, i) => {
+          const url = cacheBust(toImgUrl(p.url || p.path || ''));
+          LB.urls.push(url);
+
           const img = document.createElement('img');
           img.loading = 'lazy';
           img.alt = 'Gallery photo';
-          img.src = cacheBust(toImgUrl(p.url || p.path || ''));
+          img.src = url;
+          img.dataset.index = String(i);
           img.onerror = () => { img.style.opacity = '0.3'; };
+
+          // Click to open lightbox at this index
+          img.addEventListener('click', () => {
+            LB.open(i);
+          });
+
           galleryGrid.appendChild(img);
-        }
+        });
       } catch {
         galleryGrid.innerHTML = `<div class="muted">Failed to load photos.</div>`;
+        LB.urls = [];
       }
     }
 
@@ -251,7 +366,40 @@
       }
     }
 
+    // ---- Lightbox wiring
+    function setupLightbox(){
+      // backdrop click (close only if backdrop, not image)
+      lbRoot.addEventListener('click', (e) => {
+        if (e.target === lbRoot) LB.close();
+      });
+      lbClose.addEventListener('click', () => LB.close());
+      lbPrev.addEventListener('click', () => LB.prev());
+      lbNext.addEventListener('click', () => LB.next());
+
+      // Keyboard navigation
+      window.addEventListener('keydown', (e) => {
+        if (!lbRoot.classList.contains('open')) return;
+        if (e.key === 'Escape') LB.close();
+        else if (e.key === 'ArrowLeft') LB.prev();
+        else if (e.key === 'ArrowRight') LB.next();
+      });
+
+      // Simple drag/swipe (desktop/mobile)
+      let startX = null;
+      lbImg.addEventListener('pointerdown', (e) => { startX = e.clientX; lbImg.setPointerCapture(e.pointerId); });
+      lbImg.addEventListener('pointerup',   (e) => {
+        if (startX === null) return;
+        const dx = e.clientX - startX;
+        startX = null;
+        const THRESH = 40;
+        if (dx > THRESH) LB.prev();
+        else if (dx < -THRESH) LB.next();
+      });
+    }
+
     async function init(){
+      setupLightbox();
+
       let u = getUser();
       if (!u?.id) {
         if (hello) hello.textContent = "You're not signed in.";
@@ -278,6 +426,7 @@
   </script>
 </body>
 </html>
+
 
 
 
