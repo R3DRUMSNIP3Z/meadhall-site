@@ -1,4 +1,4 @@
-﻿// /src/friendprofile.ts — Final clean version
+﻿// /src/friendprofile.ts — Final clean version (gallery-only tweaks)
 
 type SafeUser = {
   id: string;
@@ -65,10 +65,15 @@ function fullUrl(p?: string | null): string {
   return `${base}/${path}`;
 }
 
+function cacheBust(u?: string | null): string {
+  if (!u) return "";
+  const bust = `t=${Date.now()}`;
+  return u.includes("?") ? `${u}&${bust}` : `${u}?${bust}`;
+}
+
 function avatarSrc(p?: string | null): string {
   const src = p && p.trim() ? fullUrl(p) : "/logo/avatar-placeholder.svg";
-  const bust = `t=${Date.now()}`;
-  return src.includes("?") ? `${src}&${bust}` : `${src}?${bust}`;
+  return cacheBust(src);
 }
 
 /* ------------------ DOM refs ------------------ */
@@ -120,25 +125,56 @@ async function loadStories(API: string, userId: string): Promise<Story[]> {
   return list.map((s) => ({ ...s, imageUrl: s.imageUrl ? fullUrl(s.imageUrl) : undefined }));
 }
 
+/* ------ Only gallery functions changed below ------ */
 function normalizePhotoArray(raw: any): Photo[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
+  // Accept:
+  // - Array of objects with {url|path|src}
+  // - Array of strings (paths)
+  // - Objects like {items: [...]}
+  const arr = Array.isArray(raw) ? raw : (Array.isArray(raw?.items) ? raw.items : []);
+  if (!Array.isArray(arr)) return [];
+  return arr
     .map((p: any, i: number) => {
       if (typeof p === "string") return { id: String(i), url: p };
-      const id = p.id || p._id || String(i);
-      const url = p.url || p.path || p.src || "";
-      return { id: String(id), url };
+      const id = p?.id || p?._id || String(i);
+      const url = p?.url || p?.path || p?.src || "";
+      const createdAt = p?.createdAt;
+      return { id: String(id), url, createdAt };
     })
-    .filter((p) => p.url);
+    .filter((p) => !!p.url);
 }
 
 async function loadGallery(API: string, userId: string): Promise<Photo[]> {
   const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/gallery`);
   if (!r.ok) return [];
   const data = await r.json();
-  const list = Array.isArray(data?.items) ? data.items : data;
-  return normalizePhotoArray(list);
+  return normalizePhotoArray(data);
 }
+
+function renderGalleryFromPhotos(photos: Photo[]) {
+  galleryGrid.innerHTML = "";
+  if (!photos.length) {
+    galleryGrid.innerHTML = `<div class="muted">No images yet.</div>`;
+    return;
+  }
+  for (const p of photos) {
+    const img = new Image();
+    img.src = cacheBust(fullUrl(p.url));
+    img.alt = "gallery image";
+    img.loading = "lazy";
+    img.referrerPolicy = "no-referrer";
+    Object.assign(img.style, {
+      width: "100%",
+      aspectRatio: "1/1",
+      objectFit: "cover",
+      borderRadius: "10px",
+      border: "1px solid var(--line)",
+    });
+    img.onerror = () => { img.style.opacity = "0.35"; };
+    galleryGrid.appendChild(img);
+  }
+}
+/* ------ end gallery changes ------ */
 
 async function loadCompanions(API: string, userId: string) {
   companionsEl.innerHTML = `<div class="muted">Loading…</div>`;
@@ -325,29 +361,6 @@ function renderStories(stories: Story[]) {
   }
 }
 
-function renderGalleryFromPhotos(photos: Photo[]) {
-  galleryGrid.innerHTML = "";
-  if (!photos.length) {
-    galleryGrid.innerHTML = `<div class="muted">No images yet.</div>`;
-    return;
-  }
-  for (const p of photos) {
-    const img = new Image();
-    img.src = fullUrl(p.url);
-    img.alt = "gallery image";
-    img.loading = "lazy";
-    img.referrerPolicy = "no-referrer";
-    Object.assign(img.style, {
-      width: "100%",
-      aspectRatio: "1/1",
-      objectFit: "cover",
-      borderRadius: "10px",
-      border: "1px solid var(--line)",
-    });
-    galleryGrid.appendChild(img);
-  }
-}
-
 /* ------------------ MAIN ------------------ */
 async function main() {
   const API = pickApiBase();
@@ -390,6 +403,7 @@ async function main() {
 }
 
 main();
+
 
 
 
