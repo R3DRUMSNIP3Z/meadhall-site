@@ -24,56 +24,37 @@
   <link rel="stylesheet" href="/Styles/odin.css" />
 
   <style>
-    /* ---- Gallery section ---- */
-.gallery {
-  margin-top: 30px;
-}
-.gallery h3 {
-  margin-bottom: 12px;
-  font-family: "Cinzel", serif;
-  color: var(--ink);
-}
-#galleryGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
-}
-#galleryGrid img {
-  width: 100%;
-  border-radius: 8px;
-  object-fit: cover;
-  aspect-ratio: 1/1;
-  cursor: pointer;
-  transition: transform .2s ease, box-shadow .2s ease;
-}
-#galleryGrid img:hover {
-  transform: scale(1.03);
-  box-shadow: 0 0 10px rgba(255,255,255,.1);
-}
-
-/* ---- Lightbox viewer ---- */
-#lightbox {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.85);
-  z-index: 9999;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(2px);
-}
-#lightbox.show {
-  display: flex;
-}
-#lightbox img {
-  max-width: 90%;
-  max-height: 90%;
-  border-radius: 8px;
-  box-shadow: 0 0 20px rgba(0,0,0,0.6);
-  object-fit: contain;
-}
-
-  
+    .page{max-width:1100px;margin:110px auto 60px;padding:0 20px}
+    .row{display:grid;gap:20px;grid-template-columns:1fr}
+    @media(min-width:980px){.row{grid-template-columns:360px 1fr}}
+    .panel{
+      background:linear-gradient(180deg,var(--glass),rgba(255,255,255,.02));
+      border:1px solid rgba(200,169,107,.22);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:22px;
+    }
+    .avatar{
+      width:160px;height:160px;border-radius:50%;object-fit:cover;
+      border:2px solid rgba(200,169,107,.5);background:#222
+    }
+    .label{font-size:12px;letter-spacing:.08em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:6px}
+    .kv{margin-bottom:12px}
+    .story{padding:14px;border-radius:12px;border:1px solid rgba(200,169,107,.2);margin:10px 0;background:rgba(255,255,255,.03)}
+    .muted{color:var(--ink-dim)}
+    .gallery-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+      gap:10px;
+    }
+    .gallery-grid img{
+      width:100%;
+      aspect-ratio:1 / 1;
+      object-fit:cover;
+      border-radius:10px;
+      border:1px solid rgba(200,169,107,.2);
+      background:#111;
+    }
   </style>
 </head>
 <body>
@@ -297,6 +278,7 @@
   </script>
 </body>
 </html>
+
 
 
 
