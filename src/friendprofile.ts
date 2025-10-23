@@ -1,4 +1,4 @@
-﻿// /src/friendprofile.ts — LIGHTBOX + MUG REACTIONS + COMMENTS (clean build + visible comments + hover tooltips)
+﻿// /src/friendprofile.ts — LIGHTBOX + MUG REACTIONS + COMMENTS (clean build)
 
 type SafeUser = {
   id: string;
@@ -76,8 +76,40 @@ function avatarSrc(p?: string | null): string {
   return cacheBust(src);
 }
 
+/* --- tiny helpers for counts & auth (added) --- */
 function n(v: any): number { return Math.max(0, parseInt(String(v), 10) || 0); }
-function pluralize(cnt: number, one: string, many?: string) { return `${cnt} ${cnt === 1 ? one : (many || one + 's')}`; }
+function pluralize(cnt: number, one: string, many?: string) {
+  return `${cnt} ${cnt === 1 ? one : (many || one + "s")}`;
+}
+function authHeaders(): HeadersInit {
+  const LS_USER = "mh_user";
+  let u: any = null;
+  try { u = JSON.parse(localStorage.getItem(LS_USER) || "null"); } catch {}
+  const h: Record<string,string> = { "Content-Type": "application/json" };
+  if (u?.id) h["x-user-id"] = String(u.id);
+  return h;
+}
+
+/* --- minimal API for reactions & comments (added) --- */
+/* If your backend uses different routes, just edit these four. */
+async function getReactions(API: string, ownerId: string, photoId: string) {
+  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/reactions`;
+  const r = await fetch(url, { credentials: "include" });
+  if (!r.ok) return { up: 0, down: 0, action: "" as "" | "up" | "down" };
+  return r.json() as Promise<{ up:number; down:number; action:""|"up"|"down" }>;
+}
+async function getComments(API: string, ownerId: string, photoId: string) {
+  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/comments`;
+  const r = await fetch(url, { credentials: "include" });
+  if (!r.ok) return [] as Array<{ id:string; text:string; createdAt:number|string; user?:{id:string;name:string} }>;
+  return r.json();
+}
+async function postComment(API: string, ownerId: string, photoId: string, text: string) {
+  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/comments`;
+  const r = await fetch(url, { method: "POST", headers: authHeaders(), body: JSON.stringify({ text }), credentials: "include" });
+  if (!r.ok) throw new Error("comment failed");
+  return r.json();
+}
 
 /* ------------------ DOM refs ------------------ */
 const avatarImg = document.getElementById("avatar") as HTMLImageElement;
@@ -143,141 +175,152 @@ function normalizePhotoArray(raw: any): Photo[] {
     .filter((p) => !!p.url);
 }
 
-/* === UPDATED: simple auth header helper for reactions/comments */
-function authHeaders(): HeadersInit {
-  const LS_USER = "mh_user";
-  let u: any = null;
-  try { u = JSON.parse(localStorage.getItem(LS_USER) || "null"); } catch {}
-  const h: Record<string, string> = { "Content-Type": "application/json" };
-  if (u?.id) h["x-user-id"] = String(u.id);
-  return h;
-}
-
-/* === UPDATED: assumed endpoints for per-photo reactions and comments
-   If your backend paths differ, change these four functions only. */
-async function getReactions(API: string, ownerId: string, photoId: string) {
-  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/reactions`;
-  const r = await fetch(url, { credentials: "include" });
-  if (!r.ok) return { up: 0, down: 0, action: "" as "" | "up" | "down" };
-  return r.json() as Promise<{ up: number; down: number; action: "" | "up" | "down" }>;
-}
-async function sendReaction(API: string, ownerId: string, photoId: string, action: "up" | "down" | "clear") {
-  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/reactions`;
-  const r = await fetch(url, { method: "POST", headers: authHeaders(), body: JSON.stringify({ action }), credentials: "include" });
-  if (!r.ok) throw new Error("reaction failed");
-  return r.json() as Promise<{ up: number; down: number; action: "" | "up" | "down" }>;
-}
-async function getComments(API: string, ownerId: string, photoId: string) {
-  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/comments`;
-  const r = await fetch(url, { credentials: "include" });
-  if (!r.ok) return [] as Array<{ id: string; text: string; createdAt: number | string; user?: { id: string; name: string; avatarUrl?: string } }>;
-  return r.json();
-}
-async function postComment(API: string, ownerId: string, photoId: string, text: string) {
-  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/comments`;
-  const r = await fetch(url, { method: "POST", headers: authHeaders(), body: JSON.stringify({ text }), credentials: "include" });
-  if (!r.ok) throw new Error("comment failed");
-  return r.json() as Promise<{ ok: true; id: string; createdAt: number | string }>;
-}
-
-/* === UPDATED: Inject tiny CSS for lightbox sidebar/comments and grid bar counts */
-(function injectLocalCss(){
-  const css = `
-  .pf-grid .bar {position:absolute;bottom:6px;right:6px;display:flex;gap:8px;background:rgba(0,0,0,.45);border-radius:8px;padding:4px 6px;backdrop-filter:blur(2px);align-items:center}
-  .pf-grid .act {display:inline-flex;align-items:center;gap:6px;border:none;background:none;color:#e9e4d5;cursor:pointer}
-  .pf-grid .cnt {font-weight:700;min-width:1.2ch}
-  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;opacity:0;transition:opacity .18s ease;z-index:9999}
-  .lb-wrap{display:grid;grid-template-columns:minmax(260px,1fr) 380px;width:min(1100px,96vw);height:min(88vh,980px);background:#0b0f12;border:1px solid #3b3325;border-radius:14px;overflow:hidden}
-  .lb-stage{position:relative;display:flex;align-items:center;justify-content:center;background:#000}
-  .lb-stage img{max-width:100%;max-height:100%;object-fit:contain}
-  .lb-side{display:flex;flex-direction:column;background:#0e0e0e}
-  .lb-head{display:flex;align-items:center;justify-content:space-between;padding:.55rem .75rem;border-bottom:1px solid #3b3325}
-  .lb-reacts{display:flex;align-items:center;gap:8px}
-  .lb-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #3b3325;background:#111;color:#e9e4d5;border-radius:10px;padding:.35rem .55rem;cursor:pointer}
-  .lb-btn[aria-pressed="true"]{outline:2px solid #d4a94d}
-  .lb-thread{flex:1;overflow:auto;padding:.6rem .75rem;display:flex;flex-direction:column;gap:10px}
-  .lb-c{border:1px solid #3b3325;border-radius:10px;padding:.45rem .55rem;background:#0b0b0b}
-  .lb-c small{opacity:.7}
-  .lb-form{display:flex;gap:6px;padding:.6rem .75rem;border-top:1px solid #3b3325}
-  .lb-inp{flex:1;border-radius:10px;border:1px solid #3b3325;background:#0e0e0e;color:#e9e4d5;padding:.5rem}
-  .lb-send{border-radius:10px;border:1px solid #3b3325;background:#111;color:#e9e4d5;padding:.5rem .7rem;cursor:pointer}
-  `;
-  const s = document.createElement("style");
-  s.textContent = css;
-  document.head.appendChild(s);
-})();
-
-/* ------------------ Lightbox (with comments) ------------------ */
+// Lightbox
 const LB = {
   root: null as HTMLDivElement | null,
   img: null as HTMLImageElement | null,
-  likeBtn: null as HTMLButtonElement | null,
-  disBtn: null as HTMLButtonElement | null,
-  likeCnt: null as HTMLElement | null,
-  disCnt: null as HTMLElement | null,
+  prevBtn: null as HTMLButtonElement | null,
+  nextBtn: null as HTMLButtonElement | null,
   closeBtn: null as HTMLButtonElement | null,
-  thread: null as HTMLDivElement | null,
-  form: null as HTMLFormElement | null,
-  input: null as HTMLInputElement | null,
   counter: null as HTMLSpanElement | null,
   urls: [] as string[],
-  ids: [] as string[], // photo ids in same order as urls
+  ids: [] as string[], // added: photo ids in same order as urls
   index: 0,
+
+  // comments refs (added)
+  cWrap: null as HTMLDivElement | null,
+  cList: null as HTMLDivElement | null,
+  cForm: null as HTMLFormElement | null,
+  cInput: null as HTMLInputElement | null,
+
   ensureDom() {
     if (this.root) return;
-    const wrap = document.createElement("div");
-    wrap.className = "lightbox";
-    wrap.innerHTML = `
-      <div class="lb-wrap" role="dialog" aria-modal="true">
-        <div class="lb-stage">
-          <img alt="Photo" />
-        </div>
-        <div class="lb-side">
-          <div class="lb-head">
-            <div class="lb-reacts">
-              <button class="lb-btn" id="lbLike" aria-pressed="false" title="0 Likes">👍 <span class="cnt" id="lbLikeCnt">0</span></button>
-              <button class="lb-btn" id="lbDis"  aria-pressed="false" title="0 Dislikes">👎 <span class="cnt" id="lbDisCnt">0</span></button>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span id="lbCounter">1 / 1</span>
-              <button class="lb-btn" id="lbClose" title="Close">✕</button>
-            </div>
-          </div>
-          <div class="lb-thread" id="lbThread"></div>
-          <form class="lb-form" id="lbForm">
-            <input class="lb-inp" id="lbInput" placeholder="Write a comment…" autocomplete="off" required />
-            <button class="lb-send" id="lbSend" type="submit">Post</button>
-          </form>
-        </div>
+    const div = document.createElement("div");
+    div.className = "lightbox";
+    div.innerHTML = `
+      <button class="lb-close" aria-label="Close">✕</button>
+      <button class="lb-prev" aria-label="Previous">‹</button>
+      <div class="lb-stage"><img class="lb-img" alt="Photo"/></div>
+      <button class="lb-next" aria-label="Next">›</button>
+      <div class="lb-meta"><span class="lb-counter">1 / 1</span></div>
+    `;
+    Object.assign(div.style, {
+      position: "fixed",
+      inset: "0",
+      background: "rgba(0,0,0,.85)",
+      display: "none",
+      opacity: "0",
+      transition: "opacity .18s ease",
+      zIndex: "9999",
+    });
+
+    const stage = div.querySelector(".lb-stage") as HTMLDivElement;
+    Object.assign(stage.style, {
+      position: "absolute",
+      inset: "0",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "60px 80px",
+    });
+
+    const img = div.querySelector(".lb-img") as HTMLImageElement;
+    Object.assign(img.style, {
+      maxWidth: "min(92vw,1400px)",
+      maxHeight: "86vh",
+      borderRadius: "12px",
+      boxShadow: "0 10px 40px rgba(0,0,0,.6)",
+      objectFit: "contain",
+      background: "#111",
+    });
+
+    const styleBtn = (btn: HTMLButtonElement, pos: "prev"|"next"|"close") => {
+      Object.assign(btn.style, {
+        position: "absolute",
+        background: "rgba(20,20,20,.5)",
+        border: "1px solid rgba(200,169,107,.35)",
+        color: "#e9e4d5",
+        borderRadius: "999px",
+        width: "44px",
+        height: "44px",
+        cursor: "pointer",
+      });
+      if (pos === "prev") { btn.style.left = "18px"; btn.style.top = "50%"; btn.style.transform = "translateY(-50%)"; }
+      if (pos === "next") { btn.style.right = "18px"; btn.style.top = "50%"; btn.style.transform = "translateY(-50%)"; }
+      if (pos === "close") { btn.style.right = "18px"; btn.style.top = "18px"; }
+    };
+
+    const prev = div.querySelector(".lb-prev") as HTMLButtonElement;
+    const next = div.querySelector(".lb-next") as HTMLButtonElement;
+    const close = div.querySelector(".lb-close") as HTMLButtonElement;
+    styleBtn(prev, "prev"); styleBtn(next, "next"); styleBtn(close, "close");
+
+    const meta = div.querySelector(".lb-meta") as HTMLDivElement;
+    Object.assign(meta.style, {
+      position: "absolute",
+      left: "0",
+      right: "0",
+      bottom: "10px",
+      textAlign: "center",
+      color: "#d8caa6",
+      fontSize: "13px",
+    });
+
+    // --- comments panel (added, minimal overlay at bottom of stage)
+    const cWrap = document.createElement("div");
+    Object.assign(cWrap.style, {
+      position: "absolute",
+      left: "50%",
+      transform: "translateX(-50%)",
+      bottom: "16px",
+      width: "min(800px, 90vw)",
+      maxHeight: "32vh",
+      overflow: "auto",
+      padding: "8px 10px",
+      borderRadius: "10px",
+      background: "rgba(0,0,0,.45)",
+      border: "1px solid rgba(200,169,107,.35)",
+      color: "#e9e4d5",
+    });
+    const cList = document.createElement("div");
+    cList.id = "lbCommentsList";
+    const cForm = document.createElement("form");
+    cForm.id = "lbCommentsForm";
+    cForm.innerHTML = `
+      <div style="display:flex; gap:8px; margin-top:8px">
+        <input id="lbCommentInput" placeholder="Write a comment…" autocomplete="off"
+               style="flex:1; padding:.5rem; border-radius:10px; border:1px solid #3b3325; background:#0e0e0e; color:#e9e4d5" />
+        <button type="submit" style="border:1px solid #3b3325; background:#111; color:#e9e4d5; border-radius:10px; padding:.5rem .7rem; cursor:pointer">Post</button>
       </div>
     `;
-    document.body.appendChild(wrap);
-    this.root = wrap;
-    this.img = wrap.querySelector("img")!;
-    this.likeBtn = wrap.querySelector("#lbLike") as HTMLButtonElement;
-    this.disBtn = wrap.querySelector("#lbDis") as HTMLButtonElement;
-    this.likeCnt = wrap.querySelector("#lbLikeCnt") as HTMLElement;
-    this.disCnt = wrap.querySelector("#lbDisCnt") as HTMLElement;
-    this.closeBtn = wrap.querySelector("#lbClose") as HTMLButtonElement;
-    this.thread = wrap.querySelector("#lbThread") as HTMLDivElement;
-    this.form = wrap.querySelector("#lbForm") as HTMLFormElement;
-    this.input = wrap.querySelector("#lbInput") as HTMLInputElement;
-    this.counter = wrap.querySelector("#lbCounter") as HTMLSpanElement;
+    cWrap.append(cList, cForm);
+    stage.appendChild(cWrap);
 
-    this.closeBtn.addEventListener("click", () => this.close());
-    wrap.addEventListener("click", (e) => { if (e.target === wrap) this.close(); });
+    document.body.appendChild(div);
+    this.root = div;
+    this.img = img;
+    this.prevBtn = prev;
+    this.nextBtn = next;
+    this.closeBtn = close;
+    this.counter = meta.querySelector(".lb-counter") as HTMLSpanElement;
+    this.cWrap = cWrap;
+    this.cList = cList;
+    this.cForm = cForm;
+    this.cInput = cForm.querySelector("#lbCommentInput") as HTMLInputElement;
+
+    prev.addEventListener("click", () => this.prev());
+    next.addEventListener("click", () => this.next());
+    close.addEventListener("click", () => this.close());
+    div.addEventListener("click", (e) => { if (e.target === div) this.close(); });
     window.addEventListener("keydown", (e) => {
-      if (wrap.style.display !== "block") return;
+      if (div.style.display !== "block") return;
       if (e.key === "Escape") this.close();
       if (e.key === "ArrowRight") this.next();
       if (e.key === "ArrowLeft") this.prev();
     });
   },
-  setPressed(which: "" | "up" | "down") {
-    this.likeBtn!.setAttribute("aria-pressed", which === "up" ? "true" : "false");
-    this.disBtn!.setAttribute("aria-pressed", which === "down" ? "true" : "false");
-  },
-  async open(i = 0) {
+
+  open(i = 0) {
     this.ensureDom();
     if (!this.root || !this.img || !this.urls.length) return;
     this.index = (i + this.urls.length) % this.urls.length;
@@ -287,20 +330,28 @@ const LB = {
     requestAnimationFrame(() => (this.root!.style.opacity = "1"));
     document.body.style.overflow = "hidden";
 
-    // load reactions + comments for this photo
-    try {
-      const API = pickApiBase();
-      const ownerId = qs("user")!;
-      const photoId = this.ids[this.index];
-      const r = await getReactions(API, ownerId, photoId);
-      this.likeCnt!.textContent = String(n(r.up));
-      this.disCnt!.textContent = String(n(r.down));
-      this.likeBtn!.title = pluralize(n(r.up), "Like");
-      this.disBtn!.title = pluralize(n(r.down), "Dislike");
-      this.setPressed(r.action || "");
-      await renderComments(API, ownerId, photoId, this.thread!);
-    } catch { /* ignore */ }
+    // Load comments and wire posting for this image (added)
+    (async () => {
+      try {
+        const API = pickApiBase();
+        const ownerId = qs("user")!;
+        const photoId = this.ids[this.index] || String(this.index);
+        await renderLbComments(API, ownerId, photoId, this.cList!);
+
+        this.cForm!.onsubmit = async (e) => {
+          e.preventDefault();
+          const txt = this.cInput!.value.trim();
+          if (!txt) return;
+          try {
+            await postComment(API, ownerId, photoId, txt);
+            this.cInput!.value = "";
+            await renderLbComments(API, ownerId, photoId, this.cList!);
+          } catch {}
+        };
+      } catch {}
+    })();
   },
+
   close() {
     if (!this.root) return;
     this.root.style.opacity = "0";
@@ -311,28 +362,28 @@ const LB = {
   prev() { this.open(this.index - 1); },
 };
 
-async function renderComments(API: string, ownerId: string, photoId: string, mount: HTMLDivElement) {
-  mount.innerHTML = "";
+async function renderLbComments(API: string, ownerId: string, photoId: string, listEl: HTMLDivElement) {
+  listEl.innerHTML = "";
   try {
     const list = await getComments(API, ownerId, photoId);
     if (!list.length) {
-      mount.append(el("div", "lb-c", "No comments yet. Be the first!"));
+      listEl.innerHTML = `<div style="opacity:.8">No comments yet. Be the first!</div>`;
       return;
     }
     for (const c of list) {
-      const who = c.user?.name || "skald";
+      const who = esc(c.user?.name || "skald");
       const when = new Date(Number(c.createdAt || Date.now())).toLocaleString();
-      const box = document.createElement("div");
-      box.className = "lb-c";
-      box.innerHTML = `<div><strong>${esc(who)}</strong> <small>• ${esc(when)}</small></div><div>${nl2br(c.text)}</div>`;
-      mount.append(box);
+      const row = document.createElement("div");
+      row.style.borderTop = "1px solid rgba(200,169,107,.25)";
+      row.style.padding = "6px 0";
+      row.innerHTML = `<div><strong>${who}</strong> <small style="opacity:.7">• ${esc(when)}</small></div><div>${nl2br(c.text)}</div>`;
+      listEl.appendChild(row);
     }
   } catch {
-    mount.append(el("div", "lb-c", "Could not load comments."));
+    listEl.innerHTML = `<div style="opacity:.8">Could not load comments.</div>`;
   }
 }
 
-/* ------------------ Gallery Loader ------------------ */
 async function loadGallery(API: string, userId: string): Promise<Photo[]> {
   const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/gallery`);
   if (!r.ok) return [];
@@ -340,7 +391,7 @@ async function loadGallery(API: string, userId: string): Promise<Photo[]> {
   return normalizePhotoArray(data);
 }
 
-/* ------------------ Gallery Renderer (with hover tooltips & counts) ------------------ */
+/* ------------------ Gallery Renderer ------------------ */
 function renderGalleryFromPhotos(photos: Photo[]) {
   galleryGrid.innerHTML = "";
   if (!photos.length) {
@@ -353,8 +404,8 @@ function renderGalleryFromPhotos(photos: Photo[]) {
   LB.urls = photos.map((p) => cacheBust(fullUrl(p.url)));
   LB.ids = photos.map((p) => p.id);
 
+  // Use classic for-loop to avoid unused param warnings and for perf
   for (let i = 0; i < photos.length; i++) {
-    const p = photos[i];
     const imgWrap = document.createElement("div");
     Object.assign(imgWrap.style, {
       position: "relative",
@@ -366,10 +417,12 @@ function renderGalleryFromPhotos(photos: Photo[]) {
 
     const img = new Image();
     const url = LB.urls[i];
+    const ownerId = qs("user")!;
+    const photoId = photos[i]?.id || String(i);
     img.src = url;
     img.alt = "gallery image";
     img.loading = "lazy";
-    img.draggable = false;
+    img.draggable = false; // prevent ghost-drag
     Object.assign(img.style, {
       width: "100%",
       aspectRatio: "1/1",
@@ -380,90 +433,100 @@ function renderGalleryFromPhotos(photos: Photo[]) {
     img.addEventListener("click", () => LB.open(i));
     imgWrap.appendChild(img);
 
-    // === UPDATED: Reaction bar with counts + hover titles
+    // Reaction bar
     const bar = document.createElement("div");
-    bar.className = "bar";
+    Object.assign(bar.style, {
+      position: "absolute",
+      bottom: "6px",
+      right: "6px",
+      display: "flex",
+      gap: "8px",
+      background: "rgba(0,0,0,.45)",
+      borderRadius: "8px",
+      padding: "4px 6px",
+      backdropFilter: "blur(2px)",
+      alignItems: "center",
+    });
 
     const likeBtn = document.createElement("button");
-    likeBtn.className = "act";
-    likeBtn.innerHTML = `👍 <span class="cnt">0</span>`;
-    likeBtn.title = "0 Likes";
+    const dislikeBtn = document.createElement("button");
+    const commentBtn = document.createElement("button");
+    [likeBtn, dislikeBtn, commentBtn].forEach((b) =>
+      Object.assign(b.style, {
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+      })
+    );
 
-    const disBtn = document.createElement("button");
-    disBtn.className = "act";
-    disBtn.innerHTML = `👎 <span class="cnt">0</span>`;
-    disBtn.title = "0 Dislikes";
+    // keep mugs as-is
+    likeBtn.innerHTML = `<img src="/guildbook/mugup.png" class="mug-icon" alt="like" width="20" height="20">`;
+    dislikeBtn.innerHTML = `<img src="/guildbook/mugdown.png" class="mug-icon" alt="dislike" width="20" height="20">`;
+    commentBtn.textContent = "💬";
+    commentBtn.title = "Open comments";
 
-    const cmtBtn = document.createElement("button");
-    cmtBtn.className = "act";
-    cmtBtn.textContent = "💬";
-    cmtBtn.title = "Open comments";
+    // default titles
+    likeBtn.title = "Like";
+    dislikeBtn.title = "Dislike";
 
-    const likeCntEl = likeBtn.querySelector(".cnt") as HTMLElement;
-    const disCntEl = disBtn.querySelector(".cnt") as HTMLElement;
-
-    // Prefetch counts/action (non-blocking)
+    // prefetch reaction counts for hover tooltips (non-blocking)
     (async () => {
       try {
         const API = pickApiBase();
-        const ownerId = qs("user")!;
-        const r = await getReactions(API, ownerId, p.id);
-        likeCntEl.textContent = String(n(r.up));
-        disCntEl.textContent = String(n(r.down));
-        likeBtn.setAttribute("aria-pressed", r.action === "up" ? "true" : "false");
-        disBtn.setAttribute("aria-pressed", r.action === "down" ? "true" : "false");
+        const r = await getReactions(API, ownerId, photoId);
         likeBtn.title = pluralize(n(r.up), "Like");
-        disBtn.title = pluralize(n(r.down), "Dislike");
+        dislikeBtn.title = pluralize(n(r.down), "Dislike");
       } catch {}
     })();
 
-    // Hover updates tooltips
-    bar.addEventListener("mouseenter", () => {
-      likeBtn.title = pluralize(n(likeCntEl.textContent), "Like");
-      disBtn.title = pluralize(n(disCntEl.textContent), "Dislike");
+    likeBtn.addEventListener("mouseenter", () => {
+      // titles already set from prefetch; keep for parity
+    });
+    dislikeBtn.addEventListener("mouseenter", () => {
+      // same as above
     });
 
-    // Click handlers
-    likeBtn.addEventListener("click", async (e) => {
-      e.preventDefault(); e.stopPropagation();
-      const API = pickApiBase();
-      const ownerId = qs("user")!;
-      const pressed = likeBtn.getAttribute("aria-pressed") === "true";
-      try {
-        const r = await sendReaction(API, ownerId, p.id, pressed ? "clear" : "up");
-        likeCntEl.textContent = String(n(r.up));
-        disCntEl.textContent = String(n(r.down));
-        likeBtn.setAttribute("aria-pressed", pressed ? "false" : "true");
-        disBtn.setAttribute("aria-pressed", "false");
-        likeBtn.title = pluralize(n(r.up), "Like");
-        disBtn.title = pluralize(n(r.down), "Dislike");
-      } catch {}
+    likeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      // keep your local glow-only behavior; no server vote here
+      likeBtn.querySelector("img")?.classList.toggle("active");
+      dislikeBtn.querySelector("img")?.classList.remove("active");
+    });
+    dislikeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      // keep your local glow-only behavior; no server vote here
+      dislikeBtn.querySelector("img")?.classList.toggle("active");
+      likeBtn.querySelector("img")?.classList.remove("active");
     });
 
-    disBtn.addEventListener("click", async (e) => {
-      e.preventDefault(); e.stopPropagation();
-      const API = pickApiBase();
-      const ownerId = qs("user")!;
-      const pressed = disBtn.getAttribute("aria-pressed") === "true";
-      try {
-        const r = await sendReaction(API, ownerId, p.id, pressed ? "clear" : "down");
-        const upNow = n(r.up), dnNow = n(r.down);
-        likeCntEl.textContent = String(upNow);
-        disCntEl.textContent = String(dnNow);
-        disBtn.setAttribute("aria-pressed", pressed ? "false" : "true");
-        likeBtn.setAttribute("aria-pressed", "false");
-        likeBtn.title = pluralize(upNow, "Like");
-        disBtn.title = pluralize(dnNow, "Dislike");
-      } catch {}
+    // open lightbox + comments when 💬 is clicked
+    commentBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      LB.open(i);
+      setTimeout(() => LB.cInput?.focus(), 50);
     });
 
-    cmtBtn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); LB.open(i); });
-
-    bar.append(likeBtn, disBtn, cmtBtn);
+    bar.append(likeBtn, dislikeBtn, commentBtn);
     imgWrap.appendChild(bar);
     galleryGrid.appendChild(imgWrap);
   }
 }
+
+/* --- Add mug glow styles --- */
+const mugCss = document.createElement("style");
+mugCss.textContent = `
+  .mug-icon {
+    filter: drop-shadow(0 0 2px rgba(0,0,0,.6));
+    transition: transform .15s ease, filter .15s ease;
+  }
+  .mug-icon.active {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 6px #d4a94d);
+  }
+`;
+document.head.appendChild(mugCss);
 
 /* ------------------ Story Modal (for Stories tab) ------------------ */
 let modalRoot: HTMLDivElement | null = null;
@@ -665,58 +728,6 @@ async function main() {
     const photos = await loadGallery(API, userId);
     renderGalleryFromPhotos(photos);
 
-    // wire up lightbox reaction + comment form handlers (once DOM exists)
-    LB.ensureDom();
-    LB.likeBtn!.addEventListener("mouseenter", () => {
-      LB.likeBtn!.title = pluralize(n(LB.likeCnt!.textContent), "Like");
-    });
-    LB.disBtn!.addEventListener("mouseenter", () => {
-      LB.disBtn!.title = pluralize(n(LB.disCnt!.textContent), "Dislike");
-    });
-    LB.likeBtn!.addEventListener("click", async (e) => {
-      e.preventDefault();
-      const APIb = pickApiBase();
-      const ownerId = qs("user")!;
-      const photoId = LB.ids[LB.index];
-      const pressed = LB.likeBtn!.getAttribute("aria-pressed") === "true";
-      try {
-        const r = await sendReaction(APIb, ownerId, photoId, pressed ? "clear" : "up");
-        LB.likeCnt!.textContent = String(n(r.up));
-        LB.disCnt!.textContent  = String(n(r.down));
-        LB.setPressed(pressed ? "" : "up");
-        LB.likeBtn!.title = pluralize(n(r.up), "Like");
-        LB.disBtn!.title  = pluralize(n(r.down), "Dislike");
-      } catch {}
-    });
-    LB.disBtn!.addEventListener("click", async (e) => {
-      e.preventDefault();
-      const APIb = pickApiBase();
-      const ownerId = qs("user")!;
-      const photoId = LB.ids[LB.index];
-      const pressed = LB.disBtn!.getAttribute("aria-pressed") === "true";
-      try {
-        const r = await sendReaction(APIb, ownerId, photoId, pressed ? "clear" : "down");
-        LB.likeCnt!.textContent = String(n(r.up));
-        LB.disCnt!.textContent  = String(n(r.down));
-        LB.setPressed(pressed ? "" : "down");
-        LB.likeBtn!.title = pluralize(n(r.up), "Like");
-        LB.disBtn!.title  = pluralize(n(r.down), "Dislike");
-      } catch {}
-    });
-    LB.form!.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const APIb = pickApiBase();
-      const ownerId = qs("user")!;
-      const photoId = LB.ids[LB.index];
-      const txt = LB.input!.value.trim();
-      if (!txt) return;
-      try {
-        await postComment(APIb, ownerId, photoId, txt);
-        LB.input!.value = "";
-        await renderComments(APIb, ownerId, photoId, LB.thread!);
-      } catch {}
-    });
-
     const hash = (location.hash || "#stories").replace("#", "") as "stories" | "companions" | "gallery";
     showTab(hash);
     let companionsLoaded = false;
@@ -738,6 +749,7 @@ async function main() {
 }
 
 main();
+
 
 
 
