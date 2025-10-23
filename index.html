@@ -12,7 +12,7 @@
   <meta name="description" content="Raise your horn. Share your saga. Join a guild of skalds and shield-bearers forging legends by firelight." />
   <meta name="theme-color" content="#0b0f12" />
 
-  <!-- LOCAL while testing (use only one api-base) -->
+  <!-- Backend base -->
   <meta name="api-base" content="https://meadhall-site.onrender.com" />
 
   <!-- Viking/Rune-esque fonts -->
@@ -36,68 +36,52 @@
     .navlink.sparkle {
       position: relative;
       font-weight: 700;
-      color: #d4a94d; /* fallback color if clip isn't supported */
+      color: #d4a94d;
       text-shadow: 0 0 6px rgba(212,169,77,.6), 0 0 12px rgba(212,169,77,.4);
       background: linear-gradient(90deg, #b8860b, #ffd700, #b8860b);
       background-size: 200% auto;
     }
-    /* Enable gradient-as-text wherever supported */
     @supports ((-webkit-background-clip: text) or (background-clip: text)) {
       .navlink.sparkle {
-        background-clip: text;            /* standard */
-        -webkit-background-clip: text;    /* webkit */
-        color: transparent;               /* standard way to reveal gradient */
-        -webkit-text-fill-color: transparent; /* safari/webkit */
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
         animation: shimmer 4s linear infinite;
       }
     }
-    @keyframes shimmer {
-      0%   { background-position: 0% center; }
-      100% { background-position: 200% center; }
-    }
-    .navlink.sparkle::after {
-      content: "";
-      position: absolute;
-      top: -6px;
-      right: -12px;
-      font-size: 14px;
-      color: #fff7d6;
-      text-shadow: 0 0 4px #ffefb0, 0 0 8px #ffd700;
-      animation: twinkle 2s ease-in-out infinite alternate;
-    }
-    @keyframes twinkle {
-      from { opacity: 0.2; transform: scale(0.9) rotate(0deg); }
-      to   { opacity: 1;   transform: scale(1.3) rotate(20deg); }
-    }
-    /* Accessibility niceties */
-    @media (prefers-reduced-motion: reduce) {
-      .navlink.sparkle { animation: none; }
-      .navlink.sparkle::after { animation: none; }
-    }
-    /* Locked state  force override sparkle gradient and prevent clicks */
+    @keyframes shimmer { 0% {background-position:0% center;} 100% {background-position:200% center;} }
+    .navlink.sparkle::after { content:""; position:absolute; top:-6px; right:-12px; font-size:14px; color:#fff7d6; text-shadow:0 0 4px #ffefb0, 0 0 8px #ffd700; animation: twinkle 2s ease-in-out infinite alternate; }
+    @keyframes twinkle { from {opacity:.2; transform:scale(.9) rotate(0deg);} to {opacity:1; transform:scale(1.3) rotate(20deg);} }
+    @media (prefers-reduced-motion: reduce) { .navlink.sparkle, .navlink.sparkle::after { animation:none; } }
+
     .navlink.locked{
-      opacity:.7;
-      cursor:not-allowed;
-      pointer-events:none;      /* CSS says 'none' JS will override to receive clicks */
-      background:none !important;
-      -webkit-background-clip: initial !important;
-      background-clip: initial !important;
-      color:#d4a94d !important;
-      -webkit-text-fill-color:#d4a94d !important;
-      animation:none !important;
-    }
-    .navlink.locked::before{
-      content:"";
-      margin-right:6px;
-      color:#d4a94d;
+      opacity:.7; cursor:not-allowed; pointer-events:none;
+      background:none !important; -webkit-background-clip: initial !important; background-clip: initial !important;
+      color:#d4a94d !important; -webkit-text-fill-color:#d4a94d !important; animation:none !important;
     }
     .navlink.locked.sparkle::after{ display:none; }
+
+    /* --- Mug reactions card --- */
+    .hall-card { max-width: 980px; margin: 0 auto; }
+    .mug-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .mug-btn {
+      display:inline-flex; align-items:center; gap:8px;
+      padding:.5rem .7rem; border-radius:10px; border:1px solid #3b3325;
+      background:#0e0e0e; color:#e9e4d5; cursor:pointer; user-select:none;
+    }
+    .mug-btn[aria-pressed="true"] { outline:2px solid #d4a94d; }
+    .mug-count { font-weight:700; min-width:1.5ch; text-align:right; }
+    .mug-note { opacity:.65; font-size:.9rem; }
+    .mug-offline { opacity:.6; font-size:.85rem; margin-left:8px; display:none; }
+    .mug-offline.show { display:inline; }
+    .mug-sep { opacity:.35; margin: 0 .5rem; }
   </style>
 
-  <!-- ✅ Keep main.ts happy even if Vite env is missing -->
+  <!-- Keep main.ts happy even if Vite env is missing -->
   <script>
     window.ENV = window.ENV || {};
-    window.ENV.VITE_API_BASE = "https://meadhall-site.onrender.com";
+    window.ENV.VITE_API_BASE = window.ENV.VITE_API_BASE || "https://meadhall-site.onrender.com";
   </script>
 </head>
 <body>
@@ -109,14 +93,11 @@
   <header>
     <div class="wrap" style="display:flex; gap:22px; align-items:center;">
       <a href="/" class="brand" style="display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit">
-        <!-- Mead Hall logo -->
         <img src="/logo/logo-64.png" alt="Mead Hall" style="width:40px;height:40px;border-radius:8px;object-fit:cover"/>
         <h1 style="margin:0">Mead Hall</h1>
       </a>
       <nav style="margin-left:auto; display:flex; align-items:center; gap:16px">
-        <!-- Mead Hall locked by default -->
         <a href="#" aria-disabled="true" class="navlink sparkle locked" id="nav-meadhall">Mead Hall</a>
-
         <a href="#plans" class="navlink">Membership</a>
         <a href="#contest" class="navlink">Skald Contest</a>
         <a href="#lore" class="navlink">Lore</a>
@@ -125,72 +106,34 @@
     </div>
   </header>
 
-  <!-- Signup Modal -->
-  <div id="signupModal" class="modal" aria-hidden="true" aria-labelledby="signupTitle" role="dialog">
-    <div class="card" style="width:min(520px, 92vw);">
-      <h3 id="signupTitle" style="margin-bottom:6px">Create Your Guild Account</h3>
-      <p class="rune-sub" style="font-size:16px; margin-top:0">Free to join. Pick a name mortals will remember.</p>
-      <form id="signupForm" class="feat" style="margin-top:10px">
-        <label style="display:block; margin:10px 0 6px">Name
-          <input required name="name" class="input" placeholder="Freydis Eiriksdottir" autocomplete="name" />
-        </label>
-        <label style="display:block; margin:10px 0 6px">Email
-          <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
-        </label>
-        <label style="display:block; margin:10px 0 6px">Password
-          <input required type="password" name="password" class="input" placeholder="" autocomplete="new-password" />
-        </label>
-        <div class="cta-row" style="margin-top:16px">
-          <button class="btn btn-viking" type="submit">Create Account</button>
-          <button class="btn btn-ghost" type="button" id="closeSignup">Cancel</button>
-        </div>
-        <p id="signupMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
-      </form>
-    </div>
-  </div>
-
-  <!-- ✨ Sign In Modal -->
-  <div id="signinModal" class="modal" aria-hidden="true" aria-labelledby="signinTitle" role="dialog" style="display:none">
-    <div class="card" style="width:min(520px,92vw);">
-      <h3 id="signinTitle" style="margin-bottom:6px">Welcome Back</h3>
-      <p class="rune-sub" style="font-size:16px;margin-top:0">Enter the hall with your credentials.</p>
-      <form id="signinForm" class="feat" style="margin-top:10px">
-        <label style="display:block; margin:10px 0 6px">Email
-          <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
-        </label>
-        <label style="display:block; margin:10px 0 6px">Password
-          <input required type="password" name="password" class="input" placeholder="••••••••" autocomplete="current-password" />
-        </label>
-        <div class="cta-row" style="margin-top:16px">
-          <button class="btn btn-viking" type="submit">Sign In</button>
-          <button class="btn btn-ghost" type="button" id="closeSignin">Cancel</button>
-        </div>
-        <p class="rune-sub" style="margin:.5rem 0 0">No account yet?
-          <button type="button" id="openSignupFromSignin" class="btn btn-ghost" style="padding:.3rem .6rem">Create one</button>
+  <!-- ====== FEATURED HALL BOARD (Mug Reactions) ====== -->
+  <section class="plans" id="hallboard" style="background:linear-gradient(180deg, rgba(8,12,14,.85), rgba(6,9,11,.95))">
+    <div class="wrap hall-card">
+      <div class="card">
+        <h3 style="display:flex;align-items:center;gap:8px">
+          Hall Board
+          <span class="mug-offline" id="mugOffline">(offline)</span>
+        </h3>
+        <p class="rune-sub" style="font-size:18px;margin-top:0">
+          What do you think of the new Mead Hall front page? Raise your horn if you like it —
+          lower it if you think we should tweak more UI first.
         </p>
-        <p id="signinMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
-      </form>
-    </div>
-  </div>
 
-  <!-- ✨ Verify Code Modal -->
-  <div id="verifyModal" class="modal" aria-hidden="true" aria-labelledby="verifyTitle" role="dialog" style="display:none">
-    <div class="card" style="width:min(520px,92vw);">
-      <h3 id="verifyTitle" style="margin-bottom:6px">Verify Your Email</h3>
-      <p class="rune-sub" style="font-size:16px;margin-top:0">We sent a 6-digit code to your email.</p>
-      <form id="verifyForm" class="feat" style="margin-top:10px">
-        <label style="display:block; margin:10px 0 6px">Code
-          <input required name="code" class="input" inputmode="numeric" maxlength="6" placeholder="123456" />
-        </label>
-        <div class="cta-row" style="margin-top:16px">
-          <button class="btn btn-viking" type="submit">Confirm</button>
-          <button class="btn btn-ghost" type="button" id="resendCode">Resend</button>
-          <button class="btn btn-ghost" type="button" id="closeVerify">Cancel</button>
+        <div class="mug-row" id="mugRow"
+             data-target="homepage"  <!-- target identifier used by backend -->
+             data-key="mh_mug_homepage">
+          <button class="mug-btn" id="mugUp" aria-pressed="false">
+            <span>🍺 Mug Up</span><span class="mug-count" id="mugUpCount">0</span>
+          </button>
+          <span class="mug-sep">•</span>
+          <button class="mug-btn" id="mugDown" aria-pressed="false">
+            <span>🥴 Mug Down</span><span class="mug-count" id="mugDownCount">0</span>
+          </button>
+          <span class="mug-note" id="mugNote"></span>
         </div>
-        <p id="verifyMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
-      </form>
+      </div>
     </div>
-  </div>
+  </section>
 
   <!-- Membership Plans -->
   <section id="plans" class="plans">
@@ -251,7 +194,6 @@
           Offer your verse to the Allfather. $1 entry in test mode while we sharpen our axes.
         </p>
 
-        <!-- Upload form -->
         <form id="contestForm" style="display:grid; gap:12px; margin-top:10px">
           <div style="display:grid; gap:6px">
             <label for="contestName"><strong>Your name</strong></label>
@@ -311,34 +253,161 @@
     (() => {
       const el = document.getElementById('nav-meadhall');
       if (!el) return;
-
-      // Allow JS to receive clicks even though CSS sets pointer-events:none
       el.style.pointerEvents = 'auto';
-
-      // ensure no href while locked
       if (el.classList.contains('locked')) el.removeAttribute('href');
 
-      const stopAll = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-        return false;
-      };
-
+      const stopAll = (e) => { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); return false; };
       const guard = (e) => {
         if (!el.classList.contains('locked')) return;
         stopAll(e);
-        // optional: open signup
         const modal = document.getElementById('signupModal');
         if (modal) { modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false'); }
       };
-
-      // capture-phase listeners
       el.addEventListener('click', guard, true);
       el.addEventListener('mousedown', guard, true);
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') guard(e);
-      }, true);
+      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') guard(e); }, true);
+    })();
+  </script>
+
+  <!-- ====== MUG REACTIONS WIRING ====== -->
+  <script>
+    (function () {
+      const LS_USER = "mh_user";
+      const row = document.getElementById("mugRow");
+      if (!row) return;
+
+      const API_BASE =
+        (document.querySelector('meta[name="api-base"]')?.content?.trim()) ||
+        (window.ENV && window.ENV.VITE_API_BASE) ||
+        "";
+
+      const target = row.dataset.target || "homepage";
+      const voteKey = row.dataset.key || "mh_mug_homepage";
+      const upBtn = document.getElementById("mugUp");
+      const dnBtn = document.getElementById("mugDown");
+      const upCountEl = document.getElementById("mugUpCount");
+      const dnCountEl = document.getElementById("mugDownCount");
+      const noteEl = document.getElementById("mugNote");
+      const offlineEl = document.getElementById("mugOffline");
+
+      function getUser() {
+        try { return JSON.parse(localStorage.getItem(LS_USER) || "null"); } catch { return null; }
+      }
+      function voted() { return (localStorage.getItem(voteKey) || "").toString(); }
+      function setVoted(v) { localStorage.setItem(voteKey, v); }
+      function setPressed(which) {
+        upBtn.setAttribute("aria-pressed", which === "up" ? "true" : "false");
+        dnBtn.setAttribute("aria-pressed", which === "down" ? "true" : "false");
+      }
+      function n(v) { return Math.max(0, parseInt(v, 10) || 0); }
+      function bump(which, dir) {
+        const el = which === "up" ? upCountEl : dnCountEl;
+        el.textContent = String(Math.max(0, n(el.textContent) + dir));
+      }
+      function showNote(text) { noteEl.textContent = text || ""; }
+
+      // Open sign-up if not logged in
+      function requireAuthOrOpenSignup() {
+        const user = getUser();
+        if (user && user.id) return true;
+        const modal = document.getElementById('signupModal');
+        if (modal) { modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false'); }
+        return false;
+      }
+
+      async function fetchCounts() {
+        if (!API_BASE) return;
+        try {
+          const res = await fetch(`${API_BASE}/api/reactions/mug?target=${encodeURIComponent(target)}`, { credentials: "include" });
+          if (!res.ok) throw new Error("bad status");
+          const data = await res.json(); // { up:number, down:number }
+          upCountEl.textContent = String(n(data.up));
+          dnCountEl.textContent = String(n(data.down));
+          offlineEl.classList.remove("show");
+        } catch {
+          offlineEl.classList.add("show");
+        }
+      }
+
+      async function sendVote(action) {
+        if (!API_BASE) { offlineEl.classList.add("show"); return; }
+        const user = getUser() || {};
+        const headers = { "Content-Type": "application/json" };
+        if (user.id) headers["x-user-id"] = user.id; // your backend allows this header
+        try {
+          const res = await fetch(`${API_BASE}/api/reactions/mug`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ target, action }), // action: "up" | "down"
+            credentials: "include"
+          });
+          if (!res.ok) throw new Error("bad status");
+          const data = await res.json(); // { up:number, down:number, action:"up"|"down" }
+          upCountEl.textContent = String(n(data.up));
+          dnCountEl.textContent = String(n(data.down));
+          offlineEl.classList.remove("show");
+        } catch {
+          // stay graceful; UI already bumped locally
+          offlineEl.classList.add("show");
+        }
+      }
+
+      // Initialize pressed state from localStorage
+      const initVote = voted();
+      if (initVote === "up") setPressed("up");
+      else if (initVote === "down") setPressed("down");
+
+      // Get counts from server
+      fetchCounts();
+
+      // Click handlers
+      upBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        if (!requireAuthOrOpenSignup()) return;
+
+        const current = voted();
+        if (current === "up") {
+          // unvote
+          setVoted("");
+          setPressed("");
+          bump("up", -1);
+          showNote("You removed your Mug Up.");
+          sendVote("clear"); // backend may treat as clear; if not, it's ignored gracefully
+          return;
+        }
+
+        // switch to up
+        if (current === "down") bump("down", -1);
+        bump("up", +1);
+        setVoted("up");
+        setPressed("up");
+        showNote("Skål! You raised your horn.");
+        sendVote("up");
+      });
+
+      dnBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        if (!requireAuthOrOpenSignup()) return;
+
+        const current = voted();
+        if (current === "down") {
+          // unvote
+          setVoted("");
+          setPressed("");
+          bump("down", -1);
+          showNote("You removed your Mug Down.");
+          sendVote("clear");
+          return;
+        }
+
+        // switch to down
+        if (current === "up") bump("up", -1);
+        bump("down", +1);
+        setVoted("down");
+        setPressed("down");
+        showNote("Noted — we’ll keep polishing.");
+        sendVote("down");
+      });
     })();
   </script>
 
@@ -348,23 +417,87 @@
   <!-- Main client logic (buttons, signup, lock/grace, etc.) -->
   <script type="module" src="/src/main.ts"></script>
 
-  <!-- Fallback: make the "Read a Sample" button open the book reader -->
+  <!-- Fallback: Read a Sample -->
   <script>
     (function () {
       const btn = document.getElementById("btn-read-sample");
       if (!btn) return;
       btn.addEventListener("click", function (e) {
         e.preventDefault();
-        // Change to a specific story with: /book.html?book=<name>
         window.location.href = "/book.html";
-        // e.g. window.location.href = "/book.html?book=samplestorythorvald";
       });
     })();
   </script>
 
+  <!-- Auth Modals (Signup/Signin/Verify) -->
+  <div id="signupModal" class="modal" aria-hidden="true" aria-labelledby="signupTitle" role="dialog">
+    <div class="card" style="width:min(520px, 92vw);">
+      <h3 id="signupTitle" style="margin-bottom:6px">Create Your Guild Account</h3>
+      <p class="rune-sub" style="font-size:16px; margin-top:0">Free to join. Pick a name mortals will remember.</p>
+      <form id="signupForm" class="feat" style="margin-top:10px">
+        <label style="display:block; margin:10px 0 6px">Name
+          <input required name="name" class="input" placeholder="Freydis Eiriksdottir" autocomplete="name" />
+        </label>
+        <label style="display:block; margin:10px 0 6px">Email
+          <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
+        </label>
+        <label style="display:block; margin:10px 0 6px">Password
+          <input required type="password" name="password" class="input" placeholder="" autocomplete="new-password" />
+        </label>
+        <div class="cta-row" style="margin-top:16px">
+          <button class="btn btn-viking" type="submit">Create Account</button>
+          <button class="btn btn-ghost" type="button" id="closeSignup">Cancel</button>
+        </div>
+        <p id="signupMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="signinModal" class="modal" aria-hidden="true" aria-labelledby="signinTitle" role="dialog" style="display:none">
+    <div class="card" style="width:min(520px,92vw);">
+      <h3 id="signinTitle" style="margin-bottom:6px">Welcome Back</h3>
+      <p class="rune-sub" style="font-size:16px;margin-top:0">Enter the hall with your credentials.</p>
+      <form id="signinForm" class="feat" style="margin-top:10px">
+        <label style="display:block; margin:10px 0 6px">Email
+          <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
+        </label>
+        <label style="display:block; margin:10px 0 6px">Password
+          <input required type="password" name="password" class="input" placeholder="••••••••" autocomplete="current-password" />
+        </label>
+        <div class="cta-row" style="margin-top:16px">
+          <button class="btn btn-viking" type="submit">Sign In</button>
+          <button class="btn btn-ghost" type="button" id="closeSignin">Cancel</button>
+        </div>
+        <p class="rune-sub" style="margin:.5rem 0 0">No account yet?
+          <button type="button" id="openSignupFromSignin" class="btn btn-ghost" style="padding:.3rem .6rem">Create one</button>
+        </p>
+        <p id="signinMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="verifyModal" class="modal" aria-hidden="true" aria-labelledby="verifyTitle" role="dialog" style="display:none">
+    <div class="card" style="width:min(520px,92vw);">
+      <h3 id="verifyTitle" style="margin-bottom:6px">Verify Your Email</h3>
+      <p class="rune-sub" style="font-size:16px;margin-top:0">We sent a 6-digit code to your email.</p>
+      <form id="verifyForm" class="feat" style="margin-top:10px">
+        <label style="display:block; margin:10px 0 6px">Code
+          <input required name="code" class="input" inputmode="numeric" maxlength="6" placeholder="123456" />
+        </label>
+        <div class="cta-row" style="margin-top:16px">
+          <button class="btn btn-viking" type="submit">Confirm</button>
+          <button class="btn btn-ghost" type="button" id="resendCode">Resend</button>
+          <button class="btn btn-ghost" type="button" id="closeVerify">Cancel</button>
+        </div>
+        <p id="verifyMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
+      </form>
+    </div>
+  </div>
+
   <div data-flash style="display:none;margin:12px 0;color:#b91c1c;font-weight:600;"></div>
 </body>
 </html>
+
 
 
 

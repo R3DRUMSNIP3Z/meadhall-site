@@ -1,4 +1,4 @@
-﻿// /src/friendprofile.ts — Final clean version with LIGHTBOX for gallery
+﻿// /src/friendprofile.ts — LIGHTBOX + MUG REACTIONS + COMMENTS (clean build)
 
 type SafeUser = {
   id: string;
@@ -140,7 +140,7 @@ function normalizePhotoArray(raw: any): Photo[] {
     .filter((p) => !!p.url);
 }
 
-// Lightbox singleton
+// Lightbox
 const LB = {
   root: null as HTMLDivElement | null,
   img: null as HTMLImageElement | null,
@@ -154,25 +154,31 @@ const LB = {
     if (this.root) return;
     const div = document.createElement("div");
     div.className = "lightbox";
-    div.setAttribute("aria-hidden", "true");
     div.innerHTML = `
-      <button class="lb-close" aria-label="Close (Esc)">✕</button>
-      <button class="lb-prev"  aria-label="Previous (←)">‹</button>
-      <div class="lb-stage"><img class="lb-img" alt="Photo" draggable="false"/></div>
-      <button class="lb-next"  aria-label="Next (→)">›</button>
+      <button class="lb-close" aria-label="Close">✕</button>
+      <button class="lb-prev" aria-label="Previous">‹</button>
+      <div class="lb-stage"><img class="lb-img" alt="Photo"/></div>
+      <button class="lb-next" aria-label="Next">›</button>
       <div class="lb-meta"><span class="lb-counter">1 / 1</span></div>
     `;
-    // styles inline so no HTML/CSS edits needed
     Object.assign(div.style, {
-      position: "fixed", inset: "0", background: "rgba(0,0,0,.85)",
-      display: "none", opacity: "0", transition: "opacity .18s ease", zIndex: "9999"
-    } as CSSStyleDeclaration);
+      position: "fixed",
+      inset: "0",
+      background: "rgba(0,0,0,.85)",
+      display: "none",
+      opacity: "0",
+      transition: "opacity .18s ease",
+      zIndex: "9999",
+    });
 
     const stage = div.querySelector(".lb-stage") as HTMLDivElement;
     Object.assign(stage.style, {
-      position: "absolute", inset: "0",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "60px 80px"
+      position: "absolute",
+      inset: "0",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "60px 80px",
     });
 
     const img = div.querySelector(".lb-img") as HTMLImageElement;
@@ -181,34 +187,40 @@ const LB = {
       maxHeight: "86vh",
       borderRadius: "12px",
       boxShadow: "0 10px 40px rgba(0,0,0,.6)",
-      background: "#111",
       objectFit: "contain",
-      userSelect: "none"
+      background: "#111",
     });
 
-    const btnBase = {
-      position: "absolute", top: "50%", transform: "translateY(-50%)",
-      background: "rgba(20,20,20,.5)",
-      border: "1px solid rgba(200,169,107,.35)",
-      color: "#e9e4d5", width: "44px", height: "44px",
-      borderRadius: "999px", display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: "22px", cursor: "pointer", userSelect: "none",
-      backdropFilter: "blur(4px)"
-    } as CSSStyleDeclaration;
+    const styleBtn = (btn: HTMLButtonElement, pos: "prev"|"next"|"close") => {
+      Object.assign(btn.style, {
+        position: "absolute",
+        background: "rgba(20,20,20,.5)",
+        border: "1px solid rgba(200,169,107,.35)",
+        color: "#e9e4d5",
+        borderRadius: "999px",
+        width: "44px",
+        height: "44px",
+        cursor: "pointer",
+      });
+      if (pos === "prev") { btn.style.left = "18px"; btn.style.top = "50%"; btn.style.transform = "translateY(-50%)"; }
+      if (pos === "next") { btn.style.right = "18px"; btn.style.top = "50%"; btn.style.transform = "translateY(-50%)"; }
+      if (pos === "close") { btn.style.right = "18px"; btn.style.top = "18px"; }
+    };
 
     const prev = div.querySelector(".lb-prev") as HTMLButtonElement;
-    Object.assign(prev.style, { ...btnBase, left: "18px" });
-
     const next = div.querySelector(".lb-next") as HTMLButtonElement;
-    Object.assign(next.style, { ...btnBase, right: "18px" });
-
     const close = div.querySelector(".lb-close") as HTMLButtonElement;
-    Object.assign(close.style, { ...btnBase, top: "18px", right: "18px", transform: "none", width: "42px", height: "42px", fontSize: "20px" });
+    styleBtn(prev, "prev"); styleBtn(next, "next"); styleBtn(close, "close");
 
     const meta = div.querySelector(".lb-meta") as HTMLDivElement;
     Object.assign(meta.style, {
-      position: "absolute", left: "0", right: "0", bottom: "10px",
-      textAlign: "center", color: "#d8caa6", fontSize: "13px", letterSpacing: ".04em", opacity: ".9"
+      position: "absolute",
+      left: "0",
+      right: "0",
+      bottom: "10px",
+      textAlign: "center",
+      color: "#d8caa6",
+      fontSize: "13px",
     });
 
     document.body.appendChild(div);
@@ -219,27 +231,15 @@ const LB = {
     this.closeBtn = close;
     this.counter = meta.querySelector(".lb-counter") as HTMLSpanElement;
 
-    // Events
-    div.addEventListener("click", (e) => { if (e.target === div) this.close(); });
-    close.addEventListener("click", () => this.close());
     prev.addEventListener("click", () => this.prev());
     next.addEventListener("click", () => this.next());
-
+    close.addEventListener("click", () => this.close());
+    div.addEventListener("click", (e) => { if (e.target === div) this.close(); });
     window.addEventListener("keydown", (e) => {
       if (div.style.display !== "block") return;
       if (e.key === "Escape") this.close();
-      else if (e.key === "ArrowLeft") this.prev();
-      else if (e.key === "ArrowRight") this.next();
-    });
-
-    // swipe/drag
-    let startX: number | null = null;
-    img.addEventListener("pointerdown", (e) => { startX = e.clientX; img.setPointerCapture(e.pointerId); });
-    img.addEventListener("pointerup", (e) => {
-      if (startX == null) return;
-      const dx = e.clientX - startX;
-      startX = null;
-      if (dx > 40) this.prev(); else if (dx < -40) this.next();
+      if (e.key === "ArrowRight") this.next();
+      if (e.key === "ArrowLeft") this.prev();
     });
   },
   open(i = 0) {
@@ -247,25 +247,19 @@ const LB = {
     if (!this.root || !this.img || !this.urls.length) return;
     this.index = (i + this.urls.length) % this.urls.length;
     this.img.src = this.urls[this.index];
-    if (this.counter) this.counter.textContent = `${this.index + 1} / ${this.urls.length}`;
+    this.counter!.textContent = `${this.index + 1} / ${this.urls.length}`;
     this.root.style.display = "block";
     requestAnimationFrame(() => (this.root!.style.opacity = "1"));
     document.body.style.overflow = "hidden";
-    this.preloadNeighbors();
   },
   close() {
     if (!this.root) return;
     this.root.style.opacity = "0";
-    setTimeout(() => { if (this.root) this.root.style.display = "none"; }, 180);
+    setTimeout(() => (this.root!.style.display = "none"), 180);
     document.body.style.overflow = "";
-    if (this.img) this.img.src = "";
   },
   next() { this.open(this.index + 1); },
   prev() { this.open(this.index - 1); },
-  preloadNeighbors() {
-    const a = new Image(); a.src = this.urls[(this.index + 1) % this.urls.length] || "";
-    const b = new Image(); b.src = this.urls[(this.index - 1 + this.urls.length) % this.urls.length] || "";
-  }
 };
 
 async function loadGallery(API: string, userId: string): Promise<Photo[]> {
@@ -275,6 +269,7 @@ async function loadGallery(API: string, userId: string): Promise<Photo[]> {
   return normalizePhotoArray(data);
 }
 
+/* ------------------ Gallery Renderer ------------------ */
 function renderGalleryFromPhotos(photos: Photo[]) {
   galleryGrid.innerHTML = "";
   if (!photos.length) {
@@ -283,66 +278,107 @@ function renderGalleryFromPhotos(photos: Photo[]) {
     return;
   }
 
-  // Build ordered URL list for lightbox
   LB.urls = photos.map((p) => cacheBust(fullUrl(p.url)));
 
-  photos.forEach((_p, i) => {
+  // Use classic for-loop to avoid unused param warnings and for perf
+  for (let i = 0; i < photos.length; i++) {
+    const imgWrap = document.createElement("div");
+    Object.assign(imgWrap.style, {
+      position: "relative",
+      borderRadius: "10px",
+      overflow: "hidden",
+      border: "1px solid var(--line)",
+      background: "rgba(0,0,0,.3)",
+    });
+
     const img = new Image();
     const url = LB.urls[i];
     img.src = url;
     img.alt = "gallery image";
     img.loading = "lazy";
-    img.referrerPolicy = "no-referrer";
+    img.draggable = false; // prevent ghost-drag
     Object.assign(img.style, {
       width: "100%",
       aspectRatio: "1/1",
       objectFit: "cover",
-      borderRadius: "10px",
-      border: "1px solid var(--line)",
       cursor: "zoom-in",
+      display: "block",
     });
-    img.onerror = () => { img.style.opacity = "0.35"; };
     img.addEventListener("click", () => LB.open(i));
-    galleryGrid.appendChild(img);
-  });
-}
-/* ------ end gallery + lightbox ------ */
+    imgWrap.appendChild(img);
 
-async function loadCompanions(API: string, userId: string) {
-  companionsEl.innerHTML = `<div class="muted">Loading…</div>`;
-  try {
-    const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/companions`);
-    if (!r.ok) throw new Error(String(r.status));
-    const list: SafeUser[] = await r.json();
+    // Reaction bar
+    const bar = document.createElement("div");
+    Object.assign(bar.style, {
+      position: "absolute",
+      bottom: "6px",
+      right: "6px",
+      display: "flex",
+      gap: "8px",
+      background: "rgba(0,0,0,.45)",
+      borderRadius: "8px",
+      padding: "4px 6px",
+      backdropFilter: "blur(2px)",
+      alignItems: "center",
+    });
 
-    companionsEl.innerHTML = "";
-    if (!Array.isArray(list) || list.length === 0) {
-      companionsEl.innerHTML = `<div class="muted">No companions listed.</div>`;
-      return;
-    }
-    for (const u of list) {
-      const row = document.createElement("div");
-      row.className = "comp-item";
-      row.innerHTML = `
-        <div class="comp-meta">
-          <img src="${avatarSrc(u.avatarUrl)}" alt="" onerror="this.src='/logo/avatar-placeholder.svg'">
-          <div>
-            <div class="comp-name">${esc(u.name || u.id)}</div>
-            <div class="muted" style="font-size:12px">${esc(u.email || u.id)}</div>
-          </div>
-        </div>
-        <div class="comp-actions">
-          <a class="btn ghost" href="/friendprofile.html?user=${encodeURIComponent(u.id)}#gallery">View</a>
-        </div>
-      `;
-      companionsEl.appendChild(row);
-    }
-  } catch {
-    companionsEl.innerHTML = `<div class="muted">Companions unavailable.</div>`;
+    const likeBtn = document.createElement("button");
+    const dislikeBtn = document.createElement("button");
+    const commentBtn = document.createElement("button");
+    [likeBtn, dislikeBtn, commentBtn].forEach((b) =>
+      Object.assign(b.style, {
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+      })
+    );
+
+    likeBtn.innerHTML = `<img src="/guildbook/mugup.png" class="mug-icon" alt="like" width="20" height="20">`;
+    dislikeBtn.innerHTML = `<img src="/guildbook/mugdown.png" class="mug-icon" alt="dislike" width="20" height="20">`;
+    commentBtn.textContent = "💬";
+
+    likeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      likeBtn.querySelector("img")?.classList.toggle("active");
+      dislikeBtn.querySelector("img")?.classList.remove("active");
+    });
+    dislikeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dislikeBtn.querySelector("img")?.classList.toggle("active");
+      likeBtn.querySelector("img")?.classList.remove("active");
+    });
+    commentBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const txt = prompt("Leave a comment on this post:");
+      if (txt && txt.trim()) {
+        // placeholder: hook up to backend later
+        alert(`Your comment: "${txt.trim()}"`);
+      }
+    });
+
+    bar.append(likeBtn, dislikeBtn, commentBtn);
+    imgWrap.appendChild(bar);
+    galleryGrid.appendChild(imgWrap);
   }
 }
 
-/* ------------------ Story Modal ------------------ */
+/* --- Add mug glow styles --- */
+const mugCss = document.createElement("style");
+mugCss.textContent = `
+  .mug-icon {
+    filter: drop-shadow(0 0 2px rgba(0,0,0,.6));
+    transition: transform .15s ease, filter .15s ease;
+  }
+  .mug-icon.active {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 6px #d4a94d);
+  }
+`;
+document.head.appendChild(mugCss);
+
+/* ------------------ Story Modal (for Stories tab) ------------------ */
 let modalRoot: HTMLDivElement | null = null;
 function ensureModal() {
   if (modalRoot) return modalRoot;
@@ -390,8 +426,6 @@ function ensureModal() {
   const title = document.createElement("h3");
   title.id = "storyModalTitle";
   title.style.margin = "0 0 6px 0";
-  title.style.fontFamily = "Cinzel, serif";
-  title.style.color = "var(--accent)";
 
   const meta = document.createElement("div");
   meta.id = "storyModalMeta";
@@ -426,12 +460,8 @@ function ensureModal() {
     document.body.style.overflow = "";
   };
   close.addEventListener("click", hide);
-  modalRoot.addEventListener("click", (e) => {
-    if (e.target === modalRoot) hide();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (modalRoot!.style.display !== "none" && e.key === "Escape") hide();
-  });
+  modalRoot.addEventListener("click", (e) => { if (e.target === modalRoot) hide(); });
+  document.addEventListener("keydown", (e) => { if (modalRoot!.style.display !== "none" && e.key === "Escape") hide(); });
 
   return modalRoot;
 }
@@ -459,7 +489,41 @@ function openStoryModal(story: Story) {
   document.body.style.overflow = "hidden";
 }
 
-/* ------------------ Renderers ------------------ */
+/* ------------------ Companions + Stories ------------------ */
+async function loadCompanions(API: string, userId: string) {
+  companionsEl.innerHTML = `<div class="muted">Loading…</div>`;
+  try {
+    const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/companions`);
+    if (!r.ok) throw new Error(String(r.status));
+    const list: SafeUser[] = await r.json();
+
+    companionsEl.innerHTML = "";
+    if (!Array.isArray(list) || list.length === 0) {
+      companionsEl.innerHTML = `<div class="muted">No companions listed.</div>`;
+      return;
+    }
+    for (const u of list) {
+      const row = document.createElement("div");
+      row.className = "comp-item";
+      row.innerHTML = `
+        <div class="comp-meta">
+          <img src="${avatarSrc(u.avatarUrl)}" alt="">
+          <div>
+            <div class="comp-name">${esc(u.name || u.id)}</div>
+            <div class="muted" style="font-size:12px">${esc(u.email || u.id)}</div>
+          </div>
+        </div>
+        <div class="comp-actions">
+          <a class="btn ghost" href="/friendprofile.html?user=${encodeURIComponent(u.id)}#gallery">View</a>
+        </div>
+      `;
+      companionsEl.appendChild(row);
+    }
+  } catch {
+    companionsEl.innerHTML = `<div class="muted">Companions unavailable.</div>`;
+  }
+}
+
 function renderStories(stories: Story[]) {
   sagaList.innerHTML = "";
   if (!stories.length) {
@@ -535,6 +599,9 @@ async function main() {
 }
 
 main();
+
+
+
 
 
 
