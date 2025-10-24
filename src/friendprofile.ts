@@ -488,53 +488,58 @@ async function renderLbComments(API: string, ownerId: string, photoId: string, l
       body.innerHTML = nl2br(c.text || "");
 
       // actions (like / dislike / reply)
-      const actions = document.createElement("div");
-      actions.style.display = "flex";
-      actions.style.alignItems = "center";
-      actions.style.gap = "10px";
-      actions.style.marginTop = "2px";
+const actions = document.createElement("div");
+actions.style.display = "flex";
+actions.style.alignItems = "center";
+actions.style.gap = "10px";
+actions.style.marginTop = "2px";
 
-      const likeC = document.createElement("button");
-      const dislikeC = document.createElement("button");
-      const replyBtn = document.createElement("button");
-      likeC.textContent = `<img src="/guildbook/mugup.png" class="mug-icon" width="18" height="18"> <span class="cnt">0</span>`;
+const likeC = document.createElement("button");
+const dislikeC = document.createElement("button");
+const replyBtn = document.createElement("button");
+likeC.innerHTML = `<img src="/guildbook/mugup.png" class="mug-icon" width="18" height="18"> <span class="cnt">0</span>`;
+dislikeC.innerHTML = `<img src="/guildbook/mugdown.png" class="mug-icon" width="18" height="18"> <span class="cnt">0</span>`;
+replyBtn.textContent = "Reply";
+[likeC, dislikeC].forEach((b) => b.style.cssText = "background:none;border:none;color:#e9e4d5;cursor:pointer");
+replyBtn.style.cssText = "background:none;border:none;color:#d4a94d;cursor:pointer";
 
-      dislikeC.textContent = `<img src="/guildbook/mugdown.png" class="mug-icon" width="18" height="18"> <span class="cnt">0</span>`;
-      replyBtn.textContent = "Reply";
-      [likeC, dislikeC].forEach((b) => b.style.cssText = "background:none;border:none;color:#e9e4d5;cursor:pointer");
-      replyBtn.style.cssText = "background:none;border:none;color:#d4a94d;cursor:pointer";
+// grab the elements we’ll update
+const likeCnt = () => likeC.querySelector(".cnt") as HTMLSpanElement;
+const dislikeCnt = () => dislikeC.querySelector(".cnt") as HTMLSpanElement;
+const likeIcon = () => likeC.querySelector("img") as HTMLImageElement;
+const dislikeIcon = () => dislikeC.querySelector("img") as HTMLImageElement;
 
-      // fetch counts & active state (optional endpoint)
-      (async () => {
-        try {
-          const r = await getCommentReactions(API, ownerId, photoId, c.id);
-          likeC.textContent = `👍 ${r.up}`;
-          dislikeC.textContent = `👎 ${r.down}`;
-          likeC.classList.toggle("active", r.action === "up");
-          dislikeC.classList.toggle("active", r.action === "down");
-        } catch {}
-      })();
+// fetch counts & active state
+(async () => {
+  const r = await getCommentReactions(API, ownerId, photoId, c.id);
+  likeCnt().textContent = String(r.up);
+  dislikeCnt().textContent = String(r.down);
+  likeIcon().classList.toggle("active", r.action === "up");
+  dislikeIcon().classList.toggle("active", r.action === "down");
+})().catch(() => {});
 
-      likeC.addEventListener("click", async () => {
-        try {
-          const r = await postCommentReaction(API, ownerId, photoId, c.id, "up");
-          likeC.textContent = `👍 ${r.up}`;
-          dislikeC.textContent = `👎 ${r.down}`;
-          likeC.classList.toggle("active", r.action === "up");
-          dislikeC.classList.toggle("active", r.action === "down");
-        } catch {}
-      });
-      dislikeC.addEventListener("click", async () => {
-        try {
-          const r = await postCommentReaction(API, ownerId, photoId, c.id, "down");
-          likeC.textContent = `👍 ${r.up}`;
-          dislikeC.textContent = `👎 ${r.down}`;
-          likeC.classList.toggle("active", r.action === "up");
-          dislikeC.classList.toggle("active", r.action === "down");
-        } catch {}
-      });
+// click handlers
+likeC.addEventListener("click", async () => {
+  try {
+    const r = await postCommentReaction(API, ownerId, photoId, c.id, "up");
+    likeCnt().textContent = String(r.up);
+    dislikeCnt().textContent = String(r.down);
+    likeIcon().classList.toggle("active", r.action === "up");
+    dislikeIcon().classList.toggle("active", r.action === "down");
+  } catch {}
+});
+dislikeC.addEventListener("click", async () => {
+  try {
+    const r = await postCommentReaction(API, ownerId, photoId, c.id, "down");
+    likeCnt().textContent = String(r.up);
+    dislikeCnt().textContent = String(r.down);
+    likeIcon().classList.toggle("active", r.action === "up");
+    dislikeIcon().classList.toggle("active", r.action === "down");
+  } catch {}
+});
 
-      actions.append(likeC, dislikeC, replyBtn);
+actions.append(likeC, dislikeC, replyBtn);
+
 
       // replies list (optional endpoint, safe fallback)
       const repliesWrap = document.createElement("div");
