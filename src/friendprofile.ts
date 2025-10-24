@@ -1,4 +1,4 @@
-﻿// /src/friendprofile.ts — LIGHTBOX + MUG REACTIONS + COMMENTS (clean build)
+﻿// /src/friendprofile.ts — LIGHTBOX + MUG REACTIONS + COMMENTS (robust build)
 
 type SafeUser = {
   id: string;
@@ -20,6 +20,15 @@ type Story = {
 };
 
 type Photo = { id: string; url: string; createdAt?: number | string };
+
+type CommentUser = { id?: string; name?: string; avatarUrl?: string };
+type Comment = {
+  id: string;
+  text: string;
+  createdAt: number | string;
+  user?: CommentUser;
+};
+type ReactionRes = { up: number; down: number; action: "" | "up" | "down" };
 
 /* ------------------ helpers ------------------ */
 function pickApiBase(): string {
@@ -76,38 +85,88 @@ function avatarSrc(p?: string | null): string {
   return cacheBust(src);
 }
 
-/* --- tiny helpers for counts & auth (added) --- */
+/* --- tiny helpers for counts & auth --- */
 function n(v: any): number { return Math.max(0, parseInt(String(v), 10) || 0); }
 function pluralize(cnt: number, one: string, many?: string) {
   return `${cnt} ${cnt === 1 ? one : (many || one + "s")}`;
 }
-function authHeaders(): HeadersInit {
+function authHeaders(extra?: Record<string,string>): HeadersInit {
   const LS_USER = "mh_user";
   let u: any = null;
   try { u = JSON.parse(localStorage.getItem(LS_USER) || "null"); } catch {}
-  const h: Record<string,string> = { "Content-Type": "application/json" };
-  if (u?.id) h["x-user-id"] = String(u.id);
+  const h: Record<string,string> = { "Content-Type": "application/json", ...(extra || {}) };
+  if (u?.id) {
+    h["x-user-id"] = String(u.id);
+    if (u?.name) h["x-user-name"] = String(u.name);
+  }
   return h;
 }
 
-/* --- minimal API for reactions & comments (added) --- */
-/* If your backend uses different routes, just edit these four. */
-async function getReactions(API: string, ownerId: string, photoId: string) {
+/* -------------- minimal API for photos -------------- */
+async function getReactions(API: string, ownerId: string, photoId: string): Promise<ReactionRes> {
   const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/reactions`;
-  const r = await fetch(url, { credentials: "include" });
-  if (!r.ok) return { up: 0, down: 0, action: "" as "" | "up" | "down" };
-  return r.json() as Promise<{ up:number; down:number; action:""|"up"|"down" }>;
+  try {
+    const r = await fetch(url, { credentials: "include" });
+    if (!r.ok) throw 0;
+    return r.json();
+  } catch { return { up: 0, down: 0, action: "" }; }
 }
-async function getComments(API: string, ownerId: string, photoId: string) {
+async function postReaction(API: string, ownerId: string, photoId: string, action: ""|"up"|"down"): Promise<ReactionRes> {
+  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/reactions`;
+  try {
+    const r = await fetch(url, { method: "POST", headers: authHeaders(), body: JSON.stringify({ action }), credentials: "include" });
+    if (!r.ok) throw 0;
+    return r.json();
+  } catch { return { up: 0, down: 0, action: "" }; }
+}
+
+/* -------------- minimal API for comments -------------- */
+async function getComments(API: string, ownerId: string, photoId: string): Promise<Comment[]> {
   const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/comments`;
-  const r = await fetch(url, { credentials: "include" });
-  if (!r.ok) return [] as Array<{ id:string; text:string; createdAt:number|string; user?:{id:string;name:string} }>;
-  return r.json();
+  try {
+    const r = await fetch(url, { credentials: "include" });
+    if (!r.ok) throw 0;
+    return r.json();
+  } catch { return []; }
 }
-async function postComment(API: string, ownerId: string, photoId: string, text: string) {
+async function postComment(API: string, ownerId: string, photoId: string, text: string): Promise<Comment> {
   const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/comments`;
   const r = await fetch(url, { method: "POST", headers: authHeaders(), body: JSON.stringify({ text }), credentials: "include" });
   if (!r.ok) throw new Error("comment failed");
+  return r.json();
+}
+
+/* --- optional: comment reactions (safe fallback if 404) --- */
+async function getCommentReactions(API: string, ownerId: string, photoId: string, cid: string): Promise<ReactionRes> {
+  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/comments/${encodeURIComponent(cid)}/reactions`;
+  try {
+    const r = await fetch(url, { credentials: "include" });
+    if (!r.ok) throw 0;
+    return r.json();
+  } catch { return { up: 0, down: 0, action: "" }; }
+}
+async function postCommentReaction(API: string, ownerId: string, photoId: string, cid: string, action: ""|"up"|"down"): Promise<ReactionRes> {
+  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/comments/${encodeURIComponent(cid)}/reactions`;
+  try {
+    const r = await fetch(url, { method: "POST", headers: authHeaders(), body: JSON.stringify({ action }), credentials: "include" });
+    if (!r.ok) throw 0;
+    return r.json();
+  } catch { return { up: 0, down: 0, action: "" }; }
+}
+
+/* --- optional: threaded replies (safe fallback if 404) --- */
+async function getReplies(API: string, ownerId: string, photoId: string, cid: string): Promise<Comment[]> {
+  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/comments/${encodeURIComponent(cid)}/replies`;
+  try {
+    const r = await fetch(url, { credentials: "include" });
+    if (!r.ok) throw 0;
+    return r.json();
+  } catch { return []; }
+}
+async function postReply(API: string, ownerId: string, photoId: string, cid: string, text: string): Promise<Comment> {
+  const url = `${API}/api/users/${encodeURIComponent(ownerId)}/gallery/${encodeURIComponent(photoId)}/comments/${encodeURIComponent(cid)}/replies`;
+  const r = await fetch(url, { method: "POST", headers: authHeaders(), body: JSON.stringify({ text }), credentials: "include" });
+  if (!r.ok) throw new Error("reply failed");
   return r.json();
 }
 
@@ -175,7 +234,29 @@ function normalizePhotoArray(raw: any): Photo[] {
     .filter((p) => !!p.url);
 }
 
-// Lightbox
+// Lightbox (with comments)
+const userCache = new Map<string, SafeUser>();
+async function resolveUser(u?: CommentUser): Promise<CommentUser> {
+  if (!u?.id) return u || {};
+  const match = /^u:(.+)$/.exec(String(u.id));
+  if (!match) return u;
+  const id = match[1];
+  if (userCache.has(id)) {
+    const su = userCache.get(id)!;
+    return { ...u, name: su.name || u.name, avatarUrl: su.avatarUrl || u.avatarUrl };
+  }
+  try {
+    const API = pickApiBase();
+    const r = await fetch(`${API}/api/users/${encodeURIComponent(id)}`);
+    if (r.ok) {
+      const su: SafeUser = await r.json();
+      userCache.set(id, su);
+      return { ...u, name: su.name || u.name, avatarUrl: su.avatarUrl || u.avatarUrl };
+    }
+  } catch {}
+  return u;
+}
+
 const LB = {
   root: null as HTMLDivElement | null,
   img: null as HTMLImageElement | null,
@@ -184,10 +265,10 @@ const LB = {
   closeBtn: null as HTMLButtonElement | null,
   counter: null as HTMLSpanElement | null,
   urls: [] as string[],
-  ids: [] as string[], // added: photo ids in same order as urls
+  ids: [] as string[],
   index: 0,
 
-  // comments refs (added)
+  // comments refs
   cWrap: null as HTMLDivElement | null,
   cList: null as HTMLDivElement | null,
   cForm: null as HTMLFormElement | null,
@@ -266,7 +347,7 @@ const LB = {
       fontSize: "13px",
     });
 
-    // --- comments panel (added, minimal overlay at bottom of stage)
+    // --- comments panel
     const cWrap = document.createElement("div");
     Object.assign(cWrap.style, {
       position: "absolute",
@@ -330,7 +411,7 @@ const LB = {
     requestAnimationFrame(() => (this.root!.style.opacity = "1"));
     document.body.style.overflow = "hidden";
 
-    // Load comments and wire posting for this image (added)
+    // Load comments and wire posting for this image
     (async () => {
       try {
         const API = pickApiBase();
@@ -365,18 +446,152 @@ const LB = {
 async function renderLbComments(API: string, ownerId: string, photoId: string, listEl: HTMLDivElement) {
   listEl.innerHTML = "";
   try {
-    const list = await getComments(API, ownerId, photoId);
-    if (!list.length) {
+    const raw = await getComments(API, ownerId, photoId);
+    if (!raw.length) {
       listEl.innerHTML = `<div style="opacity:.8">No comments yet. Be the first!</div>`;
       return;
     }
-    for (const c of list) {
-      const who = esc(c.user?.name || "skald");
-      const when = new Date(Number(c.createdAt || Date.now())).toLocaleString();
+
+    for (const c0 of raw) {
+      // enrich user (pull avatar/name from /api/users/u_x if available)
+      const c = { ...c0, user: await resolveUser(c0.user) };
+
       const row = document.createElement("div");
       row.style.borderTop = "1px solid rgba(200,169,107,.25)";
-      row.style.padding = "6px 0";
-      row.innerHTML = `<div><strong>${who}</strong> <small style="opacity:.7">• ${esc(when)}</small></div><div>${nl2br(c.text)}</div>`;
+      row.style.padding = "8px 0";
+
+      const avatar = c.user?.avatarUrl ? fullUrl(c.user.avatarUrl) : "/logo/avatar-placeholder.svg";
+      const who = esc(c.user?.name || "skald");
+      const when = new Date(Number(c.createdAt || Date.now())).toLocaleString();
+
+      // header (avatar + name + time)
+      const head = document.createElement("div");
+      head.style.display = "flex";
+      head.style.alignItems = "center";
+      head.style.gap = "8px";
+
+      const img = document.createElement("img");
+      img.src = avatar;
+      img.alt = who;
+      Object.assign(img.style, {
+        width:"28px", height:"28px", borderRadius:"50%", objectFit:"cover",
+        border:"1px solid rgba(200,169,107,.35)"
+      });
+
+      const meta = document.createElement("div");
+      meta.innerHTML = `<strong>${who}</strong> <small style="opacity:.75">• ${esc(when)}</small>`;
+      head.append(img, meta);
+
+      // body
+      const body = document.createElement("div");
+      body.style.margin = "6px 0";
+      body.innerHTML = nl2br(c.text || "");
+
+      // actions (like / dislike / reply)
+      const actions = document.createElement("div");
+      actions.style.display = "flex";
+      actions.style.alignItems = "center";
+      actions.style.gap = "10px";
+      actions.style.marginTop = "2px";
+
+      const likeC = document.createElement("button");
+      const dislikeC = document.createElement("button");
+      const replyBtn = document.createElement("button");
+      likeC.textContent = "👍 0";
+      dislikeC.textContent = "👎 0";
+      replyBtn.textContent = "Reply";
+      [likeC, dislikeC].forEach((b) => b.style.cssText = "background:none;border:none;color:#e9e4d5;cursor:pointer");
+      replyBtn.style.cssText = "background:none;border:none;color:#d4a94d;cursor:pointer";
+
+      // fetch counts & active state (optional endpoint)
+      (async () => {
+        try {
+          const r = await getCommentReactions(API, ownerId, photoId, c.id);
+          likeC.textContent = `👍 ${r.up}`;
+          dislikeC.textContent = `👎 ${r.down}`;
+          likeC.classList.toggle("active", r.action === "up");
+          dislikeC.classList.toggle("active", r.action === "down");
+        } catch {}
+      })();
+
+      likeC.addEventListener("click", async () => {
+        try {
+          const r = await postCommentReaction(API, ownerId, photoId, c.id, "up");
+          likeC.textContent = `👍 ${r.up}`;
+          dislikeC.textContent = `👎 ${r.down}`;
+          likeC.classList.toggle("active", r.action === "up");
+          dislikeC.classList.toggle("active", r.action === "down");
+        } catch {}
+      });
+      dislikeC.addEventListener("click", async () => {
+        try {
+          const r = await postCommentReaction(API, ownerId, photoId, c.id, "down");
+          likeC.textContent = `👍 ${r.up}`;
+          dislikeC.textContent = `👎 ${r.down}`;
+          likeC.classList.toggle("active", r.action === "up");
+          dislikeC.classList.toggle("active", r.action === "down");
+        } catch {}
+      });
+
+      actions.append(likeC, dislikeC, replyBtn);
+
+      // replies list (optional endpoint, safe fallback)
+      const repliesWrap = document.createElement("div");
+      repliesWrap.style.margin = "4px 0 0 36px";
+      repliesWrap.style.display = "grid";
+      repliesWrap.style.gap = "6px";
+
+      async function refreshReplies() {
+        repliesWrap.innerHTML = "";
+        try {
+          const replies = await getReplies(API, ownerId, photoId, c.id);
+          for (const r0 of replies) {
+            const r = { ...r0, user: await resolveUser(r0.user) };
+            const rrow = document.createElement("div");
+            rrow.style.display = "flex";
+            rrow.style.gap = "8px";
+            const rimg = document.createElement("img");
+            rimg.src = r.user?.avatarUrl ? fullUrl(r.user.avatarUrl) : "/logo/avatar-placeholder.svg";
+            Object.assign(rimg.style, { width:"24px", height:"24px", borderRadius:"50%", objectFit:"cover", border:"1px solid rgba(200,169,107,.35)" });
+            const rmeta = document.createElement("div");
+            const rwho = esc(r.user?.name || "skald");
+            const rwhen = new Date(Number(r.createdAt || Date.now())).toLocaleString();
+            rmeta.innerHTML = `<div><strong>${rwho}</strong> <small style="opacity:.7">• ${esc(rwhen)}</small></div><div>${nl2br(r.text || "")}</div>`;
+            rrow.append(rimg, rmeta);
+            repliesWrap.appendChild(rrow);
+          }
+        } catch {}
+      }
+      await refreshReplies();
+
+      // reply form (toggle by button)
+      const replyForm = document.createElement("form");
+      replyForm.style.cssText = "display:none; gap:8px; margin:6px 0 0 36px";
+      const replyInput = document.createElement("input");
+      replyInput.placeholder = "Write a reply…";
+      replyInput.style.cssText = "flex:1; padding:.45rem; border-radius:10px; border:1px solid #3b3325; background:#0e0e0e; color:#e9e4d5";
+      const replySend = document.createElement("button");
+      replySend.type = "submit";
+      replySend.textContent = "Send";
+      replySend.style.cssText = "border:1px solid #3b3325; background:#111; color:#e9e4d5; border-radius:10px; padding:.45rem .7rem; cursor:pointer";
+      replyForm.append(replyInput, replySend);
+
+      replyBtn.addEventListener("click", () => {
+        replyForm.style.display = replyForm.style.display === "none" ? "flex" : "none";
+        if (replyForm.style.display === "flex") replyInput.focus();
+      });
+      replyForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = replyInput.value.trim();
+        if (!text) return;
+        try {
+          await postReply(API, ownerId, photoId, c.id, text);
+          replyInput.value = "";
+          await refreshReplies();
+        } catch {}
+      });
+
+      row.append(head, body, actions, repliesWrap, replyForm);
       listEl.appendChild(row);
     }
   } catch {
@@ -384,6 +599,7 @@ async function renderLbComments(API: string, ownerId: string, photoId: string, l
   }
 }
 
+/* ------------------ Gallery Loader/Renderer ------------------ */
 async function loadGallery(API: string, userId: string): Promise<Photo[]> {
   const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/gallery`);
   if (!r.ok) return [];
@@ -391,7 +607,6 @@ async function loadGallery(API: string, userId: string): Promise<Photo[]> {
   return normalizePhotoArray(data);
 }
 
-/* ------------------ Gallery Renderer ------------------ */
 function renderGalleryFromPhotos(photos: Photo[]) {
   galleryGrid.innerHTML = "";
   if (!photos.length) {
@@ -404,7 +619,6 @@ function renderGalleryFromPhotos(photos: Photo[]) {
   LB.urls = photos.map((p) => cacheBust(fullUrl(p.url)));
   LB.ids = photos.map((p) => p.id);
 
-  // Use classic for-loop to avoid unused param warnings and for perf
   for (let i = 0; i < photos.length; i++) {
     const imgWrap = document.createElement("div");
     Object.assign(imgWrap.style, {
@@ -422,7 +636,7 @@ function renderGalleryFromPhotos(photos: Photo[]) {
     img.src = url;
     img.alt = "gallery image";
     img.loading = "lazy";
-    img.draggable = false; // prevent ghost-drag
+    img.draggable = false;
     Object.assign(img.style, {
       width: "100%",
       aspectRatio: "1/1",
@@ -433,14 +647,14 @@ function renderGalleryFromPhotos(photos: Photo[]) {
     img.addEventListener("click", () => LB.open(i));
     imgWrap.appendChild(img);
 
-    // Reaction bar
+    // Reaction bar (with live counts)
     const bar = document.createElement("div");
     Object.assign(bar.style, {
       position: "absolute",
       bottom: "6px",
       right: "6px",
       display: "flex",
-      gap: "8px",
+      gap: "10px",
       background: "rgba(0,0,0,.45)",
       borderRadius: "8px",
       padding: "4px 6px",
@@ -448,67 +662,72 @@ function renderGalleryFromPhotos(photos: Photo[]) {
       alignItems: "center",
     });
 
-    const likeBtn = document.createElement("button");
-    const dislikeBtn = document.createElement("button");
-    const commentBtn = document.createElement("button");
-    [likeBtn, dislikeBtn, commentBtn].forEach((b) =>
-      Object.assign(b.style, {
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-      })
-    );
+    function mkBtn(iconSrc: string, alt: string) {
+      const btn = document.createElement("button");
+      btn.style.cssText = "background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:6px";
+      const ic = document.createElement("img");
+      ic.src = iconSrc;
+      ic.alt = alt;
+      ic.width = 20; ic.height = 20;
+      ic.className = "mug-icon";
+      const cnt = document.createElement("span");
+      cnt.textContent = "0";
+      cnt.style.fontSize = "12px";
+      btn.append(ic, cnt);
+      return { btn, ic, cnt };
+    }
 
-    // keep mugs as-is
-    likeBtn.innerHTML = `<img src="/guildbook/mugup.png" class="mug-icon" alt="like" width="20" height="20">`;
-    dislikeBtn.innerHTML = `<img src="/guildbook/mugdown.png" class="mug-icon" alt="dislike" width="20" height="20">`;
-    commentBtn.textContent = "💬";
-    commentBtn.title = "Open comments";
+    const like = mkBtn("/guildbook/mugup.png", "like");
+    const dislike = mkBtn("/guildbook/mugdown.png", "dislike");
 
-    // default titles
-    likeBtn.title = "Like";
-    dislikeBtn.title = "Dislike";
-
-    // prefetch reaction counts for hover tooltips (non-blocking)
+    // initial fetch
     (async () => {
-      try {
-        const API = pickApiBase();
-        const r = await getReactions(API, ownerId, photoId);
-        likeBtn.title = pluralize(n(r.up), "Like");
-        dislikeBtn.title = pluralize(n(r.down), "Dislike");
-      } catch {}
+      const API = pickApiBase();
+      const r = await getReactions(API, ownerId, photoId);
+      like.cnt.textContent = String(r.up);
+      dislike.cnt.textContent = String(r.down);
+      like.ic.classList.toggle("active", r.action === "up");
+      dislike.ic.classList.toggle("active", r.action === "down");
+      like.btn.title = pluralize(n(r.up), "Like");
+      dislike.btn.title = pluralize(n(r.down), "Dislike");
     })();
 
-    likeBtn.addEventListener("mouseenter", () => {
-      // titles already set from prefetch; keep for parity
-    });
-    dislikeBtn.addEventListener("mouseenter", () => {
-      // same as above
+    like.btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const API = pickApiBase();
+      const r = await postReaction(API, ownerId, photoId, "up");
+      like.cnt.textContent = String(r.up);
+      dislike.cnt.textContent = String(r.down);
+      like.ic.classList.toggle("active", r.action === "up");
+      dislike.ic.classList.toggle("active", r.action === "down");
+      like.btn.title = pluralize(n(r.up), "Like");
+      dislike.btn.title = pluralize(n(r.down), "Dislike");
     });
 
-    likeBtn.addEventListener("click", (e) => {
+    dislike.btn.addEventListener("click", async (e) => {
       e.stopPropagation();
-      // keep your local glow-only behavior; no server vote here
-      likeBtn.querySelector("img")?.classList.toggle("active");
-      dislikeBtn.querySelector("img")?.classList.remove("active");
-    });
-    dislikeBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      // keep your local glow-only behavior; no server vote here
-      dislikeBtn.querySelector("img")?.classList.toggle("active");
-      likeBtn.querySelector("img")?.classList.remove("active");
+      const API = pickApiBase();
+      const r = await postReaction(API, ownerId, photoId, "down");
+      like.cnt.textContent = String(r.up);
+      dislike.cnt.textContent = String(r.down);
+      like.ic.classList.toggle("active", r.action === "up");
+      dislike.ic.classList.toggle("active", r.action === "down");
+      like.btn.title = pluralize(n(r.up), "Like");
+      dislike.btn.title = pluralize(n(r.down), "Dislike");
     });
 
-    // open lightbox + comments when 💬 is clicked
+    const commentBtn = document.createElement("button");
+    commentBtn.textContent = "💬";
+    commentBtn.title = "Open comments";
+    commentBtn.style.cssText = "background:none;border:none;cursor:pointer;display:flex;align-items:center";
+
     commentBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       LB.open(i);
       setTimeout(() => LB.cInput?.focus(), 50);
     });
 
-    bar.append(likeBtn, dislikeBtn, commentBtn);
+    bar.append(like.btn, dislike.btn, commentBtn);
     imgWrap.appendChild(bar);
     galleryGrid.appendChild(imgWrap);
   }
@@ -749,6 +968,7 @@ async function main() {
 }
 
 main();
+
 
 
 
