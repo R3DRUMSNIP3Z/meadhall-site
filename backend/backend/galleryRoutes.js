@@ -1,8 +1,11 @@
-// backend/galleryRoutes.js — Cloudinary (if configured) + disk fallback + comments/reactions (+router CORS)
+// backend/galleryRoutes.js — Cloudinary (if configured) + disk fallback + comments/replies/reactions
 const express = require("express");
 const multer  = require("multer");
 const path    = require("path");
 const fs      = require("fs");
+
+// Pull users map so we can stamp name/avatar on comments
+const { users } = require("./db");
 
 // ---------- detect Cloudinary ----------
 const HAVE_CLOUDY =
@@ -44,11 +47,12 @@ function bucketFor(store, userId) {
 }
 
 /* ---------- helpers ---------- */
-// ✅ Force Render backend domain so Vercel never steals the origin
+// Force your backend base so front-end on Vercel can embed images freely
 function publicBase(_req) {
   const hardBase = process.env.SERVER_PUBLIC_URL || "https://meadhall-site.onrender.com";
   return hardBase.replace(/\/+$/, "");
 }
+
 const isAbs = (u) => /^https?:\/\//i.test(u);
 const isCloudUrl = (u = "") => /res\.cloudinary\.com/i.test(u);
 
@@ -61,34 +65,53 @@ const getUid = (req) => {
   return "";
 };
 
-function withAbsoluteUrl(req, item) {
+function withAbsoluteUrl(_req, item) {
   if (isAbs(item.url)) return item;
-  const base = publicBase(req);
+  const base = publicBase();
   return { ...item, url: `${base}${item.url}` };
+}
+
+// attach arrays & shapes on-demand
+function normalizePhotoItem(it) {
+  it.comments = Array.isArray(it.comments) ? it.comments : [];
+  if (!it.reactions || typeof it.reactions !== "object") it.reactions = { up: [], down: [] };
+  it.reactions.up = Array.isArray(it.reactions.up) ? it.reactions.up : [];
+  it.reactions.down = Array.isArray(it.reactions.down) ? it.reactions.down : [];
+  return it;
+}
+
+function findPhoto(store, userId, photoId) {
+  const bucket = bucketFor(store, userId);
+  const idx = bucket.items.findIndex((p) => String(p.id) === String(photoId));
+  if (idx === -1) return { bucket, idx, item: null };
+  const item = normalizePhotoItem(bucket.items[idx]);
+  return { bucket, idx, item };
+}
+
+function currentActor(req) {
+  const uid = (req.get("x-user-id") || "").trim();
+  if (uid) return `u:${uid}`;
+  const ip = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "0.0.0.0")
+    .toString().split(",")[0].trim();
+  return `anon:${ip}`;
+}
+
+function actorProfile(req) {
+  const uid = (req.get("x-user-id") || "").trim();
+  const safe = { id: currentActor(req), name: "", avatarUrl: "" };
+  if (uid && users.has(uid)) {
+    const u = users.get(uid);
+    safe.name = u?.name || "";
+    safe.avatarUrl = u?.avatarUrl || "";
+  } else {
+    safe.name = (req.get("x-user-name") || "").trim() || safe.id.replace(/^anon:/, "Guest ");
+  }
+  return safe;
 }
 
 /* ---------- installer ---------- */
 function install(app) {
   const router = express.Router();
-
-  // --- Router-level CORS (fixes comments/reactions preflights) ---
-  const ALLOW = new Set([
-    process.env.CLIENT_URL || "https://meadhall-site.vercel.app",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-  ]);
-  router.use((req, res, next) => {
-    const origin = req.headers.origin || "";
-    if (origin && (process.env.CORS_ANY === "true" || ALLOW.has(origin))) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
-    }
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Stripe-Signature, x-user-id, x-user-name");
-    res.setHeader("Vary", "Origin");
-    if (req.method === "OPTIONS") return res.status(204).end();
-    next();
-  });
 
   // Share the same /uploads folder as index.js
   const uploadRoot = app.locals?.uploadsDir || path.join(__dirname, "public", "uploads");
@@ -207,11 +230,7 @@ function install(app) {
       });
     }
 
-    return res.json({
-      ok: true,
-      count: added.length,
-      items: added.map((it) => withAbsoluteUrl(req, it)),
-    });
+    return res.json({ ok: true, count: added.length, items: added });
   }
 
   router.post(
@@ -230,88 +249,65 @@ function install(app) {
     (req, res, next) => { handleUpload(req, res).catch((e) => next(e)); }
   );
 
-  /* ========== COMMENTS & REACTIONS ========== */
-  function findPhoto(store, userId, photoId) {
-    const bucket = bucketFor(store, userId);
-    const idx = bucket.items.findIndex((p) => String(p.id) === String(photoId));
-    if (idx === -1) return { bucket, idx, item: null };
-    const item = bucket.items[idx];
-    item.comments = Array.isArray(item.comments) ? item.comments : [];
-    item.reactions = item.reactions && typeof item.reactions === "object" ? item.reactions : { up: [], down: [] };
-    item.reactions.up = Array.isArray(item.reactions.up) ? item.reactions.up : [];
-    item.reactions.down = Array.isArray(item.reactions.down) ? item.reactions.down : [];
-    return { bucket, idx, item };
-  }
+  /* ========== COMMENTS & REACTIONS (photos) ========== */
 
-  function currentActor(req) {
-    const uid = (req.get("x-user-id") || "").trim();
-    if (uid) return `u:${uid}`;
-    const ip = (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "0.0.0.0")
-      .toString().split(",")[0].trim();
-    return `anon:${ip}`;
-  }
-
-  // COMMENTS
+  // GET photo comments
   router.get("/api/users/:id/gallery/:photoId/comments", (req, res) => {
-    const userId = String(req.params.id || "");
-    const photoId = String(req.params.photoId || "");
+    const { id, photoId } = req.params;
     const store = readStore();
-    const { item } = findPhoto(store, userId, photoId);
+    const { item } = findPhoto(store, id, photoId);
     if (!item) return res.status(404).json({ error: "Photo not found" });
-    const list = [...item.comments].sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
-    return res.json(list);
+    const list = [...item.comments].sort((a, b) => Number(a.createdAt||0) - Number(b.createdAt||0));
+    res.json(list);
   });
 
+  // POST photo comment
   router.post("/api/users/:id/gallery/:photoId/comments", express.json(), (req, res) => {
-    const userId = String(req.params.id || "");
-    const photoId = String(req.params.photoId || "");
+    const { id, photoId } = req.params;
     const text = String(req.body?.text || "").trim();
     if (!text) return res.status(400).json({ error: "text required" });
 
     const store = readStore();
-    const { item } = findPhoto(store, userId, photoId);
+    const { item } = findPhoto(store, id, photoId);
     if (!item) return res.status(404).json({ error: "Photo not found" });
 
-    const actor = currentActor(req);
-    const nameFromHeader = (req.get("x-user-name") || "").trim();
+    const actor = actorProfile(req);
+    const now = Date.now();
     const comment = {
-      id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      text,
-      createdAt: Date.now(),
-      user: { id: actor, name: nameFromHeader || actor.replace(/^anon:/, "Guest ") },
+      id: `c_${now}_${Math.random().toString(36).slice(2,7)}`,
+      text, createdAt: now,
+      user: { id: actor.id, name: actor.name, avatarUrl: actor.avatarUrl || "" },
+      replies: [],
+      reactions: { up: [], down: [] },
     };
     item.comments.push(comment);
     writeStore(store);
-    return res.status(201).json(comment);
+    res.status(201).json(comment);
   });
 
-  // REACTIONS
+  // GET photo reactions (counts)
   router.get("/api/users/:id/gallery/:photoId/reactions", (req, res) => {
-    const userId = String(req.params.id || "");
-    const photoId = String(req.params.photoId || "");
+    const { id, photoId } = req.params;
     const store = readStore();
-    const { item } = findPhoto(store, userId, photoId);
+    const { item } = findPhoto(store, id, photoId);
     if (!item) return res.status(404).json({ error: "Photo not found" });
-
     const actor = currentActor(req);
     const up = item.reactions.up.length;
     const down = item.reactions.down.length;
     let action = "";
     if (item.reactions.up.includes(actor)) action = "up";
-    else if (item.reactions.down.includes(actor)) action = "down";
-    return res.json({ up, down, action });
+    if (item.reactions.down.includes(actor)) action = "down";
+    res.json({ up, down, action });
   });
 
+  // POST photo reaction toggle
   router.post("/api/users/:id/gallery/:photoId/reactions", express.json(), (req, res) => {
-    const userId = String(req.params.id || "");
-    const photoId = String(req.params.photoId || "");
+    const { id, photoId } = req.params;
     const wanted = String(req.body?.action || "").trim(); // "", "up", "down"
-    if (!["", "up", "down"].includes(wanted)) {
-      return res.status(400).json({ error: 'action must be "", "up", or "down"' });
-    }
+    if (!["", "up", "down"].includes(wanted)) return res.status(400).json({ error: 'action must be "", "up", or "down"' });
 
     const store = readStore();
-    const { item } = findPhoto(store, userId, photoId);
+    const { item } = findPhoto(store, id, photoId);
     if (!item) return res.status(404).json({ error: "Photo not found" });
 
     const actor = currentActor(req);
@@ -321,15 +317,94 @@ function install(app) {
     if (wanted === "down") item.reactions.down.push(actor);
 
     writeStore(store);
-    return res.json({
-      ok: true,
-      up: item.reactions.up.length,
-      down: item.reactions.down.length,
-      action: wanted,
-    });
+    res.json({ ok: true, up: item.reactions.up.length, down: item.reactions.down.length, action: wanted });
   });
 
-  /* ---------- DELETE ---------- */
+  /* ====== REPLIES & REACTIONS (comments) ====== */
+
+  function findComment(store, ownerId, photoId, cid) {
+    const { item } = findPhoto(store, ownerId, photoId);
+    if (!item) return { photo: null, comment: null };
+    const comment = (item.comments || []).find(c => String(c.id) === String(cid));
+    if (!comment) return { photo: item, comment: null };
+    // normalize
+    comment.replies = Array.isArray(comment.replies) ? comment.replies : [];
+    if (!comment.reactions || typeof comment.reactions !== "object") comment.reactions = { up: [], down: [] };
+    comment.reactions.up = Array.isArray(comment.reactions.up) ? comment.reactions.up : [];
+    comment.reactions.down = Array.isArray(comment.reactions.down) ? comment.reactions.down : [];
+    return { photo: item, comment };
+  }
+
+  // GET replies
+  router.get("/api/users/:id/gallery/:photoId/comments/:cid/replies", (req, res) => {
+    const { id, photoId, cid } = req.params;
+    const store = readStore();
+    const { comment } = findComment(store, id, photoId, cid);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+    const list = [...comment.replies].sort((a,b)=>Number(a.createdAt||0)-Number(b.createdAt||0));
+    res.json(list);
+  });
+
+  // POST reply
+  router.post("/api/users/:id/gallery/:photoId/comments/:cid/replies", express.json(), (req, res) => {
+    const { id, photoId, cid } = req.params;
+    const text = String(req.body?.text || "").trim();
+    if (!text) return res.status(400).json({ error: "text required" });
+
+    const store = readStore();
+    const { comment } = findComment(store, id, photoId, cid);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+
+    const actor = actorProfile(req);
+    const now = Date.now();
+    const reply = {
+      id: `r_${now}_${Math.random().toString(36).slice(2,7)}`,
+      text, createdAt: now,
+      user: { id: actor.id, name: actor.name, avatarUrl: actor.avatarUrl || "" },
+      reactions: { up: [], down: [] },
+    };
+    comment.replies.push(reply);
+    writeStore(store);
+    res.status(201).json(reply);
+  });
+
+  // GET comment reactions
+  router.get("/api/users/:id/gallery/:photoId/comments/:cid/reactions", (req, res) => {
+    const { id, photoId, cid } = req.params;
+    const store = readStore();
+    const { comment } = findComment(store, id, photoId, cid);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+
+    const actor = currentActor(req);
+    const up = comment.reactions.up.length;
+    const down = comment.reactions.down.length;
+    let action = "";
+    if (comment.reactions.up.includes(actor)) action = "up";
+    if (comment.reactions.down.includes(actor)) action = "down";
+    res.json({ up, down, action });
+  });
+
+  // POST comment reaction toggle
+  router.post("/api/users/:id/gallery/:photoId/comments/:cid/reactions", express.json(), (req, res) => {
+    const { id, photoId, cid } = req.params;
+    const wanted = String(req.body?.action || "").trim();
+    if (!["", "up", "down"].includes(wanted)) return res.status(400).json({ error: 'action must be "", "up", or "down"' });
+
+    const store = readStore();
+    const { comment } = findComment(store, id, photoId, cid);
+    if (!comment) return res.status(404).json({ error: "Comment not found" });
+
+    const actor = currentActor(req);
+    comment.reactions.up = comment.reactions.up.filter(a => a !== actor);
+    comment.reactions.down = comment.reactions.down.filter(a => a !== actor);
+    if (wanted === "up") comment.reactions.up.push(actor);
+    if (wanted === "down") comment.reactions.down.push(actor);
+
+    writeStore(store);
+    res.json({ ok: true, up: comment.reactions.up.length, down: comment.reactions.down.length, action: wanted });
+  });
+
+  /* ---------- DELETE photo ---------- */
   router.delete("/api/users/:id/gallery/:photoId", async (req, res) => {
     const userId = String(req.params.id || "");
     const photoId = decodeURIComponent(String(req.params.photoId || ""));
@@ -373,6 +448,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 

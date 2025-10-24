@@ -16,5 +16,15 @@
     "summary": "On the eve of battle, a vow binds two fates.",
     "src": "/guildbook/fullstoryRoman.rtf",
     "cover": "/guildbook/quillian-cover.jpg"
+  },
+  {
+    "id": "medieval",
+    "title": "Myriador",
+    "author": "Lisa",
+    "tags": ["Medieval","mythic"],
+    "summary": "On the eve of battle, a vow binds two fates.",
+    "src": "/guildbook/fullstoryMyriador.rtf",
+    "cover": "/guildbook/Myriador-cover.jpg"
   }
 ]
+
