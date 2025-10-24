@@ -18,13 +18,14 @@
     "cover": "/guildbook/quillian-cover.jpg"
   },
   {
-    "id": "medieval",
-    "title": "Myriador",
-    "author": "Lisa",
-    "tags": ["Medieval","mythic"],
-    "summary": "On the eve of battle, a vow binds two fates.",
-    "src": "/guildbook/fullstoryMyriador.rtf",
-    "cover": "/guildbook/Myriador-cover.jpg"
-  }
+  "id": "medieval",
+  "title": "Myriador",
+  "author": "Lisa",
+  "tags": ["Medieval", "Mythic", "Dark Elves", "Faith", "War"],
+  "summary": "In a realm torn between faith and shadow, dark elves, Christians, and humans clash against an ancient evil that hungers for their souls. As alliances crumble and beliefs collide, one prophecy may be all that stands between salvation and eternal night.",
+  "src": "/guildbook/fullstoryMyriador.rtf",
+  "cover": "/guildbook/Myriador-cover.jpg"
+}
+
 ]
 
