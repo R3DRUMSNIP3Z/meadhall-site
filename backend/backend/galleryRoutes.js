@@ -1,4 +1,4 @@
-// backend/galleryRoutes.js — Cloudinary (if configured) + disk fallback + comments/reactions
+// backend/galleryRoutes.js — Cloudinary (if configured) + disk fallback + comments/reactions (+router CORS)
 const express = require("express");
 const multer  = require("multer");
 const path    = require("path");
@@ -49,7 +49,6 @@ function publicBase(_req) {
   const hardBase = process.env.SERVER_PUBLIC_URL || "https://meadhall-site.onrender.com";
   return hardBase.replace(/\/+$/, "");
 }
-
 const isAbs = (u) => /^https?:\/\//i.test(u);
 const isCloudUrl = (u = "") => /res\.cloudinary\.com/i.test(u);
 
@@ -71,6 +70,25 @@ function withAbsoluteUrl(req, item) {
 /* ---------- installer ---------- */
 function install(app) {
   const router = express.Router();
+
+  // --- Router-level CORS (fixes comments/reactions preflights) ---
+  const ALLOW = new Set([
+    process.env.CLIENT_URL || "https://meadhall-site.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ]);
+  router.use((req, res, next) => {
+    const origin = req.headers.origin || "";
+    if (origin && (process.env.CORS_ANY === "true" || ALLOW.has(origin))) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    }
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Stripe-Signature, x-user-id, x-user-name");
+    res.setHeader("Vary", "Origin");
+    if (req.method === "OPTIONS") return res.status(204).end();
+    next();
+  });
 
   // Share the same /uploads folder as index.js
   const uploadRoot = app.locals?.uploadsDir || path.join(__dirname, "public", "uploads");
@@ -154,7 +172,6 @@ function install(app) {
   async function handleUpload(req, res) {
     const userId = getUid(req);
     if (!userId) return res.status(401).json({ error: "Missing user id" });
-
     if (!req.files?.length) return res.status(400).json({ error: "No files uploaded" });
 
     const store = readStore();
@@ -213,25 +230,19 @@ function install(app) {
     (req, res, next) => { handleUpload(req, res).catch((e) => next(e)); }
   );
 
-  /* ========== COMMENTS & REACTIONS (NEW) ========== */
-
-  // Locate a photo within store and ensure sub-structures exist
+  /* ========== COMMENTS & REACTIONS ========== */
   function findPhoto(store, userId, photoId) {
     const bucket = bucketFor(store, userId);
     const idx = bucket.items.findIndex((p) => String(p.id) === String(photoId));
     if (idx === -1) return { bucket, idx, item: null };
     const item = bucket.items[idx];
-
-    // normalize shape
     item.comments = Array.isArray(item.comments) ? item.comments : [];
     item.reactions = item.reactions && typeof item.reactions === "object" ? item.reactions : { up: [], down: [] };
     item.reactions.up = Array.isArray(item.reactions.up) ? item.reactions.up : [];
     item.reactions.down = Array.isArray(item.reactions.down) ? item.reactions.down : [];
-
     return { bucket, idx, item };
   }
 
-  // Who is acting? Prefer signed-in user; else anonymous IP "bucket"
   function currentActor(req) {
     const uid = (req.get("x-user-id") || "").trim();
     if (uid) return `u:${uid}`;
@@ -240,8 +251,7 @@ function install(app) {
     return `anon:${ip}`;
   }
 
-  // ---- COMMENTS ----
-  // GET list
+  // COMMENTS
   router.get("/api/users/:id/gallery/:photoId/comments", (req, res) => {
     const userId = String(req.params.id || "");
     const photoId = String(req.params.photoId || "");
@@ -252,7 +262,6 @@ function install(app) {
     return res.json(list);
   });
 
-  // POST add
   router.post("/api/users/:id/gallery/:photoId/comments", express.json(), (req, res) => {
     const userId = String(req.params.id || "");
     const photoId = String(req.params.photoId || "");
@@ -276,8 +285,7 @@ function install(app) {
     return res.status(201).json(comment);
   });
 
-  // ---- REACTIONS ----
-  // GET counts + caller's action
+  // REACTIONS
   router.get("/api/users/:id/gallery/:photoId/reactions", (req, res) => {
     const userId = String(req.params.id || "");
     const photoId = String(req.params.photoId || "");
@@ -294,7 +302,6 @@ function install(app) {
     return res.json({ up, down, action });
   });
 
-  // POST toggle reaction: { action: "" | "up" | "down" }
   router.post("/api/users/:id/gallery/:photoId/reactions", express.json(), (req, res) => {
     const userId = String(req.params.id || "");
     const photoId = String(req.params.photoId || "");
@@ -308,10 +315,8 @@ function install(app) {
     if (!item) return res.status(404).json({ error: "Photo not found" });
 
     const actor = currentActor(req);
-    // remove existing votes by this actor
     item.reactions.up = item.reactions.up.filter((a) => a !== actor);
     item.reactions.down = item.reactions.down.filter((a) => a !== actor);
-    // apply new one
     if (wanted === "up") item.reactions.up.push(actor);
     if (wanted === "down") item.reactions.down.push(actor);
 
