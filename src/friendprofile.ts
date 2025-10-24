@@ -497,8 +497,9 @@ async function renderLbComments(API: string, ownerId: string, photoId: string, l
       const likeC = document.createElement("button");
       const dislikeC = document.createElement("button");
       const replyBtn = document.createElement("button");
-      likeC.textContent = "👍 0";
-      dislikeC.textContent = "👎 0";
+      likeC.textContent = `<img src="/guildbook/mugup.png" class="mug-icon" width="18" height="18"> <span class="cnt">0</span>`;
+
+      dislikeC.textContent = `<img src="/guildbook/mugdown.png" class="mug-icon" width="18" height="18"> <span class="cnt">0</span>`;
       replyBtn.textContent = "Reply";
       [likeC, dislikeC].forEach((b) => b.style.cssText = "background:none;border:none;color:#e9e4d5;cursor:pointer");
       replyBtn.style.cssText = "background:none;border:none;color:#d4a94d;cursor:pointer";
