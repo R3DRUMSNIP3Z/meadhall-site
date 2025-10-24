@@ -43,7 +43,7 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, Stripe-Signature, x-user-id"
+    "Content-Type, Authorization, Stripe-Signature, x-user-id, x-user-name"
   );
   res.setHeader("Vary", "Origin");
   next();
@@ -53,11 +53,17 @@ app.use((req, res, next) => {
 // If you want to pin to a list, replace `true` with a function check.
 app.use(
   cors({
-    origin: true,       // ← reflect Origin (fixes missing ACAO)
-    credentials: false, // not using cookies across origins
+    origin: true, // reflect Origin
+    credentials: true, // ✅ allow cookies/session/fetch include
     maxAge: 86400,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Stripe-Signature", "x-user-id"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Stripe-Signature",
+      "x-user-id",
+      "x-user-name"
+    ],
   })
 );
 
