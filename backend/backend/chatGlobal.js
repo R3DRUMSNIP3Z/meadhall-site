@@ -1,6 +1,7 @@
 // chatGlobal.js
 const { randomUUID } = require("crypto");
 const { users } = require("./db");
+const express = require("express"); // ✅ for per-route JSON parsing
 
 const messages = [];
 const clients = new Set();
@@ -51,9 +52,10 @@ function install(app) {
     const origin = req.headers.origin || "*";
     res.set({
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-cache, no-transform",      // ✅ prevent transforms/buffering
       "Connection": "keep-alive",
       "Access-Control-Allow-Origin": origin,
+      "X-Accel-Buffering": "no",                      // ✅ Nginx/Render/CDN hint
       "Vary": "Origin",
     });
     res.flushHeaders();
@@ -74,8 +76,8 @@ function install(app) {
     });
   });
 
-  // Send
-  app.post("/api/chat/global", (req, res) => {
+  // Send (JSON body) — parse JSON *for this route only*
+  app.post("/api/chat/global", express.json(), (req, res) => {  // ✅ per-route parser
     const origin = req.headers.origin || "*";
     res.set({ "Access-Control-Allow-Origin": origin, "Vary": "Origin" });
 
@@ -98,6 +100,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 

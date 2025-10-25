@@ -1,8 +1,17 @@
-// src/chatGlobal.ts
-// Global chat API — history, live stream (SSE), send message
+// /src/chatGlobal.ts
+// Global chat API — history, live stream (SSE), send message, polling fallback
 
-import { API as API_BASE } from "./base";
+/* --------------- API BASE --------------- */
+// This safely resolves your API base whether local or deployed.
+function pickApiBase(): string {
+  const meta = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content?.trim() || "";
+  // @ts-ignore vite env available at build
+  const vite = (import.meta as any)?.env?.VITE_API_BASE?.trim() || "";
+  return meta || vite || "https://meadhall-site.onrender.com";
+}
+export const API_BASE = pickApiBase();
 
+/* --------------- Types --------------- */
 export type GlobalUser = {
   id: string | null;
   name: string;
@@ -16,13 +25,17 @@ export type GlobalMsg = {
   user: GlobalUser;
 };
 
+/* --------------- Fetch history --------------- */
 /** Fetch history after a message id (pass "" for full). */
 export async function getGlobalHistory(sinceId: string = ""): Promise<GlobalMsg[]> {
-  const r = await fetch(`${API_BASE}/api/chat/global?since=${encodeURIComponent(sinceId)}`);
+  const r = await fetch(`${API_BASE}/api/chat/global?since=${encodeURIComponent(sinceId)}`, {
+    headers: { "Content-Type": "application/json" },
+  });
   if (!r.ok) throw new Error(`global history failed: ${r.status}`);
   return r.json() as Promise<GlobalMsg[]>;
 }
 
+/* --------------- Live stream (SSE) --------------- */
 /** Open an SSE connection to global chat.
  * Returns a function you can call to close the stream. */
 export function openGlobalStream(
@@ -30,21 +43,22 @@ export function openGlobalStream(
   onOpen?: () => void,
   onError?: (err: any) => void
 ) {
-  const es = new EventSource(`${API_BASE}/api/chat/global/stream`);
+  const es = new EventSource(`${API_BASE}/api/chat/global/stream`, { withCredentials: false });
   es.onopen = () => onOpen?.();
   es.onerror = (e) => onError?.(e);
   es.onmessage = (ev) => {
+    if (!ev.data) return;
     try {
       const msg = JSON.parse(ev.data) as GlobalMsg;
-      onMessage(msg);
+      if (msg && msg.text) onMessage(msg);
     } catch {
-      /* ignore invalid events */
+      // ignore malformed lines (like ping events)
     }
   };
   return () => es.close();
 }
 
-/** Send a message to the global chat. */
+/* --------------- Send message --------------- */
 export async function sendGlobalMessage(userId: string | null, text: string) {
   const r = await fetch(`${API_BASE}/api/chat/global`, {
     method: "POST",
@@ -55,7 +69,7 @@ export async function sendGlobalMessage(userId: string | null, text: string) {
   return r.json() as Promise<{ ok: true; id: string }>;
 }
 
-/** Optional polling fallback if EventSource isn’t available. */
+/* --------------- Polling fallback --------------- */
 export function startGlobalPolling(
   sinceIdRef: { current: string },
   onBatch: (msgs: GlobalMsg[]) => void,
@@ -69,10 +83,13 @@ export function startGlobalPolling(
         onBatch(msgs);
         sinceIdRef.current = msgs[msgs.length - 1].id || sinceIdRef.current;
       }
-    } catch { /* ignore errors */ }
+    } catch {
+      /* ignore fetch errors */
+    }
   };
   timer = setInterval(tick, intervalMs);
-  tick(); // immediate
+  tick(); // run immediately
   return () => { if (timer) clearInterval(timer); };
 }
+
 
