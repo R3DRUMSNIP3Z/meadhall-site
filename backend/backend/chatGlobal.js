@@ -1,7 +1,6 @@
 // chatGlobal.js
 const { randomUUID } = require("crypto");
 const { users } = require("./db");
-const express = require("express"); // ✅ for per-route JSON parsing
 
 const messages = [];
 const clients = new Set();
@@ -21,22 +20,40 @@ function msgView(m) {
 }
 
 function install(app) {
-  // CORS preflight
+  // --- CORS: preflight for history/send
   app.options("/api/chat/global", (req, res) => {
     const origin = req.headers.origin || "*";
     res.set({
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Credentials": "true",
       "Vary": "Origin",
     });
     res.sendStatus(204);
   });
 
-  // History
+  // --- CORS: preflight for SSE (some proxies do this)
+  app.options("/api/chat/global/stream", (req, res) => {
+    const origin = req.headers.origin || "*";
+    res.set({
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    });
+    res.sendStatus(204);
+  });
+
+  // --- History
   app.get("/api/chat/global", (req, res) => {
     const origin = req.headers.origin || "*";
-    res.set({ "Access-Control-Allow-Origin": origin, "Vary": "Origin" });
+    res.set({
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    });
 
     const since = String(req.query.since || "");
     let idx = 0;
@@ -47,26 +64,33 @@ function install(app) {
     res.json(messages.slice(idx).map(msgView));
   });
 
-  // SSE stream
+  // --- SSE stream
   app.get("/api/chat/global/stream", (req, res) => {
     const origin = req.headers.origin || "*";
     res.set({
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",      // ✅ prevent transforms/buffering
+      "Cache-Control": "no-cache",
       "Connection": "keep-alive",
       "Access-Control-Allow-Origin": origin,
-      "X-Accel-Buffering": "no",                      // ✅ Nginx/Render/CDN hint
+      "Access-Control-Allow-Credentials": "true",
       "Vary": "Origin",
     });
     res.flushHeaders();
+
+    // EventSource retry hint
     res.write("retry: 5000\n\n");
 
     const client = { res };
     clients.add(client);
     console.log(`🔌 SSE connect (total ${clients.size})`);
 
+    // Keep-alive ping (prevents idle proxies from closing)
     const ping = setInterval(() => {
-      try { res.write(`event: ping\ndata: {}\n\n`); } catch {}
+      try {
+        res.write(`event: ping\ndata: {}\n\n`);
+      } catch {
+        // ignore write errors; close will clean up
+      }
     }, 25000);
 
     req.on("close", () => {
@@ -76,10 +100,14 @@ function install(app) {
     });
   });
 
-  // Send (JSON body) — parse JSON *for this route only*
-  app.post("/api/chat/global", express.json(), (req, res) => {  // ✅ per-route parser
+  // --- Send
+  app.post("/api/chat/global", (req, res) => {
     const origin = req.headers.origin || "*";
-    res.set({ "Access-Control-Allow-Origin": origin, "Vary": "Origin" });
+    res.set({
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    });
 
     const userId = String(req.body?.userId || "").trim();
     const text = String(req.body?.text || "").trim();
@@ -90,9 +118,14 @@ function install(app) {
     const msg = { id, userId, text, createdAt };
     messages.push(msg);
 
+    // Push to all connected SSE clients
     const payload = `data: ${JSON.stringify(msgView(msg))}\n\n`;
     for (const c of clients) {
-      try { c.res.write(payload); } catch {}
+      try {
+        c.res.write(payload);
+      } catch {
+        /* ignore broken client */
+      }
     }
 
     res.status(201).json({ ok: true, id });
@@ -100,6 +133,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 
