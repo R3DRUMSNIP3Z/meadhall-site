@@ -8,8 +8,8 @@ const { users, ensureFriendState, messages, dmKey } = require("./db");
 
 const currentUserId = (req) => (req.get("x-user-id") || "").trim();
 
-// GET /api/chat/history?with=ID  -> last messages (requires friendship)
 function install(app) {
+  // GET /api/chat/history?with=ID  -> last messages (requires friendship)
   app.get("/api/chat/history", (req, res) => {
     const me  = currentUserId(req);
     const you = String(req.query.with || "").trim();
@@ -59,7 +59,7 @@ function install(app) {
    * =======================================================*/
 
   // In-memory store for global messages + SSE clients
-  const globalMessages = []; // {id, userId, text, createdAt}
+  const globalMessages = []; // { id, userId, text, createdAt }
   const GLOBAL_HISTORY_MAX = 200;
   const clients = new Set(); // each: { res }
 
@@ -77,22 +77,43 @@ function install(app) {
     };
   }
 
-  // Preflight for POST/GET (helps some browsers/extensions)
+  /* ---------- CORS preflights ---------- */
+
+  // Preflight for history/send
   app.options("/api/chat/global", (req, res) => {
     const origin = req.headers.origin || "*";
     res.set({
       "Access-Control-Allow-Origin": origin,
       "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+      "Access-Control-Allow-Credentials": "true",
       "Vary": "Origin",
     });
     res.sendStatus(204);
   });
 
+  // Preflight for SSE (some proxies/browsers do this)
+  app.options("/api/chat/global/stream", (req, res) => {
+    const origin = req.headers.origin || "*";
+    res.set({
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    });
+    res.sendStatus(204);
+  });
+
+  /* ---------- History ---------- */
   // GET /api/chat/global?since=<lastId>   -> incremental history
   app.get("/api/chat/global", (req, res) => {
     const origin = req.headers.origin || "*";
-    res.set({ "Access-Control-Allow-Origin": origin, "Vary": "Origin" });
+    res.set({
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    });
 
     const since = String(req.query.since || "");
     let idx = 0;
@@ -104,6 +125,7 @@ function install(app) {
     res.json(slice);
   });
 
+  /* ---------- SSE stream ---------- */
   // GET /api/chat/global/stream  -> Server-Sent Events
   app.get("/api/chat/global/stream", (req, res) => {
     const origin = req.headers.origin || "*";
@@ -112,14 +134,16 @@ function install(app) {
       "Cache-Control": "no-cache, no-transform",
       "Connection": "keep-alive",
       "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
       "Vary": "Origin",
+      "X-Accel-Buffering": "no", // friendlier to nginx proxies/CDNs
     });
     res.flushHeaders();
 
-    // Hint reconnect
+    // Hint reconnect interval for EventSource
     res.write("retry: 5000\n\n");
 
-    // Send a small recent history burst so late joiners see context
+    // Send small recent history burst so late joiners see context
     const recent = globalMessages.slice(-50).map(msgView);
     for (const m of recent) {
       res.write(`data: ${JSON.stringify(m)}\n\n`);
@@ -127,9 +151,14 @@ function install(app) {
 
     const client = { res };
     clients.add(client);
-    // keepalive
+
+    // Keep-alive ping to prevent idle timeout
     const ping = setInterval(() => {
-      try { res.write(`event: ping\ndata: {}\n\n`); } catch {}
+      try {
+        res.write("event: ping\ndata: {}\n\n");
+      } catch {
+        /* ignore write errors; close handles cleanup */
+      }
     }, 25000);
 
     req.on("close", () => {
@@ -138,11 +167,16 @@ function install(app) {
     });
   });
 
+  /* ---------- Send / Broadcast ---------- */
   // POST /api/chat/global { userId, text }  -> broadcast to everyone
-  // ❗ No auth required; userId is optional (anonymous = "skald")
+  // No auth required; userId is optional (anonymous = "skald")
   app.post("/api/chat/global", (req, res) => {
     const origin = req.headers.origin || "*";
-    res.set({ "Access-Control-Allow-Origin": origin, "Vary": "Origin" });
+    res.set({
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    });
 
     const userId = String(req.body?.userId || "").trim(); // may be ""
     const text   = String(req.body?.text   || "").trim();
@@ -150,7 +184,7 @@ function install(app) {
 
     const msg = {
       id: randomUUID(),
-      userId: userId || null,      // null -> anonymous "skald"
+      userId: userId || null, // null -> anonymous "skald"
       text,
       createdAt: Date.now(),
     };
@@ -161,25 +195,34 @@ function install(app) {
       globalMessages.splice(0, globalMessages.length - GLOBAL_HISTORY_MAX);
     }
 
-    // fan-out
+    // fan-out to SSE clients
     const payload = `data: ${JSON.stringify(msgView(msg))}\n\n`;
     for (const c of clients) {
-      try { c.res.write(payload); } catch {}
+      try {
+        c.res.write(payload);
+      } catch {
+        /* ignore broken clients */
+      }
     }
 
     res.status(201).json({ ok: true, id: msg.id });
   });
 
-  // (Optional legacy endpoint you had before — keep if other code uses it)
+  // Optional legacy endpoint (keep if some UI still calls it)
   app.get("/api/chat/global/history", (req, res) => {
     const origin = req.headers.origin || "*";
-    res.set({ "Access-Control-Allow-Origin": origin, "Vary": "Origin" });
+    res.set({
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    });
     const limit = Math.min(parseInt(req.query.limit || "50", 10) || 50, GLOBAL_HISTORY_MAX);
     res.json(globalMessages.slice(-limit).map(msgView));
   });
 }
 
 module.exports = { install };
+
 
 
 

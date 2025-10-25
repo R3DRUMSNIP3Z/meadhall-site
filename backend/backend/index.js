@@ -20,7 +20,7 @@ const { users, ensureFriendState } = require("./db");
 const accountRoutes = require("./accountRoutes");
 const friendsRoutes = require("./friendsRoutes");
 const chatRoutes = require("./chatRoutes");
-const chatGlobal = require("./chatGlobal");
+//const chatGlobal = require("./chatGlobal");
 const galleryRoutes = require("./galleryRoutes"); // ⬅️ gallery API
 
 const app = express();
@@ -748,7 +748,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 accountRoutes.install(app);
 friendsRoutes.install(app);
 chatRoutes.install(app);
-chatGlobal.install(app);
+//chatGlobal.install(app);
 
 // ⬅️ Mount the gallery routes (uses app.locals.uploadsDir)
 galleryRoutes.install(app);
