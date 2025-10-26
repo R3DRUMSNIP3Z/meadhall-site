@@ -184,11 +184,11 @@
   </div>
 
   <!-- Emoji picker web component (module) -->
-  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
 
-  <!-- App -->
-  <script type="module">
-    import { getGlobalHistory, openGlobalStream, sendGlobalMessage, startGlobalPolling } from "/src/chatGlobal.ts";
+<!-- App entry (Vite/TS) -->
+<script type="module" src="/src/meadhall.ts"></script>
+
 
     /* ---------------- Chat core ---------------- */
     const LS_KEY_MAIN = 'mh_user';
