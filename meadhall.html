@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -36,7 +36,7 @@
       background:#151515; padding:0; border:1px solid #3b3325; border-radius:12px;
       display:none; width:360px; min-width:320px; max-width:95vw;
       max-height:80vh; min-height:260px; overflow:hidden; z-index:100; box-shadow:0 10px 30px rgba(0,0,0,.5);
-      resize: both; /* <-- drag from corner to resize */
+      resize: both;
     }
     .picker-head { display:flex; align-items:center; gap:8px; padding:8px; border-bottom:1px solid #3b3325; }
     .picker-tabs { display:flex; gap:6px; }
@@ -44,12 +44,11 @@
     .picker-tab.active { background:#d4a94d; color:#0b0e10; border-color:#d4a94d; }
     .picker-search { margin-left:auto; }
     .picker-search input { width:160px; padding:6px 8px; border-radius:8px; border:1px solid #3b3325; background:#0e0e0e; color:#e9e4d5; }
-    .picker-body { display:flex; flex-direction:column; height:calc(80vh - 80px); } /* adapts when resized */
+    .picker-body { display:flex; flex-direction:column; height:calc(80vh - 80px); }
     .recents { padding:8px; border-bottom:1px solid #3b3325; display:flex; flex-wrap:wrap; gap:6px; min-height:44px; }
     .recents img, .gif-grid img, .sticker-grid img { cursor:pointer; border-radius:8px; border:1px solid #3b3325; background:#222; }
     .recents img { height:40px; }
 
-    /* Grids become denser when you resize bigger */
     .gif-grid, .sticker-grid {
       padding:8px; display:grid; gap:8px; overflow:auto;
       grid-template-columns:repeat(auto-fill, minmax(90px, 1fr));
@@ -184,17 +183,17 @@
   </div>
 
   <!-- Emoji picker web component (module) -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
 
-<!-- App entry (Vite/TS) -->
-<script type="module" src="/assets/chatGlobal.js"></script>
-
+  <!-- App -->
+  <script type="module">
+    import { getGlobalHistory, openGlobalStream, sendGlobalMessage, startGlobalPolling } from "/src/chatGlobal.ts";
 
     /* ---------------- Chat core ---------------- */
     const LS_KEY_MAIN = 'mh_user';
     const LS_KEY_FALLBACK = 'user';
     const DEFAULT_AVATAR = "/logo/logo-512.png";
-    const GIPHY_KEY = "lRzzm6u7tXqFCuDcHfuZ56RyNDMiZKar"; // ← your key
+    const GIPHY_KEY = "lRzzm6u7tXqFCuDcHfuZ56RyNDMiZKar"; // your key
 
     function getUser() {
       try {
@@ -242,7 +241,6 @@
     }
 
     function renderMsg(msg) {
-      // ignore duplicates
       if (msg?.id && seen.has(msg.id)) return;
       if (msg?.id) seen.add(msg.id);
 
@@ -303,7 +301,6 @@
       try {
         await sendGlobalMessage(CURRENT_USER?.id ?? null, text);
         input.value = "";
-        // do NOT echo locally; SSE/poll will deliver it once — de-duped by `seen`
       } catch {
         renderSystem("⚠️ Message failed to send.");
       } finally {
@@ -316,7 +313,6 @@
     const picker = document.getElementById("picker");
     const toggleBtn = document.getElementById("emojiGifBtn");
 
-    // define ONCE and reuse
     const tabs = [...picker.querySelectorAll(".picker-tab")];
     const panes = [...picker.querySelectorAll(".picker-body")];
     const searchInput = document.getElementById("pickerSearch");
@@ -385,8 +381,8 @@
     if (customWrap) {
       customWrap.querySelectorAll("img").forEach(img => {
         img.addEventListener("click", () => {
-          input.value += " " + img.src;               // insert URL so it renders as inline image
-          addRecent(LS_RECENT_STICK, img.src);        // track in recents
+          input.value += " " + img.src;
+          addRecent(LS_RECENT_STICK, img.src);
           picker.style.display = "none";
           input.focus();
         });
@@ -491,15 +487,16 @@
       container.appendChild(img);
     }
 
-    // Search trigger (reuse the single declarations)
-    searchInput.addEventListener("keydown", (e) => {
+    // Search trigger
+    const pickerSearch = document.getElementById("pickerSearch");
+    pickerSearch.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       const active = document.querySelector(".picker-tab.active")?.dataset.tab;
       if (active === "gifs") loadGIFs("search");
       if (active === "stickers") loadStickers("search");
       if (active === "emoji") {
         const box = emojiPane.shadowRoot?.querySelector('input[type="search"]');
-        if (box) { box.value = e.target.value; box.dispatchEvent(new Event('input')); }
+        if (box) { box.value = pickerSearch.value; box.dispatchEvent(new Event('input')); }
       }
     });
 
@@ -521,11 +518,10 @@
     function openEditor(autoPick=false) { stickerModal.style.display = "flex"; sctx.clearRect(0,0,stickerCanvas.width, stickerCanvas.height); if (autoPick) stickerFile.click(); }
     function closeEditor() { stickerModal.style.display = "none"; bmp = null; stickerFile.value=""; }
 
-    // ---------- STICKER VALIDATION ----------
     function alertStickerRules() {
       alert("Sticker tips:\n• Canvas is 512×512 px (auto).\n• Upload an image file (PNG/JPG/WebP/GIF).\n• Recommended output ≤ 500 KB.\nUse Square/Resize buttons if needed.");
     }
-    function tooLargeBytes(bytes) { return bytes > 500 * 1024; } // ~500 KB guidance
+    function tooLargeBytes(bytes) { return bytes > 500 * 1024; }
     function dataUrlBytes(dataUrl) {
       try { return atob(dataUrl.split(',')[1]).length; } catch { return Infinity; }
     }
@@ -609,43 +605,3 @@
   <a href="/library.html" class="mh-lib-cta" aria-label="Open the Library">📚 Library</a>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
