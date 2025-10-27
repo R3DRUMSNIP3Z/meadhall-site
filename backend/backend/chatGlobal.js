@@ -8,8 +8,16 @@ const clients = new Set();
 const MAX_MSGS = 500;        // keep memory bounded
 const HEARTBEAT_MS = 25000;  // keep SSE alive across proxies
 
+function frameClassFor(m) {
+  const tier = String(m || "").toLowerCase();
+  if (tier === "premium") return "pfp--premium";
+  if (tier === "annual")  return "pfp--annual";
+  return "pfp--reader"; // default
+}
+
 function msgView(m) {
   const u = (m.userId && users.get(m.userId)) || {};
+  const membership = u.membership || "reader";
   return {
     id: m.id,
     text: m.text,
@@ -18,10 +26,12 @@ function msgView(m) {
       id: u.id || null,
       name: u.name || "skald",
       avatarUrl: u.avatarUrl || null,
-      membership: (u.membership || "reader"), // <-- frames rely on this
+      membership,
+      frameClass: frameClassFor(membership), // <- send CSS class to client
     },
   };
 }
+
 
 function setCORS(req, res) {
   const origin = req.headers.origin || "*";
