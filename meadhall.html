@@ -216,12 +216,7 @@
 
 <!-- App -->
 <script type="module">
-  function frameClassFor(user){
-  const m = (user?.membership || '').toLowerCase();
-  if (m === 'premium') return 'pfp--premium';
-  if (m === 'annual')  return 'pfp--annual';
-  return 'pfp--reader'; // default so a frame always shows
-}
+  
 
 /* =====================  Mead Hall • Global Chat (full)  ===================== */
 import { getGlobalHistory, openGlobalStream, sendGlobalMessage, startGlobalPolling } from "/src/chatGlobal.ts";
