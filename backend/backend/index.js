@@ -813,33 +813,23 @@ setInterval(() => {
 // Health check
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-// Mount routes (your originals)
-accountRoutes.install(app);
-friendsRoutes.install(app);
-chatRoutes.install(app);
-chatGlobal.install(app);
-
-// ⬅️ Mount the gallery routes (uses app.locals.uploadsDir)
-galleryRoutes.install(app);
+// ... after bodyParser.json(), before you install routes
 
 // ---------------- Profile Frame Helper ----------------
-// Adds a "frameClass" property to user responses based on membership
 function applyFrameClass(u) {
   if (!u || typeof u !== "object") return u;
   const m = (u.membership || "").toLowerCase();
-  let frameClass = "pfp--reader"; // default
+  let frameClass = "pfp--reader";
   if (m === "premium") frameClass = "pfp--premium";
   else if (m === "annual") frameClass = "pfp--annual";
   return { ...u, frameClass };
 }
-
-// Wrap user or user array before sending to frontend
 function addFrameToResponse(data) {
   if (Array.isArray(data)) return data.map(applyFrameClass);
   return applyFrameClass(data);
 }
 
-// Middleware to auto-inject frameClass on all /api/users responses
+// ✅ Wrap res.json so any /api/users* response includes frameClass
 app.use((req, res, next) => {
   const oldJson = res.json.bind(res);
   res.json = (data) => {
@@ -854,6 +844,18 @@ app.use((req, res, next) => {
   };
   next();
 });
+
+
+// Mount routes (your originals)
+accountRoutes.install(app);
+friendsRoutes.install(app);
+chatRoutes.install(app);
+chatGlobal.install(app);
+
+// ⬅️ Mount the gallery routes (uses app.locals.uploadsDir)
+galleryRoutes.install(app);
+
+
 
 
 
