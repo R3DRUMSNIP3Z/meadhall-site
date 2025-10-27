@@ -30,7 +30,7 @@
     #sendBtn, #emojiGifBtn { padding:.5rem 1rem; border:none; border-radius:6px; cursor:pointer; background:#d4a94d; color:#0b0e10; font-weight:bold; }
     .sys { text-align:center; opacity:.7; font-size:.9rem; margin:.4rem 0; }
 
-    /* Picker — now resizable */
+    /* Picker — resizable */
     #picker {
       position:absolute; bottom:60px; left:10px;
       background:#151515; padding:0; border:1px solid #3b3325; border-radius:12px;
@@ -74,6 +74,12 @@
     .drop-hint { position:absolute; bottom:8px; right:8px; font-size:.8rem; opacity:.7; }
     canvas#stickerCanvas { max-width:100%; max-height:60vh; background:transparent; }
     .sticker-foot { display:flex; justify-content:flex-end; gap:8px; padding:10px; border-top:1px solid #3b3325; }
+
+    .mh-lib-cta {
+      position: fixed; right: 12px; bottom: 12px; text-decoration: none;
+      background:#151515d0; border:1px solid #3b3325; border-radius:10px; padding:.5rem .7rem;
+      color:#ffd700; font-weight:700;
+    }
   </style>
 </head>
 <body>
@@ -93,515 +99,552 @@
   </div>
 </header>
 
-  <!-- Chat Title -->
-  <div class="chat-title">⚔️ Mead Hall • Global Chat ⚔️</div>
+<!-- Chat Title -->
+<div class="chat-title">⚔️ Mead Hall • Global Chat ⚔️</div>
 
-  <div id="chatBox"></div>
+<!-- Chat box -->
+<div id="chatBox"></div>
 
-  <!-- Combined Emoji + GIF/Stickers picker -->
-  <div id="picker">
-    <div class="picker-head">
-      <div class="picker-tabs">
-        <button class="picker-tab active" data-tab="emoji">Emoji</button>
-        <button class="picker-tab" data-tab="gifs">GIFs</button>
-        <button class="picker-tab" data-tab="stickers">Stickers</button>
-      </div>
-      <div class="picker-search">
-        <input id="pickerSearch" type="text" placeholder="Search..." />
-      </div>
-      <div class="right-actions">
-        <button id="uploadStickerBtn" class="mini-btn">+ Upload</button>
-      </div>
+<!-- Combined Emoji + GIF/Stickers picker -->
+<div id="picker">
+  <div class="picker-head">
+    <div class="picker-tabs">
+      <button class="picker-tab active" data-tab="emoji">Emoji</button>
+      <button class="picker-tab" data-tab="gifs">GIFs</button>
+      <button class="picker-tab" data-tab="stickers">Stickers</button>
     </div>
-
-    <!-- Emoji -->
-    <div class="picker-body" data-pane="emoji">
-      <div class="recents" id="recentEmoji"></div>
-      <div style="flex:1; overflow:auto; padding:8px; display:flex; flex-direction:column; gap:8px;">
-        <!-- Custom Viking Emojis -->
-        <div id="customEmojis" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
-          <img src="/emojis/emoji1.png" alt="emoji1" style="height:40px;cursor:pointer"/>
-          <img src="/emojis/emoji2.png" alt="emoji2" style="height:40px;cursor:pointer"/>
-          <img src="/emojis/emoji3.png" alt="emoji3" style="height:40px;cursor:pointer"/>
-          <img src="/emojis/emoji4.png" alt="emoji4" style="height:40px;cursor:pointer"/>
-          <img src="/emojis/emoji5.png" alt="emoji5" style="height:40px;cursor:pointer"/>
-          <img src="/emojis/emoji6.png" alt="emoji6" style="height:40px;cursor:pointer"/>
-          <img src="/emojis/emoji7.png" alt="emoji7" style="height:40px;cursor:pointer"/>
-          <img src="/emojis/emoji8.png" alt="emoji8" style="height:40px;cursor:pointer"/>
-          <img src="/emojis/emoji9.png" alt="emoji9" style="height:40px;cursor:pointer"/>
-        </div>
-
-        <!-- Default Emoji Picker -->
-        <emoji-picker id="emojiPane"></emoji-picker>
-      </div>
+    <div class="picker-search">
+      <input id="pickerSearch" type="text" placeholder="Search..." />
     </div>
-
-    <!-- GIFs -->
-    <div class="picker-body" data-pane="gifs" style="display:none">
-      <div class="recents" id="recentGifs"></div>
-      <div class="chip-row" id="gifChips"></div>
-      <div class="gif-grid" id="gifGrid"></div>
-      <div class="error" id="gifError" style="display:none"></div>
-    </div>
-
-    <!-- Stickers -->
-    <div class="picker-body" data-pane="stickers" style="display:none">
-      <div class="recents" id="recentStickers"></div>
-      <div class="chip-row" id="stickerChips"></div>
-      <div class="sticker-grid" id="stickerGrid"></div>
-      <div class="error" id="stickerError" style="display:none"></div>
+    <div class="right-actions">
+      <button id="uploadStickerBtn" class="mini-btn">+ Upload</button>
     </div>
   </div>
 
-  <div id="chatInputRow">
-    <input id="chatInput" type="text" placeholder="Type your message..." />
-    <button id="emojiGifBtn">😀 GIF</button>
-    <button id="sendBtn">Send</button>
-  </div>
+  <!-- Emoji -->
+  <div class="picker-body" data-pane="emoji">
+    <div class="recents" id="recentEmoji"></div>
+    <div style="flex:1; overflow:auto; padding:8px; display:flex; flex-direction:column; gap:8px;">
+      <!-- Custom Viking Emojis -->
+      <div id="customEmojis" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
+        <img src="/emojis/emoji1.png" alt="emoji1" style="height:40px;cursor:pointer"/>
+        <img src="/emojis/emoji2.png" alt="emoji2" style="height:40px;cursor:pointer"/>
+        <img src="/emojis/emoji3.png" alt="emoji3" style="height:40px;cursor:pointer"/>
+        <img src="/emojis/emoji4.png" alt="emoji4" style="height:40px;cursor:pointer"/>
+        <img src="/emojis/emoji5.png" alt="emoji5" style="height:40px;cursor:pointer"/>
+        <img src="/emojis/emoji6.png" alt="emoji6" style="height:40px;cursor:pointer"/>
+        <img src="/emojis/emoji7.png" alt="emoji7" style="height:40px;cursor:pointer"/>
+        <img src="/emojis/emoji8.png" alt="emoji8" style="height:40px;cursor:pointer"/>
+        <img src="/emojis/emoji9.png" alt="emoji9" style="height:40px;cursor:pointer"/>
+      </div>
 
-  <!-- Sticker Editor Modal -->
-  <div id="stickerModal">
-    <div class="sticker-card">
-      <div class="sticker-head"><strong>Create sticker</strong> <button id="closeSticker" class="mini-btn">✕</button></div>
-      <div class="sticker-body">
-        <div class="sticker-sidebar">
-          <input type="file" id="stickerFile" accept="image/*" />
-          <button id="cropSquareBtn" class="mini-btn">Square crop</button>
-          <button id="fit512Btn" class="mini-btn">Resize 512px</button>
-          <button id="bgWhiteBtn" class="mini-btn">White BG</button>
-          <button id="bgTransparentBtn" class="mini-btn">Transparent BG</button>
-        </div>
-        <div class="sticker-canvas-wrap" id="stickerDrop">
-          <canvas id="stickerCanvas" width="512" height="512"></canvas>
-          <div class="drop-hint">Drag & drop an image</div>
-        </div>
-      </div>
-      <div class="sticker-foot">
-        <button id="saveStickerBtn" class="mini-btn">Save as sticker</button>
-      </div>
+      <!-- Default Emoji Picker -->
+      <emoji-picker id="emojiPane"></emoji-picker>
     </div>
   </div>
 
-  <!-- Emoji picker web component (module) -->
-  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+  <!-- GIFs -->
+  <div class="picker-body" data-pane="gifs" style="display:none">
+    <div class="recents" id="recentGifs"></div>
+    <div class="chip-row" id="gifChips"></div>
+    <div class="gif-grid" id="gifGrid"></div>
+    <div class="error" id="gifError" style="display:none"></div>
+  </div>
 
-  <!-- App -->
-  <script type="module">
-    import { getGlobalHistory, openGlobalStream, sendGlobalMessage, startGlobalPolling } from "/src/chatGlobal.ts";
+  <!-- Stickers -->
+  <div class="picker-body" data-pane="stickers" style="display:none">
+    <div class="recents" id="recentStickers"></div>
+    <div class="chip-row" id="stickerChips"></div>
+    <div class="sticker-grid" id="stickerGrid"></div>
+    <div class="error" id="stickerError" style="display:none"></div>
+  </div>
+</div>
 
-    /* ---------------- Chat core ---------------- */
-    const LS_KEY_MAIN = 'mh_user';
-    const LS_KEY_FALLBACK = 'user';
-    const DEFAULT_AVATAR = "/logo/logo-512.png";
-    const GIPHY_KEY = "lRzzm6u7tXqFCuDcHfuZ56RyNDMiZKar"; // your key
+<!-- Input row -->
+<div id="chatInputRow">
+  <input id="chatInput" type="text" placeholder="Type your message..." />
+  <button id="emojiGifBtn">😀 GIF</button>
+  <button id="sendBtn">Send</button>
+</div>
 
-    function getUser() {
-      try {
-        return JSON.parse(localStorage.getItem(LS_KEY_MAIN) || localStorage.getItem(LS_KEY_FALLBACK) || 'null');
-      } catch { return null; }
-    }
-    function setUser(u) {
-      localStorage.setItem(LS_KEY_MAIN, JSON.stringify(u));
-      localStorage.removeItem(LS_KEY_FALLBACK);
-    }
-    async function loadUserFresh(u) {
-      const API_BASE = (document.querySelector('meta[name="api-base"]').content || '').trim();
-      if (!API_BASE || !u?.id) return u;
-      try {
-        const r = await fetch(`${API_BASE}/api/users/${u.id}`);
-        if (!r.ok) throw new Error(await r.text());
-        const fresh = await r.json();
-        setUser(fresh);
-        return fresh;
-      } catch { return u; }
-    }
+<!-- Sticker Editor Modal -->
+<div id="stickerModal">
+  <div class="sticker-card">
+    <div class="sticker-head"><strong>Create sticker</strong> <button id="closeSticker" class="mini-btn">✕</button></div>
+    <div class="sticker-body">
+      <div class="sticker-sidebar">
+        <input type="file" id="stickerFile" accept="image/*" />
+        <button id="cropSquareBtn" class="mini-btn">Square crop</button>
+        <button id="fit512Btn" class="mini-btn">Resize 512px</button>
+        <button id="bgWhiteBtn" class="mini-btn">White BG</button>
+        <button id="bgTransparentBtn" class="mini-btn">Transparent BG</button>
+      </div>
+      <div class="sticker-canvas-wrap" id="stickerDrop">
+        <canvas id="stickerCanvas" width="512" height="512"></canvas>
+        <div class="drop-hint">Drag & drop an image</div>
+      </div>
+    </div>
+    <div class="sticker-foot">
+      <button id="saveStickerBtn" class="mini-btn">Save as sticker</button>
+    </div>
+  </div>
+</div>
 
-    let CURRENT_USER = getUser();
-    (async () => { if (CURRENT_USER?.id) CURRENT_USER = await loadUserFresh(CURRENT_USER); })();
+<!-- Emoji picker web component -->
+<script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
 
-    const chatBox = document.getElementById("chatBox");
-    const input = document.getElementById("chatInput");
-    const sendBtn = document.getElementById("sendBtn");
+<!-- App -->
+<script type="module">
+/* =====================  Mead Hall • Global Chat (full)  ===================== */
+import { getGlobalHistory, openGlobalStream, sendGlobalMessage, startGlobalPolling } from "/src/chatGlobal.ts";
 
-    // ---------------- DUPLICATE GUARD ----------------
-    const seen = new Set(); // message ids we've rendered
+/* -------- config -------- */
+const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || '').trim();
+const DEFAULT_AVATAR = "/logo/logo-512.png";
+const GIPHY_KEY = "lRzzm6u7tXqFCuDcHfuZ56RyNDMiZKar";
 
-    // Render http(s) links + data:image URLs
-    function parseMessage(text) {
-      return String(text).replace(/(?:https?:\/\/\S+|data:image\/(?:png|webp|gif);base64,[A-Za-z0-9+/=]+)/gi, (u) => {
-        const isImage =
-          /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u) ||
-          /giphy\.com/i.test(u) ||
-          /^data:image\/(?:png|webp|gif);base64,/i.test(u);
-        if (isImage) {
-          return `<img src="${u}" style="max-width:220px;display:block;margin-top:6px;border-radius:8px;border:1px solid #3b3325;"/>`;
-        }
-        return `<a href="${u}" target="_blank" rel="noopener">${u}</a>`;
-      });
-    }
+/* -------- helpers: URL normalization + links -------- */
+function normalizeBackendPath(u) {
+  if (!u) return "";
+  const s = String(u);
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith("/uploads/") || s.startsWith("/avatar/")) return API_BASE + s;
+  if (s.startsWith("uploads/")  || s.startsWith("avatar/"))  return API_BASE + "/" + s;
+  return s; // e.g., /logo/…, /emojis/… stay on Vercel
+}
+function normalizeAvatar(u) {
+  const v = normalizeBackendPath(u);
+  return v || DEFAULT_AVATAR;
+}
+function normalizeAnyUrl(u) { return normalizeBackendPath(u); }
+function profileHref(user) {
+  const id = user?.id;
+  return id ? `/friendprofile.html?u=${encodeURIComponent(id)}` : "/account.html";
+}
 
-    function renderMsg(msg) {
-      if (msg?.id && seen.has(msg.id)) return;
-      if (msg?.id) seen.add(msg.id);
+/* -------- session -------- */
+const LS_KEY_MAIN = 'mh_user';
+const LS_KEY_FALLBACK = 'user';
+function getUser() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY_MAIN) || localStorage.getItem(LS_KEY_FALLBACK) || 'null'); }
+  catch { return null; }
+}
+function setUser(u) {
+  localStorage.setItem(LS_KEY_MAIN, JSON.stringify(u));
+  localStorage.removeItem(LS_KEY_FALLBACK);
+}
+async function loadUserFresh(u) {
+  if (!API_BASE || !u?.id) return u;
+  try {
+    const r = await fetch(`${API_BASE}/api/users/${u.id}`);
+    if (!r.ok) throw new Error(await r.text());
+    const fresh = await r.json();
+    setUser(fresh);
+    return fresh;
+  } catch { return u; }
+}
+let CURRENT_USER = getUser();
+(async () => { if (CURRENT_USER?.id) CURRENT_USER = await loadUserFresh(CURRENT_USER); })();
 
-      const u = msg.user || {};
-      const displayName = u.name || "skald";
-      const avatarUrl = u.avatarUrl || DEFAULT_AVATAR;
-      const profileLink = u.id ? `/profile/${u.id}` : "/account.html";
+/* -------- DOM -------- */
+const chatBox = document.getElementById("chatBox");
+const input   = document.getElementById("chatInput");
+const sendBtn = document.getElementById("sendBtn");
 
-      const row = document.createElement("div");
-      row.className = "msg";
-      row.innerHTML = `
-        <img class="avatar" src="${avatarUrl}" alt="${displayName}" onclick="window.location='${profileLink}'"/>
-        <div class="bubble">
-          <div class="meta">${displayName}</div>
-          ${parseMessage(msg.text || "")}
-        </div>
-      `;
-      chatBox.appendChild(row);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
+/* -------- duplicate guard -------- */
+const seen = new Set();
 
-    function renderSystem(text) {
-      const p = document.createElement('div');
-      p.className = 'sys';
-      p.textContent = text;
-      chatBox.appendChild(p);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    /* ---- history + live stream (use helpers) ---- */
-    let lastId = "";
-    (async () => {
-      try {
-        const list = await getGlobalHistory(lastId);
-        for (const m of list) { renderMsg(m); if (m.id) lastId = m.id; }
-      } catch { renderSystem("⚠️ Could not load history."); }
-
-      if ("EventSource" in window) {
-        openGlobalStream(
-          (m) => { renderMsg(m); if (m.id) lastId = m.id; },
-          () => renderSystem("Connected to the mead fire."),
-          () => renderSystem("⚠️ Stream error — falling back if needed")
-        );
-      } else {
-        const ref = { current: lastId };
-        startGlobalPolling(ref, (batch) =>
-          batch.forEach((m) => { renderMsg(m); ref.current = m.id || ref.current; })
-        );
-        renderSystem("⚠️ No EventSource — using polling.");
+/* -------- message parsing (also normalizes /uploads links) -------- */
+function parseMessage(text) {
+  return String(text).replace(
+    /(?:https?:\/\/\S+|data:image\/(?:png|webp|gif);base64,[A-Za-z0-9+/=]+|\b(?:\/?uploads\/\S+))/gi,
+    (raw) => {
+      const u = normalizeAnyUrl(raw);
+      const isImage =
+        /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(u) ||
+        /giphy\.com/i.test(u) ||
+        /^data:image\/(?:png|webp|gif);base64,/i.test(u);
+      if (isImage) {
+        return `<img src="${u}" style="max-width:220px;display:block;margin-top:6px;border-radius:8px;border:1px solid #3b3325;"/>`;
       }
-    })();
-
-    /* ---- send ---- */
-    sendBtn.onclick = async () => {
-      const text = input.value.trim();
-      if (!text) return;
-      sendBtn.disabled = true;
-      try {
-        await sendGlobalMessage(CURRENT_USER?.id ?? null, text);
-        input.value = "";
-      } catch {
-        renderSystem("⚠️ Message failed to send.");
-      } finally {
-        sendBtn.disabled = false;
-        input.focus();
-      }
-    };
-
-    /* ---------------- Picker ---------------- */
-    const picker = document.getElementById("picker");
-    const toggleBtn = document.getElementById("emojiGifBtn");
-
-    const tabs = [...picker.querySelectorAll(".picker-tab")];
-    const panes = [...picker.querySelectorAll(".picker-body")];
-    const searchInput = document.getElementById("pickerSearch");
-    const uploadStickerBtn = document.getElementById("uploadStickerBtn");
-    const emojiPane = document.getElementById("emojiPane");
-
-    const LS_RECENT_EMOJI = "mh_recent_emoji";
-    const LS_RECENT_GIFS  = "mh_recent_gifs";
-    const LS_RECENT_STICK = "mh_recent_stickers";
-
-    const recentEmoji = document.getElementById("recentEmoji");
-    const recentGifs = document.getElementById("recentGifs");
-    const recentStickers = document.getElementById("recentStickers");
-
-    function loadLS(k){ try{return JSON.parse(localStorage.getItem(k)||"[]");}catch{return[];} }
-    function saveLS(k,a,cap=24){ localStorage.setItem(k, JSON.stringify(a.slice(0,cap))); }
-    function addRecent(k,val){ const a=loadLS(k); const i=a.indexOf(val); if(i!==-1)a.splice(i,1); a.unshift(val); saveLS(k,a); }
-    function twemojiCode(emoji){ return Array.from(emoji).map(ch=>ch.codePointAt(0).toString(16)).join("-"); }
-
-    function renderRecents(container, items, type="gif") {
-      container.innerHTML = "";
-      items.forEach((it) => {
-        const img = document.createElement("img");
-        img.src = type === "emoji" ? `https://twemoji.maxcdn.com/v/latest/svg/${twemojiCode(it)}.svg` : it;
-        img.alt = type === "emoji" ? it : "recent";
-        img.style.height = "40px";
-        img.onclick = () => { input.value += type === "emoji" ? it : (" " + it); picker.style.display = "none"; input.focus(); };
-        container.appendChild(img);
-      });
+      return `<a href="${u}" target="_blank" rel="noopener">${u}</a>`;
     }
+  );
+}
 
-    tabs.forEach(btn => {
-      btn.onclick = () => {
-        tabs.forEach(b => b.classList.toggle("active", b === btn));
-        const tab = btn.dataset.tab;
-        panes.forEach(p => p.style.display = (p.dataset.pane === tab) ? "flex" : "none");
-        searchInput.value = "";
-        if (tab === "gifs") loadGIFs("trending");
-        if (tab === "stickers") loadStickers("trending");
-      };
+/* -------- render -------- */
+function renderMsg(msg) {
+  if (msg?.id && seen.has(msg.id)) return;
+  if (msg?.id) seen.add(msg.id);
+
+  const u = msg.user || {};
+  const displayName = u.name || "skald";
+  const avatarUrl   = normalizeAvatar(u.avatarUrl);
+  const profileLink = profileHref(u);
+
+  const row = document.createElement("div");
+  row.className = "msg";
+  row.innerHTML = `
+    <img class="avatar" src="${avatarUrl}" alt="${displayName}" />
+    <div class="bubble">
+      <div class="meta">${displayName}</div>
+      ${parseMessage(msg.text || "")}
+    </div>
+  `;
+
+  const img = row.querySelector("img.avatar");
+  img.style.cursor = "pointer";
+  img.addEventListener("click", () => { window.location.href = profileLink; });
+  img.addEventListener("error", () => { img.src = DEFAULT_AVATAR; });
+
+  chatBox.appendChild(row);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+function renderSystem(text) {
+  const p = document.createElement('div');
+  p.className = 'sys';
+  p.textContent = text;
+  chatBox.appendChild(p);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+/* -------- history + live -------- */
+let lastId = "";
+(async () => {
+  try {
+    const list = await getGlobalHistory(lastId);
+    for (const m of list) { renderMsg(m); if (m.id) lastId = m.id; }
+  } catch { renderSystem("⚠️ Could not load history."); }
+
+  if ("EventSource" in window) {
+    openGlobalStream(
+      (m) => { renderMsg(m); if (m.id) lastId = m.id; },
+      ()  => renderSystem("Connected to the mead fire."),
+      ()  => renderSystem("⚠️ Stream error — falling back if needed")
+    );
+  } else {
+    const ref = { current: lastId };
+    startGlobalPolling(ref, (batch) => {
+      batch.forEach((m) => { renderMsg(m); ref.current = m.id || ref.current; });
     });
+    renderSystem("⚠️ No EventSource — using polling.");
+  }
+})();
 
-    toggleBtn.onclick = () => {
-      picker.style.display = picker.style.display === "none" ? "block" : "none";
-      if (picker.style.display === "block") {
-        renderRecents(recentEmoji, loadLS(LS_RECENT_EMOJI), "emoji");
-        renderRecents(recentGifs,  loadLS(LS_RECENT_GIFS),  "gif");
-        renderRecents(recentStickers, loadLS(LS_RECENT_STICK), "gif");
-        loadGIFs("trending");
-        loadStickers("trending");
-      }
-    };
-    document.addEventListener("click", (e) => { if(!picker.contains(e.target)&&e.target!==toggleBtn) picker.style.display="none"; }, true);
+/* -------- send -------- */
+sendBtn.onclick = async () => {
+  const text = input.value.trim();
+  if (!text) return;
+  sendBtn.disabled = true;
+  try {
+    await sendGlobalMessage(CURRENT_USER?.id ?? null, text);
+    input.value = "";
+  } catch {
+    renderSystem("⚠️ Message failed to send.");
+  } finally {
+    sendBtn.disabled = false;
+    input.focus();
+  }
+};
 
-    // Emoji picker behavior
-    emojiPane.addEventListener("emoji-click", (e) => {
-      const ch = e.detail.unicode;
-      input.value += ch;
-      addRecent(LS_RECENT_EMOJI, ch);
+/* =====================  Emoji + GIFs + Stickers Picker  ===================== */
+const picker = document.getElementById("picker");
+const toggleBtn = document.getElementById("emojiGifBtn");
+const tabs  = [...(picker?.querySelectorAll(".picker-tab") || [])];
+const panes = [...(picker?.querySelectorAll(".picker-body") || [])];
+const searchInput = document.getElementById("pickerSearch");
+const uploadStickerBtn = document.getElementById("uploadStickerBtn");
+const emojiPane = document.getElementById("emojiPane");
+
+const LS_RECENT_EMOJI = "mh_recent_emoji";
+const LS_RECENT_GIFS  = "mh_recent_gifs";
+const LS_RECENT_STICK = "mh_recent_stickers";
+
+const recentEmoji = document.getElementById("recentEmoji");
+const recentGifs = document.getElementById("recentGifs");
+const recentStickers = document.getElementById("recentStickers");
+
+function loadLS(k){ try{return JSON.parse(localStorage.getItem(k)||"[]");}catch{return[];} }
+function saveLS(k,a,cap=24){ localStorage.setItem(k, JSON.stringify(a.slice(0,cap))); }
+function addRecent(k,val){ const a=loadLS(k); const i=a.indexOf(val); if(i!==-1)a.splice(i,1); a.unshift(val); saveLS(k,a); }
+function twemojiCode(emoji){ return Array.from(emoji).map(ch=>ch.codePointAt(0).toString(16)).join("-"); }
+
+function renderRecents(container, items, type="gif") {
+  if (!container) return;
+  container.innerHTML = "";
+  items.forEach((it) => {
+    const img = document.createElement("img");
+    img.src = type === "emoji" ? `https://twemoji.maxcdn.com/v/latest/svg/${twemojiCode(it)}.svg` : normalizeAnyUrl(it);
+    img.alt = type === "emoji" ? it : "recent";
+    img.style.height = "40px";
+    img.onclick = () => { input.value += type === "emoji" ? it : (" " + img.src); picker.style.display = "none"; input.focus(); };
+    container.appendChild(img);
+  });
+}
+
+if (toggleBtn && picker) {
+  toggleBtn.onclick = () => {
+    picker.style.display = picker.style.display === "none" ? "block" : "none";
+    if (picker.style.display === "block") {
+      renderRecents(recentEmoji, loadLS(LS_RECENT_EMOJI), "emoji");
+      renderRecents(recentGifs,  loadLS(LS_RECENT_GIFS),  "gif");
+      renderRecents(recentStickers, loadLS(LS_RECENT_STICK), "gif");
+      loadGIFs("trending");
+      loadStickers("trending");
+    }
+  };
+  document.addEventListener("click", (e) => { if(!picker.contains(e.target)&&e.target!==toggleBtn) picker.style.display="none"; }, true);
+}
+
+if (emojiPane) {
+  emojiPane.addEventListener("emoji-click", (e) => {
+    const ch = e.detail.unicode;
+    input.value += ch;
+    addRecent(LS_RECENT_EMOJI, ch);
+    picker.style.display = "none";
+    input.focus();
+  });
+}
+
+/* custom emojis row: insert URL so it renders inline via parseMessage */
+const customWrap = document.getElementById("customEmojis");
+if (customWrap) {
+  customWrap.querySelectorAll("img").forEach(img => {
+    img.addEventListener("click", () => {
+      input.value += " " + img.src;
+      addRecent(LS_RECENT_STICK, img.src);
       picker.style.display = "none";
       input.focus();
     });
+  });
+}
 
-    /* ---- custom emoji clicks (insert as image URL) ---- */
-    const customWrap = document.getElementById("customEmojis");
-    if (customWrap) {
-      customWrap.querySelectorAll("img").forEach(img => {
-        img.addEventListener("click", () => {
-          input.value += " " + img.src;
-          addRecent(LS_RECENT_STICK, img.src);
-          picker.style.display = "none";
-          input.focus();
-        });
-      });
-    }
+/* -------- GIPHY (REST) -------- */
+const gifCache = new Map();
+const stickerCache = new Map();
+function putCache(map, key, urls) { map.set(key, { at: Date.now(), urls }); }
+function getCache(map, key, maxAge = 5 * 60 * 1000) {
+  const hit = map.get(key); return hit && (Date.now() - hit.at) < maxAge ? hit.urls : null;
+}
 
-    /* ---------------- GIPHY via REST (no SDK) ---------------- */
-    const gifCache = new Map();
-    const stickerCache = new Map();
-    function putCache(map, key, urls) { map.set(key, { at: Date.now(), urls }); }
-    function getCache(map, key, maxAge = 5 * 60 * 1000) {
-      const hit = map.get(key); return hit && (Date.now() - hit.at) < maxAge ? hit.urls : null;
-    }
+const GIF_GRID = document.getElementById("gifGrid");
+const STICKER_GRID = document.getElementById("stickerGrid");
+const GIF_CHIPS = document.getElementById("gifChips");
+const STICKER_CHIPS = document.getElementById("stickerChips");
+const GIF_ERR = document.getElementById("gifError");
+const STICK_ERR = document.getElementById("stickerError");
+const CATS = ["Trending","Haha","Sad","Love","Reaction","Sports","TV"];
 
-    const GIF_GRID = document.getElementById("gifGrid");
-    const STICKER_GRID = document.getElementById("stickerGrid");
-    const GIF_CHIPS = document.getElementById("gifChips");
-    const STICKER_CHIPS = document.getElementById("stickerChips");
-    const GIF_ERR = document.getElementById("gifError");
-    const STICK_ERR = document.getElementById("stickerError");
-    const CATS = ["Trending","Haha","Sad","Love","Reaction","Sports","TV"];
-
-    function renderChips(container, onPick) {
-      container.innerHTML = "";
-      CATS.forEach((c,i) => {
-        const chip = document.createElement("button");
-        chip.className = "chip" + (i===0 ? " active" : "");
-        chip.textContent = c;
-        chip.onclick = () => {
-          [...container.children].forEach(n => n.classList.remove("active"));
-          chip.classList.add("active");
-          onPick(c.toLowerCase());
-        };
-        container.appendChild(chip);
-      });
-    }
-    renderChips(GIF_CHIPS, (cat)=>loadGIFs(cat));
-    renderChips(STICKER_CHIPS, (cat)=>loadStickers(cat));
-
-    async function giphyFetch(url){ const r = await fetch(url); if(!r.ok) throw new Error("giphy "+r.status); return r.json(); }
-
-    async function loadGIFs(topic = "trending") {
-      GIF_GRID.innerHTML = ""; GIF_ERR.style.display = "none";
-      const q = searchInput.value.trim();
-      const key = q ? `gif:q:${q}` : `gif:${topic}`;
-      const cached = getCache(gifCache, key);
-      if (cached) return renderGifList(cached);
-
-      try {
-        let url;
-        if (q) url = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=18&rating=pg-13`;
-        else if (topic === "trending") url = `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_KEY}&limit=18&rating=pg-13`;
-        else url = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(topic)}&limit=18&rating=pg-13`;
-
-        const js = await giphyFetch(url);
-        const urls = (js.data || []).map(it => it.images?.downsized?.url || it.images?.original?.url).filter(Boolean);
-        if (!urls.length) throw 0;
-        putCache(gifCache, key, urls);
-        renderGifList(urls);
-      } catch {
-        GIF_ERR.textContent = "No GIFs found or network blocked.";
-        GIF_ERR.style.display = "block";
-      }
-    }
-    function renderGifList(urls){ GIF_GRID.innerHTML=""; urls.forEach(u=>addGifThumb(GIF_GRID,u)); }
-
-    async function loadStickers(topic = "trending") {
-      STICKER_GRID.innerHTML = ""; STICK_ERR.style.display = "none";
-      const q = searchInput.value.trim();
-      const key = q ? `sticker:q:${q}` : `sticker:${topic}`;
-      const cached = getCache(stickerCache, key);
-      if (cached) return renderStickerList(cached);
-
-      try {
-        let url;
-        if (q) url = `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=18&rating=pg-13`;
-        else if (topic === "trending") url = `https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_KEY}&limit=18&rating=pg-13`;
-        else url = `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(topic)}&limit=18&rating=pg-13`;
-
-        const js = await giphyFetch(url);
-        const urls = (js.data || []).map(it => it.images?.fixed_height?.url || it.images?.original?.url).filter(Boolean);
-        if (!urls.length) throw 0;
-        putCache(stickerCache, key, urls);
-        renderStickerList(urls);
-      } catch {
-        STICK_ERR.textContent = "No stickers found or network blocked.";
-        STICK_ERR.style.display = "block";
-      }
-    }
-    function renderStickerList(urls){ STICKER_GRID.innerHTML=""; urls.forEach(u=>addStickerThumb(STICKER_GRID,u)); }
-
-    function addGifThumb(container, url) {
-      const img = document.createElement("img");
-      img.src = url; img.alt = "gif"; img.style.maxHeight = "90px";
-      img.onclick = () => { input.value += " " + url; addRecent(LS_RECENT_GIFS, url); picker.style.display = "none"; input.focus(); };
-      container.appendChild(img);
-    }
-    function addStickerThumb(container, url) {
-      const img = document.createElement("img");
-      img.src = url; img.alt = "sticker"; img.style.maxHeight = "100px";
-      img.onclick = () => { input.value += " " + url; addRecent(LS_RECENT_STICK, url); picker.style.display = "none"; input.focus(); };
-      container.appendChild(img);
-    }
-
-    // Search trigger
-    const pickerSearch = document.getElementById("pickerSearch");
-    pickerSearch.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter") return;
-      const active = document.querySelector(".picker-tab.active")?.dataset.tab;
-      if (active === "gifs") loadGIFs("search");
-      if (active === "stickers") loadStickers("search");
-      if (active === "emoji") {
-        const box = emojiPane.shadowRoot?.querySelector('input[type="search"]');
-        if (box) { box.value = pickerSearch.value; box.dispatchEvent(new Event('input')); }
-      }
-    });
-
-    /* -------- Sticker editor (upload/drag-drop) -------- */
-    const stickerModal = document.getElementById("stickerModal");
-    const closeSticker = document.getElementById("closeSticker");
-    const stickerFile = document.getElementById("stickerFile");
-    const stickerCanvas = document.getElementById("stickerCanvas");
-    const dropZone = document.getElementById("stickerDrop");
-    const sctx = stickerCanvas.getContext("2d");
-    const cropSquareBtn = document.getElementById("cropSquareBtn");
-    const fit512Btn = document.getElementById("fit512Btn");
-    const bgWhiteBtn = document.getElementById("bgWhiteBtn");
-    const bgTransparentBtn = document.getElementById("bgTransparentBtn");
-    const saveStickerBtn = document.getElementById("saveStickerBtn");
-
-    let bmp = null;
-
-    function openEditor(autoPick=false) { stickerModal.style.display = "flex"; sctx.clearRect(0,0,stickerCanvas.width, stickerCanvas.height); if (autoPick) stickerFile.click(); }
-    function closeEditor() { stickerModal.style.display = "none"; bmp = null; stickerFile.value=""; }
-
-    function alertStickerRules() {
-      alert("Sticker tips:\n• Canvas is 512×512 px (auto).\n• Upload an image file (PNG/JPG/WebP/GIF).\n• Recommended output ≤ 500 KB.\nUse Square/Resize buttons if needed.");
-    }
-    function tooLargeBytes(bytes) { return bytes > 500 * 1024; }
-    function dataUrlBytes(dataUrl) {
-      try { return atob(dataUrl.split(',')[1]).length; } catch { return Infinity; }
-    }
-
-    uploadStickerBtn.onclick = () => {
-      tabs.forEach(t=>t.classList.remove("active"));
-      document.querySelector('[data-tab="stickers"]').classList.add("active");
-      panes.forEach(p=>p.style.display = p.dataset.pane==="stickers"?"flex":"none");
-      alertStickerRules();
-      openEditor(true);
+function renderChips(container, onPick) {
+  if (!container) return;
+  container.innerHTML = "";
+  CATS.forEach((c,i) => {
+    const chip = document.createElement("button");
+    chip.className = "chip" + (i===0 ? " active" : "");
+    chip.textContent = c;
+    chip.onclick = () => {
+      [...container.children].forEach(n => n.classList.remove("active"));
+      chip.classList.add("active");
+      onPick(c.toLowerCase());
     };
-    closeSticker.onclick = closeEditor;
+    container.appendChild(chip);
+  });
+}
+renderChips(GIF_CHIPS, (cat)=>loadGIFs(cat));
+renderChips(STICKER_CHIPS, (cat)=>loadStickers(cat));
 
-    stickerFile.addEventListener("change", async (e) => {
-      const file = e.target.files?.[0]; if (!file) return;
-      if (!file.type.startsWith("image/")) { alert("Please choose an IMAGE file (png/jpg/webp/gif)."); return; }
-      if (file.size > 5 * 1024 * 1024) { alert("Image is > 5 MB. Pick a smaller image."); return; }
+async function giphyFetch(url){ const r = await fetch(url); if(!r.ok) throw new Error("giphy "+r.status); return r.json(); }
 
-      try {
-        bmp = await loadBitmap(file);
-        if (bmp.width < 64 || bmp.height < 64) { alert("This image is very small (<64px). It may look blurry as a sticker."); }
-        drawFit(bmp);
-      } catch { /* ignore */ }
-    });
-    dropZone.addEventListener("dragover", e=>e.preventDefault());
-    dropZone.addEventListener("drop", async (e)=>{
-      e.preventDefault();
-      const f=e.dataTransfer.files?.[0]; if(!f) return;
-      if (!f.type.startsWith("image/")) { alert("Please drop an IMAGE file (png/jpg/webp/gif)."); return; }
-      if (f.size > 5 * 1024 * 1024) { alert("Image is > 5 MB. Pick a smaller image."); return; }
-      bmp=await loadBitmap(f); if (bmp.width < 64 || bmp.height < 64) { alert("This image is very small (<64px). It may look blurry as a sticker."); }
+async function loadGIFs(topic = "trending") {
+  if (!GIF_GRID || !GIF_ERR) return;
+  GIF_GRID.innerHTML = ""; GIF_ERR.style.display = "none";
+  const q = (searchInput?.value || "").trim();
+  const key = q ? `gif:q:${q}` : `gif:${topic}`;
+  const cached = getCache(gifCache, key);
+  if (cached) return renderGifList(cached);
+
+  try {
+    let url;
+    if (q) url = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=18&rating=pg-13`;
+    else if (topic === "trending") url = `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_KEY}&limit=18&rating=pg-13`;
+    else url = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(topic)}&limit=18&rating=pg-13`;
+
+    const js = await giphyFetch(url);
+    const urls = (js.data || []).map(it => it.images?.downsized?.url || it.images?.original?.url).filter(Boolean);
+    if (!urls.length) throw 0;
+    putCache(gifCache, key, urls);
+    renderGifList(urls);
+  } catch {
+    GIF_ERR.textContent = "No GIFs found or network blocked.";
+    GIF_ERR.style.display = "block";
+  }
+}
+function renderGifList(urls){ GIF_GRID.innerHTML=""; urls.forEach(u=>addGifThumb(GIF_GRID,u)); }
+
+async function loadStickers(topic = "trending") {
+  if (!STICKER_GRID || !STICK_ERR) return;
+  STICKER_GRID.innerHTML = ""; STICK_ERR.style.display = "none";
+  const q = (searchInput?.value || "").trim();
+  const key = q ? `sticker:q:${q}` : `sticker:${topic}`;
+  const cached = getCache(stickerCache, key);
+  if (cached) return renderStickerList(cached);
+
+  try {
+    let url;
+    if (q) url = `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=18&rating=pg-13`;
+    else if (topic === "trending") url = `https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_KEY}&limit=18&rating=pg-13`;
+    else url = `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(topic)}&limit=18&rating=pg-13`;
+
+    const js = await giphyFetch(url);
+    const urls = (js.data || []).map(it => it.images?.fixed_height?.url || it.images?.original?.url).filter(Boolean);
+    if (!urls.length) throw 0;
+    putCache(stickerCache, key, urls);
+    renderStickerList(urls);
+  } catch {
+    STICK_ERR.textContent = "No stickers found or network blocked.";
+    STICK_ERR.style.display = "block";
+  }
+}
+function renderStickerList(urls){ STICKER_GRID.innerHTML=""; urls.forEach(u=>addStickerThumb(STICKER_GRID,u)); }
+
+function addGifThumb(container, url) {
+  const img = document.createElement("img");
+  img.src = url; img.alt = "gif"; img.style.maxHeight = "90px";
+  img.onclick = () => { input.value += " " + normalizeAnyUrl(url); addRecent(LS_RECENT_GIFS, url); picker.style.display = "none"; input.focus(); };
+  container.appendChild(img);
+}
+function addStickerThumb(container, url) {
+  const img = document.createElement("img");
+  img.src = url; img.alt = "sticker"; img.style.maxHeight = "100px";
+  img.onclick = () => { input.value += " " + normalizeAnyUrl(url); addRecent(LS_RECENT_STICK, url); picker.style.display = "none"; input.focus(); };
+  container.appendChild(img);
+}
+
+/* search in picker */
+if (searchInput) {
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const active = document.querySelector(".picker-tab.active")?.dataset.tab;
+    if (active === "gifs") loadGIFs("search");
+    if (active === "stickers") loadStickers("search");
+    if (active === "emoji") {
+      const box = emojiPane?.shadowRoot?.querySelector('input[type="search"]');
+      if (box) { box.value = searchInput.value; box.dispatchEvent(new Event('input')); }
+    }
+  });
+}
+
+/* tabs */
+tabs.forEach(btn => {
+  btn.onclick = () => {
+    tabs.forEach(b => b.classList.toggle("active", b === btn));
+    const tab = btn.dataset.tab;
+    panes.forEach(p => p.style.display = (p.dataset.pane === tab) ? "flex" : "none");
+    if (tab === "gifs") loadGIFs("trending");
+    if (tab === "stickers") loadStickers("trending");
+  };
+});
+
+/* =====================  Sticker Editor  ===================== */
+const stickerModal = document.getElementById("stickerModal");
+const closeSticker = document.getElementById("closeSticker");
+const stickerFile = document.getElementById("stickerFile");
+const stickerCanvas = document.getElementById("stickerCanvas");
+const dropZone = document.getElementById("stickerDrop");
+const sctx = stickerCanvas?.getContext("2d");
+const cropSquareBtn = document.getElementById("cropSquareBtn");
+const fit512Btn = document.getElementById("fit512Btn");
+const bgWhiteBtn = document.getElementById("bgWhiteBtn");
+const bgTransparentBtn = document.getElementById("bgTransparentBtn");
+const saveStickerBtn = document.getElementById("saveStickerBtn");
+
+let bmp = null;
+
+function openEditor(autoPick=false) { if(!stickerModal) return; stickerModal.style.display = "flex"; sctx?.clearRect(0,0,stickerCanvas.width, stickerCanvas.height); if (autoPick) stickerFile?.click(); }
+function closeEditor() { if(!stickerModal) return; stickerModal.style.display = "none"; bmp = null; if (stickerFile) stickerFile.value=""; }
+function alertStickerRules() { alert("Sticker tips:\n• Canvas is 512×512 px.\n• Use PNG/JPG/WebP/GIF ≤ 5 MB.\n• Output ≤ ~500 KB recommended."); }
+function tooLargeBytes(bytes) { return bytes > 500 * 1024; }
+function dataUrlBytes(dataUrl) { try { return atob(dataUrl.split(',')[1]).length; } catch { return Infinity; } }
+
+if (uploadStickerBtn) {
+  uploadStickerBtn.onclick = () => {
+    tabs.forEach(t=>t.classList.remove("active"));
+    document.querySelector('[data-tab="stickers"]')?.classList.add("active");
+    panes.forEach(p=>p.style.display = p.dataset.pane==="stickers"?"flex":"none");
+    alertStickerRules();
+    openEditor(true);
+  };
+}
+if (closeSticker) closeSticker.onclick = closeEditor;
+
+if (stickerFile) {
+  stickerFile.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    if (!file.type.startsWith("image/")) { alert("Please choose an IMAGE file (png/jpg/webp/gif)."); return; }
+    if (file.size > 5 * 1024 * 1024) { alert("Image is > 5 MB. Pick a smaller image."); return; }
+    try {
+      bmp = await loadBitmap(file);
+      if (bmp.width < 64 || bmp.height < 64) { alert("This image is very small (<64px). It may look blurry."); }
       drawFit(bmp);
-    });
+    } catch { /* ignore */ }
+  });
+}
+if (dropZone) {
+  dropZone.addEventListener("dragover", e=>e.preventDefault());
+  dropZone.addEventListener("drop", async (e)=>{
+    e.preventDefault();
+    const f=e.dataTransfer.files?.[0]; if(!f) return;
+    if (!f.type.startsWith("image/")) { alert("Please drop an IMAGE file (png/jpg/webp/gif)."); return; }
+    if (f.size > 5 * 1024 * 1024) { alert("Image is > 5 MB. Pick a smaller image."); return; }
+    bmp=await loadBitmap(f); if (bmp.width < 64 || bmp.height < 64) { alert("This image is very small (<64px). It may look blurry."); }
+    drawFit(bmp);
+  });
+}
 
-    async function loadBitmap(fileOrUrl) {
-      const src = (fileOrUrl instanceof File) ? URL.createObjectURL(fileOrUrl) : String(fileOrUrl);
-      const img = new Image(); img.crossOrigin = "anonymous"; img.src = src;
-      await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; });
-      const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
-      c.getContext("2d").drawImage(img,0,0);
-      return await createImageBitmap(c);
-    }
+async function loadBitmap(fileOrUrl) {
+  const src = (fileOrUrl instanceof File) ? URL.createObjectURL(fileOrUrl) : String(fileOrUrl);
+  const img = new Image(); img.crossOrigin = "anonymous"; img.src = src;
+  await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; });
+  const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  c.getContext("2d").drawImage(img,0,0);
+  return await createImageBitmap(c);
+}
+function drawFit(bitmap, bg="transparent") {
+  const W=512,H=512; sctx.clearRect(0,0,W,H);
+  if (bg==="white"){ sctx.fillStyle="#fff"; sctx.fillRect(0,0,W,H); }
+  const r = Math.min(W/bitmap.width, H/bitmap.height);
+  const w = Math.round(bitmap.width*r), h = Math.round(bitmap.height*r);
+  const x = Math.floor((W-w)/2), y = Math.floor((H-h)/2);
+  sctx.drawImage(bitmap,x,y,w,h);
+}
+if (cropSquareBtn) cropSquareBtn.onclick = async () => {
+  if (!bmp) return;
+  const s = Math.min(bmp.width,bmp.height), sx=Math.floor((bmp.width-s)/2), sy=Math.floor((bmp.height-s)/2);
+  const off = document.createElement("canvas"); off.width=s; off.height=s;
+  off.getContext("2d").drawImage(bmp,sx,sy,s,s,0,0,s,s);
+  bmp = await createImageBitmap(off); drawFit(bmp);
+};
+if (fit512Btn) fit512Btn.onclick = ()=>{ if(bmp) drawFit(bmp); };
+if (bgWhiteBtn) bgWhiteBtn.onclick = ()=>{ if(bmp) drawFit(bmp,"white"); };
+if (bgTransparentBtn) bgTransparentBtn.onclick = ()=>{ if(bmp) drawFit(bmp,"transparent"); };
 
-    function drawFit(bitmap, bg="transparent") {
-      const W=512,H=512; sctx.clearRect(0,0,W,H);
-      if (bg==="white"){ sctx.fillStyle="#fff"; sctx.fillRect(0,0,W,H); }
-      const r = Math.min(W/bitmap.width, H/bitmap.height);
-      const w = Math.round(bitmap.width*r), h = Math.round(bitmap.height*r);
-      const x = Math.floor((W-w)/2), y = Math.floor((H-h)/2);
-      sctx.drawImage(bitmap,x,y,w,h);
-    }
-    cropSquareBtn.onclick = async () => {
-      if (!bmp) return;
-      const s = Math.min(bmp.width,bmp.height), sx=Math.floor((bmp.width-s)/2), sy=Math.floor((bmp.height-s)/2);
-      const off = document.createElement("canvas"); off.width=s; off.height=s;
-      off.getContext("2d").drawImage(bmp,sx,sy,s,s,0,0,s,s);
-      bmp = await createImageBitmap(off); drawFit(bmp);
-    };
-    fit512Btn.onclick = ()=>{ if(bmp) drawFit(bmp); };
-    bgWhiteBtn.onclick = ()=>{ if(bmp) drawFit(bmp,"white"); };
-    bgTransparentBtn.onclick = ()=>{ if(bmp) drawFit(bmp,"transparent"); };
+if (saveStickerBtn) saveStickerBtn.onclick = () => {
+  if (!bmp) { alert("Load an image first."); return; }
+  const dataUrl = stickerCanvas.toDataURL("image/png");
+  const bytes = dataUrlBytes(dataUrl);
+  if (tooLargeBytes(bytes)) {
+    const kb = Math.round(bytes/102.4)/10;
+    if (!confirm(`Sticker is about ${kb} KB. Save anyway?`)) return;
+  }
+  addRecent(LS_RECENT_STICK, dataUrl);
+  input.value += " " + dataUrl;
+  picker.style.display = "none";
+  closeEditor();
+  input.focus();
+};
+</script>
 
-    saveStickerBtn.onclick = () => {
-      if (!bmp) { alert("Load an image first."); return; }
-
-      const dataUrl = stickerCanvas.toDataURL("image/png");
-      const bytes = dataUrlBytes(dataUrl);
-      if (tooLargeBytes(bytes)) {
-        const kb = Math.round(bytes/102.4)/10;
-        if (!confirm(`Sticker is about ${kb} KB. That's pretty big.\nSave anyway?`)) return;
-      }
-
-      addRecent(LS_RECENT_STICK, dataUrl);
-      input.value += " " + dataUrl;
-      picker.style.display = "none";
-      closeEditor();
-      input.focus();
-    };
-  </script>
-
-  <a href="/library.html" class="mh-lib-cta" aria-label="Open the Library">📚 Library</a>
+<a href="/library.html" class="mh-lib-cta" aria-label="Open the Library">📚 Library</a>
 </body>
 </html>
+
