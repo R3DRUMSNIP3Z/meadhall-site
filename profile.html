@@ -1,8 +1,8 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Mead Hall Profile</title>
   <meta name="description" content="Your Mead Hall guild profile." />
   <meta name="theme-color" content="#0b0f12" />
@@ -34,10 +34,37 @@
       box-shadow:var(--shadow);
       padding:22px;
     }
-    .avatar{
-      width:160px;height:160px;border-radius:50%;object-fit:cover;
-      border:2px solid rgba(200,169,107,.5);background:#222
+
+    /* -------- Avatar + Frames -------- */
+    /* base avatar size (fits your layout) */
+    .avatar{width:160px;height:160px;border-radius:50%;object-fit:cover;background:#222}
+
+    /* frame container */
+    .pfp{
+      position:relative;display:inline-block;
+      width:160px;height:160px; /* match .avatar size */
     }
+    .pfp > img{width:100%;height:100%;display:block;border-radius:50%}
+
+    /* reader (basic brass) */
+    .pfp.pfp--reader::after{
+      content:"";position:absolute;inset:0;pointer-events:none;
+      background:url("/guildbook/reader-frame.svg") no-repeat center;
+      background-size:100% 100%;
+    }
+    /* premium (axes) */
+    .pfp.pfp--premium::after{
+      content:"";position:absolute;inset:0;pointer-events:none;
+      background:url("/guildbook/premium-frame.svg") no-repeat center;
+      background-size:100% 100%;
+    }
+    /* annual (third style, if you add it) */
+    .pfp.pfp--annual::after{
+      content:"";position:absolute;inset:0;pointer-events:none;
+      background:url("/guildbook/annual-frame.svg") no-repeat center;
+      background-size:100% 100%;
+    }
+
     .label{font-size:12px;letter-spacing:.08em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:6px}
     .kv{margin-bottom:12px}
     .story{padding:14px;border-radius:12px;border:1px solid rgba(200,169,107,.2);margin:10px 0;background:rgba(255,255,255,.03)}
@@ -70,7 +97,7 @@
     .lb-stage{
       position:absolute; inset:0;
       display:flex; align-items:center; justify-content:center;
-      padding:60px 80px; /* room for controls */
+      padding:60px 80px;
     }
     .lb-img{
       max-width:min(92vw,1400px);
@@ -131,7 +158,10 @@
       <!-- Left: profile card -->
       <section class="panel">
         <div style="text-align:center">
-          <img id="avatarImg" class="avatar" src="/logo/logo-512.png" alt="Avatar"/>
+          <!-- Wrapped avatar so frame can overlay -->
+          <div id="pfp" class="pfp">
+            <img id="avatarImg" class="avatar" src="/logo/logo-512.png" alt="Avatar"/>
+          </div>
         </div>
 
         <div class="kv" style="margin-top:18px">
@@ -184,7 +214,7 @@
     </div>
   </footer>
 
-  <!-- ===== LIGHTBOX ROOT (added) ===== -->
+  <!-- ===== LIGHTBOX ROOT ===== -->
   <div id="lightbox" class="lightbox" aria-hidden="true">
     <button class="lb-close" id="lbClose" aria-label="Close (Esc)">✕</button>
     <button class="lb-prev"  id="lbPrev"  aria-label="Previous (←)">‹</button>
@@ -205,11 +235,18 @@
     // API base
     const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || '').trim();
 
-    // Build full URL for relative paths like "/uploads/..."
-    const fullUrl = (p) => /^https?:\/\//i.test(p) ? p : `${API_BASE.replace(/\/+$/, '')}/${String(p||'').replace(/^\/+/, '')}`;
+    // Build full URL for relative paths like "/uploads/..."; leave site assets alone
+    const fullUrl = (p) => {
+      if (!p) return p;
+      if (/^https?:\/\//i.test(p)) return p;
+      if (p.startsWith('/uploads/') || p.startsWith('uploads/')) {
+        return API_BASE.replace(/\/+$/, '') + '/' + p.replace(/^\/+/, '');
+      }
+      return p; // /logo, etc.
+    };
     const cacheBust = (u) => u ? (u.includes('?') ? `${u}&t=${Date.now()}` : `${u}?t=${Date.now()}`) : u;
 
-    // Local session helpers
+    // Session helpers
     const LS_KEY = 'mh_user';
     function getUser(){ try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch { return null; } }
     function setUser(u){ localStorage.setItem(LS_KEY, JSON.stringify(u)); }
@@ -221,6 +258,7 @@
     const bioEl = document.getElementById('bio');
     const interestsEl = document.getElementById('interests');
     const avatarImg = document.getElementById('avatarImg');
+    const pfpWrap = document.getElementById('pfp');
     const storiesEl = document.getElementById('stories');
     const galleryGrid = document.getElementById('galleryGrid');
 
@@ -234,7 +272,7 @@
 
     // Lightbox state
     const LB = {
-      urls: [],          // ordered list of image URLs
+      urls: [],
       index: 0,
       open(i = 0){
         if (!this.urls.length) return;
@@ -260,6 +298,18 @@
       }
     };
 
+    // ---- Apply membership frame
+    function applyFrame(u){
+      if (!pfpWrap) return;
+      // pick tier from fresh user or local fallback
+      const tier = u.membership || (getUser()?.membership) || '';
+      pfpWrap.classList.remove('pfp--reader','pfp--premium','pfp--annual');
+      if (tier === 'premium') pfpWrap.classList.add('pfp--premium');
+      else if (tier === 'annual') pfpWrap.classList.add('pfp--annual');
+      else if (tier === 'reader') pfpWrap.classList.add('pfp--reader');
+      // no class if no membership (no frame)
+    }
+
     // ---- render user
     function renderUser(u) {
       if (hello) hello.textContent = `Welcome, ${u.name || 'skald'}${u.id ? ` (ID: ${u.id})` : ''}.`;
@@ -272,6 +322,7 @@
         avatarImg.src = src;
         avatarImg.onerror = () => { avatarImg.src = '/logo/logo-512.png'; };
       }
+      applyFrame(u);
     }
 
     // ---- stories
@@ -326,7 +377,7 @@
         }
 
         galleryGrid.innerHTML = '';
-        LB.urls = []; // reset, then fill in same order as thumbnails
+        LB.urls = [];
 
         photos.forEach((p, i) => {
           const url = cacheBust(toImgUrl(p.url || p.path || ''));
@@ -338,12 +389,7 @@
           img.src = url;
           img.dataset.index = String(i);
           img.onerror = () => { img.style.opacity = '0.3'; };
-
-          // Click to open lightbox at this index
-          img.addEventListener('click', () => {
-            LB.open(i);
-          });
-
+          img.addEventListener('click', () => LB.open(i));
           galleryGrid.appendChild(img);
         });
       } catch {
@@ -352,13 +398,15 @@
       }
     }
 
-    // ---- refresh user from backend
+    // ---- refresh user from backend (assumes backend now returns membership)
     async function loadUserFresh(u) {
       if (!API_BASE || !u?.id) return u;
       try {
         const r = await fetch(`${API_BASE}/api/users/${u.id}`);
         if (!r.ok) throw new Error(await r.text());
         const fresh = await r.json();
+        // keep old membership if endpoint doesn't include it yet
+        if (!fresh.membership && u.membership) fresh.membership = u.membership;
         setUser(fresh);
         return fresh;
       } catch {
@@ -368,7 +416,6 @@
 
     // ---- Lightbox wiring
     function setupLightbox(){
-      // backdrop click (close only if backdrop, not image)
       lbRoot.addEventListener('click', (e) => {
         if (e.target === lbRoot) LB.close();
       });
@@ -376,15 +423,6 @@
       lbPrev.addEventListener('click', () => LB.prev());
       lbNext.addEventListener('click', () => LB.next());
 
-      // Keyboard navigation
-      window.addEventListener('keydown', (e) => {
-        if (!lbRoot.classList.contains('open')) return;
-        if (e.key === 'Escape') LB.close();
-        else if (e.key === 'ArrowLeft') LB.prev();
-        else if (e.key === 'ArrowRight') LB.next();
-      });
-
-      // Simple drag/swipe (desktop/mobile)
       let startX = null;
       lbImg.addEventListener('pointerdown', (e) => { startX = e.clientX; lbImg.setPointerCapture(e.pointerId); });
       lbImg.addEventListener('pointerup',   (e) => {
@@ -394,6 +432,13 @@
         const THRESH = 40;
         if (dx > THRESH) LB.prev();
         else if (dx < -THRESH) LB.next();
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (!lbRoot.classList.contains('open')) return;
+        if (e.key === 'Escape') LB.close();
+        else if (e.key === 'ArrowLeft') LB.prev();
+        else if (e.key === 'ArrowRight') LB.next();
       });
     }
 
@@ -426,6 +471,7 @@
   </script>
 </body>
 </html>
+
 
 
 
