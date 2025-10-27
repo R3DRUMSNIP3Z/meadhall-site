@@ -22,7 +22,8 @@
 
     #chatBox { flex:1; overflow-y:auto; padding:1rem; }
     .msg { display:flex; align-items:flex-start; margin-bottom:1rem; }
-    .msg img.avatar { width:40px; height:40px; border-radius:50%; margin-right:.5rem; cursor:pointer; object-fit:cover; border:1px solid #3b3325; background:#222; }
+    /* old avatar style kept harmless; wrapper now handles look */
+    .msg img.avatar { width:40px; height:40px; border-radius:50%; margin-right:.5rem; object-fit:cover; border:none; background:#222; }
     .bubble { background:#151515d0; padding:.5rem 1rem; border-radius:12px; max-width:60%; word-wrap:break-word; }
     .meta { font-weight:700;font-size:.9rem;margin-bottom:.2rem }
     #chatInputRow { display:flex; padding:.5rem; background:#151515d0; border-top:2px solid #3b3325; gap:.5rem; position:relative; }
@@ -75,7 +76,24 @@
     canvas#stickerCanvas { max-width:100%; max-height:60vh; background:transparent; }
     .sticker-foot { display:flex; justify-content:flex-end; gap:8px; padding:10px; border-top:1px solid #3b3325; }
 
-    
+    /* === Viking Profile Frames (reusable) === */
+    .pfp{
+      position:relative; display:inline-block;
+      width:var(--pfp-size,40px); height:var(--pfp-size,40px);
+      border-radius:50%;
+    }
+    .pfp > img{
+      width:100%; height:100%; border-radius:50%;
+      object-fit:cover; display:block; border:none;
+    }
+    .pfp::after{
+      content:""; position:absolute; inset:0;
+      background-repeat:no-repeat; background-position:center; background-size:100% 100%;
+      pointer-events:none;
+    }
+    .pfp--reader::after  { background-image:url("/guildbook/reader-frame.svg"); }
+    .pfp--premium::after { background-image:url("/guildbook/premium-frame.svg"); }
+    .pfp--annual::after  { background-image:url("/guildbook/annual-frame.svg"); }
   </style>
 </head>
 <body>
@@ -199,7 +217,16 @@ const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || ''
 const DEFAULT_AVATAR = "/logo/logo-512.png";
 const GIPHY_KEY = "lRzzm6u7tXqFCuDcHfuZ56RyNDMiZKar";
 
-/* -------- helpers: URL normalization + links -------- */
+/* -------- helpers: frames + URLs -------- */
+function frameClassFor(user){
+  switch ((user?.membership || '').toLowerCase()) {
+    case 'premium': return 'pfp--premium';
+    case 'annual':  return 'pfp--annual';
+    case 'reader':  return 'pfp--reader';
+    default:        return '';
+  }
+}
+
 function normalizeBackendPath(u) {
   if (!u) return "";
   const s = String(u);
@@ -217,7 +244,6 @@ function profileHref(user) {
   const id = user?.id;
   return id ? `/friendprofile.html?user=${encodeURIComponent(id)}` : "/account.html";
 }
-
 
 /* -------- session -------- */
 const LS_KEY_MAIN = 'mh_user';
@@ -278,21 +304,25 @@ function renderMsg(msg) {
   const displayName = u.name || "skald";
   const avatarUrl   = normalizeAvatar(u.avatarUrl);
   const profileLink = profileHref(u);
+  const frameClass  = frameClassFor(u);
 
   const row = document.createElement("div");
   row.className = "msg";
   row.innerHTML = `
-    <img class="avatar" src="${avatarUrl}" alt="${displayName}" />
+    <div class="pfp ${frameClass}" style="--pfp-size:40px; margin-right:.5rem; cursor:pointer" title="${displayName}">
+      <img class="avatar" src="${avatarUrl}" alt="${displayName}" />
+    </div>
     <div class="bubble">
       <div class="meta">${displayName}</div>
       ${parseMessage(msg.text || "")}
     </div>
   `;
 
+  const pfp = row.querySelector(".pfp");
   const img = row.querySelector("img.avatar");
-  img.style.cursor = "pointer";
-  img.addEventListener("click", () => { window.location.href = profileLink; });
-  img.addEventListener("error", () => { img.src = DEFAULT_AVATAR; });
+
+  pfp?.addEventListener("click", () => { window.location.href = profileLink; });
+  if (img) img.addEventListener("error", () => { img.src = DEFAULT_AVATAR; });
 
   chatBox.appendChild(row);
   chatBox.scrollTop = chatBox.scrollHeight;
@@ -643,4 +673,5 @@ if (saveStickerBtn) saveStickerBtn.onclick = () => {
 
 </body>
 </html>
+
 
