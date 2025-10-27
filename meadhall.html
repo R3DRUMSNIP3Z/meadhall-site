@@ -219,8 +219,9 @@ function normalizeAvatar(u) {
 function normalizeAnyUrl(u) { return normalizeBackendPath(u); }
 function profileHref(user) {
   const id = user?.id;
-  return id ? `/friendprofile.html?u=${encodeURIComponent(id)}` : "/account.html";
+  return id ? `/friendprofile.html?user=${encodeURIComponent(id)}` : "/account.html";
 }
+
 
 /* -------- session -------- */
 const LS_KEY_MAIN = 'mh_user';
