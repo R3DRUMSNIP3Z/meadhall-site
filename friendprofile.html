@@ -129,16 +129,77 @@
     .saga a{font-size:13px; text-decoration:underline; color:var(--accent)}
 
     /* Companions list */
-    .companions{display:grid; gap:10px}
-    .comp-item{
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding:10px; border:1px solid var(--line); border-radius:10px; background:rgba(0,0,0,.35)
-    }
-    .comp-meta{display:flex; align-items:center; gap:10px}
-    /* If you later wrap friend thumbs with .pfp, these will inherit the frame */
-    .comp-meta .pfp{width:40px;height:40px}
-    .comp-meta .pfp>img{width:100%;height:100%}
-    .comp-name{font-weight:600}
+.companions {
+  display: grid;
+  gap: 10px;
+}
+
+.comp-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .35);
+}
+
+/* friend meta (image + name) */
+.comp-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Thumbnail container */
+.comp-meta .pfp {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px #000, 0 3px 10px rgba(0,0,0,.5);
+}
+
+/* Actual image */
+.comp-meta .pfp > img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: none;
+  background: #000;
+}
+
+/* Prevent any raw img from going huge if not wrapped */
+.comp-meta img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Optional frames */
+.pfp::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  pointer-events: none;
+}
+.pfp--reader::after  { background-image:url("/guildbook/reader-frame.svg"); }
+.pfp--premium::after { background-image:url("/guildbook/premium-frame.svg"); }
+.pfp--annual::after  { background-image:url("/guildbook/annual-frame.svg"); }
+
+.comp-name {
+  font-weight: 600;
+}
+
 
     /* Gallery grid (tab content) */
     .gallery-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
