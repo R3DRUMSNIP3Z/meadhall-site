@@ -505,7 +505,7 @@ app.get("/api/users/search", (req, res) => {
   res.json(results);
 });
 
-// 🔹 READ ONE USER
+// READ ONE USER
 app.get("/api/users/:id", (req, res) => {
   const u = users.get(req.params.id);
   if (!u) return res.status(404).json({ error: "User not found" });
@@ -516,9 +516,10 @@ app.get("/api/users/:id", (req, res) => {
     avatarUrl: u.avatarUrl || "",
     bio: u.bio || "",
     interests: u.interests || "",
-    membership: u.membership || "none",
+    membership: u.membership || ""      // ⬅️ add this
   });
 });
+
 
 // Lookup purchases by email
 app.get("/api/subscription/by-email", (req, res) => {
@@ -824,9 +825,10 @@ galleryRoutes.install(app);
 /* ======== Friends-of-User (public read-only) — used by friendprofile.html ======== */
 function safeUser(u) {
   if (!u) return null;
-  const { id, name, email, avatarUrl, bio, interests } = u;
-  return { id, name, email, avatarUrl, bio, interests };
+  const { id, name, email, avatarUrl, bio, interests, membership } = u; // ⬅️ include membership
+  return { id, name, email, avatarUrl, bio, interests, membership: membership || "" };
 }
+
 function listFriendsOf(userId) {
   const rec = ensureFriendState(userId);
   return [...rec.friends].map(fid => safeUser(users.get(fid))).filter(Boolean);
