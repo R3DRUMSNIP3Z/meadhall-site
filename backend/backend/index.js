@@ -841,19 +841,20 @@ function addFrameToResponse(data) {
 
 // Middleware to auto-inject frameClass on all /api/users responses
 app.use((req, res, next) => {
-  const oldJson = res.json;
-  res.json = function (data) {
+  const oldJson = res.json.bind(res);
+  res.json = (data) => {
     try {
       if (req.path.startsWith("/api/users")) {
-        return oldJson.call(this, addFrameToResponse(data));
+        data = addFrameToResponse(data);
       }
     } catch (e) {
       console.error("❌ Frame inject error:", e);
     }
-    return oldJson.call(this, data);
+    return oldJson(data);
   };
   next();
 });
+
 
 
 /* ======== Friends-of-User (public read-only) — used by friendprofile.html ======== */
