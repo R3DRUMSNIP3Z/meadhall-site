@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- subtle outer glow -->
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- stroke styles -->
+    <linearGradient id="brass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#e9cf86"/>
+      <stop offset="45%" stop-color="#d4a94d"/>
+      <stop offset="100%" stop-color="#b58735"/>
+    </linearGradient>
+  </defs>
+
+  <!-- OUTER RING -->
+  <circle cx="256" cy="256" r="240"
+          stroke="url(#brass)" stroke-width="16" fill="none" filter="url(#softGlow)"/>
+
+  <!-- INNER RING (thin) -->
+  <circle cx="256" cy="256" r="222"
+          stroke="#8f6a2d" stroke-width="2" opacity="0.7" fill="none"/>
+
+  <!-- RUNIC / NOTCH TICKS (minimal) -->
+  <g stroke="#d4a94d" stroke-width="4" stroke-linecap="round" opacity="0.85">
+    <!-- 24 small ticks around the rim -->
+    <!-- We draw a “tick” at radius ~232–240 and rotate it 15° each step -->
+    <g transform="translate(256,256)">
+      <!-- one tick definition (upwards), then 23 rotations -->
+      <line x1="0" y1="-232" x2="0" y2="-240"/>
+      <g transform="rotate(15)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(30)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(45)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(60)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(75)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(90)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(105)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(120)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(135)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(150)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(165)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(180)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(195)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(210)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(225)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(240)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(255)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(270)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(285)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(300)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(315)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(330)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+      <g transform="rotate(345)"><line x1="0" y1="-232" x2="0" y2="-240"/></g>
+    </g>
+  </g>
+
+  <!-- transparent center so the avatar shows through -->
+  <circle cx="256" cy="256" r="215" fill="transparent"/>
+</svg>

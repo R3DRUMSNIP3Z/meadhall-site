@@ -9,7 +9,6 @@ const path = require("path");
 const multer = require("multer");
 const nodemailer = require("nodemailer");
 
-
 // Optional Resend (HTTPS email API)
 let Resend = null;
 try { Resend = require("resend").Resend; } catch { /* not installed; fine */ }
@@ -126,7 +125,6 @@ express.static(uploadsDir, {
     }
   },
 }));
-
 
 // expose uploadsDir so galleryRoutes uses the same folder
 app.locals.uploadsDir = uploadsDir;
@@ -313,6 +311,16 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         entryId: s.metadata?.entryId || null,
       });
 
+      // ✅ Stamp membership (this unlocks frames the same way Mead Hall is unlocked)
+      const plan = planFromPrice(priceId);
+      if (plan) {
+        setMembership({
+          userId: s.metadata?.userId || null,
+          email:  s.customer_details?.email || s.customer_email || null,
+          membership: plan, // 'premium' (monthly), 'annual', or 'reader'
+        });
+      }
+
       // Contest email on success
       if (s.mode === "payment" && s.metadata?.entryId) {
         let entry = findContestEntry(s.metadata.entryId);
@@ -359,6 +367,15 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         invoiceId: inv.id,
       });
       console.log("💸 invoice.payment_succeeded", { invoiceId: inv.id, amount: inv.amount_paid });
+    }
+
+    // Optional: clear membership when the subscription is canceled
+    if (event.type === "customer.subscription.deleted") {
+      const sub = event.data.object;
+      setMembership({
+        userId: sub.metadata?.userId || null,
+        membership: "none",
+      });
     }
 
     res.json({ received: true });
@@ -414,7 +431,17 @@ app.post("/api/users", (req, res) => {
   );
   if (exists) return res.status(409).send("Email already registered");
 
-  const user = { id: `u_${uid++}`, name, email, password, avatarUrl: "", bio: "", interests: "", createdAt: Date.now() };
+  const user = {
+    id: `u_${uid++}`,
+    name,
+    email,
+    password,
+    avatarUrl: "",
+    bio: "",
+    interests: "",
+    createdAt: Date.now(),
+    membership: "none"
+  };
   users.set(user.id, user);
 
   // persist to disk
@@ -429,6 +456,7 @@ app.post("/api/users", (req, res) => {
     avatarUrl: user.avatarUrl,
     bio: user.bio,
     interests: user.interests,
+    membership: user.membership || "none",
   });
 });
 
@@ -449,6 +477,7 @@ app.post("/api/auth/login", (req, res) => {
     avatarUrl: match.avatarUrl,
     bio: match.bio,
     interests: match.interests,
+    membership: match.membership || "none",
   });
 });
 
@@ -470,6 +499,7 @@ app.get("/api/users/search", (req, res) => {
       avatarUrl: u.avatarUrl || "",
       bio: u.bio || "",
       interests: u.interests || "",
+      membership: u.membership || "none",
     }));
 
   res.json(results);
@@ -486,6 +516,7 @@ app.get("/api/users/:id", (req, res) => {
     avatarUrl: u.avatarUrl || "",
     bio: u.bio || "",
     interests: u.interests || "",
+    membership: u.membership || "none",
   });
 });
 
@@ -508,6 +539,42 @@ const PRICE = {
   premium: process.env.STRIPE_PRICE_PREMIUM,
   annual: process.env.STRIPE_PRICE_ANNUAL,
 };
+
+// --- membership helpers ---
+function planFromPrice(priceId) {
+  if (!priceId) return null;
+  if (priceId === PRICE.premium) return "premium";
+  if (priceId === PRICE.annual)  return "annual";
+  if (priceId === PRICE.reader)  return "reader";
+  return null;
+}
+
+function saveUsersMapToDisk() {
+  const arr = [...users.values()];
+  saveUsersToDisk(arr);
+}
+
+// set membership by userId (preferred) or by email (fallback)
+function setMembership({ userId, email, membership }) {
+  if (!membership) return;
+  if (userId && users.has(userId)) {
+    const u = users.get(userId);
+    u.membership = membership;
+    users.set(u.id, u);
+    saveUsersMapToDisk();
+    return;
+  }
+  if (email) {
+    const u = [...users.values()].find(
+      x => (x.email || "").toLowerCase() === String(email).toLowerCase()
+    );
+    if (u) {
+      u.membership = membership;
+      users.set(u.id, u);
+      saveUsersMapToDisk();
+    }
+  }
+}
 
 // Subscription checkout
 app.post("/api/stripe/checkout", async (req, res) => {
@@ -804,6 +871,27 @@ app.get("/api/_routes", (_req, res) => {
 });
 
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
+
+/* ==============================
+   helper used by webhook (contest email)
+   ============================== */
+async function sendContestEmail(entry, buyerEmail) {
+  if (!CONTEST_INBOX) throw new Error("CONTEST_INBOX not set");
+  const text =
+    `Skald contest submission\n\n` +
+    `Title: ${entry.name}\n` +
+    `User ID: ${entry.userId || "(anonymous)"}\n` +
+    `Buyer Email: ${buyerEmail || "(unknown)"}\n` +
+    `Uploaded: ${new Date(entry.uploadedAt).toISOString()}\n` +
+    `File: ${SERVER_PUBLIC_URL}${entry.fileUrl}\n`;
+
+  await sendEmail({
+    to: CONTEST_INBOX,
+    subject: `[Skald Contest] ${entry.name} (${entry.id})`,
+    text,
+  });
+}
+
 
 
 

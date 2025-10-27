@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gold gradient -->
+    <linearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"  stop-color="#FFF6C9"/>
+      <stop offset="40%" stop-color="#FFD674"/>
+      <stop offset="70%" stop-color="#E5A942"/>
+      <stop offset="100%" stop-color="#B8751B"/>
+    </linearGradient>
+
+    <!-- Moving shimmer -->
+    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0)" />
+      <stop offset="45%" stop-color="rgba(255,255,255,0.8)" />
+      <stop offset="55%" stop-color="rgba(255,255,255,0.8)" />
+      <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+      <animateTransform attributeName="gradientTransform" type="translate" from="-1 0" to="1 0" dur="4s" repeatCount="indefinite"/>
+    </linearGradient>
+
+    <!-- Sparkle glow -->
+    <radialGradient id="spark" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Rune text path -->
+    <path id="runePathOuter" d="M256,256 m-238,0 a238,238 0 1,1 476,0 a238,238 0 1,1 -476,0" />
+
+    <style>
+      .runesOuter {
+        font-family: "Noto Sans Runic","Segoe UI Symbol","Unifont",serif;
+        font-size: 22px;
+        letter-spacing: 6px;
+        fill: #000;
+        opacity: .88;
+        paint-order: stroke;
+        stroke: #1a1a1a;
+        stroke-width: .6;
+      }
+    </style>
+  </defs>
+
+  <!-- Outer gold ring -->
+  <circle cx="256" cy="256" r="240" stroke="url(#goldGrad)" stroke-width="16" fill="none"/>
+
+  <!-- Shimmer overlay -->
+  <circle cx="256" cy="256" r="240" stroke="url(#shine)" stroke-width="16" fill="none" opacity=".6"/>
+
+  <!-- Inner bevel -->
+  <circle cx="256" cy="256" r="224" stroke="#d7b153" stroke-width="4" opacity=".85" fill="none"/>
+
+  <!-- Sparkles -->
+  <circle cx="256" cy="20"  r="2.8" fill="url(#spark)">
+    <animate attributeName="opacity" values="1;0.2;1" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="60"  cy="256" r="2.5" fill="url(#spark)">
+    <animate attributeName="opacity" values="1;0.3;1" dur="2.5s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="452" cy="256" r="3"   fill="url(#spark)">
+    <animate attributeName="opacity" values="1;0.3;1" dur="2.8s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="256" cy="492" r="2.7" fill="url(#spark)">
+    <animate attributeName="opacity" values="1;0.3;1" dur="2.2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Rotating runes group -->
+  <g>
+    <g transform="rotate(0 256 256)">
+      <text class="runesOuter">
+        <textPath href="#runePathOuter" startOffset="0%">
+          ᚠᚢᚦᚨᚱ ᚲᚷᚹ ᚺᚾᛁᛃ ᛇᛈᛉ ᛋᛏᛒ ᛖᛗᛚ ᛜᛞᛟ ᚪᚫᚬ ᚭᚮᚯ ᚰᚱᚲ ᚳᚴᚵ ᚶᚷᚹ ᚺᚾᛁᛃ ᛇᛈᛉ ᛋᛏᛒ ᛖᛗᛚ ᛜᛞᛟ ᛟᛞᛁᚾ ᚺᚨᛚᛚ ᚠᚱᛁᛖᚾᛞᛋ ᛋᚨᚷᚨ
+        </textPath>
+      </text>
+      <animateTransform attributeName="transform" attributeType="XML" type="rotate"
+        from="0 256 256" to="360 256 256" dur="40s" repeatCount="indefinite"/>
+    </g>
+  </g>
+
+  <!-- Transparent center for avatar -->
+  <circle cx="256" cy="256" r="215" fill="transparent"/>
+</svg>
