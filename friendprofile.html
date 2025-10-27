@@ -11,6 +11,11 @@
   <!-- Font vibe -->
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
 
+  <!-- Preload frames for crisp first paint -->
+  <link rel="preload" as="image" href="/guildbook/reader-frame.svg">
+  <link rel="preload" as="image" href="/guildbook/premium-frame.svg">
+  <link rel="preload" as="image" href="/guildbook/annual-frame.svg">
+
   <style>
     :root{
       --bg:#0b0e10;
@@ -39,11 +44,33 @@
 
     /* Header row */
     .header{display:flex;align-items:flex-end;gap:18px;margin-top:-58px;padding:0 16px}
+
+    /* === Viking Profile Frames (reusable) === */
+    .pfp{
+      position:relative; display:inline-block;
+      width:118px; height:118px; border-radius:50%;
+      /* old ring kept for depth behind the SVG frame */
+      box-shadow: 0 0 0 3px #000, 0 6px 18px rgba(0,0,0,.6);
+    }
+    .pfp > img{
+      width:100%; height:100%; border-radius:50%;
+      object-fit:cover; display:block; border:none; background:#000;
+    }
+    .pfp::after{
+      content:""; position:absolute; inset:0;
+      background-repeat:no-repeat; background-position:center; background-size:100% 100%;
+      pointer-events:none; image-rendering:auto;
+    }
+    .pfp--reader::after  { background-image:url("/guildbook/reader-frame.svg"); }
+    .pfp--premium::after { background-image:url("/guildbook/premium-frame.svg"); }
+    .pfp--annual::after  { background-image:url("/guildbook/annual-frame.svg"); }
+
+    /* legacy avatar ring (kept for safety if frames missing) */
     .avatar{
       width:118px;height:118px;border-radius:999px;object-fit:cover;
       border:5px solid #000; outline:3px solid var(--accent); background:#000;
-      box-shadow: 0 0 0 3px #000, 0 6px 18px rgba(0,0,0,.6);
     }
+
     .htext h1{
       margin:0 0 6px 0;
       font-size:28px; line-height:1.1;
@@ -108,7 +135,9 @@
       padding:10px; border:1px solid var(--line); border-radius:10px; background:rgba(0,0,0,.35)
     }
     .comp-meta{display:flex; align-items:center; gap:10px}
-    .comp-meta img{width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid var(--line); background:#000}
+    /* If you later wrap friend thumbs with .pfp, these will inherit the frame */
+    .comp-meta .pfp{width:40px;height:40px}
+    .comp-meta .pfp>img{width:100%;height:100%}
     .comp-name{font-weight:600}
 
     /* Gallery grid (tab content) */
@@ -123,7 +152,10 @@
 
   <div class="wrap">
     <section class="header">
-      <img id="avatar" class="avatar" alt="avatar"/>
+      <!-- Wrapped avatar for frame -->
+      <div id="pfp" class="pfp">
+        <img id="avatar" class="avatar" alt="avatar"/>
+      </div>
       <div class="htext">
         <h1 id="username">Saga of </h1>
         <small id="useremail"></small>
@@ -150,7 +182,6 @@
           <p id="interestsRow"></p>
           <p id="bioRow" style="white-space:pre-wrap; color:#e3decd;"></p>
         </div>
-        <!-- (No left-side gallery card anymore; gallery lives in the tab) -->
       </aside>
 
       <!-- RIGHT COLUMN (tabbed content) -->
@@ -181,9 +212,40 @@
     <a class="back" href="/friends.html"> Back to Companions</a>
   </div>
 
+  <!-- Minimal shim: apply frame class to header avatar based on viewed user's membership -->
+  <script>
+    (function(){
+      const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || '').trim();
+      const pfp = document.getElementById('pfp');
+      const url = new URL(location.href);
+      const uid = url.searchParams.get('user');
+
+      function frameClassFor(tier){
+        const t = (tier||'').toLowerCase();
+        if (t === 'premium') return 'pfp--premium';
+        if (t === 'annual')  return 'pfp--annual';
+        if (t === 'reader')  return 'pfp--reader';
+        return ''; // no frame if unknown
+      }
+
+      async function applyFrame(){
+        if (!pfp || !API_BASE || !uid) return;
+        try{
+          const r = await fetch(`${API_BASE}/api/users/${encodeURIComponent(uid)}`);
+          if (!r.ok) return;
+          const u = await r.json();
+          const cls = frameClassFor(u?.membership);
+          if (cls) pfp.classList.add(cls);
+        }catch{/* ignore */}
+      }
+      applyFrame();
+    })();
+  </script>
+
   <script type="module" src="/src/friendprofile.ts"></script>
 </body>
 </html>
+
 
 
 
