@@ -822,6 +822,40 @@ chatGlobal.install(app);
 // ⬅️ Mount the gallery routes (uses app.locals.uploadsDir)
 galleryRoutes.install(app);
 
+// ---------------- Profile Frame Helper ----------------
+// Adds a "frameClass" property to user responses based on membership
+function applyFrameClass(u) {
+  if (!u || typeof u !== "object") return u;
+  const m = (u.membership || "").toLowerCase();
+  let frameClass = "pfp--reader"; // default
+  if (m === "premium") frameClass = "pfp--premium";
+  else if (m === "annual") frameClass = "pfp--annual";
+  return { ...u, frameClass };
+}
+
+// Wrap user or user array before sending to frontend
+function addFrameToResponse(data) {
+  if (Array.isArray(data)) return data.map(applyFrameClass);
+  return applyFrameClass(data);
+}
+
+// Middleware to auto-inject frameClass on all /api/users responses
+app.use((req, res, next) => {
+  const oldJson = res.json;
+  res.json = function (data) {
+    try {
+      if (req.path.startsWith("/api/users")) {
+        return oldJson.call(this, addFrameToResponse(data));
+      }
+    } catch (e) {
+      console.error("❌ Frame inject error:", e);
+    }
+    return oldJson.call(this, data);
+  };
+  next();
+});
+
+
 /* ======== Friends-of-User (public read-only) — used by friendprofile.html ======== */
 function safeUser(u) {
   if (!u) return null;
