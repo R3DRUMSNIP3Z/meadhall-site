@@ -845,6 +845,38 @@ app.use((req, res, next) => {
   next();
 });
 
+/* === GLOBAL PROFILE FRAME HOOK === */
+function applyFrameToAllAvatars() {
+  const user = JSON.parse(localStorage.getItem("mh_user") || "null");
+  if (!user) return;
+
+  const frameClass =
+    user.frameClass ||
+    (user.membership === "premium"
+      ? "pfp--premium"
+      : user.membership === "annual"
+      ? "pfp--annual"
+      : user.membership === "reader"
+      ? "pfp--reader"
+      : "");
+
+  if (!frameClass) return;
+
+  // Wrap any <img class="avatar"> on the page with a .pfp div
+  document.querySelectorAll("img.avatar").forEach((img) => {
+    if (img.closest(".pfp")) return; // already wrapped
+    const wrap = document.createElement("div");
+    wrap.className = `pfp ${frameClass}`;
+    wrap.style.setProperty("--pfp-size", `${img.width || 40}px`);
+    img.parentNode.insertBefore(wrap, img);
+    wrap.appendChild(img);
+  });
+}
+
+// Run once DOM is ready
+document.addEventListener("DOMContentLoaded", applyFrameToAllAvatars);
+
+
 
 // Mount routes (your originals)
 accountRoutes.install(app);
