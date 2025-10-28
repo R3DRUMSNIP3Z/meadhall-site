@@ -538,11 +538,13 @@
       }catch{}
     }
 
+    // ⬇⬇ FIX: use POST instead of PATCH to satisfy CORS allow-list
     async function markRead(ids){
       if (!ids?.length) return;
       try{
         await fetch(`${API_BASE}/api/notifications/read`, {
-          method:"PATCH", headers:{ "Content-Type":"application/json" },
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({ userId: NSTATE.userId, ids })
         });
         for (const n of NSTATE.all){ if (ids.includes(n.id)) n.read = true; }
@@ -558,8 +560,15 @@
     function closePanel(){ NPANEL.hidden = true; }
 
     if (NBTN){
-      NBTN.addEventListener("click", (e)=>{ e.stopPropagation(); NPANEL.hidden ? openPanel() : closePanel(); });
-      document.addEventListener("click", (e)=>{ if (!NPANEL.contains(e.target) && e.target !== NBTN) closePanel(); });
+      NBTN.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        NPANEL.hidden ? openPanel() : closePanel();
+      });
+      document.addEventListener("click", (e)=>{
+        if (!NPANEL || !e.target) return;
+        const t = e.target;
+        if (!NPANEL.contains(t) && t !== NBTN) closePanel();
+      });
     }
     NTABS.forEach(t=>{
       t.addEventListener("click", ()=>{
@@ -616,6 +625,7 @@
   </script>
 </body>
 </html>
+
 
 
 
