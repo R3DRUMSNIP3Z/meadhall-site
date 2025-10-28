@@ -1,101 +1,123 @@
 // backend/notifications.js
 const express = require("express");
-const { randomUUID } = require("crypto");
-const { users } = require("./db"); // we’ll use this to stamp names/avatars
+const router = express.Router();
 
-// In-memory store (swap to DB later)
-const notesByUser = new Map();   // userId -> [{...notification}]
-const clientsByUser = new Map(); // userId -> Set(res SSE)
+// ---- In-memory store (swap for DB later) ----
+/*
+ Notification shape:
+ {
+   id: string,
+   type: "friend" | "like" | "dislike" | "comment" | "visit",
+   targetUserId: string,       // who should see it
+   actor: { id, name, avatarUrl? },
+   meta: {                     // extra bits to render
+     text?: string,            // short message
+     objectId?: string,        // photoId, commentId, etc
+     objectType?: "photo" | "comment" | "profile",
+     link?: string             // where to go when clicked
+   },
+   read: boolean,
+   createdAt: number
+ }
+*/
+const notifications = [];
+const listeners = new Map(); // userId -> Set(res)
 
-function pushNote(userId, note) {
-  const list = notesByUser.get(userId) || [];
-  list.unshift(note); // newest first
-  notesByUser.set(userId, list);
-
-  // fan-out via SSE
-  const clients = clientsByUser.get(userId);
-  if (clients) {
-    const payload = `data: ${JSON.stringify(note)}\n\n`;
-    for (const res of clients) { try { res.write(payload); } catch {} }
+// util
+function uid() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+function pushAndFanout(n) {
+  notifications.unshift(n);
+  // notify SSE listeners for this user
+  const set = listeners.get(n.targetUserId);
+  if (set) {
+    const payload = `data: ${JSON.stringify({ event: "notification", data: n })}\n\n`;
+    for (const res of set) res.write(payload);
   }
+  return n;
 }
 
-function decorate(n) {
-  const from = users.get(n.fromUserId) || {};
-  return {
-    ...n,
-    from: {
-      id: from.id || null,
-      name: from.name || "skald",
-      avatarUrl: from.avatarUrl || null,
-    },
+// ---- public helpers (import from other routes) ----
+function createNotification({ type, targetUserId, actor, meta }) {
+  if (!type || !targetUserId || !actor?.id) return null;
+  const n = {
+    id: uid(),
+    type,
+    targetUserId,
+    actor: { id: actor.id, name: actor.name, avatarUrl: actor.avatarUrl },
+    meta: meta || {},
+    read: false,
+    createdAt: Date.now()
   };
+  return pushAndFanout(n);
 }
 
+// ---- REST API ----
+
+// list notifications (latest first)
+router.get("/", (req, res) => {
+  const userId = (req.query.userId || "").trim();
+  if (!userId) return res.status(400).json({ error: "userId required" });
+  const items = notifications.filter(n => n.targetUserId === userId).slice(0, 100);
+  res.json({ items });
+});
+
+// mark all read (or by ids)
+router.patch("/read", express.json(), (req, res) => {
+  const { userId, ids } = req.body || {};
+  if (!userId) return res.status(400).json({ error: "userId required" });
+  let updated = 0;
+  for (const n of notifications) {
+    if (n.targetUserId !== userId) continue;
+    if (Array.isArray(ids) && ids.length) {
+      if (ids.includes(n.id) && !n.read) { n.read = true; updated++; }
+    } else {
+      if (!n.read) { n.read = true; updated++; }
+    }
+  }
+  res.json({ ok: true, updated });
+});
+
+// SSE stream
+router.get("/stream", (req, res) => {
+  const userId = (req.query.userId || "").trim();
+  if (!userId) return res.status(400).end();
+
+  req.socket.setTimeout(0);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  // Register listener
+  let set = listeners.get(userId);
+  if (!set) { set = new Set(); listeners.set(userId, set); }
+  set.add(res);
+
+  // send hello + unread count
+  const unread = notifications.filter(n => n.targetUserId === userId && !n.read).length;
+  res.write(`data: ${JSON.stringify({ event: "hello", data: { unread } })}\n\n`);
+
+  req.on("close", () => {
+    set.delete(res);
+    if (set.size === 0) listeners.delete(userId);
+  });
+});
+
+// optional: delete (admin/dev)
+router.delete("/", express.json(), (req, res) => {
+  const { userId } = req.body || {};
+  if (!userId) return res.status(400).json({ error: "userId required" });
+  let i = notifications.length;
+  while (i--) if (notifications[i].targetUserId === userId) notifications.splice(i, 1);
+  res.json({ ok: true });
+});
+
+// install helper
 function install(app) {
-  const router = express.Router();
-
-  // List notifications
-  router.get("/users/:uid/notifications", (req, res) => {
-    const { uid } = req.params;
-    const { unread, limit = 50 } = req.query;
-    let list = (notesByUser.get(uid) || []).map(decorate);
-    if (String(unread) === "1") list = list.filter(n => !n.read);
-    list = list.slice(0, Math.min(200, Number(limit) || 50));
-    res.json(list);
-  });
-
-  // Mark read
-  router.post("/users/:uid/notifications/mark-read", express.json(), (req, res) => {
-    const { uid } = req.params;
-    const { ids } = req.body || {};
-    const list = notesByUser.get(uid) || [];
-    const set = new Set(Array.isArray(ids) ? ids : []);
-    for (const n of list) if (set.has(n.id)) n.read = true;
-    res.json({ ok: true });
-  });
-
-  // SSE stream
-  router.get("/users/:uid/notifications/stream", (req, res) => {
-    const { uid } = req.params;
-    res.set({
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-      "Access-Control-Allow-Origin": "*",
-    });
-    res.flushHeaders();
-
-    let set = clientsByUser.get(uid);
-    if (!set) clientsByUser.set(uid, (set = new Set()));
-    set.add(res);
-    req.on("close", () => set.delete(res));
-
-    // kick with count
-    const unread = (notesByUser.get(uid) || []).filter(n => !n.read).length;
-    res.write(`data: ${JSON.stringify({ type:"hello", unread })}\n\n`);
-  });
-
-  // Demo creator (optional) — hit this to seed a notification
-  router.post("/notify", express.json(), (req, res) => {
-    const { userId, fromUserId, type, text, link } = req.body || {};
-    if (!userId || !type) return res.status(400).json({ error: "userId & type required" });
-    const note = {
-      id: randomUUID(),
-      userId,
-      fromUserId: fromUserId || null,
-      type,                 // 'comment' | 'like' | 'friend_request'
-      text: text || "",
-      link: link || null,   // e.g. "/friendprofile.html?user=..."
-      createdAt: Date.now(),
-      read: false,
-    };
-    pushNote(userId, note);
-    res.json({ ok: true, id: note.id });
-  });
-
-  app.use("/api", router);
-  console.log("✅ notifications routes mounted");
+  app.use("/api/notifications", router);
 }
 
-module.exports = { install, pushNote };
+module.exports = { install, createNotification };
+

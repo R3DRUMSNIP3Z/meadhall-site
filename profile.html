@@ -210,6 +210,181 @@
 
   <main class="page">
     <h2 class="rune-title" style="margin:0 0 12px">Profile</h2>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mead Hall Profile</title>
+  <meta name="description" content="Your Mead Hall guild profile." />
+  <meta name="theme-color" content="#0b0f12" />
+
+  <!-- Backend base -->
+  <meta name="api-base" content="https://meadhall-site.onrender.com" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+
+  <!-- Logo & favicon -->
+  <link rel="icon" href="/logo/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png" />
+  <meta property="og:image" content="/logo/logo-512.png" />
+
+  <!-- Odin theme -->
+  <link rel="stylesheet" href="/Styles/odin.css" />
+
+  <style>
+    .page{max-width:1100px;margin:110px auto 60px;padding:0 20px}
+    .row{display:grid;gap:20px;grid-template-columns:1fr}
+    @media(min-width:980px){.row{grid-template-columns:360px 1fr}}
+    .panel{
+      background:linear-gradient(180deg,var(--glass),rgba(255,255,255,.02));
+      border:1px solid rgba(200,169,107,.22);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:22px;
+    }
+
+    /* -------- Avatar + Frames -------- */
+    .avatar{width:160px;height:160px;border-radius:50%;object-fit:cover;background:#222}
+    .pfp{position:relative;display:inline-block;width:160px;height:160px}
+    .pfp>img{width:100%;height:100%;display:block;border-radius:50%}
+    .pfp.pfp--reader::after{
+      content:"";position:absolute;inset:0;pointer-events:none;
+      background:url("/guildbook/reader-frame.svg") no-repeat center/100% 100%;
+    }
+    .pfp.pfp--premium::after{
+      content:"";position:absolute;inset:0;pointer-events:none;
+      background:url("/guildbook/premium-frame.svg") no-repeat center/100% 100%;
+    }
+    .pfp.pfp--annual::after{
+      content:"";position:absolute;inset:0;pointer-events:none;
+      background:url("/guildbook/annual-frame.svg") no-repeat center/100% 100%;
+    }
+
+    .label{font-size:12px;letter-spacing:.08em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:6px}
+    .kv{margin-bottom:12px}
+    .story{padding:14px;border-radius:12px;border:1px solid rgba(200,169,107,.2);margin:10px 0;background:rgba(255,255,255,.03)}
+    .muted{color:var(--ink-dim)}
+    .gallery-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+      gap:10px;
+    }
+    .gallery-grid img{
+      width:100%;
+      aspect-ratio:1 / 1;
+      object-fit:cover;
+      border-radius:10px;
+      border:1px solid rgba(200,169,107,.2);
+      background:#111;
+      cursor:zoom-in;
+    }
+
+    /* ------ LIGHTBOX ------ */
+    .lightbox{position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; opacity:0; transition:opacity .18s ease; z-index:9999;}
+    .lightbox.open{ display:block; opacity:1; }
+    .lb-stage{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:60px 80px;}
+    .lb-img{max-width:min(92vw,1400px); max-height:86vh; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,.6); background:#111; object-fit:contain; user-select:none;}
+    .lb-close, .lb-prev, .lb-next{
+      position:absolute; top:50%; transform:translateY(-50%); background:rgba(20,20,20,.5);
+      border:1px solid rgba(200,169,107,.35); color:#e9e4d5; width:44px; height:44px; border-radius:999px;
+      display:flex; align-items:center; justify-content:center; font-size:22px; cursor:pointer; user-select:none; backdrop-filter: blur(4px);
+    }
+    .lb-prev{ left:18px; } .lb-next{ right:18px; }
+    .lb-close{ top:18px; right:18px; transform:none; width:42px;height:42px; font-size:20px; }
+    .lb-meta{ position:absolute; left:0; right:0; bottom:10px; text-align:center; color:#d8caa6; font-size:13px; letter-spacing:.04em; opacity:.9; padding:4px 10px; }
+    .lb-counter{ opacity:.8; font-variant-numeric:tabular-nums; }
+
+    /* -------- Header layout tweak so panel anchors nicely -------- */
+    header .wrap{position:relative; display:flex; gap:22px; align-items:center;}
+
+    /* ===== Notification Axes Icon ===== */
+    .notif-wrapper { position: relative; margin-left: 20px; }
+    .notif-btn { position: relative; background: none; border: none; cursor: pointer; padding: 0; }
+    .notif-icon {
+      width: 34px; height: 34px; border-radius: 50%; object-fit: contain;
+      filter: drop-shadow(0 0 6px rgba(212,169,77,0.7)) drop-shadow(0 0 10px rgba(212,169,77,0.4));
+      transition: transform 0.25s ease, filter 0.25s ease;
+    }
+    .notif-btn:hover .notif-icon { transform: scale(1.12) rotate(10deg);
+      filter: drop-shadow(0 0 10px rgba(255,210,100,0.9)) drop-shadow(0 0 16px rgba(255,210,100,0.6)); }
+    .notif-count {
+      position: absolute; top: -5px; right: -7px; background: radial-gradient(circle at 30% 30%, #ffecb3, #d4a94d);
+      color: #111; font-weight: 700; font-size: 12px; border-radius: 50%; width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px rgba(0,0,0,0.6), 0 0 6px rgba(212,169,77,0.7);
+    }
+
+    /* ===== Notification Panel (Mead Hall) ===== */
+    .mh-notify-panel{
+      position:absolute; right:0; top:56px; width:360px; max-height:70vh; overflow:auto;
+      background:#111; color:#e9e4d5; border:1px solid #3b3325; border-radius:12px;
+      box-shadow:0 10px 30px rgba(0,0,0,.45); padding:10px; z-index:1000;
+    }
+    .mhnp-head{ display:flex; align-items:center; justify-content:space-between; padding:6px 6px 10px; border-bottom:1px solid #2a2418; }
+    .mhnp-tabs{ display:flex; gap:8px; }
+    .mhnp-tabs .tab{ background:#1a1a1a; color:#c8b78a; border:1px solid #2a2418; padding:4px 8px; border-radius:8px; cursor:pointer; }
+    .mhnp-tabs .tab.active{ background:#2a2418; color:#fff; }
+
+    .mhnp-list{ display:flex; flex-direction:column; gap:8px; padding:10px 6px; }
+    .mhnp-item{
+      display:grid; grid-template-columns:34px 1fr auto; align-items:center; gap:10px;
+      padding:8px; border-radius:10px; background:#0d0d0d; border:1px solid #242018;
+    }
+    .mhnp-item:hover{ background:#151515; }
+    .mhnp-item .ava{ width:34px; height:34px; border-radius:999px; object-fit:cover; background:#222; }
+    .mhnp-item .who{ font-weight:700; }
+    .mhnp-item .when{ font-size:12px; color:#a08f63; margin-top:2px; }
+    .mhnp-dot{ width:8px; height:8px; border-radius:999px; background:#4aa3ff; display:inline-block; }
+    .mhnp-actions .mini{ margin-left:6px; }
+
+    .mhnp-foot{ border-top:1px solid #2a2418; padding:8px 6px 0; text-align:right; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <a href="/" class="brand" style="display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit">
+        <img src="/logo/logo-64.png" alt="Mead Hall" style="width:40px;height:40px;border-radius:8px;object-fit:cover"/>
+        <h1 style="margin:0">Mead Hall</h1>
+      </a>
+
+      <nav style="margin-left:auto; display:flex; align-items:center; gap:16px">
+        <a class="navlink" href="/">Home</a>
+        <a class="navlink" href="/#plans">Membership</a>
+        <a class="navlink" href="/#contest">Skald Contest</a>
+        <a class="navlink" href="/account.html">Edit profile</a>
+
+        <!-- Notifications button -->
+        <div class="notif-wrapper">
+          <button id="mhNotifyBtn" class="notif-btn" aria-label="Notifications">
+            <img src="/guildbook/axes.png" alt="Notifications" class="notif-icon">
+            <span id="mhNotifyBadge" class="notif-count" hidden>0</span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Dropdown panel -->
+      <div id="mhNotifyPanel" class="mh-notify-panel" hidden>
+        <div class="mhnp-head">
+          <strong>Notifications</strong>
+          <div class="mhnp-tabs">
+            <button class="tab active" data-tab="all">All</button>
+            <button class="tab" data-tab="unread">Unread</button>
+          </div>
+        </div>
+        <div class="mhnp-list" id="mhNotifyList"></div>
+        <div class="mhnp-foot">
+          <button id="mhMarkAllRead" class="mini">Mark all read</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <h2 class="rune-title" style="margin:0 0 12px">Profile</h2>
     <p class="rune-sub" id="hello" style="margin-top:0"></p>
 
     <div class="row">
@@ -329,26 +504,17 @@
 
     // Lightbox state
     const LB = {
-      urls: [],
-      index: 0,
+      urls: [], index: 0,
       open(i = 0){
         if (!this.urls.length) return;
         this.index = (i + this.urls.length) % this.urls.length;
         lbImg.src = this.urls[this.index];
         if (lbCount) lbCount.textContent = (this.index + 1) + ' / ' + this.urls.length;
-        lbRoot.classList.add('open');
-        lbRoot.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
-        this.preloadNeighbors();
+        lbRoot.classList.add('open'); lbRoot.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden'; this.preloadNeighbors();
       },
-      close(){
-        lbRoot.classList.remove('open');
-        lbRoot.setAttribute('aria-hidden', 'true');
-        document.body.style.overflow = '';
-        lbImg.src = '';
-      },
-      next(){ this.open(this.index + 1); },
-      prev(){ this.open(this.index - 1); },
+      close(){ lbRoot.classList.remove('open'); lbRoot.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; lbImg.src = ''; },
+      next(){ this.open(this.index + 1); }, prev(){ this.open(this.index - 1); },
       preloadNeighbors(){
         const a = new Image(); a.src = this.urls[(this.index + 1) % this.urls.length] || '';
         const b = new Image(); b.src = this.urls[(this.index - 1 + this.urls.length) % this.urls.length] || '';
@@ -374,8 +540,7 @@
       if (interestsEl) interestsEl.textContent = u.interests || '';
       if (avatarImg) {
         const src = u.avatarUrl ? cacheBust(fullUrl(u.avatarUrl)) : '/logo/logo-512.png';
-        avatarImg.src = src;
-        avatarImg.onerror = () => { avatarImg.src = '/logo/logo-512.png'; };
+        avatarImg.src = src; avatarImg.onerror = () => { avatarImg.src = '/logo/logo-512.png'; };
       }
       applyFrame(u);
     }
@@ -388,14 +553,11 @@
         const r = await fetch(`${API_BASE}/api/users/${uid}/stories`);
         const list = r.ok ? await r.json() : [];
         if (!Array.isArray(list) || list.length === 0) {
-          storiesEl.textContent = 'No stories yet.';
-          storiesEl.classList.add('muted');
+          storiesEl.textContent = 'No stories yet.'; storiesEl.classList.add('muted');
         } else {
-          storiesEl.classList.remove('muted');
-          storiesEl.innerHTML = '';
+          storiesEl.classList.remove('muted'); storiesEl.innerHTML = '';
           for (const s of list) {
-            const div = document.createElement('div');
-            div.className = 'story';
+            const div = document.createElement('div'); div.className = 'story';
             const when = s.createdAt ? new Date(s.createdAt).toLocaleString() : '';
             div.innerHTML = `<strong>${s.title || 'Untitled'}</strong>
               <div class="muted" style="font-size:12px">${when}</div>
@@ -404,17 +566,12 @@
           }
         }
       } catch {
-        storiesEl.textContent = 'No stories yet.';
-        storiesEl.classList.add('muted');
+        storiesEl.textContent = 'No stories yet.'; storiesEl.classList.add('muted');
       }
     }
 
     // ---- gallery
-    const normalizePhotos = (raw) => {
-      if (Array.isArray(raw)) return raw;
-      if (Array.isArray(raw?.items)) return raw.items;
-      return [];
-    };
+    const normalizePhotos = (raw) => Array.isArray(raw) ? raw : (Array.isArray(raw?.items) ? raw.items : []);
     const toImgUrl = (p) => /^https?:\/\//i.test(p || '') ? p : fullUrl(p);
 
     async function loadGallery(uid){
@@ -427,29 +584,20 @@
 
         if (!photos.length) {
           galleryGrid.innerHTML = `<div class="muted">No photos yet.</div>`;
-          LB.urls = [];
-          return;
+          LB.urls = []; return;
         }
 
-        galleryGrid.innerHTML = '';
-        LB.urls = [];
-
+        galleryGrid.innerHTML = ''; LB.urls = [];
         photos.forEach((p, i) => {
-          const url = cacheBust(toImgUrl(p.url || p.path || ''));
-          LB.urls.push(url);
-
+          const url = cacheBust(toImgUrl(p.url || p.path || '')); LB.urls.push(url);
           const img = document.createElement('img');
-          img.loading = 'lazy';
-          img.alt = 'Gallery photo';
-          img.src = url;
-          img.dataset.index = String(i);
+          img.loading = 'lazy'; img.alt = 'Gallery photo'; img.src = url; img.dataset.index = String(i);
           img.onerror = () => { img.style.opacity = '0.3'; };
           img.addEventListener('click', () => LB.open(i));
           galleryGrid.appendChild(img);
         });
       } catch {
-        galleryGrid.innerHTML = `<div class="muted">Failed to load photos.</div>`;
-        LB.urls = [];
+        galleryGrid.innerHTML = `<div class="muted">Failed to load photos.</div>`; LB.urls = [];
       }
     }
 
@@ -463,36 +611,25 @@
         if (!fresh.membership && u.membership) fresh.membership = u.membership;
         setUser(fresh);
         return fresh;
-      } catch {
-        return u;
-      }
+      } catch { return u; }
     }
 
     // ---- Lightbox wiring
     function setupLightbox(){
-      lbRoot.addEventListener('click', (e) => {
-        if (e.target === lbRoot) LB.close();
-      });
+      lbRoot.addEventListener('click', (e) => { if (e.target === lbRoot) LB.close(); });
       lbClose.addEventListener('click', () => LB.close());
       lbPrev.addEventListener('click', () => LB.prev());
       lbNext.addEventListener('click', () => LB.next());
-
       let startX = null;
       lbImg.addEventListener('pointerdown', (e) => { startX = e.clientX; lbImg.setPointerCapture(e.pointerId); });
       lbImg.addEventListener('pointerup',   (e) => {
         if (startX === null) return;
-        const dx = e.clientX - startX;
-        startX = null;
-        const THRESH = 40;
-        if (dx > THRESH) LB.prev();
-        else if (dx < -THRESH) LB.next();
+        const dx = e.clientX - startX; startX = null;
+        const THRESH = 40; if (dx > THRESH) LB.prev(); else if (dx < -THRESH) LB.next();
       });
-
       window.addEventListener('keydown', (e) => {
         if (!lbRoot.classList.contains('open')) return;
-        if (e.key === 'Escape') LB.close();
-        else if (e.key === 'ArrowLeft') LB.prev();
-        else if (e.key === 'ArrowRight') LB.next();
+        if (e.key === 'Escape') LB.close(); else if (e.key === 'ArrowLeft') LB.prev(); else if (e.key === 'ArrowRight') LB.next();
       });
     }
 
@@ -504,132 +641,117 @@
     const NTABS  = document.querySelectorAll(".mhnp-tabs .tab");
     const NMARK  = document.getElementById("mhMarkAllRead");
 
-    let NSTATE = { all: [], unread: [], filter: "all", userId: null, es: null };
+    let NSTATE = { all: [], filter: "all", userId: null, es: null };
 
-    function fmtWhen(ts){
-      const d = new Date(ts);
-      const diff = (Date.now() - d.getTime()) / 1000;
-      if (diff < 60) return "just now";
-      if (diff < 3600) return Math.floor(diff/60)+"m";
-      if (diff < 86400) return Math.floor(diff/3600)+"h";
-      return d.toLocaleDateString();
+    function timeAgo(ts){
+      const s = Math.max(1, Math.floor((Date.now()-ts)/1000));
+      if (s < 60) return s+"s";
+      const m = Math.floor(s/60); if (m < 60) return m+"m";
+      const h = Math.floor(m/60); if (h < 24) return h+"h";
+      const d = Math.floor(h/24); return d+"d";
     }
-    function badge(n){
+    function setBadge(n){
       if (!NBADGE) return;
-      if (n > 0) { NBADGE.textContent = String(n); NBADGE.hidden = false; }
-      else { NBADGE.hidden = true; }
+      if (n > 0) { NBADGE.hidden = false; NBADGE.textContent = String(n); }
+      else { NBADGE.hidden = true; NBADGE.textContent = "0"; }
     }
-    function renderList() {
+    function label(type, fallback){
+      switch(type){
+        case "friend": return "sent you a friend request";
+        case "like": return "liked your photo";
+        case "dislike": return "disliked your photo";
+        case "comment": return "left a comment";
+        case "visit": return "visited your profile";
+        default: return fallback || "activity";
+      }
+    }
+    function renderList(){
       if (!NLIST) return;
-      const arr = NSTATE.filter === "unread" ? NSTATE.unread : NSTATE.all;
-      if (!arr.length) { NLIST.innerHTML = `<div class="muted" style="padding:14px">No notifications.</div>`; badge(0); return; }
-      NLIST.innerHTML = arr.map(n => {
-        const u = n.from || {};
+      const items = NSTATE.filter === "unread" ? NSTATE.all.filter(n=>!n.read) : NSTATE.all;
+      if (!items.length){ NLIST.innerHTML = `<div class="muted" style="padding:14px">No notifications.</div>`; setBadge(0); return; }
+      NLIST.innerHTML = items.map(n=>{
+        const a = n.actor || {};
+        const meta = n.meta || {};
         const dot = n.read ? "" : `<span class="mhnp-dot"></span>`;
-        const icon = n.type === "friend_request"
-          ? `<div class="mhnp-actions"><button class="mini" data-act="accept" data-id="${n.id}" data-from="${u.id||""}">Accept</button><button class="mini" data-act="dismiss" data-id="${n.id}">Dismiss</button></div>`
-          : dot;
-        const what = n.type === "like" ? "liked your post"
-                  : n.type === "comment" ? "commented"
-                  : n.type === "friend_request" ? "sent you a friend request"
-                  : n.text || "activity";
-        const link = n.link ? `href="${n.link}"` : "";
+        const what = meta.text || label(n.type);
+        const link = meta.link ? `href="${meta.link}"` : "";
         return `
           <div class="mhnp-item" data-id="${n.id}" data-read="${n.read ? "1":"0"}">
-            <img class="ava" src="${fullUrl(u.avatarUrl)||"/logo/logo-512.png"}" onerror="this.src='/logo/logo-512.png'"/>
+            <img class="ava" src="${fullUrl(a.avatarUrl)||"/logo/logo-512.png"}" onerror="this.src='/logo/logo-512.png'"/>
             <div class="txt">
-              <a ${link} style="color:inherit; text-decoration:none">
-                <span class="who">${u.name||"Someone"}</span> ${what}.
-              </a>
-              <div class="when">${fmtWhen(n.createdAt)}</div>
+              <a ${link} style="color:inherit; text-decoration:none"><span class="who">${a.name||"Someone"}</span> ${what}.</a>
+              <div class="when">${timeAgo(n.createdAt)}</div>
             </div>
-            <div class="right">${icon || ""}</div>
-          </div>
-        `;
+            <div class="right">${dot}</div>
+          </div>`;
       }).join("");
-      badge(NSTATE.unread.length);
-
-      // actions
-      NLIST.querySelectorAll("[data-act]").forEach(btn=>{
-        btn.addEventListener("click", async () => {
-          const id = btn.dataset.id;
-          const act = btn.dataset.act;
-          if (act === "accept") {
-            // Hook your real accept route here when ready
-            // await fetch(`${API_BASE}/api/friends/accept`, { method:"POST", headers:{ "Content-Type":"application/json"}, body: JSON.stringify({ userId:NSTATE.userId, fromUserId: btn.dataset.from }) });
-          }
-          await markRead([id]);
-          await loadNotes(); // refresh
-        });
-      });
+      setBadge(NSTATE.all.filter(i=>!i.read).length);
     }
 
-    async function loadNotes(){
+    async function fetchNotes(){
       if (!NSTATE.userId) return;
-      const all = await fetch(`${API_BASE}/api/users/${NSTATE.userId}/notifications`).then(r=>r.json()).catch(()=>[]);
-      const unread = await fetch(`${API_BASE}/api/users/${NSTATE.userId}/notifications?unread=1`).then(r=>r.json()).catch(()=>[]);
-      NSTATE.all = all; NSTATE.unread = unread;
-      renderList();
+      try{
+        const r = await fetch(`${API_BASE}/api/notifications?userId=${encodeURIComponent(NSTATE.userId)}`);
+        const j = await r.json();
+        NSTATE.all = j.items || [];
+        renderList();
+      }catch{}
     }
 
     async function markRead(ids){
       if (!ids?.length) return;
-      await fetch(`${API_BASE}/api/users/${NSTATE.userId}/notifications/mark-read`, {
-        method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ ids })
-      }).catch(()=>{});
+      try{
+        await fetch(`${API_BASE}/api/notifications/read`, {
+          method:"PATCH", headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ userId: NSTATE.userId, ids })
+        });
+        for (const n of NSTATE.all){ if (ids.includes(n.id)) n.read = true; }
+        renderList();
+      }catch{}
     }
 
     function openPanel(){
       NPANEL.hidden = false;
-      const unreadIds = (NSTATE.all||[]).filter(n => !n.read).map(n=>n.id);
-      if (unreadIds.length) markRead(unreadIds).then(loadNotes);
+      const unreadIds = (NSTATE.all||[]).filter(n=>!n.read).map(n=>n.id);
+      if (unreadIds.length) setTimeout(()=>markRead(unreadIds), 600);
     }
     function closePanel(){ NPANEL.hidden = true; }
 
-    if (NBTN) {
+    if (NBTN){
       NBTN.addEventListener("click", (e)=>{ e.stopPropagation(); NPANEL.hidden ? openPanel() : closePanel(); });
       document.addEventListener("click", (e)=>{ if (!NPANEL.contains(e.target) && e.target !== NBTN) closePanel(); });
     }
-    document.querySelectorAll(".mhnp-tabs .tab").forEach(t=>{
+    NTABS.forEach(t=>{
       t.addEventListener("click", ()=>{
-        document.querySelectorAll(".mhnp-tabs .tab").forEach(x=>x.classList.remove("active"));
-        t.classList.add("active");
-        NSTATE.filter = t.dataset.tab;
-        renderList();
+        NTABS.forEach(x=>x.classList.remove("active"));
+        t.classList.add("active"); NSTATE.filter = t.dataset.tab; renderList();
       });
     });
-    document.getElementById("mhMarkAllRead")?.addEventListener("click", async ()=>{
+    NMARK?.addEventListener("click", async ()=>{
       const ids = (NSTATE.all||[]).filter(n=>!n.read).map(n=>n.id);
-      await markRead(ids); await loadNotes();
+      await markRead(ids);
     });
 
-    // Live updates via SSE
     function startSSE(uid){
-      if (!("EventSource" in window)) return;
-      if (NSTATE.es) { try { NSTATE.es.close(); } catch{} }
-      const es = new EventSource(`${API_BASE}/api/users/${uid}/notifications/stream`);
-      es.onmessage = (ev)=>{
-        try {
-          const data = JSON.parse(ev.data);
-          if (data && data.type === "hello") { badge(Number(data.unread || 0)); return; }
-          NSTATE.all.unshift(data);
-          if (!data.read) NSTATE.unread.unshift(data);
-          renderList();
-        } catch {}
-      };
-      es.onerror = () => {};
-      NSTATE.es = es;
+      try{
+        const es = new EventSource(`${API_BASE}/api/notifications/stream?userId=${encodeURIComponent(uid)}`);
+        es.onmessage = (ev)=>{
+          const msg = JSON.parse(ev.data || "{}");
+          if (msg.event === "hello"){ setBadge(Number(msg.data?.unread||0)); return; }
+          if (msg.event === "notification" && msg.data){
+            NSTATE.all.unshift(msg.data); renderList();
+          }
+        };
+        es.onerror = () => {};
+        NSTATE.es = es;
+      }catch{}
     }
 
     async function init(){
       setupLightbox();
 
       let u = getUser();
-      if (!u?.id) {
-        if (hello) hello.textContent = "You're not signed in.";
-        return;
-      }
+      if (!u?.id) { if (hello) hello.textContent = "You're not signed in."; return; }
       u = await loadUserFresh(u);
       renderUser(u);
       await loadStories(u.id);
@@ -637,25 +759,24 @@
 
       // notifications boot
       NSTATE.userId = u.id;
+      await fetchNotes();
       startSSE(u.id);
-      await loadNotes(); // start at 0 (no hard-coded demo)
+
+      // safety polling every 25s
+      setInterval(fetchNotes, 25000);
     }
 
-    // Keep in sync if another tab updates localStorage
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'mh_user') init();
-    });
+    window.addEventListener('storage', (e) => { if (e.key === 'mh_user') init(); });
 
-    // Logout
     document.getElementById('logout')?.addEventListener('click', () => {
-      localStorage.removeItem('mh_user');
-      location.href = '/';
+      localStorage.removeItem('mh_user'); location.href = '/';
     });
 
     init();
   </script>
 </body>
 </html>
+
 
 
 
