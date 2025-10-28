@@ -6,16 +6,15 @@
   <title>Mead Hall Profile</title>
   <meta name="description" content="Your Mead Hall guild profile." />
   <meta name="theme-color" content="#0b0f12" />
-
-  <!-- Set this to your running backend -->
+  <!-- Backend base -->
   <meta name="api-base" content="https://meadhall-site.onrender.com" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap" rel="stylesheet">
 
-  <!-- Logo & favicon -->
+  <!-- Icons -->
   <link rel="icon" href="/logo/favicon.ico" sizes="any" />
   <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png" />
   <meta property="og:image" content="/logo/logo-512.png" />
@@ -24,114 +23,99 @@
   <link rel="stylesheet" href="/Styles/odin.css" />
 
   <style>
-    .page{max-width:1100px;margin:110px auto 60px;padding:0 20px}
-    .row{display:grid;gap:20px;grid-template-columns:1fr}
-    @media(min-width:980px){.row{grid-template-columns:360px 1fr}}
-    .panel{
-      background:linear-gradient(180deg,var(--glass),rgba(255,255,255,.02));
-      border:1px solid rgba(200,169,107,.22);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      padding:22px;
+    .page { max-width:1100px; margin:110px auto 60px; padding:0 20px; }
+    .row { display:grid; gap:20px; grid-template-columns:1fr; }
+    @media (min-width:980px) { .row { grid-template-columns:360px 1fr; } }
+    .panel {
+      background: linear-gradient(180deg, var(--glass), rgba(255,255,255,.02));
+      border: 1px solid rgba(200,169,107,.22);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 22px;
     }
 
     /* -------- Avatar + Frames -------- */
-    /* base avatar size (fits your layout) */
-    .avatar{width:160px;height:160px;border-radius:50%;object-fit:cover;background:#222}
-
-    /* frame container */
-    .pfp{
-      position:relative;display:inline-block;
-      width:160px;height:160px; /* match .avatar size */
+    .avatar { width:160px; height:160px; border-radius:50%; object-fit:cover; background:#222; }
+    .pfp { position:relative; display:inline-block; width:160px; height:160px; }
+    .pfp > img { width:100%; height:100%; display:block; border-radius:50%; }
+    .pfp.pfp--reader::after {
+      content:""; position:absolute; inset:0; pointer-events:none;
+      background: url("/guildbook/reader-frame.svg") no-repeat center / 100% 100%;
     }
-    .pfp > img{width:100%;height:100%;display:block;border-radius:50%}
-
-    /* reader (basic brass) */
-    .pfp.pfp--reader::after{
-      content:"";position:absolute;inset:0;pointer-events:none;
-      background:url("/guildbook/reader-frame.svg") no-repeat center;
-      background-size:100% 100%;
+    .pfp.pfp--premium::after {
+      content:""; position:absolute; inset:0; pointer-events:none;
+      background: url("/guildbook/premium-frame.svg") no-repeat center / 100% 100%;
     }
-    /* premium (axes) */
-    .pfp.pfp--premium::after{
-      content:"";position:absolute;inset:0;pointer-events:none;
-      background:url("/guildbook/premium-frame.svg") no-repeat center;
-      background-size:100% 100%;
-    }
-    /* annual (third style, if you add it) */
-    .pfp.pfp--annual::after{
-      content:"";position:absolute;inset:0;pointer-events:none;
-      background:url("/guildbook/annual-frame.svg") no-repeat center;
-      background-size:100% 100%;
+    .pfp.pfp--annual::after {
+      content:""; position:absolute; inset:0; pointer-events:none;
+      background: url("/guildbook/annual-frame.svg") no-repeat center / 100% 100%;
     }
 
-    .label{font-size:12px;letter-spacing:.08em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:6px}
-    .kv{margin-bottom:12px}
-    .story{padding:14px;border-radius:12px;border:1px solid rgba(200,169,107,.2);margin:10px 0;background:rgba(255,255,255,.03)}
-    .muted{color:var(--ink-dim)}
-    .gallery-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
-      gap:10px;
-    }
-    .gallery-grid img{
-      width:100%;
-      aspect-ratio:1 / 1;
-      object-fit:cover;
-      border-radius:10px;
-      border:1px solid rgba(200,169,107,.2);
-      background:#111;
-      cursor:zoom-in;
+    .label { font-size:12px; letter-spacing:.08em; color:var(--ink-dim); text-transform:uppercase; margin-bottom:6px; }
+    .kv { margin-bottom:12px; }
+    .story { padding:14px; border-radius:12px; border:1px solid rgba(200,169,107,.2); margin:10px 0; background:rgba(255,255,255,.03); }
+    .muted { color:var(--ink-dim); }
+
+    /* Gallery */
+    .gallery-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:10px; }
+    .gallery-grid img {
+      width:100%; aspect-ratio:1 / 1; object-fit:cover;
+      border-radius:10px; border:1px solid rgba(200,169,107,.2); background:#111; cursor:zoom-in;
     }
 
     /* ------ LIGHTBOX ------ */
-    .lightbox{
-      position:fixed; inset:0;
-      background:rgba(0,0,0,.85);
-      display:none; opacity:0;
-      transition:opacity .18s ease;
-      z-index:9999;
+    .lightbox { position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; opacity:0; transition:opacity .18s ease; z-index:9999; }
+    .lightbox.open { display:block; opacity:1; }
+    .lb-stage { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:60px 80px; }
+    .lb-img { max-width:min(92vw,1400px); max-height:86vh; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,.6); background:#111; object-fit:contain; user-select:none; }
+    .lb-close, .lb-prev, .lb-next {
+      position:absolute; top:50%; transform:translateY(-50%);
+      background:rgba(20,20,20,.5); border:1px solid rgba(200,169,107,.35); color:#e9e4d5;
+      width:44px; height:44px; border-radius:999px; display:flex; align-items:center; justify-content:center;
+      font-size:22px; cursor:pointer; user-select:none; backdrop-filter: blur(4px);
     }
-    .lightbox.open{ display:block; opacity:1; }
+    .lb-prev { left:18px; } .lb-next { right:18px; }
+    .lb-close { top:18px; right:18px; transform:none; width:42px; height:42px; font-size:20px; }
+    .lb-meta { position:absolute; left:0; right:0; bottom:10px; text-align:center; color:#d8caa6; font-size:13px; letter-spacing:.04em; opacity:.9; padding:4px 10px; }
+    .lb-counter { opacity:.8; font-variant-numeric: tabular-nums; }
 
-    .lb-stage{
-      position:absolute; inset:0;
+    /* ===== Notifications (axes icon + badge) ===== */
+    .notif-wrapper {
+      position:relative; display:inline-flex; align-items:center; justify-content:center;
+      width:44px; height:44px; padding:0; border:0; background:transparent; cursor:pointer; border-radius:10px;
+    }
+    .notif-icon {
+      width:100%; height:100%; object-fit:contain;
+      filter: drop-shadow(0 0 4px rgba(212,169,77,.35));
+      transition: transform .25s ease, filter .25s ease;
+    }
+    .notif-wrapper:hover .notif-icon {
+      transform: rotate(-8deg) scale(1.06);
+      filter: drop-shadow(0 0 10px rgba(255,215,120,.9));
+    }
+    .notif-badge {
+      position:absolute; top:-4px; right:-6px;
+      min-width:18px; height:18px; padding:0 5px;
       display:flex; align-items:center; justify-content:center;
-      padding:60px 80px;
+      background:#e43; color:#fff; font-weight:800; font-size:12px; line-height:1;
+      border-radius:999px; border:2px solid #000;
+      box-shadow:0 0 8px rgba(0,0,0,.55);
+      transform-origin:center;
     }
-    .lb-img{
-      max-width:min(92vw,1400px);
-      max-height:86vh;
-      border-radius:12px;
-      box-shadow:0 10px 40px rgba(0,0,0,.6);
-      background:#111;
-      object-fit:contain;
-      user-select:none;
+    .hidden { display:none !important; }
+    @keyframes badge-pop {
+      0% { transform:scale(0); opacity:0; }
+      70% { transform:scale(1.15); opacity:1; }
+      100% { transform:scale(1); }
     }
-
-    .lb-close, .lb-prev, .lb-next{
-      position:absolute; top:50%;
-      transform:translateY(-50%);
-      background:rgba(20,20,20,.5);
-      border:1px solid rgba(200,169,107,.35);
-      color:#e9e4d5;
-      width:44px; height:44px; border-radius:999px;
-      display:flex; align-items:center; justify-content:center;
-      font-size:22px; cursor:pointer; user-select:none;
-      backdrop-filter: blur(4px);
+    @keyframes axe-wiggle {
+      0%,100% { transform: rotate(0deg); }
+      50% { transform: rotate(-6deg); }
     }
-    .lb-prev{ left:18px; }
-    .lb-next{ right:18px; }
-    .lb-close{
-      top:18px; right:18px; transform:none; width:42px;height:42px; font-size:20px;
+    .notif-wrapper.has-unread .notif-icon { animation: axe-wiggle 2.8s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) {
+      .notif-wrapper.has-unread .notif-icon, .notif-badge { animation: none !important; }
     }
-    .lb-meta{
-      position:absolute; left:0; right:0; bottom:10px;
-      text-align:center; color:#d8caa6; font-size:13px; letter-spacing:.04em;
-      opacity:.9; padding:4px 10px;
-    }
-    .lb-counter{ opacity:.8; font-variant-numeric:tabular-nums; }
-    .lb-hidden{ display:none !important; }
   </style>
 </head>
 <body>
@@ -146,6 +130,11 @@
         <a class="navlink" href="/#plans">Membership</a>
         <a class="navlink" href="/#contest">Skald Contest</a>
         <a class="navlink" href="/account.html">Edit profile</a>
+        <!-- Notifications (axes) -->
+        <button id="notifBtn" class="notif-wrapper" aria-label="Notifications">
+          <img src="/guildbook/axes.png" alt="Notifications" class="notif-icon">
+          <span id="notifBadge" class="notif-badge hidden">0</span>
+        </button>
       </nav>
     </div>
   </header>
@@ -158,9 +147,8 @@
       <!-- Left: profile card -->
       <section class="panel">
         <div style="text-align:center">
-          <!-- Wrapped avatar so frame can overlay -->
           <div id="pfp" class="pfp">
-            <img id="avatarImg" class="avatar" src="/logo/logo-512.png" alt="Avatar"/>
+            <img id="avatarImg" class="avatar" src="/logo/logo-512.png" alt="Avatar">
           </div>
         </div>
 
@@ -219,7 +207,7 @@
     <button class="lb-close" id="lbClose" aria-label="Close (Esc)">✕</button>
     <button class="lb-prev"  id="lbPrev"  aria-label="Previous (←)">‹</button>
     <div class="lb-stage">
-      <img id="lbImg" class="lb-img" alt="Photo" draggable="false" />
+      <img id="lbImg" class="lb-img" alt="Photo" draggable="false">
     </div>
     <button class="lb-next"  id="lbNext"  aria-label="Next (→)">›</button>
     <div class="lb-meta">
@@ -228,30 +216,32 @@
   </div>
 
   <script type="module">
-    // Year
+    // ---- Year
     const y = document.getElementById('y');
     if (y) y.textContent = String(new Date().getFullYear());
 
-    // API base
+    // ---- API base
     const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || '').trim();
 
-    // Build full URL for relative paths like "/uploads/..."; leave site assets alone
-    const fullUrl = (p) => {
+    // ---- URL helpers
+    function fullUrl(p) {
       if (!p) return p;
       if (/^https?:\/\//i.test(p)) return p;
       if (p.startsWith('/uploads/') || p.startsWith('uploads/')) {
         return API_BASE.replace(/\/+$/, '') + '/' + p.replace(/^\/+/, '');
       }
-      return p; // /logo, etc.
-    };
-    const cacheBust = (u) => u ? (u.includes('?') ? `${u}&t=${Date.now()}` : `${u}?t=${Date.now()}`) : u;
+      return p; // site assets
+    }
+    function cacheBust(u) {
+      return u ? (u.includes('?') ? `${u}&t=${Date.now()}` : `${u}?t=${Date.now()}`) : u;
+    }
 
-    // Session helpers
+    // ---- Session
     const LS_KEY = 'mh_user';
-    function getUser(){ try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch { return null; } }
-    function setUser(u){ localStorage.setItem(LS_KEY, JSON.stringify(u)); }
+    function getUser() { try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch { return null; } }
+    function setUser(u) { localStorage.setItem(LS_KEY, JSON.stringify(u)); }
 
-    // Elements
+    // ---- DOM
     const hello = document.getElementById('hello');
     const nameEl = document.getElementById('name');
     const emailEl = document.getElementById('email');
@@ -262,19 +252,19 @@
     const storiesEl = document.getElementById('stories');
     const galleryGrid = document.getElementById('galleryGrid');
 
-    // Lightbox elements
-    const lbRoot   = document.getElementById('lightbox');
-    const lbImg    = document.getElementById('lbImg');
-    const lbPrev   = document.getElementById('lbPrev');
-    const lbNext   = document.getElementById('lbNext');
-    const lbClose  = document.getElementById('lbClose');
-    const lbCount  = document.getElementById('lbCounter');
+    // ---- Lightbox DOM
+    const lbRoot  = document.getElementById('lightbox');
+    const lbImg   = document.getElementById('lbImg');
+    const lbPrev  = document.getElementById('lbPrev');
+    const lbNext  = document.getElementById('lbNext');
+    const lbClose = document.getElementById('lbClose');
+    const lbCount = document.getElementById('lbCounter');
 
-    // Lightbox state
+    // ---- Lightbox state
     const LB = {
       urls: [],
       index: 0,
-      open(i = 0){
+      open(i = 0) {
         if (!this.urls.length) return;
         this.index = (i + this.urls.length) % this.urls.length;
         lbImg.src = this.urls[this.index];
@@ -284,35 +274,59 @@
         document.body.style.overflow = 'hidden';
         this.preloadNeighbors();
       },
-      close(){
+      close() {
         lbRoot.classList.remove('open');
         lbRoot.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = '';
         lbImg.src = '';
       },
-      next(){ this.open(this.index + 1); },
-      prev(){ this.open(this.index - 1); },
-      preloadNeighbors(){
+      next() { this.open(this.index + 1); },
+      prev() { this.open(this.index - 1); },
+      preloadNeighbors() {
         const a = new Image(); a.src = this.urls[(this.index + 1) % this.urls.length] || '';
         const b = new Image(); b.src = this.urls[(this.index - 1 + this.urls.length) % this.urls.length] || '';
       }
     };
 
-    // ---- Apply membership frame
-    function applyFrame(u){
+    // ---- Lightbox wiring
+    function setupLightbox() {
+      if (!lbRoot) return;
+      lbRoot.addEventListener('click', (e) => { if (e.target === lbRoot) LB.close(); });
+      lbClose?.addEventListener('click', () => LB.close());
+      lbPrev?.addEventListener('click', () => LB.prev());
+      lbNext?.addEventListener('click', () => LB.next());
+
+      let startX = null;
+      lbImg?.addEventListener('pointerdown', (e) => { startX = e.clientX; lbImg.setPointerCapture(e.pointerId); });
+      lbImg?.addEventListener('pointerup', (e) => {
+        if (startX === null) return;
+        const dx = e.clientX - startX; startX = null;
+        const THRESH = 40;
+        if (dx > THRESH) LB.prev();
+        else if (dx < -THRESH) LB.next();
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (!lbRoot.classList.contains('open')) return;
+        if (e.key === 'Escape') LB.close();
+        if (e.key === 'ArrowLeft') LB.prev();
+        if (e.key === 'ArrowRight') LB.next();
+      });
+    }
+
+    // ---- Frames
+    function applyFrame(u) {
       if (!pfpWrap) return;
-      // pick tier from fresh user or local fallback
       const tier = u.membership || (getUser()?.membership) || '';
-      pfpWrap.classList.remove('pfp--reader','pfp--premium','pfp--annual');
+      pfpWrap.classList.remove('pfp--reader', 'pfp--premium', 'pfp--annual');
       if (tier === 'premium') pfpWrap.classList.add('pfp--premium');
       else if (tier === 'annual') pfpWrap.classList.add('pfp--annual');
       else if (tier === 'reader') pfpWrap.classList.add('pfp--reader');
-      // no class if no membership (no frame)
     }
 
-    // ---- render user
+    // ---- Render user
     function renderUser(u) {
-      if (hello) hello.textContent = `Welcome, ${u.name || 'skald'}${u.id ? ` (ID: ${u.id})` : ''}.`;
+      if (hello) hello.textContent = `Welcome, ${u.name || 'skald'}.`;
       if (nameEl) nameEl.textContent = u.name || '';
       if (emailEl) emailEl.textContent = u.email || '';
       if (bioEl) bioEl.textContent = u.bio || '';
@@ -325,7 +339,7 @@
       applyFrame(u);
     }
 
-    // ---- stories
+    // ---- Stories
     async function loadStories(uid) {
       if (!storiesEl) return;
       storiesEl.textContent = 'Loading…';
@@ -335,18 +349,20 @@
         if (!Array.isArray(list) || list.length === 0) {
           storiesEl.textContent = 'No stories yet.';
           storiesEl.classList.add('muted');
-        } else {
-          storiesEl.classList.remove('muted');
-          storiesEl.innerHTML = '';
-          for (const s of list) {
-            const div = document.createElement('div');
-            div.className = 'story';
-            const when = s.createdAt ? new Date(s.createdAt).toLocaleString() : '';
-            div.innerHTML = `<strong>${s.title || 'Untitled'}</strong>
-              <div class="muted" style="font-size:12px">${when}</div>
-              <p style="margin:.4em 0 0">${String(s.text || '').replace(/\n/g,'<br>')}</p>`;
-            storiesEl.appendChild(div);
-          }
+          return;
+        }
+        storiesEl.classList.remove('muted');
+        storiesEl.innerHTML = '';
+        for (const s of list) {
+          const div = document.createElement('div');
+          div.className = 'story';
+          const when = s.createdAt ? new Date(s.createdAt).toLocaleString() : '';
+          div.innerHTML = `
+            <strong>${s.title || 'Untitled'}</strong>
+            <div class="muted" style="font-size:12px">${when}</div>
+            <p style="margin:.4em 0 0">${String(s.text || '').replace(/\n/g, '<br>')}</p>
+          `;
+          storiesEl.appendChild(div);
         }
       } catch {
         storiesEl.textContent = 'No stories yet.';
@@ -354,35 +370,31 @@
       }
     }
 
-    // ---- gallery
-    const normalizePhotos = (raw) => {
+    // ---- Gallery
+    function normalizePhotos(raw) {
       if (Array.isArray(raw)) return raw;
       if (Array.isArray(raw?.items)) return raw.items;
       return [];
-    };
-    const toImgUrl = (p) => /^https?:\/\//i.test(p || '') ? p : fullUrl(p);
+    }
+    function toImgUrl(p) { return /^https?:\/\//i.test(p || '') ? p : fullUrl(p); }
 
-    async function loadGallery(uid){
+    async function loadGallery(uid) {
       if (!galleryGrid) return;
       galleryGrid.innerHTML = `<div class="muted">Loading…</div>`;
       try {
         const r = await fetch(`${API_BASE}/api/users/${uid}/gallery`);
         const data = r.ok ? await r.json() : [];
         const photos = normalizePhotos(data);
-
         if (!photos.length) {
           galleryGrid.innerHTML = `<div class="muted">No photos yet.</div>`;
           LB.urls = [];
           return;
         }
-
         galleryGrid.innerHTML = '';
         LB.urls = [];
-
         photos.forEach((p, i) => {
           const url = cacheBust(toImgUrl(p.url || p.path || ''));
           LB.urls.push(url);
-
           const img = document.createElement('img');
           img.loading = 'lazy';
           img.alt = 'Gallery photo';
@@ -398,14 +410,13 @@
       }
     }
 
-    // ---- refresh user from backend (assumes backend now returns membership)
+    // ---- Fetch fresh user (keeps old membership if missing)
     async function loadUserFresh(u) {
       if (!API_BASE || !u?.id) return u;
       try {
         const r = await fetch(`${API_BASE}/api/users/${u.id}`);
         if (!r.ok) throw new Error(await r.text());
         const fresh = await r.json();
-        // keep old membership if endpoint doesn't include it yet
         if (!fresh.membership && u.membership) fresh.membership = u.membership;
         setUser(fresh);
         return fresh;
@@ -414,36 +425,60 @@
       }
     }
 
-    // ---- Lightbox wiring
-    function setupLightbox(){
-      lbRoot.addEventListener('click', (e) => {
-        if (e.target === lbRoot) LB.close();
-      });
-      lbClose.addEventListener('click', () => LB.close());
-      lbPrev.addEventListener('click', () => LB.prev());
-      lbNext.addEventListener('click', () => LB.next());
+    // ---- Notifications (axes)
+    const notifBtn   = document.getElementById('notifBtn');
+    const notifBadge = document.getElementById('notifBadge');
 
-      let startX = null;
-      lbImg.addEventListener('pointerdown', (e) => { startX = e.clientX; lbImg.setPointerCapture(e.pointerId); });
-      lbImg.addEventListener('pointerup',   (e) => {
-        if (startX === null) return;
-        const dx = e.clientX - startX;
-        startX = null;
-        const THRESH = 40;
-        if (dx > THRESH) LB.prev();
-        else if (dx < -THRESH) LB.next();
-      });
+    function setNotifications(count) {
+      const n = Math.max(0, Number(count || 0));
+      if (!notifBadge) return;
+      if (n > 0) {
+        notifBadge.textContent = n > 99 ? '99+' : String(n);
+        notifBadge.classList.remove('hidden');
+        notifBtn?.classList.add('has-unread');
+        notifBadge.style.animation = 'badge-pop .35s ease';
+        setTimeout(() => { notifBadge.style.animation = ''; }, 400);
+      } else {
+        notifBadge.classList.add('hidden');
+        notifBtn?.classList.remove('has-unread');
+      }
+    }
 
-      window.addEventListener('keydown', (e) => {
-        if (!lbRoot.classList.contains('open')) return;
-        if (e.key === 'Escape') LB.close();
-        else if (e.key === 'ArrowLeft') LB.prev();
-        else if (e.key === 'ArrowRight') LB.next();
+    notifBtn?.addEventListener('click', () => {
+      // Clear count or open a notifications view
+      setNotifications(0);
+      // e.g. navigate later: location.href = '/notifications.html';
+    });
+
+    // Sync count via localStorage if other pages update it
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'mh_unread') {
+        try { setNotifications(JSON.parse(e.newValue || '0')); } catch { setNotifications(0); }
+      }
+    });
+
+    // ---- Init
+    function setupLogout() {
+      const btn = document.getElementById('logout');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        localStorage.removeItem('mh_user');
+        location.href = '/';
       });
     }
 
-    async function init(){
+    async function init() {
       setupLightbox();
+      setupLogout();
+
+      // Notifications demo default if nothing stored
+      try {
+        const stored = localStorage.getItem('mh_unread');
+        if (stored) setNotifications(JSON.parse(stored));
+        else setNotifications(3);
+      } catch {
+        setNotifications(3);
+      }
 
       let u = getUser();
       if (!u?.id) {
@@ -456,21 +491,16 @@
       await loadGallery(u.id);
     }
 
-    // Keep in sync if another tab updates localStorage
+    // Re-init if another tab updates user
     window.addEventListener('storage', (e) => {
       if (e.key === 'mh_user') init();
-    });
-
-    // Logout
-    document.getElementById('logout')?.addEventListener('click', () => {
-      localStorage.removeItem('mh_user');
-      location.href = '/';
     });
 
     init();
   </script>
 </body>
 </html>
+
 
 
 
