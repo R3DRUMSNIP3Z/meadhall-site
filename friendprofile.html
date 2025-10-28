@@ -3,193 +3,179 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Friend Saga  Mead Hall</title>
+  <title>Friend Saga • Mead Hall</title>
 
-  <!-- API base (match your other pages) -->
+  <!-- API base -->
   <meta name="api-base" content="https://meadhall-site.onrender.com" />
-
-  <!-- Font vibe -->
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap" rel="stylesheet">
 
-  <!-- Preload frames for crisp first paint -->
+  <!-- Frames preload -->
   <link rel="preload" as="image" href="/guildbook/reader-frame.svg">
   <link rel="preload" as="image" href="/guildbook/premium-frame.svg">
   <link rel="preload" as="image" href="/guildbook/annual-frame.svg">
 
+  <!-- Styles -->
   <style>
-  :root{
-    --bg:#0b0e10;
-    --ink:#e9e4d5;
-    --muted:#b9b3a5;
-    --accent:#d4a94d;     /* brass/gold */
-    --line:#3b3325;       /* dark leather */
-    --card:#151515d0;     /* smoked glass over texture */
-    --texture:url('/images/viking-texture.webp');
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0;
-    color:var(--ink);
-    background: var(--bg) var(--texture) center/cover fixed no-repeat;
-    font-family: system-ui, -apple-system, Segoe UI, Arial, sans-serif;
-    letter-spacing:.1px;
-  }
-  .wrap{max-width:1100px;margin:0 auto}
-  .banner{
-    background: linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.75)), var(--texture) center/cover no-repeat;
-    height: 220px;
-    border-bottom: 2px solid var(--line);
-  }
+    :root{
+      --bg:#0b0e10;
+      --ink:#e9e4d5;
+      --muted:#b9b3a5;
+      --accent:#d4a94d;
+      --line:#3b3325;
+      --card:#151515d0;
+      --texture:url('/images/viking-texture.webp');
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      color:var(--ink);
+      background: var(--bg) var(--texture) center/cover fixed no-repeat;
+      font-family: system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+      letter-spacing:.1px;
+    }
+    .wrap{max-width:1100px;margin:0 auto}
+    .banner{
+      background: linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.75)), var(--texture) center/cover no-repeat;
+      height: 220px;
+      border-bottom: 2px solid var(--line);
+    }
 
-  /* Header row */
-  .header{display:flex;align-items:flex-end;gap:18px;margin-top:-58px;padding:0 16px}
+    /* Header row */
+    .header{display:flex;align-items:flex-end;gap:18px;margin-top:-58px;padding:0 16px}
 
-  /* === Viking Profile Frames (reusable) === */
-  .pfp{
-    position:relative; display:inline-block;
-    width:118px; height:118px; border-radius:50%;
-    /* depth ring */
-    box-shadow: 0 0 0 3px #000, 0 6px 18px rgba(0,0,0,.6);
-  }
-  .pfp > img{
-    width:100%; height:100%; border-radius:50%;
-    object-fit:cover; display:block; border:none; background:#000;
-  }
-  .pfp::after{
-    content:""; position:absolute; inset:0;
-    background-repeat:no-repeat; background-position:center; background-size:100% 100%;
-    pointer-events:none; image-rendering:auto;
-  }
-  .pfp--reader::after  { background-image:url("/guildbook/reader-frame.svg"); }
-  .pfp--premium::after { background-image:url("/guildbook/premium-frame.svg"); }
-  .pfp--annual::after  { background-image:url("/guildbook/annual-frame.svg"); }
+    /* Viking Profile Frames */
+    .pfp{
+      position:relative; display:inline-block;
+      width:118px; height:118px; border-radius:50%;
+      box-shadow: 0 0 0 3px #000, 0 6px 18px rgba(0,0,0,.6);
+    }
+    .pfp > img{
+      width:100%; height:100%; border-radius:50%;
+      object-fit:cover; display:block; border:none; background:#000;
+    }
+    .pfp::after{
+      content:""; position:absolute; inset:0;
+      background-repeat:no-repeat; background-position:center; background-size:100% 100%;
+      pointer-events:none; image-rendering:auto;
+    }
+    .pfp--reader::after  { background-image:url("/guildbook/reader-frame.svg"); }
+    .pfp--premium::after { background-image:url("/guildbook/premium-frame.svg"); }
+    .pfp--annual::after  { background-image:url("/guildbook/annual-frame.svg"); }
 
-  /* legacy avatar ring (fallback if frame missing) */
-  .avatar{
-    width:118px;height:118px;border-radius:999px;object-fit:cover;
-    border:5px solid #000; outline:3px solid var(--accent); background:#000;
-  }
+    .avatar{
+      width:118px;height:118px;border-radius:999px;object-fit:cover;
+      border:5px solid #000; outline:3px solid var(--accent); background:#000;
+    }
 
-  .htext h1{
-    margin:0 0 6px 0;
-    font-size:28px; line-height:1.1;
-    font-family:"Cinzel", serif;
-    text-shadow: 0 1px 0 #000;
-  }
-  .htext small{color:var(--muted);font-size:12px}
+    .htext h1{
+      margin:0 0 6px 0;
+      font-size:28px; line-height:1.1;
+      font-family:"Cinzel", serif;
+      text-shadow: 0 1px 0 #000;
+    }
+    .htext small{color:var(--muted);font-size:12px}
 
-  .actions{margin-left:auto;display:flex;gap:8px}
-  .btn{
-    background: linear-gradient(#7b5b1d, #4a3814);
-    color:#fff; border:1px solid #2e240c; padding:8px 12px; border-radius:10px; cursor:pointer;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 2px 8px rgba(0,0,0,.35);
-  }
-  .btn.ghost{background:rgba(0,0,0,.25); border:1px solid var(--line); color:var(--ink)}
+    /* Tabs */
+    .tabs{
+      display:flex; gap:22px; padding:12px 16px;
+      border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+      background:linear-gradient(0deg, rgba(0,0,0,.35), rgba(0,0,0,.15));
+      font-family:"Cinzel", serif;
+    }
+    .tabs a{color:var(--muted); text-decoration:none; padding:6px 0}
+    .tabs a.active{color:var(--accent); border-bottom:2px solid var(--accent)}
 
-  /* Tabs */
-  .tabs{
-    display:flex; gap:22px; padding:12px 16px;
-    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
-    background:linear-gradient(0deg, rgba(0,0,0,.35), rgba(0,0,0,.15));
-    font-family:"Cinzel", serif;
-  }
-  .tabs a{color:var(--muted); text-decoration:none; padding:6px 0}
-  .tabs a.active{color:var(--accent); border-bottom:2px solid var(--accent)}
+    /* Layout */
+    .grid{display:grid; grid-template-columns:360px 1fr; gap:18px; padding:16px}
+    .card{
+      background: var(--card);
+      border:1px solid var(--line);
+      border-radius:14px; padding:14px;
+      backdrop-filter: blur(2px);
+    }
 
-  /* Two-column layout */
-  .grid{display:grid; grid-template-columns:360px 1fr; gap:18px; padding:16px}
-  .card{
-    background: var(--card);
-    border:1px solid var(--line);
-    border-radius:14px; padding:14px;
-    backdrop-filter: blur(2px);
-  }
+    /* Left column */
+    .block-title{
+      margin:0 0 10px 0; font-family:"Cinzel", serif; font-size:18px; color:var(--accent);
+      border-bottom:1px solid var(--line); padding-bottom:6px;
+    }
+    .intro p{margin:4px 0; color:var(--muted)}
 
-  /* Left column blocks */
-  .block-title{
-    margin:0 0 10px 0; font-family:"Cinzel", serif; font-size:18px; color:var(--accent);
-    border-bottom:1px solid var(--line); padding-bottom:6px;
-  }
-  .intro p{margin:4px 0; color:var(--muted)}
+    /* Right column */
+    .horn{height:10px; margin:10px 0; background:
+      linear-gradient(90deg, transparent, rgba(212,169,77,.45), transparent)}
+    .section{display:none}
+    .section.active{display:block}
 
-  /* Right column sections */
-  .horn{height:10px; margin:10px 0; background:
-    linear-gradient(90deg, transparent, rgba(212,169,77,.45), transparent)}
-  .section{display:none}
-  .section.active{display:block}
+    /* Stories */
+    .sagas .saga{
+      display:flex; flex-direction:column; gap:8px;
+      padding:12px; border:1px solid var(--line);
+      border-radius:12px; background:rgba(0,0,0,.35);
+    }
+    .sagas .saga + .saga{margin-top:12px}
+    .saga .top{display:flex; justify-content:space-between; align-items:center}
+    .saga h3{margin:0; font-size:16px; font-weight:700}
+    .saga time{color:var(--muted); font-size:12px}
+    .saga .excerpt{color:#d8d2c2; font-size:14px}
+    .saga a{font-size:13px; text-decoration:underline; color:var(--accent)}
 
-  /* Stories */
-  .sagas .saga{
-    display:flex; flex-direction:column; gap:8px;
-    padding:12px; border:1px solid var(--line);
-    border-radius:12px; background:rgba(0,0,0,.35);
-  }
-  .sagas .saga + .saga{margin-top:12px}
-  .saga .top{display:flex; justify-content:space-between; align-items:center}
-  .saga h3{margin:0; font-size:16px; font-weight:700}
-  .saga time{color:var(--muted); font-size:12px}
-  .saga .excerpt{color:#d8d2c2; font-size:14px}
-  .saga a{font-size:13px; text-decoration:underline; color:var(--accent)}
+    /* Companions */
+    .companions { display:grid; gap:10px; }
+    .comp-item{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px; padding:10px; border:1px solid var(--line);
+      border-radius:10px; background:rgba(0,0,0,.35);
+    }
+    .comp-meta{ display:flex; align-items:center; gap:10px; }
 
-  /* --- Companions (thumb size + frames) --- */
-  .companions { display:grid; gap:10px; }
+    .comp-meta .pfp{
+      width:44px; height:44px; border-radius:50%;
+      position:relative; display:inline-block; flex-shrink:0;
+      box-shadow:0 0 0 2px #000, 0 3px 10px rgba(0,0,0,.5);
+    }
+    .comp-meta .pfp > img{
+      width:100%; height:100%; border-radius:50%;
+      object-fit:cover; display:block; border:none; background:#000;
+    }
 
-  .comp-item{
-    display:flex; align-items:center; justify-content:space-between;
-    gap:12px; padding:10px; border:1px solid var(--line);
-    border-radius:10px; background:rgba(0,0,0,.35);
-  }
+    #companionsList img{
+      width:44px; height:44px; object-fit:cover; border-radius:50%;
+    }
 
-  .comp-meta{ display:flex; align-items:center; gap:10px; }
+    .comp-meta .pfp::after{
+      content:""; position:absolute; inset:0;
+      background-repeat:no-repeat; background-position:center; background-size:100% 100%;
+      pointer-events:none;
+    }
+    .comp-meta .pfp.pfp--reader::after  { background-image:url("/guildbook/reader-frame.svg"); }
+    .comp-meta .pfp.pfp--premium::after { background-image:url("/guildbook/premium-frame.svg"); }
+    .comp-meta .pfp.pfp--annual::after  { background-image:url("/guildbook/annual-frame.svg"); }
 
-  .comp-meta .pfp{
-    width:44px; height:44px; border-radius:50%;
-    position:relative; display:inline-block; flex-shrink:0;
-    box-shadow:0 0 0 2px #000, 0 3px 10px rgba(0,0,0,.5);
-  }
-  .comp-meta .pfp > img{
-    width:100%; height:100%; border-radius:50%;
-    object-fit:cover; display:block; border:none; background:#000;
-  }
+    .comp-name{ font-weight:600; }
 
-  #companionsList img{
-    width:44px; height:44px; object-fit:cover; border-radius:50%;
-  }
+    /* Gallery */
+    .gallery-grid{
+      display:grid; grid-template-columns:repeat(3,1fr); gap:10px;
+    }
+    .gallery-grid img{
+      width:100%; aspect-ratio:1/1; object-fit:cover;
+      border-radius:10px; border:1px solid var(--line); background:#000;
+    }
 
-  .comp-meta .pfp::after{
-    content:""; position:absolute; inset:0;
-    background-repeat:no-repeat; background-position:center; background-size:100% 100%;
-    pointer-events:none;
-  }
-  .comp-meta .pfp.pfp--reader::after  { background-image:url("/guildbook/reader-frame.svg"); }
-  .comp-meta .pfp.pfp--premium::after { background-image:url("/guildbook/premium-frame.svg"); }
-  .comp-meta .pfp.pfp--annual::after  { background-image:url("/guildbook/annual-frame.svg"); }
-
-  .comp-name{ font-weight:600; }
-
-  /* Gallery grid (tab content) */
-  .gallery-grid{
-    display:grid; grid-template-columns:repeat(3,1fr); gap:10px;
-  }
-  .gallery-grid img{
-    width:100%; aspect-ratio:1/1; object-fit:cover;
-    border-radius:10px; border:1px solid var(--line); background:#000;
-  }
-
-  .back{
-    display:inline-block; margin:8px 16px;
-    text-decoration:underline; color:var(--muted);
-  }
-</style>
-
+    .back{
+      display:inline-block; margin:8px 16px;
+      text-decoration:underline; color:var(--muted);
+    }
+  </style>
 </head>
+
 <body>
   <div class="banner"></div>
 
   <div class="wrap">
     <section class="header">
-      <!-- Wrapped avatar for frame -->
       <div id="pfp" class="pfp">
         <img id="avatar" class="avatar" alt="avatar"/>
       </div>
@@ -197,13 +183,9 @@
         <h1 id="username">Saga of </h1>
         <small id="useremail"></small>
       </div>
-      <div class="actions">
-        <button class="btn" id="toastBtn">Toast in the Hall</button>
-        <button class="btn ghost" id="ravenBtn">Send Raven</button>
-      </div>
+      <!-- buttons removed -->
     </section>
 
-    <!-- Only these three tabs -->
     <nav class="tabs">
       <a href="#stories" data-tab="stories" class="active">Stories</a>
       <a href="#companions" data-tab="companions">Companions</a>
@@ -211,7 +193,6 @@
     </nav>
 
     <main class="grid">
-      <!-- LEFT COLUMN -->
       <aside>
         <div class="card intro" id="introCard" style="display:none">
           <h3 class="block-title">About the Wanderer</h3>
@@ -221,23 +202,19 @@
         </div>
       </aside>
 
-      <!-- RIGHT COLUMN (tabbed content) -->
       <section>
-        <!-- STORIES TAB -->
         <div id="tab-stories" class="card section active">
           <h2 class="block-title">Sagas & Deeds</h2>
           <div class="horn"></div>
           <div id="sagaList" class="sagas"></div>
         </div>
 
-        <!-- COMPANIONS TAB -->
         <div id="tab-companions" class="card section">
           <h2 class="block-title">Companions</h2>
           <div class="horn"></div>
           <div id="companionsList" class="companions"><div class="muted">Loading</div></div>
         </div>
 
-        <!-- GALLERY TAB -->
         <div id="tab-gallery" class="card section">
           <h2 class="block-title">Gallery</h2>
           <div class="horn"></div>
@@ -246,10 +223,9 @@
       </section>
     </main>
 
-    <a class="back" href="/friends.html"> Back to Companions</a>
+    <a class="back" href="/friends.html">Back to Companions</a>
   </div>
 
-  <!-- Minimal shim: apply frame class to header avatar based on viewed user's membership -->
   <script>
     (function(){
       const API_BASE = (document.querySelector('meta[name="api-base"]')?.content || '').trim();
@@ -262,7 +238,7 @@
         if (t === 'premium') return 'pfp--premium';
         if (t === 'annual')  return 'pfp--annual';
         if (t === 'reader')  return 'pfp--reader';
-        return ''; // no frame if unknown
+        return '';
       }
 
       async function applyFrame(){
@@ -273,7 +249,7 @@
           const u = await r.json();
           const cls = frameClassFor(u?.membership);
           if (cls) pfp.classList.add(cls);
-        }catch{/* ignore */}
+        }catch{}
       }
       applyFrame();
     })();
