@@ -118,203 +118,40 @@
     header .wrap{position:relative; display:flex; gap:22px; align-items:center;}
 
     /* ===== Notification Axes Icon ===== */
-.notif-wrapper {
-  position: relative;
-  margin-left: 20px;
-}
-
-.notif-btn {
-  position: relative;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.notif-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  object-fit: contain;
-  /* gold aura and soft inner light */
-  filter: drop-shadow(0 0 6px rgba(212,169,77,0.7))
-          drop-shadow(0 0 10px rgba(212,169,77,0.4));
-  transition: transform 0.25s ease, filter 0.25s ease;
-}
-
-.notif-btn:hover .notif-icon {
-  transform: scale(1.12) rotate(10deg);
-  filter: drop-shadow(0 0 10px rgba(255,210,100,0.9))
-          drop-shadow(0 0 16px rgba(255,210,100,0.6));
-}
-
-/* Notification badge */
-.notif-count {
-  position: absolute;
-  top: -5px;
-  right: -7px;
-  background: radial-gradient(circle at 30% 30%, #ffecb3, #d4a94d);
-  color: #111;
-  font-weight: 700;
-  font-size: 12px;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 6px rgba(0,0,0,0.6), 0 0 6px rgba(212,169,77,0.7);
-}
-
-
-  </style>
-</head>
-<body>
-  <header>
-    <div class="wrap">
-      <a href="/" class="brand" style="display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit">
-        <img src="/logo/logo-64.png" alt="Mead Hall" style="width:40px;height:40px;border-radius:8px;object-fit:cover"/>
-        <h1 style="margin:0">Mead Hall</h1>
-      </a>
-
-      <nav style="margin-left:auto; display:flex; align-items:center; gap:16px">
-        <a class="navlink" href="/">Home</a>
-        <a class="navlink" href="/#plans">Membership</a>
-        <a class="navlink" href="/#contest">Skald Contest</a>
-        <a class="navlink" href="/account.html">Edit profile</a>
-
-        <div class="notif-wrapper">
-  <button id="notifBtn" class="notif-btn" aria-label="Notifications">
-    <img src="/guildbook/axes.png" alt="Notifications" class="notif-icon">
-    <span id="notifCount" class="notif-count">0</span>
-  </button>
-</div>
-
-
-      <!-- Dropdown panel -->
-      <div id="mhNotifyPanel" class="mh-notify-panel" hidden>
-        <div class="mhnp-head">
-          <strong>Notifications</strong>
-          <div class="mhnp-tabs">
-            <button class="tab active" data-tab="all">All</button>
-            <button class="tab" data-tab="unread">Unread</button>
-          </div>
-        </div>
-        <div class="mhnp-list" id="mhNotifyList"></div>
-        <div class="mhnp-foot">
-          <button id="mhMarkAllRead" class="mini">Mark all read</button>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <main class="page">
-    <h2 class="rune-title" style="margin:0 0 12px">Profile</h2>
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Mead Hall Profile</title>
-  <meta name="description" content="Your Mead Hall guild profile." />
-  <meta name="theme-color" content="#0b0f12" />
-
-  <!-- Backend base -->
-  <meta name="api-base" content="https://meadhall-site.onrender.com" />
-
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
-
-  <!-- Logo & favicon -->
-  <link rel="icon" href="/logo/favicon.ico" sizes="any" />
-  <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png" />
-  <meta property="og:image" content="/logo/logo-512.png" />
-
-  <!-- Odin theme -->
-  <link rel="stylesheet" href="/Styles/odin.css" />
-
-  <style>
-    .page{max-width:1100px;margin:110px auto 60px;padding:0 20px}
-    .row{display:grid;gap:20px;grid-template-columns:1fr}
-    @media(min-width:980px){.row{grid-template-columns:360px 1fr}}
-    .panel{
-      background:linear-gradient(180deg,var(--glass),rgba(255,255,255,.02));
-      border:1px solid rgba(200,169,107,.22);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      padding:22px;
-    }
-
-    /* -------- Avatar + Frames -------- */
-    .avatar{width:160px;height:160px;border-radius:50%;object-fit:cover;background:#222}
-    .pfp{position:relative;display:inline-block;width:160px;height:160px}
-    .pfp>img{width:100%;height:100%;display:block;border-radius:50%}
-    .pfp.pfp--reader::after{
-      content:"";position:absolute;inset:0;pointer-events:none;
-      background:url("/guildbook/reader-frame.svg") no-repeat center/100% 100%;
-    }
-    .pfp.pfp--premium::after{
-      content:"";position:absolute;inset:0;pointer-events:none;
-      background:url("/guildbook/premium-frame.svg") no-repeat center/100% 100%;
-    }
-    .pfp.pfp--annual::after{
-      content:"";position:absolute;inset:0;pointer-events:none;
-      background:url("/guildbook/annual-frame.svg") no-repeat center/100% 100%;
-    }
-
-    .label{font-size:12px;letter-spacing:.08em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:6px}
-    .kv{margin-bottom:12px}
-    .story{padding:14px;border-radius:12px;border:1px solid rgba(200,169,107,.2);margin:10px 0;background:rgba(255,255,255,.03)}
-    .muted{color:var(--ink-dim)}
-    .gallery-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
-      gap:10px;
-    }
-    .gallery-grid img{
-      width:100%;
-      aspect-ratio:1 / 1;
-      object-fit:cover;
-      border-radius:10px;
-      border:1px solid rgba(200,169,107,.2);
-      background:#111;
-      cursor:zoom-in;
-    }
-
-    /* ------ LIGHTBOX ------ */
-    .lightbox{position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; opacity:0; transition:opacity .18s ease; z-index:9999;}
-    .lightbox.open{ display:block; opacity:1; }
-    .lb-stage{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:60px 80px;}
-    .lb-img{max-width:min(92vw,1400px); max-height:86vh; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,.6); background:#111; object-fit:contain; user-select:none;}
-    .lb-close, .lb-prev, .lb-next{
-      position:absolute; top:50%; transform:translateY(-50%); background:rgba(20,20,20,.5);
-      border:1px solid rgba(200,169,107,.35); color:#e9e4d5; width:44px; height:44px; border-radius:999px;
-      display:flex; align-items:center; justify-content:center; font-size:22px; cursor:pointer; user-select:none; backdrop-filter: blur(4px);
-    }
-    .lb-prev{ left:18px; } .lb-next{ right:18px; }
-    .lb-close{ top:18px; right:18px; transform:none; width:42px;height:42px; font-size:20px; }
-    .lb-meta{ position:absolute; left:0; right:0; bottom:10px; text-align:center; color:#d8caa6; font-size:13px; letter-spacing:.04em; opacity:.9; padding:4px 10px; }
-    .lb-counter{ opacity:.8; font-variant-numeric:tabular-nums; }
-
-    /* -------- Header layout tweak so panel anchors nicely -------- */
-    header .wrap{position:relative; display:flex; gap:22px; align-items:center;}
-
-    /* ===== Notification Axes Icon ===== */
     .notif-wrapper { position: relative; margin-left: 20px; }
     .notif-btn { position: relative; background: none; border: none; cursor: pointer; padding: 0; }
     .notif-icon {
-      width: 34px; height: 34px; border-radius: 50%; object-fit: contain;
-      filter: drop-shadow(0 0 6px rgba(212,169,77,0.7)) drop-shadow(0 0 10px rgba(212,169,77,0.4));
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      object-fit: contain;
+      /* gold aura and soft inner light */
+      filter: drop-shadow(0 0 6px rgba(212,169,77,0.7))
+              drop-shadow(0 0 10px rgba(212,169,77,0.4));
       transition: transform 0.25s ease, filter 0.25s ease;
     }
-    .notif-btn:hover .notif-icon { transform: scale(1.12) rotate(10deg);
-      filter: drop-shadow(0 0 10px rgba(255,210,100,0.9)) drop-shadow(0 0 16px rgba(255,210,100,0.6)); }
+    .notif-btn:hover .notif-icon {
+      transform: scale(1.12) rotate(10deg);
+      filter: drop-shadow(0 0 10px rgba(255,210,100,0.9))
+              drop-shadow(0 0 16px rgba(255,210,100,0.6));
+    }
+
+    /* Notification badge */
     .notif-count {
-      position: absolute; top: -5px; right: -7px; background: radial-gradient(circle at 30% 30%, #ffecb3, #d4a94d);
-      color: #111; font-weight: 700; font-size: 12px; border-radius: 50%; width: 18px; height: 18px;
-      display: flex; align-items: center; justify-content: center; box-shadow: 0 0 6px rgba(0,0,0,0.6), 0 0 6px rgba(212,169,77,0.7);
+      position: absolute;
+      top: -5px;
+      right: -7px;
+      background: radial-gradient(circle at 30% 30%, #ffecb3, #d4a94d);
+      color: #111;
+      font-weight: 700;
+      font-size: 12px;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 6px rgba(0,0,0,0.6), 0 0 6px rgba(212,169,77,0.7);
     }
 
     /* ===== Notification Panel (Mead Hall) ===== */
@@ -473,7 +310,7 @@
       if (/^https?:\/\//i.test(p)) return p;
       if (p.startsWith('/uploads/') || p.startsWith('uploads/')) {
         return API_BASE.replace(/\/+$/, '') + '/' + p.replace(/^\/+/, '');
-      }
+        }
       return p;
     };
     const cacheBust = (u) => u ? (u.includes('?') ? `${u}&t=${Date.now()}` : `${u}?t=${Date.now()}`) : u;
@@ -524,7 +361,7 @@
     // ---- Apply membership frame
     function applyFrame(u){
       if (!pfpWrap) return;
-      const tier = u.membership || (getUser()?.membership) || '';
+      const tier = (u.membership || getUser()?.membership || '').toLowerCase();
       pfpWrap.classList.remove('pfp--reader','pfp--premium','pfp--annual');
       if (tier === 'premium') pfpWrap.classList.add('pfp--premium');
       else if (tier === 'annual') pfpWrap.classList.add('pfp--annual');
@@ -668,7 +505,10 @@
     function renderList(){
       if (!NLIST) return;
       const items = NSTATE.filter === "unread" ? NSTATE.all.filter(n=>!n.read) : NSTATE.all;
-      if (!items.length){ NLIST.innerHTML = `<div class="muted" style="padding:14px">No notifications.</div>`; setBadge(0); return; }
+      if (!items.length){
+        NLIST.innerHTML = `<div class="muted" style="padding:14px">No notifications.</div>`;
+        setBadge(0); return;
+      }
       NLIST.innerHTML = items.map(n=>{
         const a = n.actor || {};
         const meta = n.meta || {};
@@ -776,6 +616,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 

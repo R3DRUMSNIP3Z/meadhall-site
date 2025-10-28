@@ -830,6 +830,8 @@ friendsRoutes.install(app);
 chatRoutes.install(app);
 chatGlobal.install(app);
 notifications.install(app);
+app.locals.notify = notifications.createNotification; // ✅ expose notifier
+
 
 // ⬅️ Mount the gallery routes (uses app.locals.uploadsDir)
 galleryRoutes.install(app);
