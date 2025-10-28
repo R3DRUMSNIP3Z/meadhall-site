@@ -310,7 +310,7 @@
       if (/^https?:\/\//i.test(p)) return p;
       if (p.startsWith('/uploads/') || p.startsWith('uploads/')) {
         return API_BASE.replace(/\/+$/, '') + '/' + p.replace(/^\/+/, '');
-        }
+      }
       return p;
     };
     const cacheBust = (u) => u ? (u.includes('?') ? `${u}&t=${Date.now()}` : `${u}?t=${Date.now()}`) : u;
@@ -538,18 +538,32 @@
       }catch{}
     }
 
-    // ⬇⬇ FIX: use POST instead of PATCH to satisfy CORS allow-list
+    // --- fixed markRead: handles POST, PATCH, or fallback alias
     async function markRead(ids){
       if (!ids?.length) return;
-      try{
-        await fetch(`${API_BASE}/api/notifications/read`, {
-          method:"POST",
-          headers:{ "Content-Type":"application/json" },
+
+      async function tryOne(method, path){
+        const res = await fetch(`${API_BASE}/api/notifications/${path}`, {
+          method,
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: NSTATE.userId, ids })
         });
-        for (const n of NSTATE.all){ if (ids.includes(n.id)) n.read = true; }
-        renderList();
-      }catch{}
+        if (!res.ok) throw new Error(`${method} ${path} -> ${res.status}`);
+        return res;
+      }
+
+      try {
+        await tryOne("POST", "read");      // preferred
+      } catch (e1) {
+        try {
+          await tryOne("PATCH", "read");   // legacy servers
+        } catch (e2) {
+          await tryOne("POST", "mark-read"); // alias
+        }
+      }
+
+      for (const n of NSTATE.all){ if (ids.includes(n.id)) n.read = true; }
+      renderList();
     }
 
     function openPanel(){
@@ -625,6 +639,7 @@
   </script>
 </body>
 </html>
+
 
 
 
