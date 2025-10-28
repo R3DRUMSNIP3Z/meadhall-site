@@ -183,12 +183,13 @@
         <a class="navlink" href="/#contest">Skald Contest</a>
         <a class="navlink" href="/account.html">Edit profile</a>
 
-        <!-- Notifications (axes) -->
-        <button id="mhNotifyBtn" class="mh-notify-btn" aria-label="Notifications">
-          <img src="/guildbook/axes.png" alt="">
-          <span id="mhNotifyBadge" class="mh-notify-badge" hidden>0</span>
-        </button>
-      </nav>
+        <div class="notif-wrapper">
+  <button id="notifBtn" class="notif-btn" aria-label="Notifications">
+    <img src="/guildbook/axes.png" alt="Notifications" class="notif-icon">
+    <span id="notifCount" class="notif-count">0</span>
+  </button>
+</div>
+
 
       <!-- Dropdown panel -->
       <div id="mhNotifyPanel" class="mh-notify-panel" hidden>
