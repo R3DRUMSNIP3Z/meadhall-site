@@ -22,6 +22,7 @@ const friendsRoutes = require("./friendsRoutes");
 const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
 const galleryRoutes = require("./galleryRoutes"); // ⬅️ gallery API
+const notifications = require("./notifications");
 
 const app = express();
 
@@ -67,9 +68,7 @@ app.use(
   })
 );
 
-// Answer ALL preflights immediately
-// Express 5: use a regex instead of "*" to avoid path-to-regexp error
-// replace the bad line with:
+// Answer ALL preflights immediately (avoid path-to-regexp "*" crash)
 app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.status(204).end();
   next();
@@ -89,42 +88,40 @@ const ALLOWED_UPLOAD_ORIGINS = new Set([
   "http://127.0.0.1:5173",
 ]);
 
-app.use("/uploads", (req, res, next) => {
-  const origin = req.headers.origin || "";
-  if (ALLOWED_UPLOAD_ORIGINS.has(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  } else {
-    // default to your Vercel site so hotlinks still work in prod
-    res.setHeader("Access-Control-Allow-Origin", "https://meadhall-site.vercel.app");
-  }
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range");
-
-  // ✅ Key for cross-origin images (prevents CORB/CORP issues)
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-
-  // Nice-to-have safety
-  res.setHeader("X-Content-Type-Options", "nosniff");
-
-  // Handle preflight quickly
-  if (req.method === "OPTIONS") {
-    res.status(204).end();
-    return;
-  }
-  next();
-},
-express.static(uploadsDir, {
-  setHeaders(res, filePath) {
-    if (/\.(png|jpe?g|webp|gif|avif)$/i.test(filePath)) {
-      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-      res.setHeader("Accept-Ranges", "bytes");
-      // express.static already sets correct Content-Type, nosniff above helps Chrome
-    } else if (/\.pdf$/i.test(filePath)) {
-      res.setHeader("Cache-Control", "public, max-age=86400");
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    const origin = req.headers.origin || "";
+    if (ALLOWED_UPLOAD_ORIGINS.has(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    } else {
+      // default to your Vercel site so hotlinks still work in prod
+      res.setHeader("Access-Control-Allow-Origin", "https://meadhall-site.vercel.app");
     }
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range");
+
+    // ✅ Key for cross-origin images (prevents CORB/CORP issues)
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+
+    // Nice-to-have safety
+    res.setHeader("X-Content-Type-Options", "nosniff");
+
+    if (req.method === "OPTIONS") return res.status(204).end();
+    next();
   },
-}));
+  express.static(uploadsDir, {
+    setHeaders(res, filePath) {
+      if (/\.(png|jpe?g|webp|gif|avif)$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        res.setHeader("Accept-Ranges", "bytes");
+      } else if (/\.pdf$/i.test(filePath)) {
+        res.setHeader("Cache-Control", "public, max-age=86400");
+      }
+    },
+  })
+);
 
 // expose uploadsDir so galleryRoutes uses the same folder
 app.locals.uploadsDir = uploadsDir;
@@ -185,24 +182,8 @@ const resendClient = HAVE_RESEND ? new Resend(process.env.RESEND_API_KEY) : null
 
 let smtpTransport = null;
 if (process.env.SMTP_HOST) {
-  smtpTransport = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || "false") === "true",
-    auth: (process.env.SMTP_USER && process.env.SMTP_PASS) ? {
-      user: process.env.SMTP_USER, pass: process.env.SMTP_PASS,
-    } : undefined,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    tls: { rejectUnauthorized: false, minVersion: "TLSv1.2" },
-  });
-
-  const forceIPv4AndPooling = {
-    pool: true, maxConnections: 3, maxMessages: 50, keepAlive: true, family: 4, socketTimeout: 30000,
-    tls: { ...(smtpTransport.options.tls || {}), servername: process.env.SMTP_HOST, rejectUnauthorized: false, minVersion: "TLSv1.2" },
-  };
-
-  smtpTransport = nodemailer.createTransport({
+  // Force IPv4 + pooling profile
+  const baseSMTP = {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
     secure: String(process.env.SMTP_SECURE || "false") === "true",
@@ -211,15 +192,19 @@ if (process.env.SMTP_HOST) {
       : undefined,
     connectionTimeout: 15000,
     greetingTimeout: 10000,
-    ...forceIPv4AndPooling,
-  });
+    pool: true, maxConnections: 3, maxMessages: 50, keepAlive: true,
+    family: 4, socketTimeout: 30000,
+    tls: { servername: process.env.SMTP_HOST, rejectUnauthorized: false, minVersion: "TLSv1.2" },
+  };
+
+  smtpTransport = nodemailer.createTransport(baseSMTP);
 
   (async function verifyOrFallback() {
     try {
       await smtpTransport.verify();
       console.log(
         "📨 SMTP ready:",
-        `${process.env.SMTP_HOST}:${smtpTransport.options.port}`,
+        `${smtpTransport.options.host}:${smtpTransport.options.port}`,
         smtpTransport.options.secure ? "(SMTPS 465)" : "(STARTTLS 587)"
       );
     } catch (err) {
@@ -228,18 +213,12 @@ if (process.env.SMTP_HOST) {
       if (on587) {
         console.warn("↪️ Retrying via 465/SMTPS with IPv4 + pool…");
         smtpTransport = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
+          ...baseSMTP,
           port: 465,
           secure: true,
-          auth: (process.env.SMTP_USER && process.env.SMTP_PASS)
-            ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-            : undefined,
-          connectionTimeout: 15000,
-          greetingTimeout: 10000,
-          ...forceIPv4AndPooling,
         });
         await smtpTransport.verify();
-        console.log("✅ SMTP fallback ready: smtp.gmail.com:465 (SMTPS)");
+        console.log("✅ SMTP fallback ready:", `${smtpTransport.options.host}:465 (SMTPS)`);
       }
     }
   })().catch(e => console.error("SMTP setup error:", e.message));
@@ -516,10 +495,9 @@ app.get("/api/users/:id", (req, res) => {
     avatarUrl: u.avatarUrl || "",
     bio: u.bio || "",
     interests: u.interests || "",
-    membership: u.membership || ""      // ⬅️ add this
+    membership: u.membership || ""
   });
 });
-
 
 // Lookup purchases by email
 app.get("/api/subscription/by-email", (req, res) => {
@@ -813,9 +791,7 @@ setInterval(() => {
 // Health check
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-// ... after bodyParser.json(), before you install routes
-
-// ---------------- Profile Frame Helper ----------------
+// ---------------- Profile Frame Helper (server-side injection only) ----------------
 function applyFrameClass(u) {
   if (!u || typeof u !== "object") return u;
   const m = (u.membership || "").toLowerCase();
@@ -845,52 +821,18 @@ app.use((req, res, next) => {
   next();
 });
 
-/* === GLOBAL PROFILE FRAME HOOK === */
-function applyFrameToAllAvatars() {
-  const user = JSON.parse(localStorage.getItem("mh_user") || "null");
-  if (!user) return;
-
-  const frameClass =
-    user.frameClass ||
-    (user.membership === "premium"
-      ? "pfp--premium"
-      : user.membership === "annual"
-      ? "pfp--annual"
-      : user.membership === "reader"
-      ? "pfp--reader"
-      : "");
-
-  if (!frameClass) return;
-
-  // Wrap any <img class="avatar"> on the page with a .pfp div
-  document.querySelectorAll("img.avatar").forEach((img) => {
-    if (img.closest(".pfp")) return; // already wrapped
-    const wrap = document.createElement("div");
-    wrap.className = `pfp ${frameClass}`;
-    wrap.style.setProperty("--pfp-size", `${img.width || 40}px`);
-    img.parentNode.insertBefore(wrap, img);
-    wrap.appendChild(img);
-  });
-}
-
-// Run once DOM is ready
-document.addEventListener("DOMContentLoaded", applyFrameToAllAvatars);
-
-
+// NOTE: Any DOM-related frame code (wrapping <img class="avatar">, localStorage, etc.)
+// MUST live on the frontend (e.g., profile.js). Do not use document/localStorage in Node.
 
 // Mount routes (your originals)
 accountRoutes.install(app);
 friendsRoutes.install(app);
 chatRoutes.install(app);
 chatGlobal.install(app);
-
+notifications.install(app);
 
 // ⬅️ Mount the gallery routes (uses app.locals.uploadsDir)
 galleryRoutes.install(app);
-
-
-
-
 
 /* ======== Friends-of-User (public read-only) — used by friendprofile.html ======== */
 function safeUser(u) {
@@ -963,6 +905,7 @@ async function sendContestEmail(entry, buyerEmail) {
     text,
   });
 }
+
 
 
 
