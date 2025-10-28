@@ -118,50 +118,58 @@
     header .wrap{position:relative; display:flex; gap:22px; align-items:center;}
 
     /* ---- Axes notification UI ---- */
-    .mh-notify-btn{
-      position:relative; margin-left:10px;
-      width:38px; height:38px; border-radius:999px;
-      background:rgba(20,20,20,.6); border:1px solid rgba(200,169,107,.25);
-      display:flex; align-items:center; justify-content:center; cursor:pointer;
-      backdrop-filter: blur(3px);
-    }
-    .mh-notify-btn img{ width:24px; height:24px; display:block; }
-    .mh-notify-badge{
-      position:absolute; top:-4px; right:-4px; min-width:18px; height:18px;
-      padding:0 4px; border-radius:999px; background:#e23d3d; color:#fff;
-      font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;
-      box-shadow:0 0 0 2px #0b0f12;
-    }
+    /* ===== Notifications (axes) ===== */
+.notif-wrapper {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 48px;
+  cursor: pointer;
+}
+.notif-wrapper:focus-visible {
+  outline: 2px solid #d4a94d;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
 
-    .mh-notify-panel{
-      position:absolute; right:0; top:56px; width:360px; max-height:70vh;
-      background:linear-gradient(180deg,var(--glass),rgba(0,0,0,.88));
-      border:1px solid rgba(200,169,107,.28); border-radius:14px;
-      box-shadow:0 12px 40px rgba(0,0,0,.6); overflow:hidden; z-index:9999;
-    }
-    .mhnp-head{ display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid rgba(200,169,107,.18); }
-    .mhnp-head strong{ font-family:"Cinzel",serif; }
-    .mhnp-tabs{ display:flex; gap:8px; }
-    .mhnp-tabs .tab{
-      font-size:12px; padding:6px 10px; border-radius:999px; cursor:pointer;
-      background:rgba(255,255,255,.05); border:1px solid rgba(200,169,107,.22); color:var(--ink);
-    }
-    .mhnp-tabs .tab.active{ background:#d4a94d; color:#101214; border-color:#d4a94d; }
+.notif-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px rgba(212,169,77,.4));
+  transition: transform 0.3s ease, filter 0.3s ease;
+  user-select: none;
+  pointer-events: none; /* keep clicks on the wrapper */
+}
 
-    .mhnp-list{ max-height:55vh; overflow:auto; }
-    .mhnp-item{
-      display:grid; grid-template-columns:40px 1fr auto; gap:10px;
-      padding:10px 12px; border-bottom:1px solid rgba(200,169,107,.12);
-    }
-    .mhnp-item:last-child{ border-bottom:none; }
-    .mhnp-item .ava{ width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid rgba(200,169,107,.2); background:#000; }
-    .mhnp-item .txt{ font-size:14px; line-height:1.25; }
-    .mhnp-item .txt .who{ font-weight:700; }
-    .mhnp-item .when{ font-size:12px; color:var(--ink-dim); margin-top:2px; }
-    .mhnp-dot{ align-self:center; width:10px; height:10px; border-radius:50%; background:#4aa3ff; }
-    .mhnp-actions{ display:flex; gap:6px; }
-    .mhnp-actions .mini{ padding:4px 8px; font-size:12px; border-radius:8px; border:1px solid rgba(200,169,107,.25); background:rgba(255,255,255,.05); cursor:pointer; }
-    .mhnp-foot{ padding:8px 12px; border-top:1px solid rgba(200,169,107,.18); display:flex; justify-content:flex-end; }
+.notif-wrapper:hover .notif-icon {
+  transform: rotate(-10deg) scale(1.05);
+  filter: drop-shadow(0 0 8px rgba(255,210,90,.8));
+}
+
+/* Red badge */
+.notif-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #e43;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 6px;
+  line-height: 1;
+  border: 2px solid #000;
+  box-shadow: 0 0 6px rgba(0,0,0,.6);
+  animation: popBadge 0.4s ease;
+}
+
+@keyframes popBadge {
+  0% { transform: scale(0); opacity: 0; }
+  80% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
   </style>
 </head>
 <body>
