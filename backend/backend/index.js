@@ -22,7 +22,6 @@ const friendsRoutes = require("./friendsRoutes");
 const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
 const galleryRoutes = require("./galleryRoutes"); // ⬅️ gallery API
-const notifications = require("./notifications");
 
 const app = express();
 
@@ -884,7 +883,6 @@ accountRoutes.install(app);
 friendsRoutes.install(app);
 chatRoutes.install(app);
 chatGlobal.install(app);
-notifications.install(app);
 
 
 // ⬅️ Mount the gallery routes (uses app.locals.uploadsDir)
