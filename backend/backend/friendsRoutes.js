@@ -1,3 +1,4 @@
+// backend/friendsRoutes.js
 const { users, ensureFriendState } = require("./db");
 
 // return only safe, public fields
@@ -8,6 +9,16 @@ function safeUser(u) {
 }
 
 const currentUserId = (req) => (req.get("x-user-id") || "").trim();
+
+// small helper to emit a notification (no-op if notifications module isn't mounted)
+function notify(app, { type, targetUserId, actor, text, link }) {
+  app?.locals?.notify?.({
+    type: type || "friend",
+    targetUserId,
+    actor: { id: actor.id, name: actor.name, avatarUrl: actor.avatarUrl },
+    meta: { text: text || "", objectType: "profile", link: link || "/friends.html" }
+  });
+}
 
 function install(app) {
   // GET /api/friends — list friends + pending for current user (by x-user-id)
@@ -50,12 +61,32 @@ function install(app) {
       B.outgoing.delete(me);
       A.friends.add(to);
       B.friends.add(me);
+
+      // notify original requester (to) that I accepted
+      notify(app, {
+        type: "friend",
+        targetUserId: toUser.id,
+        actor: { id: meUser.id, name: meUser.name, avatarUrl: meUser.avatarUrl },
+        text: "accepted your friend request",
+        link: "/friends.html"
+      });
+
       return res.json({ ok: true, status: "accepted" });
     }
 
     // Otherwise create pending request
     A.outgoing.add(to);
     B.incoming.add(me);
+
+    // notify recipient that I sent a friend request
+    notify(app, {
+      type: "friend",
+      targetUserId: toUser.id,
+      actor: { id: meUser.id, name: meUser.name, avatarUrl: meUser.avatarUrl },
+      text: "sent you a friend request",
+      link: "/friends.html"
+    });
+
     res.status(201).json({ ok: true, status: "requested" });
   });
 
@@ -84,12 +115,33 @@ function install(app) {
     if (accept) {
       A.friends.add(from);
       B.friends.add(me);
+
+      // notify requester that I accepted
+      notify(app, {
+        type: "friend",
+        targetUserId: fromUser.id,
+        actor: { id: meUser.id, name: meUser.name, avatarUrl: meUser.avatarUrl },
+        text: "accepted your friend request",
+        link: "/friends.html"
+      });
+
+      return res.json({ ok: true, status: "accepted" });
     }
 
-    res.json({ ok: true, status: accept ? "accepted" : "declined" });
+    // declined
+    notify(app, {
+      type: "friend",
+      targetUserId: fromUser.id,
+      actor: { id: meUser.id, name: meUser.name, avatarUrl: meUser.avatarUrl },
+      text: "declined your friend request",
+      link: "/friends.html"
+    });
+
+    res.json({ ok: true, status: "declined" });
   });
 }
 
 module.exports = { install };
+
 
 
