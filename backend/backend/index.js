@@ -832,6 +832,23 @@ chatGlobal.install(app);
 notifications.install(app);
 app.locals.notify = notifications.createNotification; // ✅ expose notifier
 
+// ⬇⬇⬇ ADD: Minimal “mark read” endpoints so the frontend stops 404'ing.
+// If notifications router already provides them, these act as safe fallbacks.
+app.post("/api/notifications/read", (req, res) => {
+  // Accept { userId, ids:[] } but do not persist (in-memory can be added later)
+  const { userId, ids } = req.body || {};
+  if (!userId) return res.status(400).json({ ok:false, error:"userId required" });
+  console.log("🔔 /api/notifications/read", { userId, count: Array.isArray(ids) ? ids.length : 0 });
+  return res.json({ ok: true, updated: Array.isArray(ids) ? ids.length : 0 });
+});
+
+// Alias some frontends use
+app.post("/api/notifications/mark-read", (req, res) => {
+  const { userId, ids } = req.body || {};
+  if (!userId) return res.status(400).json({ ok:false, error:"userId required" });
+  console.log("🔔 /api/notifications/mark-read", { userId, count: Array.isArray(ids) ? ids.length : 0 });
+  return res.json({ ok: true, updated: Array.isArray(ids) ? ids.length : 0 });
+});
 
 // ⬅️ Mount the gallery routes (uses app.locals.uploadsDir)
 galleryRoutes.install(app);
@@ -907,6 +924,7 @@ async function sendContestEmail(entry, buyerEmail) {
     text,
   });
 }
+
 
 
 
