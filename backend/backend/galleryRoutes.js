@@ -109,6 +109,33 @@ function actorProfile(req) {
   return safe;
 }
 
+/* ---------- notifications helper (no-op if notifications not mounted) ---------- */
+function emitPhotoNote(app, { ownerUserId, actor, type, text, link, meta }) {
+  // Only notify if we know owner AND actor is a real user AND not notifying self
+  const actorId = (actor?.id || "").replace(/^u:/, "");
+  if (!ownerUserId || !actorId || ownerUserId === actorId) return;
+
+  // Lookup actor's user for avatar/name if we only got bare id
+  let actorUser = { id: actorId, name: actor?.name || "", avatarUrl: actor?.avatarUrl || "" };
+  if (users.has(actorId)) {
+    const u = users.get(actorId);
+    actorUser = { id: actorId, name: u?.name || actorUser.name, avatarUrl: u?.avatarUrl || actorUser.avatarUrl };
+  }
+
+  app?.locals?.notify?.({
+    type, // "like" | "dislike" | "comment"
+    targetUserId: ownerUserId,
+    actor: actorUser,
+    meta: {
+      text: text || "",
+      objectType: "photo",
+      // link to the actor's profile by default so the recipient can see who did it
+      link: link || `/friendprofile.html?user=${encodeURIComponent(actorUser.id)}`,
+      ...meta
+    }
+  });
+}
+
 /* ---------- installer ---------- */
 function install(app) {
   const router = express.Router();
@@ -261,9 +288,9 @@ function install(app) {
     res.json(list);
   });
 
-  // POST photo comment
+  // POST photo comment  🚨 emits "comment" notification to owner
   router.post("/api/users/:id/gallery/:photoId/comments", express.json(), (req, res) => {
-    const { id, photoId } = req.params;
+    const { id, photoId } = req.params;       // owner id is :id
     const text = String(req.body?.text || "").trim();
     if (!text) return res.status(400).json({ error: "text required" });
 
@@ -282,6 +309,21 @@ function install(app) {
     };
     item.comments.push(comment);
     writeStore(store);
+
+    // Notify owner (if not self)
+    const ownerUserId = String(id);
+    const actorUserId = (actor.id || "").replace(/^u:/, "");
+    if (ownerUserId && actorUserId && ownerUserId !== actorUserId) {
+      emitPhotoNote(req.app, {
+        ownerUserId,
+        actor: { id: actorUserId, name: actor.name, avatarUrl: actor.avatarUrl },
+        type: "comment",
+        text: "left a comment",
+        // add a small snippet to meta
+        meta: { snippet: text.slice(0, 120) }
+      });
+    }
+
     res.status(201).json(comment);
   });
 
@@ -300,9 +342,9 @@ function install(app) {
     res.json({ up, down, action });
   });
 
-  // POST photo reaction toggle
+  // POST photo reaction toggle  🚨 emits "like"/"dislike" notification to owner (when set)
   router.post("/api/users/:id/gallery/:photoId/reactions", express.json(), (req, res) => {
-    const { id, photoId } = req.params;
+    const { id, photoId } = req.params;     // owner id is :id
     const wanted = String(req.body?.action || "").trim(); // "", "up", "down"
     if (!["", "up", "down"].includes(wanted)) return res.status(400).json({ error: 'action must be "", "up", or "down"' });
 
@@ -310,13 +352,39 @@ function install(app) {
     const { item } = findPhoto(store, id, photoId);
     if (!item) return res.status(404).json({ error: "Photo not found" });
 
-    const actor = currentActor(req);
-    item.reactions.up = item.reactions.up.filter((a) => a !== actor);
-    item.reactions.down = item.reactions.down.filter((a) => a !== actor);
-    if (wanted === "up") item.reactions.up.push(actor);
-    if (wanted === "down") item.reactions.down.push(actor);
+    const actorIdToken = currentActor(req); // "u:<id>" or "anon:<ip>"
+    item.reactions.up = item.reactions.up.filter((a) => a !== actorIdToken);
+    item.reactions.down = item.reactions.down.filter((a) => a !== actorIdToken);
+    if (wanted === "up") item.reactions.up.push(actorIdToken);
+    if (wanted === "down") item.reactions.down.push(actorIdToken);
 
     writeStore(store);
+
+    // Notify only when adding a reaction (not when clearing "")
+    if (wanted === "up" || wanted === "down") {
+      const ownerUserId = String(id);
+      // derive bare user id if it's a logged-in actor
+      const bareActorId = actorIdToken.startsWith("u:") ? actorIdToken.replace(/^u:/, "") : "";
+      let actorPayload = { id: bareActorId, name: "", avatarUrl: "" };
+      if (bareActorId && users.has(bareActorId)) {
+        const u = users.get(bareActorId);
+        actorPayload.name = u?.name || "";
+        actorPayload.avatarUrl = u?.avatarUrl || "";
+      } else if (!bareActorId) {
+        // anonymous — you can skip notifying anonymous if you prefer
+        actorPayload = { id: "", name: "", avatarUrl: "" };
+      }
+
+      if (ownerUserId && actorPayload.id && ownerUserId !== actorPayload.id) {
+        emitPhotoNote(req.app, {
+          ownerUserId,
+          actor: actorPayload,
+          type: wanted === "up" ? "like" : "dislike",
+          text: wanted === "up" ? "liked your photo" : "disliked your photo"
+        });
+      }
+    }
+
     res.json({ ok: true, up: item.reactions.up.length, down: item.reactions.down.length, action: wanted });
   });
 
@@ -448,6 +516,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 
