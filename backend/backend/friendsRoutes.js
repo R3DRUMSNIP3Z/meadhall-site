@@ -10,13 +10,22 @@ function safeUser(u) {
 
 const currentUserId = (req) => (req.get("x-user-id") || "").trim();
 
-// small helper to emit a notification (no-op if notifications module isn't mounted)
-function notify(app, { type, targetUserId, actor, text, link }) {
+/**
+ * Small helper to emit a notification (no-op if notifications module isn't mounted)
+ * Accepts optional `meta` to pass extra hints (e.g., replaceKind/replaceActorId) so
+ * the frontend can collapse/retire earlier request notifications.
+ */
+function notify(app, { type, targetUserId, actor, text, link, meta }) {
+  const baseMeta = {
+    text: text || "",
+    objectType: "profile",
+    link: link || "/friends.html",
+  };
   app?.locals?.notify?.({
     type: type || "friend",
     targetUserId,
     actor: { id: actor.id, name: actor.name, avatarUrl: actor.avatarUrl },
-    meta: { text: text || "", objectType: "profile", link: link || "/friends.html" }
+    meta: { ...baseMeta, ...(meta || {}) },
   });
 }
 
@@ -68,7 +77,13 @@ function install(app) {
         targetUserId: toUser.id,
         actor: { id: meUser.id, name: meUser.name, avatarUrl: meUser.avatarUrl },
         text: "accepted your friend request",
-        link: "/friends.html"
+        link: "/friends.html",
+        meta: {
+          kind: "friend_accept",
+          replaceKind: "friend_request",
+          // This helps the frontend collapse the earlier "sent you a friend request"
+          replaceActorId: meUser.id,
+        },
       });
 
       return res.json({ ok: true, status: "accepted" });
@@ -84,7 +99,10 @@ function install(app) {
       targetUserId: toUser.id,
       actor: { id: meUser.id, name: meUser.name, avatarUrl: meUser.avatarUrl },
       text: "sent you a friend request",
-      link: "/friends.html"
+      link: "/friends.html",
+      meta: {
+        kind: "friend_request",
+      },
     });
 
     res.status(201).json({ ok: true, status: "requested" });
@@ -122,7 +140,12 @@ function install(app) {
         targetUserId: fromUser.id,
         actor: { id: meUser.id, name: meUser.name, avatarUrl: meUser.avatarUrl },
         text: "accepted your friend request",
-        link: "/friends.html"
+        link: "/friends.html",
+        meta: {
+          kind: "friend_accept",
+          replaceKind: "friend_request",
+          replaceActorId: meUser.id, // acceptor
+        },
       });
 
       return res.json({ ok: true, status: "accepted" });
@@ -134,7 +157,12 @@ function install(app) {
       targetUserId: fromUser.id,
       actor: { id: meUser.id, name: meUser.name, avatarUrl: meUser.avatarUrl },
       text: "declined your friend request",
-      link: "/friends.html"
+      link: "/friends.html",
+      meta: {
+        kind: "friend_decline",
+        replaceKind: "friend_request",
+        replaceActorId: meUser.id,
+      },
     });
 
     res.json({ ok: true, status: "declined" });
@@ -142,6 +170,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 
