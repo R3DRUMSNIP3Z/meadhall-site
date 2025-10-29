@@ -81,11 +81,7 @@
     }
     .lightbox.open{ display:block; opacity:1; }
 
-    .lb-stage{
-      position:absolute; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      padding:60px 80px;
-    }
+    .lb-stage{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:60px 80px; }
     .lb-img{
       max-width:min(92vw,1400px);
       max-height:86vh;
@@ -125,32 +121,18 @@
       height: 34px;
       border-radius: 50%;
       object-fit: contain;
-      /* gold aura and soft inner light */
-      filter: drop-shadow(0 0 6px rgba(212,169,77,0.7))
-              drop-shadow(0 0 10px rgba(212,169,77,0.4));
+      filter: drop-shadow(0 0 6px rgba(212,169,77,0.7)) drop-shadow(0 0 10px rgba(212,169,77,0.4));
       transition: transform 0.25s ease, filter 0.25s ease;
     }
-    .notif-btn:hover .notif-icon {
-      transform: scale(1.12) rotate(10deg);
-      filter: drop-shadow(0 0 10px rgba(255,210,100,0.9))
-              drop-shadow(0 0 16px rgba(255,210,100,0.6));
-    }
+    .notif-btn:hover .notif-icon { transform: scale(1.12) rotate(10deg); filter: drop-shadow(0 0 10px rgba(255,210,100,0.9)) drop-shadow(0 0 16px rgba(255,210,100,0.6)); }
 
     /* Notification badge */
     .notif-count {
-      position: absolute;
-      top: -5px;
-      right: -7px;
+      position: absolute; top: -5px; right: -7px;
       background: radial-gradient(circle at 30% 30%, #ffecb3, #d4a94d);
-      color: #111;
-      font-weight: 700;
-      font-size: 12px;
-      border-radius: 50%;
-      width: 18px;
-      height: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      color: #111; font-weight: 700; font-size: 12px;
+      border-radius: 50%; width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
       box-shadow: 0 0 6px rgba(0,0,0,0.6), 0 0 6px rgba(212,169,77,0.7);
     }
 
@@ -169,6 +151,7 @@
     .mhnp-item{
       display:grid; grid-template-columns:34px 1fr auto; align-items:center; gap:10px;
       padding:8px; border-radius:10px; background:#0d0d0d; border:1px solid #242018;
+      cursor: pointer;
     }
     .mhnp-item:hover{ background:#151515; }
     .mhnp-item .ava{ width:34px; height:34px; border-radius:999px; object-fit:cover; background:#222; }
@@ -525,6 +508,16 @@
             <div class="right">${dot}</div>
           </div>`;
       }).join("");
+
+      // Click-to-mark-read for a single item
+      NLIST.querySelectorAll(".mhnp-item").forEach(el=>{
+        el.addEventListener("click", async ()=>{
+          const id = el.getAttribute("data-id");
+          if (!id) return;
+          await markRead([id]);
+        });
+      });
+
       setBadge(NSTATE.all.filter(i=>!i.read).length);
     }
 
@@ -553,13 +546,10 @@
       }
 
       try {
-        await tryOne("POST", "read");      // preferred
-      } catch (e1) {
-        try {
-          await tryOne("PATCH", "read");   // legacy servers
-        } catch (e2) {
-          await tryOne("POST", "mark-read"); // alias
-        }
+        await tryOne("POST", "read");            // preferred
+      } catch {
+        try { await tryOne("PATCH", "read"); }   // legacy
+        catch { await tryOne("POST", "mark-read"); } // alias
       }
 
       for (const n of NSTATE.all){ if (ids.includes(n.id)) n.read = true; }
@@ -600,9 +590,29 @@
         const es = new EventSource(`${API_BASE}/api/notifications/stream?userId=${encodeURIComponent(uid)}`);
         es.onmessage = (ev)=>{
           const msg = JSON.parse(ev.data || "{}");
-          if (msg.event === "hello"){ setBadge(Number(msg.data?.unread||0)); return; }
+          if (msg.event === "hello"){
+            setBadge(Number(msg.data?.unread||0));
+            return;
+          }
           if (msg.event === "notification" && msg.data){
-            NSTATE.all.unshift(msg.data); renderList();
+            const n = msg.data;
+
+            // If this is an "accepted your friend request", mark the prior request from same actor as read
+            const text = (n.meta?.text || "").toLowerCase();
+            if (n.type === "friend" && (text.includes("accepted") || text.includes("accept"))) {
+              // direct replace by id if backend sent replaceId
+              const rid = n.meta?.replaceId;
+              if (rid){
+                const idx = NSTATE.all.findIndex(x=>x.id===rid);
+                if (idx>=0) NSTATE.all[idx].read = true;
+              } else if (n.actor?.id) {
+                const old = NSTATE.all.find(x=>x.type==="friend" && !x.read && x.actor?.id===n.actor.id && !(x.meta?.text||"").toLowerCase().includes("accepted"));
+                if (old) old.read = true;
+              }
+            }
+
+            NSTATE.all.unshift(n);
+            renderList();
           }
         };
         es.onerror = () => {};
@@ -629,6 +639,9 @@
       setInterval(fetchNotes, 25000);
     }
 
+    // Auto-refresh when returning to tab or storage changes
+    window.addEventListener('focus', fetchNotes);
+    document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState === 'visible') fetchNotes(); });
     window.addEventListener('storage', (e) => { if (e.key === 'mh_user') init(); });
 
     document.getElementById('logout')?.addEventListener('click', () => {
@@ -639,6 +652,7 @@
   </script>
 </body>
 </html>
+
 
 
 

@@ -25,6 +25,15 @@
   "summary": "In a realm torn between faith and shadow, dark elves, Christians, and humans clash against an ancient evil that hungers for their souls. As alliances crumble and beliefs collide, one prophecy may be all that stands between salvation and eternal night.",
   "src": "/guildbook/fullstoryMyriador.rtf",
   "cover": "/guildbook/Myriador-cover.jpg"
+},
+{
+  "id": "daemonium-intra",
+  "title": "Daemonium Intra",
+  "author": "Lisa",
+  "tags": ["Horror", "Possession", "Occult", "Faith", "Medieval", "Supernatural"],
+  "summary": "When faith falters and darkness whispers, a small monastery becomes the battleground for an unseen war. As priests and soldiers confront a force that speaks through the living, one woman’s body becomes the vessel of something ancient—something that remembers the first sin. In Nomine Tenebris, the true possession begins.",
+  "src": "/guildbook/fullstoryDaemoniumIntra.rtf",
+  "cover": "/guildbook/DaemoniumIntra-cover.jpg"
 }
 
 ]
