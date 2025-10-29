@@ -7,7 +7,6 @@ const fs      = require("fs");
 // Pull users map so we can stamp name/avatar on comments
 const { users } = require("./db");
 
-// ---------- detect Cloudinary ----------
 const HAVE_CLOUDY =
   !!process.env.CLOUDINARY_CLOUD_NAME &&
   !!process.env.CLOUDINARY_API_KEY &&
@@ -47,12 +46,10 @@ function bucketFor(store, userId) {
 }
 
 /* ---------- helpers ---------- */
-// Force your backend base so front-end on Vercel can embed images freely
 function publicBase(_req) {
   const hardBase = process.env.SERVER_PUBLIC_URL || "https://meadhall-site.onrender.com";
   return hardBase.replace(/\/+$/, "");
 }
-
 const isAbs = (u) => /^https?:\/\//i.test(u);
 const isCloudUrl = (u = "") => /res\.cloudinary\.com/i.test(u);
 
@@ -71,7 +68,6 @@ function withAbsoluteUrl(_req, item) {
   return { ...item, url: `${base}${item.url}` };
 }
 
-// attach arrays & shapes on-demand
 function normalizePhotoItem(it) {
   it.comments = Array.isArray(it.comments) ? it.comments : [];
   if (!it.reactions || typeof it.reactions !== "object") it.reactions = { up: [], down: [] };
@@ -109,31 +105,16 @@ function actorProfile(req) {
   return safe;
 }
 
-/* ---------- notifications helper (no-op if notifications not mounted) ---------- */
-function emitPhotoNote(app, { ownerUserId, actor, type, text, link, meta }) {
-  // Only notify if we know owner AND actor is a real user AND not notifying self
-  const actorId = (actor?.id || "").replace(/^u:/, "");
-  if (!ownerUserId || !actorId || ownerUserId === actorId) return;
-
-  // Lookup actor's user for avatar/name if we only got bare id
-  let actorUser = { id: actorId, name: actor?.name || "", avatarUrl: actor?.avatarUrl || "" };
-  if (users.has(actorId)) {
-    const u = users.get(actorId);
-    actorUser = { id: actorId, name: u?.name || actorUser.name, avatarUrl: u?.avatarUrl || actorUser.avatarUrl };
-  }
-
-  app?.locals?.notify?.({
-    type, // "like" | "dislike" | "comment"
-    targetUserId: ownerUserId,
-    actor: actorUser,
-    meta: {
-      text: text || "",
-      objectType: "photo",
-      // link to the actor's profile by default so the recipient can see who did it
-      link: link || `/friendprofile.html?user=${encodeURIComponent(actorUser.id)}`,
-      ...meta
-    }
-  });
+// small helper to emit a notification (no-op if notifications module isn't mounted)
+function notify(app, { type, targetUserId, actor, text, link }) {
+  try {
+    app?.locals?.notify?.({
+      type,
+      targetUserId,
+      actor,
+      meta: { text: text || "", objectType: "photo", link: link || "/friendprofile.html" }
+    });
+  } catch { /* ignore */ }
 }
 
 /* ---------- installer ---------- */
@@ -280,7 +261,7 @@ function install(app) {
 
   // GET photo comments
   router.get("/api/users/:id/gallery/:photoId/comments", (req, res) => {
-    const { id, photoId } = req.params;
+    const { id, photoId } = req.params;               // id = ownerId
     const store = readStore();
     const { item } = findPhoto(store, id, photoId);
     if (!item) return res.status(404).json({ error: "Photo not found" });
@@ -288,9 +269,9 @@ function install(app) {
     res.json(list);
   });
 
-  // POST photo comment  🚨 emits "comment" notification to owner
+  // POST photo comment  ➜ notify owner with deep link to that photo (+comment)
   router.post("/api/users/:id/gallery/:photoId/comments", express.json(), (req, res) => {
-    const { id, photoId } = req.params;       // owner id is :id
+    const { id, photoId } = req.params;               // id = ownerId
     const text = String(req.body?.text || "").trim();
     if (!text) return res.status(400).json({ error: "text required" });
 
@@ -310,26 +291,22 @@ function install(app) {
     item.comments.push(comment);
     writeStore(store);
 
-    // Notify owner (if not self)
-    const ownerUserId = String(id);
-    const actorUserId = (actor.id || "").replace(/^u:/, "");
-    if (ownerUserId && actorUserId && ownerUserId !== actorUserId) {
-      emitPhotoNote(req.app, {
-        ownerUserId,
-        actor: { id: actorUserId, name: actor.name, avatarUrl: actor.avatarUrl },
-        type: "comment",
-        text: "left a comment",
-        // add a small snippet to meta
-        meta: { snippet: text.slice(0, 120) }
-      });
-    }
+    // 🔔 Notify the photo owner with a link to open the exact item & comment
+    const link = `/friendprofile.html?user=${encodeURIComponent(id)}&photo=${encodeURIComponent(photoId)}&comment=${encodeURIComponent(comment.id)}`;
+    notify(app, {
+      type: "comment",
+      targetUserId: id, // owner
+      actor: { id: actor.id, name: actor.name, avatarUrl: actor.avatarUrl || "" },
+      text: "left a comment",
+      link
+    });
 
     res.status(201).json(comment);
   });
 
   // GET photo reactions (counts)
   router.get("/api/users/:id/gallery/:photoId/reactions", (req, res) => {
-    const { id, photoId } = req.params;
+    const { id, photoId } = req.params;               // id = ownerId
     const store = readStore();
     const { item } = findPhoto(store, id, photoId);
     if (!item) return res.status(404).json({ error: "Photo not found" });
@@ -342,9 +319,9 @@ function install(app) {
     res.json({ up, down, action });
   });
 
-  // POST photo reaction toggle  🚨 emits "like"/"dislike" notification to owner (when set)
+  // POST photo reaction toggle  ➜ notify owner with deep link to that photo
   router.post("/api/users/:id/gallery/:photoId/reactions", express.json(), (req, res) => {
-    const { id, photoId } = req.params;     // owner id is :id
+    const { id, photoId } = req.params;               // id = ownerId
     const wanted = String(req.body?.action || "").trim(); // "", "up", "down"
     if (!["", "up", "down"].includes(wanted)) return res.status(400).json({ error: 'action must be "", "up", or "down"' });
 
@@ -352,37 +329,25 @@ function install(app) {
     const { item } = findPhoto(store, id, photoId);
     if (!item) return res.status(404).json({ error: "Photo not found" });
 
-    const actorIdToken = currentActor(req); // "u:<id>" or "anon:<ip>"
-    item.reactions.up = item.reactions.up.filter((a) => a !== actorIdToken);
-    item.reactions.down = item.reactions.down.filter((a) => a !== actorIdToken);
-    if (wanted === "up") item.reactions.up.push(actorIdToken);
-    if (wanted === "down") item.reactions.down.push(actorIdToken);
-
+    const actorId = currentActor(req);
+    // Toggle
+    item.reactions.up = item.reactions.up.filter((a) => a !== actorId);
+    item.reactions.down = item.reactions.down.filter((a) => a !== actorId);
+    if (wanted === "up") item.reactions.up.push(actorId);
+    if (wanted === "down") item.reactions.down.push(actorId);
     writeStore(store);
 
-    // Notify only when adding a reaction (not when clearing "")
+    // If it's an actual reaction (not clearing), emit a notification with deep link
     if (wanted === "up" || wanted === "down") {
-      const ownerUserId = String(id);
-      // derive bare user id if it's a logged-in actor
-      const bareActorId = actorIdToken.startsWith("u:") ? actorIdToken.replace(/^u:/, "") : "";
-      let actorPayload = { id: bareActorId, name: "", avatarUrl: "" };
-      if (bareActorId && users.has(bareActorId)) {
-        const u = users.get(bareActorId);
-        actorPayload.name = u?.name || "";
-        actorPayload.avatarUrl = u?.avatarUrl || "";
-      } else if (!bareActorId) {
-        // anonymous — you can skip notifying anonymous if you prefer
-        actorPayload = { id: "", name: "", avatarUrl: "" };
-      }
-
-      if (ownerUserId && actorPayload.id && ownerUserId !== actorPayload.id) {
-        emitPhotoNote(req.app, {
-          ownerUserId,
-          actor: actorPayload,
-          type: wanted === "up" ? "like" : "dislike",
-          text: wanted === "up" ? "liked your photo" : "disliked your photo"
-        });
-      }
+      const who = actorProfile(req);
+      const link = `/friendprofile.html?user=${encodeURIComponent(id)}&photo=${encodeURIComponent(photoId)}`;
+      notify(app, {
+        type: wanted === "up" ? "like" : "dislike",
+        targetUserId: id, // owner
+        actor: { id: who.id, name: who.name, avatarUrl: who.avatarUrl || "" },
+        text: wanted === "up" ? "liked your photo" : "disliked your photo",
+        link
+      });
     }
 
     res.json({ ok: true, up: item.reactions.up.length, down: item.reactions.down.length, action: wanted });
@@ -395,7 +360,6 @@ function install(app) {
     if (!item) return { photo: null, comment: null };
     const comment = (item.comments || []).find(c => String(c.id) === String(cid));
     if (!comment) return { photo: item, comment: null };
-    // normalize
     comment.replies = Array.isArray(comment.replies) ? comment.replies : [];
     if (!comment.reactions || typeof comment.reactions !== "object") comment.reactions = { up: [], down: [] };
     comment.reactions.up = Array.isArray(comment.reactions.up) ? comment.reactions.up : [];
@@ -413,9 +377,9 @@ function install(app) {
     res.json(list);
   });
 
-  // POST reply
+  // POST reply  ➜ notify owner with deep link to photo + comment
   router.post("/api/users/:id/gallery/:photoId/comments/:cid/replies", express.json(), (req, res) => {
-    const { id, photoId, cid } = req.params;
+    const { id, photoId, cid } = req.params;         // id = ownerId
     const text = String(req.body?.text || "").trim();
     if (!text) return res.status(400).json({ error: "text required" });
 
@@ -433,6 +397,16 @@ function install(app) {
     };
     comment.replies.push(reply);
     writeStore(store);
+
+    const link = `/friendprofile.html?user=${encodeURIComponent(id)}&photo=${encodeURIComponent(photoId)}&comment=${encodeURIComponent(cid)}`;
+    notify(app, {
+      type: "comment",
+      targetUserId: id,
+      actor: { id: actor.id, name: actor.name, avatarUrl: actor.avatarUrl || "" },
+      text: "replied to a comment",
+      link
+    });
+
     res.status(201).json(reply);
   });
 
@@ -516,6 +490,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 

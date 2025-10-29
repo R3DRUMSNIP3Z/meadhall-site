@@ -539,7 +539,7 @@
       }catch{}
     }
 
-    // --- markRead tries POST, then PATCH, then alias; returns boolean
+    // markRead tries POST, then PATCH, then alias; returns boolean
     async function markRead(ids){
       if (!ids?.length) return false;
 
@@ -556,29 +556,25 @@
       try {
         await tryOne("POST", "read");
       } catch {
-        try {
-          await tryOne("PATCH", "read");
-        } catch {
-          await tryOne("POST", "mark-read");
-        }
+        try { await tryOne("PATCH", "read"); }
+        catch { await tryOne("POST", "mark-read"); }
       }
       return true;
     }
 
     function openPanel(){
       NPANEL.hidden = false;
-      // Mark all unread as read (optimistic), then fetch fresh list
+      // Optimistic mark all unread as read for instant badge clear, then sync
       const unreadIds = (NSTATE.all||[]).filter(n=>!n.read).map(n=>n.id);
       if (unreadIds.length){
-        // Optimistic local update for instant badge clear
         NSTATE.all.forEach(n => { if (unreadIds.includes(n.id)) n.read = true; });
         renderList();
-        markRead(unreadIds).then(()=>fetchNotes()).catch(()=>fetchNotes());
+        markRead(unreadIds).then(fetchNotes).catch(fetchNotes);
       }
     }
     function closePanel(){ NPANEL.hidden = true; }
 
-    // Instant toggle for panel
+    // Panel toggling
     if (NBTN){
       NBTN.addEventListener("click", (e)=>{
         e.stopPropagation();
@@ -603,31 +599,27 @@
     NMARK?.addEventListener("click", async ()=>{
       const ids = (NSTATE.all||[]).filter(n=>!n.read).map(n=>n.id);
       if (!ids.length) return;
-      // Optimistic clear
       NSTATE.all.forEach(n=>{ if (ids.includes(n.id)) n.read = true; });
       renderList();
       await markRead(ids);
       await fetchNotes();
     });
 
-    // Delegate clicks inside notification list for instant nav + optimistic read
+    // Delegate list clicks: instant nav + optimistic read for that item
     NLIST?.addEventListener("click", async (ev) => {
       const link = ev.target.closest(".mhnp-link");
       const item = ev.target.closest(".mhnp-item");
       if (!item) return;
 
-      // Optimistic mark-read for this one item and refresh badge
       const id = item.getAttribute("data-id");
       const n = NSTATE.all.find(x => x.id === id);
       if (n && !n.read) { n.read = true; renderList(); markRead([id]).then(fetchNotes); }
 
-      // If a link with href exists, navigate immediately (no delay)
-      if (link && link.getAttribute("href")) {
+      if (link) {
         const href = link.getAttribute("href");
         if (href && href !== "javascript:void(0)") {
-          // close panel for snappy feel, then jump
           closePanel();
-          window.location.href = href;
+          window.location.href = href; // no delay navigation
         }
       }
     });
@@ -638,11 +630,11 @@
         es.onmessage = (ev)=>{
           const msg = JSON.parse(ev.data || "{}");
           if (msg.event === "hello"){
-            setBadge(Number(msg.data?.unread||0));
+            // fetch to sync list + badge with server state
+            fetchNotes();
             return;
           }
           if (msg.event === "notification" && msg.data){
-            // Push newest to top and render
             NSTATE.all.unshift(msg.data);
             renderList();
           }
@@ -652,8 +644,26 @@
       }catch{}
     }
 
+    // ---- init
     async function init(){
-      setupLightbox();
+      // Lightbox
+      (function setupLightbox(){
+        lbRoot.addEventListener('click', (e) => { if (e.target === lbRoot) LB.close(); });
+        lbClose.addEventListener('click', () => LB.close());
+        lbPrev.addEventListener('click', () => LB.prev());
+        lbNext.addEventListener('click', () => LB.next());
+        let startX = null;
+        lbImg.addEventListener('pointerdown', (e) => { startX = e.clientX; lbImg.setPointerCapture(e.pointerId); });
+        lbImg.addEventListener('pointerup',   (e) => {
+          if (startX === null) return;
+          const dx = e.clientX - startX; startX = null;
+          const THRESH = 40; if (dx > THRESH) LB.prev(); else if (dx < -THRESH) LB.next();
+        });
+        window.addEventListener('keydown', (e) => {
+          if (!lbRoot.classList.contains('open')) return;
+          if (e.key === 'Escape') LB.close(); else if (e.key === 'ArrowLeft') LB.prev(); else if (e.key === 'ArrowRight') LB.next();
+        });
+      })();
 
       let u = getUser();
       if (!u?.id) { if (hello) hello.textContent = "You're not signed in."; return; }
@@ -667,12 +677,16 @@
       await fetchNotes();
       startSSE(u.id);
 
-      // safety polling every 25s
+      // keep fresh when returning to this tab or via back/forward cache
+      window.addEventListener('focus', fetchNotes);
+      document.addEventListener('visibilitychange', ()=>{ if (document.visibilityState === 'visible') fetchNotes(); });
+      window.addEventListener('pageshow', (e)=>{ if (e.persisted) fetchNotes(); });
+
+      // safety polling every 25s (lightweight)
       setInterval(fetchNotes, 25000);
     }
 
     window.addEventListener('storage', (e) => { if (e.key === 'mh_user') init(); });
-
     document.getElementById('logout')?.addEventListener('click', () => {
       localStorage.removeItem('mh_user'); location.href = '/';
     });
@@ -681,6 +695,7 @@
   </script>
 </body>
 </html>
+
 
 
 
