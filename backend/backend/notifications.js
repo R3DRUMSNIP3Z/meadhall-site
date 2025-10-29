@@ -27,14 +27,24 @@ const listeners = new Map(); // userId -> Set(res)
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
+
+function unreadCountFor(userId) {
+  return notifications.filter(n => n.targetUserId === userId && !n.read).length;
+}
+
+function fanout(userId, payloadObj) {
+  const set = listeners.get(userId);
+  if (!set) return;
+  const payload = `data: ${JSON.stringify(payloadObj)}\n\n`;
+  for (const res of set) res.write(payload);
+}
+
 function pushAndFanout(n) {
   notifications.unshift(n);
   // notify SSE listeners for this user
-  const set = listeners.get(n.targetUserId);
-  if (set) {
-    const payload = `data: ${JSON.stringify({ event: "notification", data: n })}\n\n`;
-    for (const res of set) res.write(payload);
-  }
+  fanout(n.targetUserId, { event: "notification", data: n });
+  // also send updated unread count to keep badges in sync across tabs
+  fanout(n.targetUserId, { event: "unread", data: { unread: unreadCountFor(n.targetUserId) } });
   return n;
 }
 
@@ -59,14 +69,17 @@ function createNotification({ type, targetUserId, actor, meta }) {
 router.get("/", (req, res) => {
   const userId = (req.query.userId || "").trim();
   if (!userId) return res.status(400).json({ error: "userId required" });
-  const items = notifications.filter(n => n.targetUserId === userId).slice(0, 100);
+  const items = notifications
+    .filter(n => n.targetUserId === userId)
+    .slice(0, 100);
   res.json({ items });
 });
 
-// mark all read (or by ids)
-router.patch("/read", express.json(), (req, res) => {
-  const { userId, ids } = req.body || {};
+// shared handler to mark read by ids or all
+async function handleMarkRead(body, res) {
+  const { userId, ids } = body || {};
   if (!userId) return res.status(400).json({ error: "userId required" });
+
   let updated = 0;
   for (const n of notifications) {
     if (n.targetUserId !== userId) continue;
@@ -76,7 +89,25 @@ router.patch("/read", express.json(), (req, res) => {
       if (!n.read) { n.read = true; updated++; }
     }
   }
-  res.json({ ok: true, updated });
+
+  // push unread update to any open SSE clients for this user
+  fanout(userId, { event: "unread", data: { unread: unreadCountFor(userId) } });
+  return res.json({ ok: true, updated });
+}
+
+// mark read (PATCH – existing)
+router.patch("/read", express.json(), (req, res) => {
+  handleMarkRead(req.body, res);
+});
+
+// mark read (POST – for clients that send POST)
+router.post("/read", express.json(), (req, res) => {
+  handleMarkRead(req.body, res);
+});
+
+// alias: /mark-read (POST)
+router.post("/mark-read", express.json(), (req, res) => {
+  handleMarkRead(req.body, res);
 });
 
 // SSE stream
@@ -96,8 +127,7 @@ router.get("/stream", (req, res) => {
   set.add(res);
 
   // send hello + unread count
-  const unread = notifications.filter(n => n.targetUserId === userId && !n.read).length;
-  res.write(`data: ${JSON.stringify({ event: "hello", data: { unread } })}\n\n`);
+  res.write(`data: ${JSON.stringify({ event: "hello", data: { unread: unreadCountFor(userId) } })}\n\n`);
 
   req.on("close", () => {
     set.delete(res);
@@ -111,13 +141,18 @@ router.delete("/", express.json(), (req, res) => {
   if (!userId) return res.status(400).json({ error: "userId required" });
   let i = notifications.length;
   while (i--) if (notifications[i].targetUserId === userId) notifications.splice(i, 1);
+  // also notify clients count is zero now
+  fanout(userId, { event: "unread", data: { unread: 0 } });
   res.json({ ok: true });
 });
 
 // install helper
 function install(app) {
   app.use("/api/notifications", router);
+  // provide app.locals.notify so other routes can emit
+  app.locals.notify = createNotification;
 }
 
 module.exports = { install, createNotification };
+
 
