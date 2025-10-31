@@ -239,10 +239,7 @@ footer{
   gap: 8px;
   min-width: 0;
 }
-.shop-left img {
-  background-color: rgba(255,255,255,.04);
-  padding: 2px;
-}
+
 
 
 
@@ -308,6 +305,19 @@ footer{
   filter: brightness(1.15);
   border-color: var(--gold);
 }
+/* === Force all shop images to be thumbnail size === */
+#shop img,
+.shop-img {
+  width: 40px !important;
+  height: 40px !important;
+  max-width: 40px !important;
+  max-height: 40px !important;
+  object-fit: contain !important;
+  border-radius: 6px;
+  background: rgba(0,0,0,.4);
+  box-shadow: 0 0 0 1px rgba(200,169,107,.3);
+}
+
 
 
 
