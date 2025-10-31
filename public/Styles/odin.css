@@ -250,8 +250,8 @@ footer{
 .shop-item button:hover{ filter:brightness(1.15); border-color:var(--gold); }
 
 /* === Force all shop images to be thumbnail size (bulletproof) === */
-#shop img,
-#shop .shop-item img,
+#shop img.shop-img,
+#shop .shop-item img.shop-img,
 .shop-img{
   width:40px !important;
   height:40px !important;

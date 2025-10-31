@@ -31,10 +31,10 @@ type ShopItem = {
   slot?: Slot;
   levelReq?: number;
   rarity?: "normal" | "epic" | "legendary";
-  imageUrl?: string; // defaults to /guildbook/items/<id>.png on backend / item endpoint
+  imageUrl?: string; // backend defaults to /guildbook/items/<id>.png
 };
 
-type ApiMe  = { me: Me };
+type ApiMe   = { me: Me };
 type ApiShop = { items: ShopItem[] };
 type FightResult = {
   me: Me;
@@ -53,8 +53,8 @@ const apiBase =
 /* ---------- image resolver (frontend assets) ---------- */
 function resolveImg(u?: string): string {
   if (!u) return "";
-  if (/^https?:\/\//i.test(u)) return u;           // already absolute
-  if (u.startsWith("/guildbook/")) return `${location.origin}${u}`; // served by Vercel/public
+  if (/^https?:\/\//i.test(u)) return u;                       // absolute
+  if (u.startsWith("/")) return u;                              // site-root asset
   return u;
 }
 
@@ -111,13 +111,14 @@ async function getItem(id: string): Promise<ShopItem | undefined> {
   }
 }
 
-/* ---------- rarity frames + slot renderer ---------- */
-const rarityFrame: Record<string,string> = {
+/* ---------- rarity frames (SINGLE definition) ---------- */
+const rarityFrame: Record<string, string> = {
   normal:    "/guildbook/frames/normal-frame.svg",
   epic:      "/guildbook/frames/epic-frame.svg",
   legendary: "/guildbook/frames/legendary-frame.svg",
 };
 
+/* ---------- slot renderer with rarity overlay ---------- */
 function renderSlot(
   slotKey: string,
   item?: { rarity?: string; imageUrl?: string; name?: string }
@@ -138,8 +139,8 @@ function renderSlot(
   img.alt = item.name || slotKey;
   el.appendChild(img);
 
-  const r = (item.rarity || "").toLowerCase();
-  const frameUrl = rarityFrame[r];
+  const r = (item.rarity || "normal").toLowerCase();
+  const frameUrl = rarityFrame[r] || rarityFrame.normal;
   if (frameUrl) {
     const overlay = document.createElement("img");
     overlay.className = "rarity-frame";
@@ -176,7 +177,7 @@ function totalPower(m: Me): number {
   return Math.max(0, m.power) + gear;
 }
 
-/* ---------- renderer ---------- */
+/* ---------- main renderer ---------- */
 function render() {
   const m = state.me!;
   $("heroName").textContent = m.name || "Unknown";
@@ -230,6 +231,7 @@ function render() {
   ( $("fightRandom") as HTMLButtonElement ).disabled = m.level < PVP_UNLOCK;
 }
 
+/* ---------- SHOP (with 40x40 framed thumbs) ---------- */
 function renderShop() {
   const box = $("shop");
   box.innerHTML = "";
@@ -237,18 +239,17 @@ function renderShop() {
   state.shop.forEach((item) => {
     const req  = item.levelReq ? ` <span class="muted">(Lv ${item.levelReq}+)</span>` : "";
     const slot = item.slot ? ` <span class="muted">[${capitalize(item.slot)}]</span>` : "";
-    const r = (item.rarity || "normal").toLowerCase();
 
-    const frameUrl =
-      (rarityFrame as any)[r] || rarityFrame.normal || "/guildbook/frames/normal.svg";
+    const rarity = (item.rarity || "normal").toLowerCase();
+    const frameUrl = rarityFrame[rarity] || rarityFrame.normal;
 
     const line = document.createElement("div");
     line.className = "shop-item";
     line.innerHTML = `
       <div class="shop-left">
         <span class="shop-thumb">
-          <img class="shop-img" src="${item.imageUrl || ""}" alt="${item.name}" loading="lazy">
-          <img class="shop-frame" src="${frameUrl}" alt="" onerror="this.style.display='none'">
+          <img class="shop-img" src="${resolveImg(item.imageUrl) || ""}" alt="${item.name}" loading="lazy">
+          <img class="shop-frame" src="${resolveImg(frameUrl)}" alt="" onerror="this.style.display='none'">
         </span>
         <div class="shop-text">
           <div class="shop-title">${item.name}${slot}${req}</div>
@@ -263,6 +264,7 @@ function renderShop() {
     box.appendChild(line);
   });
 
+  // clicks
   box.onclick = async (ev) => {
     const btn = (ev.target as HTMLElement).closest("button") as HTMLButtonElement | null;
     if (!btn) return;
@@ -281,8 +283,6 @@ function renderShop() {
   };
 }
 
-
-
 /* ---------- boot ---------- */
 async function loadAll() {
   const meRes = await api<ApiMe>("/api/game/me");
@@ -298,7 +298,8 @@ async function loadAll() {
   const shopRes = await api<ApiShop>("/api/game/shop");
   state.shop = shopRes.items;
 
-  render(); renderShop();
+  render();
+  renderShop();
 }
 
 async function setGender(g: Gender) {
@@ -400,21 +401,6 @@ loadAll().catch(e => log(e.message, "bad"));
   );
 })();
 
-/* ======================================================================= */
-/* NOTE: Add CSS to your stylesheet so overlays align:                     */
-/*
-.slot{position:relative;width:96px;height:96px;border:1px solid #3b3325;border-radius:12px;background:#0f1215;display:grid;place-items:center;color:#cbb17a;font-family:"Cinzel",serif;overflow:hidden}
-.slot.locked{opacity:.5;filter:grayscale(1)}
-.slot-img{max-width:88%;max-height:88%;object-fit:contain;pointer-events:none}
-.rarity-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
-
-.shop-left{display:flex;gap:10px;align-items:center;min-width:0}
-.shop-img{width:44px;height:44px;border-radius:8px;object-fit:cover;box-shadow:0 0 0 1px rgba(212,169,77,.25);flex:0 0 44px}
-.shop-text{display:flex;flex-direction:column}
-.shop-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.shop-right{display:flex;align-items:center;gap:10px}
-.shop-price{width:60px;text-align:right}
-*/
 
 
 

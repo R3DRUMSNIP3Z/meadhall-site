@@ -8,73 +8,153 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+
   <style>
     :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:#c7b07a; }
-    body{background:var(--bg);color:var(--gold);font-family:"Cinzel",serif;margin:0;display:flex;min-height:100vh;}
-    .wrap{max-width:980px;margin:0 auto;padding:20px;flex:1}
-    h1{margin:10px 0 16px;font-size:1.6rem}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    .card{background:var(--card);border:1px solid #3b3325;border-radius:14px;padding:14px}
-    .row{display:flex;justify-content:space-between;align-items:center;margin:6px 0}
-    .stat{font-weight:700}
-    button{background:#1b2228;border:1px solid #3b3325;border-radius:10px;color:var(--gold);padding:8px 12px;cursor:pointer}
-    button:disabled{opacity:.6;cursor:not-allowed}
-    .bar{height:8px;background:#1b1b1b;border-radius:999px;overflow:hidden}
-    .bar > span{display:block;height:100%;background:var(--muted);width:0%}
-    .log{background:#0e1013;border:1px dashed #3b3325;border-radius:10px;padding:10px;font-size:.95rem;height:180px;overflow:auto}
-    .shop-item{display:flex;justify-content:space-between;gap:10px;margin:6px 0}
-    .muted{opacity:.85}
-    .ok{color:#8ad67a} .bad{color:#f56}
 
-    /* Paper-doll */
-    .equip-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-    .slot{
-      height:64px; display:flex; align-items:center; justify-content:center;
-      border:1px dashed #3b3325; border-radius:10px; font-size:.85rem; opacity:.95;
-      background:#0b0e10; text-align:center; padding:4px;
+    body {
+      background: var(--bg);
+      color: var(--gold);
+      font-family: "Cinzel", serif;
+      margin: 0;
+      display: flex;
+      min-height: 100vh;
     }
-    .slot.locked{opacity:.45; position:relative}
-    .slot.locked::after{content:"🔒"; position:absolute; right:6px; bottom:4px; font-size:.85rem; opacity:.8}
-    .powertotal{margin-top:10px; text-align:center; font-size:1.5rem; font-weight:900; letter-spacing:1px; border-top:1px solid #3b3325; padding-top:8px}
-    /* === Shop layout & thumbnail sizing === */
-.shop-item{
-  display:flex; justify-content:space-between; align-items:center;
-  gap:12px; padding:8px 0; border-bottom:1px dashed rgba(212,169,77,.15);
-}
-.shop-left{ display:flex; align-items:center; gap:8px; min-width:0; }
-.shop-text{ display:flex; flex-direction:column; }
-.shop-title{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.shop-right{ display:flex; align-items:center; gap:10px; }
-.shop-price{ width:60px; text-align:right; }
 
-/* Force thumbnails — bulletproof */
-#shop img,
-#shop .shop-item img,
-.shop-img{
-  width:40px !important;
-  height:40px !important;
-  max-width:40px !important;
-  max-height:40px !important;
-  object-fit:contain !important;
-  border-radius:6px;
-  background:rgba(0,0,0,.35);
-  box-shadow:0 0 0 1px rgba(212,169,77,.3);
-}
+    .wrap { max-width:980px; margin:0 auto; padding:20px; flex:1; }
+    h1 { margin:10px 0 16px; font-size:1.6rem; }
 
-/* Optional hover polish */
-.shop-item:hover .shop-img{
-  filter:brightness(1.15);
-  transform:scale(1.03);
-  transition:transform .2s ease, filter .2s ease;
-}
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .card {
+      background: var(--card);
+      border: 1px solid #3b3325;
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .row { display:flex; justify-content:space-between; align-items:center; margin:6px 0; }
+    .stat { font-weight:700; }
+    button {
+      background: #1b2228;
+      border: 1px solid #3b3325;
+      border-radius: 10px;
+      color: var(--gold);
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    button:disabled { opacity:.6; cursor:not-allowed; }
 
+    .bar { height:8px; background:#1b1b1b; border-radius:999px; overflow:hidden; }
+    .bar > span { display:block; height:100%; background:var(--muted); width:0%; }
+
+    .log {
+      background:#0e1013;
+      border:1px dashed #3b3325;
+      border-radius:10px;
+      padding:10px;
+      font-size:.95rem;
+      height:180px;
+      overflow:auto;
+    }
+
+    .muted { opacity:.85; }
+    .ok { color:#8ad67a; }
+    .bad { color:#f56; }
+
+    /* === Equipment Grid === */
+    .equip-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .slot {
+      height:64px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border:1px dashed #3b3325;
+      border-radius:10px;
+      font-size:.85rem;
+      opacity:.95;
+      background:#0b0e10;
+      text-align:center;
+      padding:4px;
+    }
+    .slot.locked { opacity:.45; position:relative; }
+    .slot.locked::after {
+      content:"🔒";
+      position:absolute;
+      right:6px;
+      bottom:4px;
+      font-size:.85rem;
+      opacity:.8;
+    }
+    .powertotal {
+      margin-top:10px;
+      text-align:center;
+      font-size:1.5rem;
+      font-weight:900;
+      letter-spacing:1px;
+      border-top:1px solid #3b3325;
+      padding-top:8px;
+    }
+
+    /* === Shop Layout === */
+    .shop-item {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      padding:8px 0;
+      border-bottom:1px dashed rgba(212,169,77,.15);
+    }
+    .shop-left { display:flex; align-items:center; gap:8px; min-width:0; }
+    .shop-text { display:flex; flex-direction:column; }
+    .shop-title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .shop-right { display:flex; align-items:center; gap:10px; }
+    .shop-price { width:60px; text-align:right; }
+
+    /* Force thumbnails — only the item image */
+    #shop img.shop-img,
+    #shop .shop-item img.shop-img,
+    .shop-img {
+      width:40px !important;
+      height:40px !important;
+      max-width:40px !important;
+      max-height:40px !important;
+      object-fit:contain !important;
+      border-radius:6px;
+      background:rgba(0,0,0,.35);
+      box-shadow:0 0 0 1px rgba(212,169,77,.3);
+      display:block;
+    }
+
+    /* Thumbnail frame wrapper + overlay */
+    .shop-thumb {
+      position:relative;
+      display:inline-grid;
+      place-items:center;
+      width:40px;
+      height:40px;
+      flex:0 0 40px;
+    }
+    .shop-thumb .shop-frame {
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      pointer-events:none;
+      filter:drop-shadow(0 0 6px rgba(212,169,77,.45));
+    }
+
+    /* Hover polish */
+    .shop-item:hover .shop-img {
+      filter:brightness(1.15);
+      transform:scale(1.03);
+      transition:transform .2s ease, filter .2s ease;
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>⚔️ Valhalla Ascending — Arena</h1>
 
-    <!-- Gender pick (first time only) -->
     <div id="genderPick" style="display:none; margin:12px 0;">
       <div class="card" style="display:flex;gap:12px;align-items:center;justify-content:space-between;">
         <div>Choose your warrior:</div>
@@ -86,7 +166,6 @@
     </div>
 
     <div class="grid">
-      <!-- LEFT: Character & Stats -->
       <div class="card" style="position:relative">
         <div class="row"><div>Hero</div><div id="heroName">—</div></div>
         <div class="row"><div>Level</div><div id="level">1</div></div>
@@ -117,11 +196,9 @@
         <div class="row"><div class="stat">Defense</div><div id="defense">0</div></div>
         <div class="row"><div class="stat">Speed</div><div id="speed">0</div></div>
         <div class="row"><div>Unspent Points</div><div id="points">0</div></div>
-
         <div id="powerTotal" class="powertotal">POWER 0</div>
       </div>
 
-      <!-- RIGHT: Actions -->
       <div class="card">
         <div class="row"><button id="trainPower">Train Power (+1)</button><span class="muted">3s cd</span></div>
         <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
@@ -147,6 +224,7 @@
   <script type="module" src="/src/game.ts"></script>
 </body>
 </html>
+
 
 
 
