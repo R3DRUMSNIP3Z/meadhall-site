@@ -239,6 +239,11 @@ footer{
   gap: 8px;
   min-width: 0;
 }
+.shop-left img {
+  background-color: rgba(255,255,255,.04);
+  padding: 2px;
+}
+
 
 
 .shop-img {
