@@ -5,24 +5,22 @@ const path = require("path");
 const { users } = require("./db");
 
 // -------- In-memory game state --------
-// state[userId] = { id, name, level, xp, gold, power, defense, speed, points, gender, slots, gearPower, lastTick }
 const state = Object.create(null);
 
 // ================== CATALOG LOADING ==================
-const fs = require("fs");
-const path = require("path");
+const WINDOWS_CATALOG_PATH =
+  "C:\\Users\\Lisa\\meadhall-site\\public\\guildbook\\catalogshop.json";
 
-// your exact Windows dev path
-const WINDOWS_CATALOG_PATH = "C:\\Users\\Lisa\\meadhall-site\\public\\guildbook\\catalogshop.json";
-
-// fallbacks for Render / Vercel
+// Fallbacks for server (Render/Vercel)
 const FALLBACKS = [
   path.join(process.cwd(), "..", "public", "guildbook", "catalogshop.json"),
   path.join(process.cwd(), "public", "guildbook", "catalogshop.json"),
 ];
 
-// pick whichever exists
+// Pick the first that exists
 function resolveCatalogPath() {
+  const envP = process.env.SHOP_CATALOG_PATH;
+  if (envP && fs.existsSync(envP)) return envP;
   if (fs.existsSync(WINDOWS_CATALOG_PATH)) return WINDOWS_CATALOG_PATH;
   for (const p of FALLBACKS) if (fs.existsSync(p)) return p;
   return FALLBACKS[0];
@@ -37,7 +35,9 @@ function loadCatalogOnce(p) {
     const obj = JSON.parse(raw);
     if (!Array.isArray(obj.items)) obj.items = [];
     if (!obj.sets || typeof obj.sets !== "object") obj.sets = {};
-    console.log(`🛡️ Loaded shop catalog from ${p}: ${obj.items.length} items, ${Object.keys(obj.sets).length} sets`);
+    console.log(
+      `🛡️ Loaded shop catalog from ${p}: ${obj.items.length} items, ${Object.keys(obj.sets).length} sets`
+    );
     return obj;
   } catch (err) {
     console.error("⚠️ Failed to load catalog:", err.message);
@@ -45,10 +45,8 @@ function loadCatalogOnce(p) {
   }
 }
 
-// initial load
 catalog = loadCatalogOnce(CATALOG_PATH);
 
-// auto-reload
 try {
   fs.watchFile(CATALOG_PATH, { interval: 2000 }, () => {
     console.log("♻️ Shop catalog changed, reloading...");
@@ -66,13 +64,19 @@ const getSetBonuses = () => {
   }
   return bonuses;
 };
-const findItem = (id) => getShop().find(i => i.id === id);
-
+const findItem = (id) => getShop().find((i) => i.id === id);
 
 // ================== GAME RULES ==================
 const SLOT_UNLOCK = {
-  helm: 5, shoulders: 8, chest: 10, gloves: 12, boots: 15,
-  ring: 18, wings: 22, pet: 24, sylph: 28
+  helm: 5,
+  shoulders: 8,
+  chest: 10,
+  gloves: 12,
+  boots: 15,
+  ring: 18,
+  wings: 22,
+  pet: 24,
+  sylph: 28,
 };
 const PVP_UNLOCK = 25;
 
@@ -80,7 +84,8 @@ const PVP_UNLOCK = 25;
 const DEV_KEY = process.env.DEV_KEY || "valhalla-dev";
 function requireDev(req, res, next) {
   const k = req.get("x-dev-key");
-  if (!k || k !== DEV_KEY) return res.status(403).json({ error: "Forbidden (dev key)" });
+  if (!k || k !== DEV_KEY)
+    return res.status(403).json({ error: "Forbidden (dev key)" });
   next();
 }
 
@@ -91,13 +96,17 @@ function ensure(uId) {
     state[uId] = {
       id: u.id,
       name: u.name || "Skald",
-      level: 1, xp: 0, gold: 100,
-      power: 5, defense: 5, speed: 5,
+      level: 1,
+      xp: 0,
+      gold: 100,
+      power: 5,
+      defense: 5,
+      speed: 5,
       points: 0,
       gender: undefined,
       slots: {},
       gearPower: 0,
-      lastTick: Date.now()
+      lastTick: Date.now(),
     };
   }
   return state[uId];
@@ -148,11 +157,11 @@ function recompute(me) {
 }
 
 function fightCalc(m) {
-  const roll = () => (Math.random() * 10) - 5;
+  const roll = () => Math.random() * 10 - 5;
   return m.power * 1.0 + m.defense * 0.8 + m.speed * 0.6 + roll();
 }
 function pickRandomOpponent(myId) {
-  const ids = Object.keys(state).filter(id => id !== myId);
+  const ids = Object.keys(state).filter((id) => id !== myId);
   if (!ids.length) return null;
   const id = ids[Math.floor(Math.random() * ids.length)];
   return state[id];
@@ -184,9 +193,10 @@ function install(app) {
   router.post("/game/train", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { stat } = req.body || {};
-    if (!["power","defense","speed"].includes(stat))
+    if (!["power", "defense", "speed"].includes(stat))
       return res.status(400).json({ error: "Invalid stat" });
-    if (me.gold < 2) return res.status(400).json({ error: "Not enough gold" });
+    if (me.gold < 2)
+      return res.status(400).json({ error: "Not enough gold" });
     me.gold -= 2;
     me[stat] += 1;
     me.xp += 2;
@@ -208,8 +218,9 @@ function install(app) {
       boost: it.boost,
       cost: it.cost,
       levelReq: it.levelReq,
+      rarity: it.rarity,
       description: it.description || `A ${it.name}.`,
-      imageUrl: it.imageUrl || `/guildbook/items/${it.id}.png`
+      imageUrl: it.imageUrl || `/guildbook/items/${it.id}.png`,
     };
     res.json(info);
   });
@@ -217,7 +228,8 @@ function install(app) {
   router.post("/game/gender", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { gender } = req.body || {};
-    if (!["female","male"].includes(gender)) return res.status(400).json({ error:"Bad gender" });
+    if (!["female", "male"].includes(gender))
+      return res.status(400).json({ error: "Bad gender" });
     me.gender = gender;
     res.json({ me });
   });
@@ -228,10 +240,15 @@ function install(app) {
     const item = findItem(itemId);
     if (!item) return res.status(404).json({ error: "No such item" });
     if (item.levelReq && me.level < item.levelReq)
-      return res.status(400).json({ error: `Requires level ${item.levelReq}` });
+      return res
+        .status(400)
+        .json({ error: `Requires level ${item.levelReq}` });
     if (item.slot && me.level < (SLOT_UNLOCK[item.slot] || 0))
-      return res.status(400).json({ error: `Slot locked until level ${SLOT_UNLOCK[item.slot]}` });
-    if (me.gold < item.cost) return res.status(400).json({ error: "Not enough gold" });
+      return res
+        .status(400)
+        .json({ error: `Slot locked until level ${SLOT_UNLOCK[item.slot]}` });
+    if (me.gold < item.cost)
+      return res.status(400).json({ error: "Not enough gold" });
     me.gold -= item.cost;
     me[item.stat] += item.boost;
     if (item.slot) me.slots[item.slot] = item.id;
@@ -241,15 +258,19 @@ function install(app) {
 
   router.post("/pvp/fight", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
-    if (me.level < PVP_UNLOCK) return res.status(400).json({ error: `PvP unlocks at level ${PVP_UNLOCK}` });
+    if (me.level < PVP_UNLOCK)
+      return res
+        .status(400)
+        .json({ error: `PvP unlocks at level ${PVP_UNLOCK}` });
     const opp = pickRandomOpponent(req.userId);
     if (!opp) return res.status(400).json({ error: "No opponents yet." });
-    tick(opp); recompute(opp);
+    tick(opp);
+    recompute(opp);
     const myBR = fightCalc(me);
     const opBR = fightCalc(opp);
     const win = myBR >= opBR;
     const deltaGold = win ? 25 : -10;
-    const deltaXP   = win ? 50 : 15;
+    const deltaXP = win ? 50 : 15;
     me.gold = Math.max(0, me.gold + deltaGold);
     me.xp += deltaXP;
     while (me.xp >= me.level * 100) {
@@ -260,7 +281,12 @@ function install(app) {
     recompute(me);
     res.json({
       me,
-      result: { win, opponent: { id: opp.id, name: opp.name, level: opp.level }, deltaGold, deltaXP }
+      result: {
+        win,
+        opponent: { id: opp.id, name: opp.name, level: opp.level },
+        deltaGold,
+        deltaXP,
+      },
     });
   });
 
@@ -330,13 +356,13 @@ function install(app) {
 
   dev.post("/drengr", (req, res) => {
     const me = ensure(req.userId);
-    const drengr = getShop().filter(i => i.set === "drengr");
+    const drengr = getShop().filter((i) => i.set === "drengr");
     for (const it of drengr) {
       me[it.stat] += it.boost || 0;
       if (it.slot) me.slots[it.slot] = it.id;
     }
     recompute(me);
-    res.json({ me, equipped: drengr.map(i => i.id) });
+    res.json({ me, equipped: drengr.map((i) => i.id) });
   });
 
   dev.post("/reset", (req, res) => {
@@ -346,11 +372,11 @@ function install(app) {
 
   router.use("/dev", dev);
 
-  // mount
   app.use("/api", router);
 }
 
 module.exports = { install };
+
 
 
 
