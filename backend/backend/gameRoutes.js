@@ -11,7 +11,7 @@ const state = Object.create(null);
 // ================== CATALOG LOADING ==================
 const WINDOWS_CATALOG_PATH = "C:\\Users\\Lisa\\meadhall-site\\public\\guildbook\\catalogshop.json";
 ;
-const FALLBACK_CATALOG_PATH = path.join(process.cwd(), "public", "guildbook", "shopcatalog.json");
+const FALLBACK_CATALOG_PATH = path.join(process.cwd(), "public", "guildbook", "catalogshop.json");
 const CATALOG_PATH = process.env.SHOP_CATALOG_PATH || (fs.existsSync(WINDOWS_CATALOG_PATH) ? WINDOWS_CATALOG_PATH : FALLBACK_CATALOG_PATH);
 
 let catalog = { sets: {}, items: [] };
