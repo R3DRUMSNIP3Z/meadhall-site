@@ -234,21 +234,21 @@ function renderShop() {
   const box = $("shop");
   box.innerHTML = "";
 
-  state.shop.forEach(item => {
+  state.shop.forEach((item) => {
     const req  = item.levelReq ? ` <span class="muted">(Lv ${item.levelReq}+)</span>` : "";
     const slot = item.slot ? ` <span class="muted">[${capitalize(item.slot)}]</span>` : "";
-
-    // pick frame — default to normal if undefined
     const r = (item.rarity || "normal").toLowerCase();
-    const frameUrl = resolveImg(rarityFrame[r] || rarityFrame.normal);
+
+    const frameUrl =
+      (rarityFrame as any)[r] || rarityFrame.normal || "/guildbook/frames/normal.svg";
 
     const line = document.createElement("div");
     line.className = "shop-item";
     line.innerHTML = `
       <div class="shop-left">
         <span class="shop-thumb">
-          <img class="shop-img" src="${resolveImg(item.imageUrl)}" alt="${item.name}" loading="lazy">
-          <img class="shop-frame" src="${frameUrl}" alt="">
+          <img class="shop-img" src="${item.imageUrl || ""}" alt="${item.name}" loading="lazy">
+          <img class="shop-frame" src="${frameUrl}" alt="" onerror="this.style.display='none'">
         </span>
         <div class="shop-text">
           <div class="shop-title">${item.name}${slot}${req}</div>
@@ -270,7 +270,7 @@ function renderShop() {
     try {
       const res = await api<{ me: Me; item: ShopItem }>("/api/game/shop/buy", {
         method: "POST",
-        body: JSON.stringify({ itemId: id })
+        body: JSON.stringify({ itemId: id }),
       });
       state.me = res.me;
       log(`Bought ${res.item.name} (+${res.item.boost} ${res.item.stat})`, "ok");
@@ -280,6 +280,7 @@ function renderShop() {
     }
   };
 }
+
 
 
 /* ---------- boot ---------- */
