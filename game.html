@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mead Hall • Arena</title>
+  <meta name="api-base" content="https://meadhall-site.onrender.com" />
+  <style>
+    :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:#c7b07a; }
+    body{background:var(--bg);color:var(--gold);font-family:"Cinzel",serif;margin:0;display:flex;min-height:100vh;}
+    .wrap{max-width:900px;margin:0 auto;padding:20px;flex:1}
+    h1{margin:10px 0 16px;font-size:1.6rem}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .card{background:var(--card);border:1px solid #3b3325;border-radius:14px;padding:14px}
+    .row{display:flex;justify-content:space-between;align-items:center;margin:6px 0}
+    .stat{font-weight:700}
+    button{background:#1b2228;border:1px solid #3b3325;border-radius:10px;color:var(--gold);padding:8px 12px;cursor:pointer}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .bar{height:8px;background:#1b1b1b;border-radius:999px;overflow:hidden}
+    .bar > span{display:block;height:100%;background:var(--muted);width:0%}
+    .log{background:#0e1013;border:1px dashed #3b3325;border-radius:10px;padding:10px;font-size:.95rem;height:160px;overflow:auto}
+    .shop-item{display:flex;justify-content:space-between;gap:10px;margin:6px 0}
+    .muted{opacity:.85}
+    .ok{color:#8ad67a} .bad{color:#f56}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>⚔️ Mead Hall Arena (Text)</h1>
+
+    <div class="grid">
+      <div class="card">
+        <div class="row"><div>Hero</div><div id="heroName">—</div></div>
+        <div class="row"><div>Level</div><div id="level">1</div></div>
+        <div class="row"><div>XP</div><div id="xpVal">0 / 100</div></div>
+        <div class="bar"><span id="xpBar"></span></div>
+        <div class="row"><div>Gold</div><div id="gold">0</div></div>
+        <div class="row"><div class="stat">Power</div><div id="power">0</div></div>
+        <div class="row"><div class="stat">Defense</div><div id="defense">0</div></div>
+        <div class="row"><div class="stat">Speed</div><div id="speed">0</div></div>
+        <div class="row"><div>Unspent Points</div><div id="points">0</div></div>
+      </div>
+
+      <div class="card">
+        <div class="row"><button id="trainPower">Train Power (+1)</button><span class="muted">3s cd</span></div>
+        <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
+        <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
+        <hr/>
+        <div class="row"><button id="fightRandom">Battle: Random Opponent</button><span class="muted">win gold/xp</span></div>
+        <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">grants passive gold/xp</span></div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:16px">
+      <div class="card">
+        <h3>Shop</h3>
+        <div id="shop"></div>
+      </div>
+      <div class="card">
+        <h3>Battle Log</h3>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const apiBase = document.querySelector('meta[name="api-base"]')?.content?.trim() || "";
+    // Your app already sets/stores the user. Use x-user-id header (your CORS allows it).
+    // Pull from localStorage if you use LS. Fallback to query ?user= for quick tests.
+    const LS_KEY = "mh_user";
+    function getUserId() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+          const obj = JSON.parse(raw);
+          return obj?.id || obj?._id || obj?.user?.id || null;
+        }
+      } catch {}
+      const qs = new URLSearchParams(location.search).get("user");
+      return qs || null;
+    }
+    const userId = getUserId();
+    if (!userId) alert("Missing user. Make sure you're logged in.");
+
+    const el = (id)=>document.getElementById(id);
+    const logBox = el("log");
+    function log(msg, cls){ const p=document.createElement("div"); if(cls) p.className=cls; p.textContent=msg; logBox.prepend(p); }
+
+    const state = { me:null, shop:[] };
+
+    async function api(path, opts={}) {
+      const r = await fetch(apiBase + path, {
+        ...opts,
+        headers: { "Content-Type":"application/json", "x-user-id": userId, ...(opts.headers||{}) }
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    }
+
+    function render() {
+      const m = state.me;
+      if (!m) return;
+      el("heroName").textContent = m.name || "Unknown";
+      el("level").textContent = m.level;
+      el("gold").textContent = m.gold;
+      el("power").textContent = m.power;
+      el("defense").textContent = m.defense;
+      el("speed").textContent = m.speed;
+      el("points").textContent = m.points || 0;
+
+      const need = m.level * 100;
+      el("xpVal").textContent = `${m.xp} / ${need}`;
+      el("xpBar").style.width = Math.min(100, Math.floor((m.xp/need)*100)) + "%";
+    }
+
+    function renderShop() {
+      const box = el("shop");
+      box.innerHTML = "";
+      state.shop.forEach(item=>{
+        const row = document.createElement("div");
+        row.className = "shop-item";
+        row.innerHTML = `<div>${item.name} <span class="muted">(+${item.boost} ${item.stat})</span></div>
+                         <div>${item.cost}g <button data-id="${item.id}">Buy</button></div>`;
+        box.appendChild(row);
+      });
+      box.addEventListener("click", async (e)=>{
+        const b = e.target.closest("button");
+        if (!b) return;
+        const id = b.getAttribute("data-id");
+        try {
+          const res = await api("/api/game/shop/buy", { method:"POST", body:JSON.stringify({ itemId:id })});
+          state.me = res.me;
+          log(`Bought ${res.item.name} (+${res.item.boost} ${res.item.stat})`, "ok");
+          render();
+        } catch(err){ log("Shop error: " + err.message, "bad"); }
+      }, { once:true });
+    }
+
+    async function loadAll() {
+      const res = await api("/api/game/me");
+      state.me = res.me;
+      state.shop = (await api("/api/game/shop")).items;
+      render(); renderShop();
+    }
+
+    // Buttons
+    el("trainPower").onclick = ()=> train("power");
+    el("trainDefense").onclick = ()=> train("defense");
+    el("trainSpeed").onclick = ()=> train("speed");
+    el("tickNow").onclick = async ()=> { const r=await api("/api/game/tick", {method:"POST"}); state.me=r.me; render(); log("Idle tick processed"); };
+    el("fightRandom").onclick = async ()=>{
+      try {
+        const r = await api("/api/pvp/fight", { method:"POST", body:JSON.stringify({ mode:"random" })});
+        state.me = r.me;
+        render();
+        const verdict = r.result.win ? "Victory!" : "Defeat.";
+        log(`${verdict} You ${r.result.win ? "won" : "lost"} vs ${r.result.opponent.name}.  ΔGold ${r.result.deltaGold}, ΔXP ${r.result.deltaXP}`);
+      } catch(err){ log("Fight error: " + err.message, "bad"); }
+    };
+
+    const cooldowns = { power:0, defense:0, speed:0 };
+    async function train(stat) {
+      const now = Date.now();
+      if (now < cooldowns[stat]) return;
+      cooldowns[stat] = now + 3000;
+      try {
+        const r = await api("/api/game/train", { method:"POST", body:JSON.stringify({ stat })});
+        state.me = r.me;
+        render();
+        log(`Trained ${stat} (+1)`, "ok");
+      } catch(err){ log("Train error: " + err.message, "bad"); }
+    }
+
+    // Passive idle tick every 10s
+    setInterval(async ()=>{
+      try {
+        const r=await api("/api/game/tick", {method:"POST"});
+        state.me=r.me; render();
+      } catch {}
+    }, 10000);
+
+    loadAll().catch(e=>log(e.message,"bad"));
+  </script>
+</body>
+</html>

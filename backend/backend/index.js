@@ -23,6 +23,7 @@ const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
 const galleryRoutes = require("./galleryRoutes"); // ⬅️ gallery API
 const notifications = require("./notifications");
+const gameRoutes = require("./gameRoutes");
 
 const app = express();
 
@@ -831,6 +832,8 @@ chatRoutes.install(app);
 chatGlobal.install(app);
 notifications.install(app);
 app.locals.notify = notifications.createNotification; // ✅ expose notifier
+gameRoutes.install(app);
+
 
 // ⬇⬇⬇ ADD: Minimal “mark read” endpoints so the frontend stops 404'ing.
 // If notifications router already provides them, these act as safe fallbacks.
