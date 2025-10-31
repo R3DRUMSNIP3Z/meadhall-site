@@ -36,6 +36,38 @@
     .slot.locked{opacity:.45; position:relative}
     .slot.locked::after{content:"🔒"; position:absolute; right:6px; bottom:4px; font-size:.85rem; opacity:.8}
     .powertotal{margin-top:10px; text-align:center; font-size:1.5rem; font-weight:900; letter-spacing:1px; border-top:1px solid #3b3325; padding-top:8px}
+    /* === Shop layout & thumbnail sizing === */
+.shop-item{
+  display:flex; justify-content:space-between; align-items:center;
+  gap:12px; padding:8px 0; border-bottom:1px dashed rgba(212,169,77,.15);
+}
+.shop-left{ display:flex; align-items:center; gap:8px; min-width:0; }
+.shop-text{ display:flex; flex-direction:column; }
+.shop-title{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.shop-right{ display:flex; align-items:center; gap:10px; }
+.shop-price{ width:60px; text-align:right; }
+
+/* Force thumbnails — bulletproof */
+#shop img,
+#shop .shop-item img,
+.shop-img{
+  width:40px !important;
+  height:40px !important;
+  max-width:40px !important;
+  max-height:40px !important;
+  object-fit:contain !important;
+  border-radius:6px;
+  background:rgba(0,0,0,.35);
+  box-shadow:0 0 0 1px rgba(212,169,77,.3);
+}
+
+/* Optional hover polish */
+.shop-item:hover .shop-img{
+  filter:brightness(1.15);
+  transform:scale(1.03);
+  transition:transform .2s ease, filter .2s ease;
+}
+
   </style>
 </head>
 <body>
