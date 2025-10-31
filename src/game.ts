@@ -230,7 +230,6 @@ function render() {
   ( $("fightRandom") as HTMLButtonElement ).disabled = m.level < PVP_UNLOCK;
 }
 
-/* ---------- shop UI (with image) ---------- */
 function renderShop() {
   const box = $("shop");
   box.innerHTML = "";
@@ -239,11 +238,18 @@ function renderShop() {
     const req  = item.levelReq ? ` <span class="muted">(Lv ${item.levelReq}+)</span>` : "";
     const slot = item.slot ? ` <span class="muted">[${capitalize(item.slot)}]</span>` : "";
 
+    // pick frame — default to normal if undefined
+    const r = (item.rarity || "normal").toLowerCase();
+    const frameUrl = resolveImg(rarityFrame[r] || rarityFrame.normal);
+
     const line = document.createElement("div");
     line.className = "shop-item";
     line.innerHTML = `
       <div class="shop-left">
-        <img class="shop-img" src="${resolveImg(item.imageUrl)}" alt="${item.name}" loading="lazy">
+        <span class="shop-thumb">
+          <img class="shop-img" src="${resolveImg(item.imageUrl)}" alt="${item.name}" loading="lazy">
+          <img class="shop-frame" src="${frameUrl}" alt="">
+        </span>
         <div class="shop-text">
           <div class="shop-title">${item.name}${slot}${req}</div>
           <div class="shop-sub muted">+${item.boost} ${item.stat}</div>
@@ -274,6 +280,7 @@ function renderShop() {
     }
   };
 }
+
 
 /* ---------- boot ---------- */
 async function loadAll() {
