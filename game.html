@@ -5,10 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Valhalla Ascending</title>
   <meta name="api-base" content="https://meadhall-site.onrender.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:#c7b07a; }
     body{background:var(--bg);color:var(--gold);font-family:"Cinzel",serif;margin:0;display:flex;min-height:100vh;}
-    .wrap{max-width:900px;margin:0 auto;padding:20px;flex:1}
+    .wrap{max-width:980px;margin:0 auto;padding:20px;flex:1}
     h1{margin:10px 0 16px;font-size:1.6rem}
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
     .card{background:var(--card);border:1px solid #3b3325;border-radius:14px;padding:14px}
@@ -18,36 +21,82 @@
     button:disabled{opacity:.6;cursor:not-allowed}
     .bar{height:8px;background:#1b1b1b;border-radius:999px;overflow:hidden}
     .bar > span{display:block;height:100%;background:var(--muted);width:0%}
-    .log{background:#0e1013;border:1px dashed #3b3325;border-radius:10px;padding:10px;font-size:.95rem;height:160px;overflow:auto}
+    .log{background:#0e1013;border:1px dashed #3b3325;border-radius:10px;padding:10px;font-size:.95rem;height:180px;overflow:auto}
     .shop-item{display:flex;justify-content:space-between;gap:10px;margin:6px 0}
     .muted{opacity:.85}
     .ok{color:#8ad67a} .bad{color:#f56}
+
+    /* Paper-doll */
+    .equip-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .slot{
+      height:64px; display:flex; align-items:center; justify-content:center;
+      border:1px dashed #3b3325; border-radius:10px; font-size:.85rem; opacity:.95;
+      background:#0b0e10; text-align:center; padding:4px;
+    }
+    .slot.locked{opacity:.45; position:relative}
+    .slot.locked::after{content:"🔒"; position:absolute; right:6px; bottom:4px; font-size:.85rem; opacity:.8}
+    .powertotal{margin-top:10px; text-align:center; font-size:1.5rem; font-weight:900; letter-spacing:1px; border-top:1px solid #3b3325; padding-top:8px}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>⚔️ Mead Hall Arena (Text)</h1>
+    <h1>⚔️ Valhalla Ascending — Arena</h1>
+
+    <!-- Gender pick (first time only) -->
+    <div id="genderPick" style="display:none; margin:12px 0;">
+      <div class="card" style="display:flex;gap:12px;align-items:center;justify-content:space-between;">
+        <div>Choose your warrior:</div>
+        <div style="display:flex;gap:8px">
+          <button id="pickFemale">Female</button>
+          <button id="pickMale">Male</button>
+        </div>
+      </div>
+    </div>
 
     <div class="grid">
-      <div class="card">
+      <!-- LEFT: Character & Stats -->
+      <div class="card" style="position:relative">
         <div class="row"><div>Hero</div><div id="heroName">—</div></div>
         <div class="row"><div>Level</div><div id="level">1</div></div>
         <div class="row"><div>XP</div><div id="xpVal">0 / 100</div></div>
         <div class="bar"><span id="xpBar"></span></div>
         <div class="row"><div>Gold</div><div id="gold">0</div></div>
-        <div class="row"><div class="stat">Power</div><div id="power">0</div></div>
+
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:12px;margin-top:12px;">
+          <div style="display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid #3b3325;border-radius:12px;padding:6px;">
+            <img id="avatar" src="/guildbook/girl.png" alt="avatar" style="width:100%;max-width:110px;object-fit:contain;border-radius:10px;">
+          </div>
+          <div class="equip-grid">
+            <div class="slot" data-slot="helm">Helm</div>
+            <div class="slot" data-slot="shoulders">Shoulders</div>
+            <div class="slot" data-slot="wings">Wings</div>
+
+            <div class="slot" data-slot="ring">Ring</div>
+            <div class="slot" data-slot="chest">Chest</div>
+            <div class="slot" data-slot="pet">Pet</div>
+
+            <div class="slot" data-slot="gloves">Gloves</div>
+            <div class="slot" data-slot="boots">Boots</div>
+            <div class="slot" data-slot="sylph">Sylph</div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:8px"><div class="stat">Power</div><div id="power">0</div></div>
         <div class="row"><div class="stat">Defense</div><div id="defense">0</div></div>
         <div class="row"><div class="stat">Speed</div><div id="speed">0</div></div>
         <div class="row"><div>Unspent Points</div><div id="points">0</div></div>
+
+        <div id="powerTotal" class="powertotal">POWER 0</div>
       </div>
 
+      <!-- RIGHT: Actions -->
       <div class="card">
         <div class="row"><button id="trainPower">Train Power (+1)</button><span class="muted">3s cd</span></div>
         <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
         <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
         <hr/>
-        <div class="row"><button id="fightRandom">Battle: Random Opponent</button><span class="muted">win gold/xp</span></div>
-        <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">grants passive gold/xp</span></div>
+        <div class="row"><button id="fightRandom" disabled>Battle: PvP (Lv 25+)</button><span class="muted">win gold/xp</span></div>
+        <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">passive gold/xp</span></div>
       </div>
     </div>
 
@@ -63,10 +112,10 @@
     </div>
   </div>
 
-  <!-- TS entry -->
   <script type="module" src="/src/game.ts"></script>
 </body>
 </html>
+
 
 
 
