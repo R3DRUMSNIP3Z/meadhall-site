@@ -9,11 +9,26 @@ const { users } = require("./db");
 const state = Object.create(null);
 
 // ================== CATALOG LOADING ==================
-const WINDOWS_CATALOG_PATH = "C:\\Users\\Lisa\\meadhall-site\\public\\guildbook\\catalogshop.json";
-;
-const FALLBACK_CATALOG_PATH = path.join(process.cwd(), "public", "guildbook", "catalogshop.json");
-const CATALOG_PATH = process.env.SHOP_CATALOG_PATH || (fs.existsSync(WINDOWS_CATALOG_PATH) ? WINDOWS_CATALOG_PATH : FALLBACK_CATALOG_PATH);
+const fs = require("fs");
+const path = require("path");
 
+// your exact Windows dev path
+const WINDOWS_CATALOG_PATH = "C:\\Users\\Lisa\\meadhall-site\\public\\guildbook\\catalogshop.json";
+
+// fallbacks for Render / Vercel
+const FALLBACKS = [
+  path.join(process.cwd(), "..", "public", "guildbook", "catalogshop.json"),
+  path.join(process.cwd(), "public", "guildbook", "catalogshop.json"),
+];
+
+// pick whichever exists
+function resolveCatalogPath() {
+  if (fs.existsSync(WINDOWS_CATALOG_PATH)) return WINDOWS_CATALOG_PATH;
+  for (const p of FALLBACKS) if (fs.existsSync(p)) return p;
+  return FALLBACKS[0];
+}
+
+let CATALOG_PATH = resolveCatalogPath();
 let catalog = { sets: {}, items: [] };
 
 function loadCatalogOnce(p) {
@@ -30,14 +45,16 @@ function loadCatalogOnce(p) {
   }
 }
 
+// initial load
 catalog = loadCatalogOnce(CATALOG_PATH);
 
+// auto-reload
 try {
   fs.watchFile(CATALOG_PATH, { interval: 2000 }, () => {
     console.log("♻️ Shop catalog changed, reloading...");
     catalog = loadCatalogOnce(CATALOG_PATH);
   });
-} catch (e) {
+} catch {
   console.warn("fs.watchFile not available; catalog will not hot-reload.");
 }
 
@@ -50,6 +67,7 @@ const getSetBonuses = () => {
   return bonuses;
 };
 const findItem = (id) => getShop().find(i => i.id === id);
+
 
 // ================== GAME RULES ==================
 const SLOT_UNLOCK = {
