@@ -241,13 +241,16 @@ footer{
 }
 
 .shop-img {
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
-  border-radius: 8px;
-  object-fit: cover;
-  box-shadow: 0 0 0 1px rgba(200,169,107,.25);
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: rgba(0,0,0,.4);
+  box-shadow: 0 0 0 1px rgba(200,169,107,.3);
 }
+
+
 
 .shop-text {
   display: flex;
