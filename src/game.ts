@@ -1,5 +1,5 @@
 /* =============================== */
-/* Mead Hall — src/game.ts (full)  */
+/* Valhalla Ascending — src/game.ts */
 /* =============================== */
 
 type Gender = "female" | "male";
@@ -31,7 +31,7 @@ type ShopItem = {
   slot?: Slot;
   levelReq?: number;
   rarity?: "normal" | "epic" | "legendary";
-  imageUrl?: string; // backend defaults to /guildbook/items/<id>.png when absent
+  imageUrl?: string; // defaults to /guildbook/items/<id>.png on backend / item endpoint
 };
 
 type ApiMe  = { me: Me };
@@ -49,6 +49,14 @@ type FightResult = {
 /* ---------- config ---------- */
 const apiBase =
   (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content?.trim() || "";
+
+/* ---------- image resolver (frontend assets) ---------- */
+function resolveImg(u?: string): string {
+  if (!u) return "";
+  if (/^https?:\/\//i.test(u)) return u;           // already absolute
+  if (u.startsWith("/guildbook/")) return `${location.origin}${u}`; // served by Vercel/public
+  return u;
+}
 
 /* ---------- user id helpers ---------- */
 const LS_KEY = "mh_user";
@@ -126,7 +134,7 @@ function renderSlot(
 
   const img = document.createElement("img");
   img.className = "slot-img";
-  img.src = item.imageUrl || "";
+  img.src = resolveImg(item.imageUrl);
   img.alt = item.name || slotKey;
   el.appendChild(img);
 
@@ -136,7 +144,7 @@ function renderSlot(
     const overlay = document.createElement("img");
     overlay.className = "rarity-frame";
     overlay.alt = "";
-    overlay.src = frameUrl;
+    overlay.src = resolveImg(frameUrl);
     el.appendChild(overlay);
   }
 }
@@ -186,7 +194,7 @@ function render() {
 
   // Avatar
   ( $("avatar") as HTMLImageElement ).src =
-    m.gender === "male" ? "/guildbook/boy.png" : "/guildbook/girl.png";
+    m.gender === "male" ? resolveImg("/guildbook/boy.png") : resolveImg("/guildbook/girl.png");
 
   // Equip grid (lock visuals + rarity frames)
   document.querySelectorAll<HTMLDivElement>(".slot").forEach(async (div) => {
@@ -222,18 +230,29 @@ function render() {
   ( $("fightRandom") as HTMLButtonElement ).disabled = m.level < PVP_UNLOCK;
 }
 
-/* ---------- shop UI ---------- */
+/* ---------- shop UI (with image) ---------- */
 function renderShop() {
   const box = $("shop");
   box.innerHTML = "";
+
   state.shop.forEach(item => {
     const req  = item.levelReq ? ` <span class="muted">(Lv ${item.levelReq}+)</span>` : "";
     const slot = item.slot ? ` <span class="muted">[${capitalize(item.slot)}]</span>` : "";
+
     const line = document.createElement("div");
     line.className = "shop-item";
     line.innerHTML = `
-      <div>${item.name}${slot}${req} <span class="muted">(+${item.boost} ${item.stat})</span></div>
-      <div>${item.cost}g <button data-id="${item.id}">Buy</button></div>
+      <div class="shop-left">
+        <img class="shop-img" src="${resolveImg(item.imageUrl)}" alt="${item.name}" loading="lazy">
+        <div class="shop-text">
+          <div class="shop-title">${item.name}${slot}${req}</div>
+          <div class="shop-sub muted">+${item.boost} ${item.stat}</div>
+        </div>
+      </div>
+      <div class="shop-right">
+        <div class="shop-price">${item.cost}g</div>
+        <button data-id="${item.id}">Buy</button>
+      </div>
     `;
     box.appendChild(line);
   });
@@ -327,7 +346,6 @@ loadAll().catch(e => log(e.message, "bad"));
 
 /* ======================================================================= */
 /* ---- Dev console helpers (window.dev) --------------------------------- */
-/* Reuses apiBase, LS_KEY, getUserId(), and userId above — no duplicates.  */
 /* ======================================================================= */
 (() => {
   const DEV_KEY = localStorage.getItem("DEV_KEY") || "valhalla-dev";
@@ -375,13 +393,21 @@ loadAll().catch(e => log(e.message, "bad"));
 })();
 
 /* ======================================================================= */
-/* NOTE: Add CSS to your stylesheet (not here) so overlays align:          */
+/* NOTE: Add CSS to your stylesheet so overlays align:                     */
 /*
 .slot{position:relative;width:96px;height:96px;border:1px solid #3b3325;border-radius:12px;background:#0f1215;display:grid;place-items:center;color:#cbb17a;font-family:"Cinzel",serif;overflow:hidden}
 .slot.locked{opacity:.5;filter:grayscale(1)}
 .slot-img{max-width:88%;max-height:88%;object-fit:contain;pointer-events:none}
 .rarity-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+
+.shop-left{display:flex;gap:10px;align-items:center;min-width:0}
+.shop-img{width:44px;height:44px;border-radius:8px;object-fit:cover;box-shadow:0 0 0 1px rgba(212,169,77,.25);flex:0 0 44px}
+.shop-text{display:flex;flex-direction:column}
+.shop-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shop-right{display:flex;align-items:center;gap:10px}
+.shop-price{width:60px;text-align:right}
 */
+
 
 
 

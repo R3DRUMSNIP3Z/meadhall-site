@@ -222,6 +222,84 @@ footer{
   object-fit: contain;
   pointer-events: none;
 }
+/* === Valhalla Ascending — Arena === */
+
+.shop-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(200,169,107,.15);
+}
+
+.shop-left {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.shop-img {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(200,169,107,.25);
+}
+
+.shop-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.shop-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shop-sub {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.shop-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shop-price {
+  width: 60px;
+  text-align: right;
+}
+
+/* Hover feedback */
+.shop-item:hover .shop-img {
+  filter: brightness(1.2);
+  transform: scale(1.03);
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.btn-buy,
+.shop-item button {
+  border: 1px solid rgba(200,169,107,.3);
+  background: linear-gradient(180deg, #1a1a1a, #101010);
+  color: var(--gold);
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: "Cinzel", serif;
+  font-size: 0.9rem;
+}
+.btn-buy:hover,
+.shop-item button:hover {
+  filter: brightness(1.15);
+  border-color: var(--gold);
+}
+
 
 
 
