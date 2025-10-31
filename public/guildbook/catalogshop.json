@@ -1,0 +1,26 @@
+{
+  "sets": {
+    "drengr": {
+      "displayName": "Drengr Set",
+      "description": "Forged for the first warriors of the North. A humble start for any Viking.",
+      "rarity": "normal",
+      "bonuses": [
+        { "pieces": 2, "bonus": { "power": 2 } },
+        { "pieces": 4, "bonus": { "power": 5 } },
+        { "pieces": 6, "bonus": { "power": 10 } },
+        { "pieces": 9, "bonus": { "power": 18 } }
+      ]
+    }
+  },
+  "items": [
+    { "id": "drengr-helm", "set": "drengr", "slot": "helm", "name": "Drengr Helm", "rarity": "normal", "stat": "power", "boost": 3, "cost": 80, "levelReq": 5, "imageUrl": "/guildbook/items/drengr-helm.png" },
+    { "id": "drengr-shoulders", "set": "drengr", "slot": "shoulders", "name": "Drengr Shoulders", "rarity": "normal", "stat": "power", "boost": 3, "cost": 90, "levelReq": 8, "imageUrl": "/guildbook/items/drengr-shoulders.png" },
+    { "id": "drengr-chest", "set": "drengr", "slot": "chest", "name": "Drengr Chestguard", "rarity": "normal", "stat": "defense", "boost": 4, "cost": 110, "levelReq": 10, "imageUrl": "/guildbook/items/drengr-chest.png" },
+    { "id": "drengr-gloves", "set": "drengr", "slot": "gloves", "name": "Drengr Gloves", "rarity": "normal", "stat": "power", "boost": 2, "cost": 90, "levelReq": 12, "imageUrl": "/guildbook/items/drengr-gloves.png" },
+    { "id": "drengr-boots", "set": "drengr", "slot": "boots", "name": "Drengr Boots", "rarity": "normal", "stat": "speed", "boost": 2, "cost": 90, "levelReq": 15, "imageUrl": "/guildbook/items/drengr-boots.png" },
+    { "id": "drengr-ring", "set": "drengr", "slot": "ring", "name": "Drengr Ring", "rarity": "normal", "stat": "power", "boost": 4, "cost": 130, "levelReq": 18, "imageUrl": "/guildbook/items/drengr-ring.png" },
+    { "id": "drengr-wings", "set": "drengr", "slot": "wings", "name": "Drengr Wings", "rarity": "normal", "stat": "power", "boost": 6, "cost": 200, "levelReq": 22, "imageUrl": "/guildbook/items/drengr-wings.png" },
+    { "id": "drengr-pet", "set": "drengr", "slot": "pet", "name": "Drengr Worm", "rarity": "normal", "stat": "power", "boost": 5, "cost": 180, "levelReq": 24, "imageUrl": "/guildbook/items/drengr-pet.png" },
+    { "id": "drengr-sylph", "set": "drengr", "slot": "sylph", "name": "Drengr Sylph – Breeze the Airheaded", "rarity": "normal", "stat": "power", "boost": 7, "cost": 230, "levelReq": 28, "imageUrl": "/guildbook/items/drengr-sylph.png" }
+  ]
+}

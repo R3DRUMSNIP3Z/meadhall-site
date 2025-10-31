@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+  <defs>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4.2" result="b2"/>
+      <feMerge><feMergeNode in="b1"/><feMergeNode in="b2"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      @keyframes pulse { 0%{opacity:.75} 50%{opacity:1} 100%{opacity:.75} }
+    </style>
+  </defs>
+
+  <!-- crisp neon stroke sized to the box -->
+  <rect x="1.5" y="1.5" width="97" height="97" rx="10" ry="10"
+        fill="none" stroke="#39ff14" stroke-width="3" vector-effect="non-scaling-stroke"/>
+  <!-- glow pass -->
+  <g filter="url(#glow)" style="animation:pulse 2s ease-in-out infinite">
+    <rect x="1.5" y="1.5" width="97" height="97" rx="10" ry="10"
+          fill="none" stroke="#39ff14" stroke-width="3" vector-effect="non-scaling-stroke"/>
+  </g>
+</svg>

@@ -154,7 +154,6 @@ footer{
   color: var(--ink-dim); /* dimmed if locked */
   pointer-events: none; /* prevent clicking */
 }
-
 .brand h1.locked::after {
   content: "🔒";
   font-size: 18px;
@@ -166,12 +165,10 @@ footer{
 }
 
 /* === Viking Profile Frames (clean, reusable) === */
-
-/* Base wrapper */
 .pfp{
   position: relative;
   display: inline-block;
-  width: var(--pfp-size, 180px);   /* override per place: 40px, 118px, 180px, etc. */
+  width: var(--pfp-size, 180px);
   height: var(--pfp-size, 180px);
   border-radius: 50%;
 }
@@ -181,10 +178,8 @@ footer{
   border-radius: 50%;
   object-fit: cover;
   display: block;
-  /* optional: kill any old borders */
   border: none;
 }
-/* The overlay frame sits on top */
 .pfp::after{
   content: "";
   position: absolute;
@@ -194,11 +189,40 @@ footer{
   background-size: 100% 100%;
   pointer-events: none;
 }
-
-/* Tiers only pick the frame image */
 .pfp--reader::after  { background-image: url("/guildbook/reader-frame.svg"); }
 .pfp--premium::after { background-image: url("/guildbook/premium-frame.svg"); }
 .pfp--annual::after  { background-image: url("/guildbook/annual-frame.svg"); }
+
+/* === Paper-doll equipment slots + rarity overlays === */
+.slot{
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border: 1px solid #3b3325;
+  border-radius: 12px;
+  background: #0f1215;
+  display: grid;
+  place-items: center;
+  color: #cbb17a;
+  font-family: "Cinzel", serif;
+  overflow: hidden;
+}
+.slot.locked{ opacity:.5; filter:grayscale(1); }
+.slot-img{
+  max-width: 88%;
+  max-height: 88%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.rarity-frame{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 
 
 

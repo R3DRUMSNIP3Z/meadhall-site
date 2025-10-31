@@ -1,3 +1,7 @@
+/* =============================== */
+/* Mead Hall — src/game.ts (full)  */
+/* =============================== */
+
 type Gender = "female" | "male";
 type Slot =
   | "helm" | "shoulders" | "chest" | "gloves" | "boots"
@@ -26,6 +30,8 @@ type ShopItem = {
   cost: number;
   slot?: Slot;
   levelReq?: number;
+  rarity?: "normal" | "epic" | "legendary";
+  imageUrl?: string; // backend defaults to /guildbook/items/<id>.png when absent
 };
 
 type ApiMe  = { me: Me };
@@ -40,9 +46,11 @@ type FightResult = {
   };
 };
 
+/* ---------- config ---------- */
 const apiBase =
   (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content?.trim() || "";
 
+/* ---------- user id helpers ---------- */
 const LS_KEY = "mh_user";
 function getUserId(): string | null {
   try {
@@ -58,6 +66,7 @@ function getUserId(): string | null {
 const userId = getUserId();
 if (!userId) alert("Missing user. Make sure you're logged in.");
 
+/* ---------- tiny DOM helpers ---------- */
 const $ = (id: string) => document.getElementById(id)!;
 const logBox = $("log");
 function log(msg: string, cls?: string) {
@@ -67,15 +76,79 @@ function log(msg: string, cls?: string) {
   logBox.prepend(p);
 }
 
+/* ---------- client state ---------- */
 const state: { me: Me | null; shop: ShopItem[] } = { me: null, shop: [] };
 
-// Unlock rules
+/* ---------- item cache + lookup ---------- */
+const itemCache = new Map<string, ShopItem>();
+
+async function getItem(id: string): Promise<ShopItem | undefined> {
+  if (!id) return;
+  if (itemCache.has(id)) return itemCache.get(id)!;
+
+  // try from loaded shop first
+  const fromShop = state.shop.find(i => i.id === id);
+  if (fromShop) {
+    itemCache.set(id, fromShop);
+    return fromShop;
+  }
+
+  // fallback to backend metadata
+  try {
+    const info = await api<ShopItem>("/api/game/item/" + encodeURIComponent(id));
+    itemCache.set(id, info);
+    return info;
+  } catch {
+    return undefined;
+  }
+}
+
+/* ---------- rarity frames + slot renderer ---------- */
+const rarityFrame: Record<string,string> = {
+  normal:    "/guildbook/frames/normal-frame.svg",
+  epic:      "/guildbook/frames/epic-frame.svg",
+  legendary: "/guildbook/frames/legendary-frame.svg",
+};
+
+function renderSlot(
+  slotKey: string,
+  item?: { rarity?: string; imageUrl?: string; name?: string }
+) {
+  const el = document.querySelector(`.slot[data-slot="${slotKey}"]`) as HTMLElement | null;
+  if (!el) return;
+
+  el.innerHTML = ""; // clear content
+
+  if (!item) {
+    el.textContent = slotKey.charAt(0).toUpperCase() + slotKey.slice(1);
+    return;
+  }
+
+  const img = document.createElement("img");
+  img.className = "slot-img";
+  img.src = item.imageUrl || "";
+  img.alt = item.name || slotKey;
+  el.appendChild(img);
+
+  const r = (item.rarity || "").toLowerCase();
+  const frameUrl = rarityFrame[r];
+  if (frameUrl) {
+    const overlay = document.createElement("img");
+    overlay.className = "rarity-frame";
+    overlay.alt = "";
+    overlay.src = frameUrl;
+    el.appendChild(overlay);
+  }
+}
+
+/* ---------- unlock rules ---------- */
 const SLOT_UNLOCK: Record<Slot, number> = {
   helm: 5, shoulders: 8, chest: 10, gloves: 12, boots: 15,
   ring: 18, wings: 22, pet: 24, sylph: 28
 };
 const PVP_UNLOCK = 25;
 
+/* ---------- fetch wrapper ---------- */
 async function api<T=any>(path: string, opts: RequestInit = {}): Promise<T> {
   const r = await fetch(apiBase + path, {
     ...opts,
@@ -89,11 +162,13 @@ async function api<T=any>(path: string, opts: RequestInit = {}): Promise<T> {
   return r.json() as Promise<T>;
 }
 
+/* ---------- compute helpers ---------- */
 function totalPower(m: Me): number {
   const gear = m.gearPower ?? 0;
   return Math.max(0, m.power) + gear;
 }
 
+/* ---------- renderer ---------- */
 function render() {
   const m = state.me!;
   $("heroName").textContent = m.name || "Unknown";
@@ -113,15 +188,31 @@ function render() {
   ( $("avatar") as HTMLImageElement ).src =
     m.gender === "male" ? "/guildbook/boy.png" : "/guildbook/girl.png";
 
-  // Equip grid
-  document.querySelectorAll<HTMLDivElement>(".slot").forEach(div => {
+  // Equip grid (lock visuals + rarity frames)
+  document.querySelectorAll<HTMLDivElement>(".slot").forEach(async (div) => {
     const slot = div.dataset.slot as Slot;
     const needed = SLOT_UNLOCK[slot];
-    div.classList.toggle("locked", m.level < needed);
     const eqId = m.slots?.[slot];
-    div.textContent = m.level < needed
-      ? `${capitalize(slot)} (Lv ${needed})`
-      : (eqId ? `${capitalize(slot)} ✓` : capitalize(slot));
+
+    // lock state first
+    div.classList.toggle("locked", m.level < needed);
+    if (m.level < needed) {
+      div.innerHTML = `${capitalize(slot)} (Lv ${needed})`;
+      return;
+    }
+
+    // no item equipped
+    if (!eqId) {
+      renderSlot(slot, undefined);
+      return;
+    }
+
+    // fetch + render with overlay
+    const it = await getItem(eqId);
+    renderSlot(
+      slot,
+      it ? { rarity: it.rarity, imageUrl: it.imageUrl, name: it.name } : undefined
+    );
   });
 
   // Big POWER
@@ -131,6 +222,7 @@ function render() {
   ( $("fightRandom") as HTMLButtonElement ).disabled = m.level < PVP_UNLOCK;
 }
 
+/* ---------- shop UI ---------- */
 function renderShop() {
   const box = $("shop");
   box.innerHTML = "";
@@ -164,6 +256,7 @@ function renderShop() {
   };
 }
 
+/* ---------- boot ---------- */
 async function loadAll() {
   const meRes = await api<ApiMe>("/api/game/me");
   state.me = meRes.me;
@@ -190,7 +283,7 @@ async function setGender(g: Gender) {
   } catch (e:any) { log(e.message, "bad"); }
 }
 
-// Buttons
+/* ---------- buttons ---------- */
 $("trainPower").onclick   = () => train("power");
 $("trainDefense").onclick = () => train("defense");
 $("trainSpeed").onclick   = () => train("speed");
@@ -218,7 +311,7 @@ async function train(stat: "power"|"defense"|"speed") {
   } catch(err:any){ log("Train error: " + err.message, "bad"); }
 }
 
-// Passive idle tick every 10s
+/* passive idle tick every 10s */
 setInterval(async () => {
   try {
     const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
@@ -226,7 +319,69 @@ setInterval(async () => {
   } catch {}
 }, 10000);
 
+/* ---------- misc ---------- */
 function capitalize(s: string){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
+/* start */
 loadAll().catch(e => log(e.message, "bad"));
+
+/* ======================================================================= */
+/* ---- Dev console helpers (window.dev) --------------------------------- */
+/* Reuses apiBase, LS_KEY, getUserId(), and userId above — no duplicates.  */
+/* ======================================================================= */
+(() => {
+  const DEV_KEY = localStorage.getItem("DEV_KEY") || "valhalla-dev";
+
+  // prefer existing userId; if missing, attempt to resolve lazily on call
+  const initialUid = userId;
+
+  async function call<T=any>(path: string, body?: any): Promise<T> {
+    const activeUser = initialUid || getUserId();
+    if (!activeUser) throw new Error("No user (log in first).");
+    const r = await fetch(apiBase + path, {
+      method: body ? "POST" : "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": activeUser,
+        "x-dev-key": DEV_KEY
+      },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  const dev = {
+    me:        () => call("/api/dev/me"),
+    level:     (n: number) => call("/api/dev/level", { level: n }),
+    gold:      (nOrOpts: number | { add?: number; set?: number }) =>
+                 typeof nOrOpts === "number" ? call("/api/dev/gold", { add: nOrOpts })
+                                             : call("/api/dev/gold", nOrOpts),
+    xp:        (add: number) => call("/api/dev/xp", { add }),
+    item:      (id: string) => call("/api/dev/item", { itemId: id }),
+    slots:     (slots: Record<string,string>) => call("/api/dev/slots", { slots }),
+    drengr:    () => call("/api/dev/drengr"),
+    reset:     () => call("/api/dev/reset"),
+    setKey:    (k: string) => { localStorage.setItem("DEV_KEY", k); (dev as any)._key=k; return "DEV_KEY set"; },
+    _key:      DEV_KEY
+  };
+
+  (window as any).dev = dev;
+  // eslint-disable-next-line no-console
+  console.log(
+    "%cwindow.dev ready → dev.me(), dev.level(25), dev.gold(9999), dev.item('drengr-helm'), dev.drengr()",
+    "color:#39ff14"
+  );
+})();
+
+/* ======================================================================= */
+/* NOTE: Add CSS to your stylesheet (not here) so overlays align:          */
+/*
+.slot{position:relative;width:96px;height:96px;border:1px solid #3b3325;border-radius:12px;background:#0f1215;display:grid;place-items:center;color:#cbb17a;font-family:"Cinzel",serif;overflow:hidden}
+.slot.locked{opacity:.5;filter:grayscale(1)}
+.slot-img{max-width:88%;max-height:88%;object-fit:contain;pointer-events:none}
+.rarity-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+*/
+
+
 
