@@ -16,15 +16,17 @@ const inputs: Record<string, string> = {
   friendprofile: html("friendprofile.html")!,
   profile:       html("profile.html")!,
   book:          html("book.html")!,
-  meadhall:      html("meadhall.html")!,   // <-- include so Vite builds it
+  meadhall:      html("meadhall.html")!,
+  game:          html("game.html")!,        // ← ✅ add this line
 };
 // drop undefined entries
-Object.keys(inputs).forEach(k => inputs[k] === undefined && delete inputs[k]);
+Object.keys(inputs).forEach((k) => inputs[k] === undefined && delete inputs[k]);
 
 export default defineConfig({
   plugins: [react()],
   build: { rollupOptions: { input: inputs } },
 });
+
 
 
 
