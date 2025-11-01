@@ -13,13 +13,13 @@ type Me = {
   level: number;
   xp: number;
   gold: number;
-  power: number;     // base
+  power: number;
   defense: number;
   speed: number;
   points?: number;
   gender?: Gender;
   slots?: Partial<Record<Slot, string>>;
-  gearPower?: number; // server-computed; also safe to display
+  gearPower?: number;
 };
 
 type ShopItem = {
@@ -31,10 +31,10 @@ type ShopItem = {
   slot?: Slot;
   levelReq?: number;
   rarity?: "normal" | "epic" | "legendary";
-  imageUrl?: string; // backend defaults to /guildbook/items/<id>.png
+  imageUrl?: string;
 };
 
-type ApiMe   = { me: Me };
+type ApiMe = { me: Me };
 type ApiShop = { items: ShopItem[] };
 type FightResult = {
   me: Me;
@@ -50,11 +50,11 @@ type FightResult = {
 const apiBase =
   (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content?.trim() || "";
 
-/* ---------- image resolver (frontend assets) ---------- */
+/* ---------- image resolver ---------- */
 function resolveImg(u?: string): string {
   if (!u) return "";
-  if (/^https?:\/\//i.test(u)) return u;                       // absolute
-  if (u.startsWith("/")) return u;                              // site-root asset
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith("/")) return u;
   return u;
 }
 
@@ -74,7 +74,7 @@ function getUserId(): string | null {
 const userId = getUserId();
 if (!userId) alert("Missing user. Make sure you're logged in.");
 
-/* ---------- tiny DOM helpers ---------- */
+/* ---------- DOM helpers ---------- */
 const $ = (id: string) => document.getElementById(id)!;
 const logBox = $("log");
 function log(msg: string, cls?: string) {
@@ -83,21 +83,20 @@ function log(msg: string, cls?: string) {
   p.textContent = msg;
   logBox.prepend(p);
 }
+
 /* ---------- tooltip helpers ---------- */
 const tipEl = document.getElementById("vaTooltip") as HTMLDivElement;
-
 function tipShow(x: number, y: number, html: string) {
   if (!tipEl) return;
   tipEl.innerHTML = html;
   tipEl.style.display = "block";
-  // keep in viewport
   const pad = 12;
   const w = tipEl.offsetWidth || 260;
   const h = tipEl.offsetHeight || 120;
-  const nx = Math.min(window.innerWidth  - w - pad, x + 16);
+  const nx = Math.min(window.innerWidth - w - pad, x + 16);
   const ny = Math.min(window.innerHeight - h - pad, y + 16);
   tipEl.style.left = nx + "px";
-  tipEl.style.top  = ny + "px";
+  tipEl.style.top = ny + "px";
 }
 function tipMove(ev: MouseEvent) {
   if (!tipEl || tipEl.style.display === "none") return;
@@ -109,19 +108,17 @@ function tipHide() {
 window.addEventListener("scroll", tipHide);
 window.addEventListener("resize", tipHide);
 
-/* compute sell price (fallback = 50%) */
 function sellPriceOf(item?: ShopItem): number {
   if (!item) return 0;
-  // @ts-ignore allow optional server field
+  // @ts-ignore
   if (typeof (item as any).sellPrice === "number") return Math.max(0, Math.floor((item as any).sellPrice));
   return Math.max(0, Math.floor(item.cost * 0.5));
 }
 
-/* format tooltip HTML */
 function tooltipHTML(item: ShopItem, slotKey: string) {
   const rarity = (item.rarity || "normal");
-  const stat   = `+${item.boost} ${item.stat}`;
-  const sell   = sellPriceOf(item);
+  const stat = `+${item.boost} ${item.stat}`;
+  const sell = sellPriceOf(item);
   return `
     <div class="tt-title">${item.name} <span class="muted">(${rarity})</span></div>
     <div class="tt-row"><span>Slot</span><span class="muted">${capitalize(slotKey)}</span></div>
@@ -130,25 +127,19 @@ function tooltipHTML(item: ShopItem, slotKey: string) {
   `;
 }
 
-
 /* ---------- client state ---------- */
 const state: { me: Me | null; shop: ShopItem[] } = { me: null, shop: [] };
 
 /* ---------- item cache + lookup ---------- */
 const itemCache = new Map<string, ShopItem>();
-
 async function getItem(id: string): Promise<ShopItem | undefined> {
   if (!id) return;
   if (itemCache.has(id)) return itemCache.get(id)!;
-
-  // try from loaded shop first
   const fromShop = state.shop.find(i => i.id === id);
   if (fromShop) {
     itemCache.set(id, fromShop);
     return fromShop;
   }
-
-  // fallback to backend metadata
   try {
     const info = await api<ShopItem>("/api/game/item/" + encodeURIComponent(id));
     itemCache.set(id, info);
@@ -158,28 +149,24 @@ async function getItem(id: string): Promise<ShopItem | undefined> {
   }
 }
 
-/* ---------- rarity frames (SINGLE definition) ---------- */
+/* ---------- rarity frames ---------- */
 const rarityFrame: Record<string, string> = {
-  normal:    "/guildbook/frames/normal-frame.svg",
-  epic:      "/guildbook/frames/epic-frame.svg",
+  normal: "/guildbook/frames/normal-frame.svg",
+  epic: "/guildbook/frames/epic-frame.svg",
   legendary: "/guildbook/frames/legendary-frame.svg",
 };
 
-/* ---------- slot renderer with rarity overlay ---------- */
-function renderSlot(
-  slotKey: string,
-  item?: { rarity?: string; imageUrl?: string; name?: string } & Partial<ShopItem>
-) {
+/* ---------- slot renderer ---------- */
+function renderSlot(slotKey: string, item?: ShopItem) {
   const el = document.querySelector(`.slot[data-slot="${slotKey}"]`) as HTMLElement | null;
   if (!el) return;
-
-  el.innerHTML = ""; // clear content
-  el.onmouseenter = null as any;
-  el.onmousemove  = null as any;
-  el.onmouseleave = null as any;
+  el.innerHTML = "";
+  el.onmouseenter = null;
+  el.onmousemove = null;
+  el.onmouseleave = null;
 
   if (!item) {
-    el.textContent = slotKey.charAt(0).toUpperCase() + slotKey.slice(1);
+    el.textContent = capitalize(slotKey);
     return;
   }
 
@@ -191,38 +178,15 @@ function renderSlot(
 
   const r = (item.rarity || "normal").toLowerCase();
   const frameUrl = rarityFrame[r] || rarityFrame.normal;
-  if (frameUrl) {
-    const overlay = document.createElement("img");
-    overlay.className = "rarity-frame";
-    overlay.alt = "";
-    overlay.src = resolveImg(frameUrl);
-    el.appendChild(overlay);
-  }
+  const overlay = document.createElement("img");
+  overlay.className = "rarity-frame";
+  overlay.src = resolveImg(frameUrl);
+  el.appendChild(overlay);
 
-  // 🧠 Tooltip handlers
-  el.onmouseenter = (ev) => {
-    // enrich with full ShopItem if missing fields
-    const partial = item as Partial<ShopItem>;
-    if (partial.id && (!partial.cost || !partial.boost || !partial.stat)) {
-      getItem(partial.id).then((full) => {
-        tipShow(
-          (ev as MouseEvent).clientX,
-          (ev as MouseEvent).clientY,
-          tooltipHTML((full || (partial as ShopItem)) as ShopItem, slotKey)
-        );
-      });
-    } else {
-      tipShow(
-        (ev as MouseEvent).clientX,
-        (ev as MouseEvent).clientY,
-        tooltipHTML((partial as ShopItem), slotKey)
-      );
-    }
-  };
-  el.onmousemove  = (ev) => tipMove(ev as MouseEvent);
-  el.onmouseleave = () => tipHide();
+  el.onmouseenter = (ev) => tipShow(ev.clientX, ev.clientY, tooltipHTML(item, slotKey));
+  el.onmousemove = (ev) => tipMove(ev);
+  el.onmouseleave = tipHide;
 }
-
 
 /* ---------- unlock rules ---------- */
 const SLOT_UNLOCK: Record<Slot, number> = {
@@ -232,26 +196,26 @@ const SLOT_UNLOCK: Record<Slot, number> = {
 const PVP_UNLOCK = 25;
 
 /* ---------- fetch wrapper ---------- */
-async function api<T=any>(path: string, opts: RequestInit = {}): Promise<T> {
+async function api<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
   const r = await fetch(apiBase + path, {
     ...opts,
     headers: {
       "Content-Type": "application/json",
       "x-user-id": userId || "",
-      ...(opts.headers || {})
-    }
+      ...(opts.headers || {}),
+    },
   });
   if (!r.ok) throw new Error(await r.text());
   return r.json() as Promise<T>;
 }
 
-/* ---------- compute helpers ---------- */
+/* ---------- compute ---------- */
 function totalPower(m: Me): number {
   const gear = m.gearPower ?? 0;
   return Math.max(0, m.power) + gear;
 }
 
-/* ---------- main renderer ---------- */
+/* ---------- render ---------- */
 function render() {
   const m = state.me!;
   $("heroName").textContent = m.name || "Unknown";
@@ -264,67 +228,54 @@ function render() {
 
   const need = m.level * 100;
   $("xpVal").textContent = `${m.xp} / ${need}`;
-  ( $("xpBar") as HTMLSpanElement ).style.width =
-    Math.min(100, Math.floor((m.xp / need) * 100)) + "%";
+  ($("xpBar") as HTMLSpanElement).style.width = Math.min(100, Math.floor((m.xp / need) * 100)) + "%";
 
-  // Avatar
-  ( $("avatar") as HTMLImageElement ).src =
+  ($("avatar") as HTMLImageElement).src =
     m.gender === "male" ? resolveImg("/guildbook/boy.png") : resolveImg("/guildbook/girl.png");
 
-  // Equip grid (lock visuals + rarity frames)
   document.querySelectorAll<HTMLDivElement>(".slot").forEach(async (div) => {
     const slot = div.dataset.slot as Slot;
     const needed = SLOT_UNLOCK[slot];
     const eqId = m.slots?.[slot];
 
-    // lock state first
     if (m.level < needed) {
-  div.innerHTML = `${capitalize(slot)} (Lv ${needed})`;
+      div.innerHTML = `${capitalize(slot)} (Lv ${needed})`;
+      div.onmouseenter = (ev) => tipShow(ev.clientX, ev.clientY,
+        `<div class="tt-title">${capitalize(slot)}</div>
+         <div class="muted">Unlocks at level ${needed}</div>`);
+      div.onmousemove = (ev) => tipMove(ev);
+      div.onmouseleave = tipHide;
+      return;
+    }
 
-  // Tooltip for locked slots
-  div.onmouseenter = (ev) => tipShow(
-    (ev as MouseEvent).clientX,
-    (ev as MouseEvent).clientY,
-    `<div class="tt-title">${capitalize(slot)}</div>
-     <div class="muted">Unlocks at level ${needed}</div>`
-  );
-  div.onmousemove  = (ev) => tipMove(ev as MouseEvent);
-  div.onmouseleave = () => tipHide();
-
-  return;
-}
-
-
-    // no item equipped
     if (!eqId) {
       renderSlot(slot, undefined);
       return;
     }
 
-    // fetch + render with overlay
     const it = await getItem(eqId);
-    renderSlot(
-      slot,
-      it ? { rarity: it.rarity, imageUrl: it.imageUrl, name: it.name } : undefined
-    );
+    renderSlot(slot, it);
   });
 
-  // Big POWER
   $("powerTotal").textContent = `POWER ${totalPower(m)}`;
-
-  // PvP lock
-  ( $("fightRandom") as HTMLButtonElement ).disabled = m.level < PVP_UNLOCK;
+  ($("fightRandom") as HTMLButtonElement).disabled = m.level < PVP_UNLOCK;
 }
 
-/* ---------- SHOP (with 40x40 framed thumbs) ---------- */
+/* ---------- SHOP ---------- */
 function renderShop() {
   const box = $("shop");
   box.innerHTML = "";
 
-  state.shop.forEach((item) => {
-    const req  = item.levelReq ? ` <span class="muted">(Lv ${item.levelReq}+)</span>` : "";
-    const slot = item.slot ? ` <span class="muted">[${capitalize(item.slot)}]</span>` : "";
+  if (!state.me) return;
+  const me = state.me;
+  const equippedIds = new Set(Object.values(me.slots || {}));
 
+  state.shop.forEach((item) => {
+    if (equippedIds.has(item.id)) return;
+
+    const locked = !!(item.levelReq && me.level < item.levelReq);
+    const req = item.levelReq ? ` <span class="muted">(Lv ${item.levelReq}+)</span>` : "";
+    const slot = item.slot ? ` <span class="muted">[${capitalize(item.slot)}]</span>` : "";
     const rarity = (item.rarity || "normal").toLowerCase();
     const frameUrl = rarityFrame[rarity] || rarityFrame.normal;
 
@@ -333,7 +284,7 @@ function renderShop() {
     line.innerHTML = `
       <div class="shop-left">
         <span class="shop-thumb">
-          <img class="shop-img" src="${resolveImg(item.imageUrl) || ""}" alt="${item.name}" loading="lazy">
+          <img class="shop-img" src="${resolveImg(item.imageUrl)}" alt="${item.name}" loading="lazy">
           <img class="shop-frame" src="${resolveImg(frameUrl)}" alt="" onerror="this.style.display='none'">
         </span>
         <div class="shop-text">
@@ -343,16 +294,23 @@ function renderShop() {
       </div>
       <div class="shop-right">
         <div class="shop-price">${item.cost}g</div>
-        <button data-id="${item.id}">Buy</button>
+        <button data-id="${item.id}" ${locked ? "disabled" : ""}>
+          ${locked ? "Locked" : "Buy"}
+        </button>
       </div>
     `;
+
+    line.onmouseenter = (ev) =>
+      tipShow(ev.clientX, ev.clientY, tooltipHTML(item, item.slot || "unknown"));
+    line.onmousemove = (ev) => tipMove(ev);
+    line.onmouseleave = tipHide;
+
     box.appendChild(line);
   });
 
-  // clicks
   box.onclick = async (ev) => {
     const btn = (ev.target as HTMLElement).closest("button") as HTMLButtonElement | null;
-    if (!btn) return;
+    if (!btn || btn.disabled) return;
     const id = btn.getAttribute("data-id")!;
     try {
       const res = await api<{ me: Me; item: ShopItem }>("/api/game/shop/buy", {
@@ -362,6 +320,7 @@ function renderShop() {
       state.me = res.me;
       log(`Bought ${res.item.name} (+${res.item.boost} ${res.item.stat})`, "ok");
       render();
+      renderShop();
     } catch (err: any) {
       log("Shop error: " + err.message, "bad");
     }
@@ -373,11 +332,10 @@ async function loadAll() {
   const meRes = await api<ApiMe>("/api/game/me");
   state.me = meRes.me;
 
-  // gender pick first time
   if (!state.me.gender) {
     $("genderPick").style.display = "block";
     $("pickFemale").onclick = () => setGender("female");
-    $("pickMale").onclick   = () => setGender("male");
+    $("pickMale").onclick = () => setGender("male");
   }
 
   const shopRes = await api<ApiShop>("/api/game/shop");
@@ -389,39 +347,38 @@ async function loadAll() {
 
 async function setGender(g: Gender) {
   try {
-    const res = await api<ApiMe>("/api/game/gender", { method:"POST", body: JSON.stringify({ gender: g })});
+    const res = await api<ApiMe>("/api/game/gender", { method: "POST", body: JSON.stringify({ gender: g }) });
     state.me = res.me;
     $("genderPick").style.display = "none";
     render();
-  } catch (e:any) { log(e.message, "bad"); }
+  } catch (e: any) { log(e.message, "bad"); }
 }
 
 /* ---------- buttons ---------- */
-$("trainPower").onclick   = () => train("power");
+$("trainPower").onclick = () => train("power");
 $("trainDefense").onclick = () => train("defense");
-$("trainSpeed").onclick   = () => train("speed");
+$("trainSpeed").onclick = () => train("speed");
 $("tickNow").onclick = async () => {
   const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
   state.me = r.me; render(); log("Idle tick processed");
 };
 $("fightRandom").onclick = async () => {
   try {
-    const r = await api<FightResult>("/api/pvp/fight", { method: "POST", body: JSON.stringify({ mode: "random" })});
+    const r = await api<FightResult>("/api/pvp/fight", { method: "POST", body: JSON.stringify({ mode: "random" }) });
     state.me = r.me; render();
-    const verdict = r.result.win ? "Victory!" : "Defeat.";
-    log(`${verdict} You ${r.result.win ? "won" : "lost"} vs ${r.result.opponent.name}.  ΔGold ${r.result.deltaGold}, ΔXP ${r.result.deltaXP}`);
-  } catch (err:any){ log("Fight error: " + err.message, "bad"); }
+    log(`${r.result.win ? "Victory!" : "Defeat."} vs ${r.result.opponent.name} ΔGold ${r.result.deltaGold}, ΔXP ${r.result.deltaXP}`);
+  } catch (err: any) { log("Fight error: " + err.message, "bad"); }
 };
 
-const cooldowns: Record<"power"|"defense"|"speed", number> = { power:0, defense:0, speed:0 };
+const cooldowns: Record<"power"|"defense"|"speed", number> = { power: 0, defense: 0, speed: 0 };
 async function train(stat: "power"|"defense"|"speed") {
   const now = Date.now();
   if (now < cooldowns[stat]) return;
   cooldowns[stat] = now + 3000;
   try {
-    const r = await api<ApiMe>("/api/game/train", { method:"POST", body: JSON.stringify({ stat })});
+    const r = await api<ApiMe>("/api/game/train", { method: "POST", body: JSON.stringify({ stat }) });
     state.me = r.me; render(); log(`Trained ${stat} (+1)`, "ok");
-  } catch(err:any){ log("Train error: " + err.message, "bad"); }
+  } catch (err: any) { log("Train error: " + err.message, "bad"); }
 }
 
 /* passive idle tick every 10s */
@@ -432,22 +389,16 @@ setInterval(async () => {
   } catch {}
 }, 10000);
 
-/* ---------- misc ---------- */
-function capitalize(s: string){ return s.charAt(0).toUpperCase() + s.slice(1); }
+function capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 /* start */
 loadAll().catch(e => log(e.message, "bad"));
 
-/* ======================================================================= */
-/* ---- Dev console helpers (window.dev) --------------------------------- */
-/* ======================================================================= */
+/* ---------- Dev console helpers ---------- */
 (() => {
   const DEV_KEY = localStorage.getItem("DEV_KEY") || "valhalla-dev";
-
-  // prefer existing userId; if missing, attempt to resolve lazily on call
   const initialUid = userId;
-
-  async function call<T=any>(path: string, body?: any): Promise<T> {
+  async function call<T = any>(path: string, body?: any): Promise<T> {
     const activeUser = initialUid || getUserId();
     if (!activeUser) throw new Error("No user (log in first).");
     const r = await fetch(apiBase + path, {
@@ -455,36 +406,31 @@ loadAll().catch(e => log(e.message, "bad"));
       headers: {
         "Content-Type": "application/json",
         "x-user-id": activeUser,
-        "x-dev-key": DEV_KEY
+        "x-dev-key": DEV_KEY,
       },
-      body: body ? JSON.stringify(body) : undefined
+      body: body ? JSON.stringify(body) : undefined,
     });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   }
 
   const dev = {
-    me:        () => call("/api/dev/me"),
-    level:     (n: number) => call("/api/dev/level", { level: n }),
-    gold:      (nOrOpts: number | { add?: number; set?: number }) =>
-                 typeof nOrOpts === "number" ? call("/api/dev/gold", { add: nOrOpts })
-                                             : call("/api/dev/gold", nOrOpts),
-    xp:        (add: number) => call("/api/dev/xp", { add }),
-    item:      (id: string) => call("/api/dev/item", { itemId: id }),
-    slots:     (slots: Record<string,string>) => call("/api/dev/slots", { slots }),
-    drengr:    () => call("/api/dev/drengr"),
-    reset:     () => call("/api/dev/reset"),
-    setKey:    (k: string) => { localStorage.setItem("DEV_KEY", k); (dev as any)._key=k; return "DEV_KEY set"; },
-    _key:      DEV_KEY
+    me: () => call("/api/dev/me"),
+    level: (n: number) => call("/api/dev/level", { level: n }),
+    gold: (n: number) => call("/api/dev/gold", { add: n }),
+    xp: (add: number) => call("/api/dev/xp", { add }),
+    item: (id: string) => call("/api/dev/item", { itemId: id }),
+    slots: (slots: Record<string, string>) => call("/api/dev/slots", { slots }),
+    drengr: () => call("/api/dev/drengr"),
+    reset: () => call("/api/dev/reset"),
+    setKey: (k: string) => { localStorage.setItem("DEV_KEY", k); (dev as any)._key = k; return "DEV_KEY set"; },
+    _key: DEV_KEY,
   };
 
   (window as any).dev = dev;
-  // eslint-disable-next-line no-console
-  console.log(
-    "%cwindow.dev ready → dev.me(), dev.level(25), dev.gold(9999), dev.item('drengr-helm'), dev.drengr()",
-    "color:#39ff14"
-  );
+  console.log("%cwindow.dev ready → dev.me(), dev.level(25), dev.gold(9999), dev.item('drengr-helm'), dev.drengr()", "color:#39ff14");
 })();
+
 
 
 
