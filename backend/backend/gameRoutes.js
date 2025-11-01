@@ -204,6 +204,27 @@ function install(app) {
     res.json({ me });
   });
 
+  // ---- NEW: Allocate unspent points -> stats
+  router.post("/game/allocate", express.json(), (req, res) => {
+    const me = recompute(tick(ensure(req.userId)));
+    const { stat, amount } = req.body || {};
+    if (!["power", "defense", "speed"].includes(stat))
+      return res.status(400).json({ error: "Invalid stat" });
+
+    const amt = Number(amount);
+    if (!Number.isInteger(amt) || amt <= 0)
+      return res.status(400).json({ error: "Amount must be a positive integer" });
+
+    if ((me.points || 0) < amt)
+      return res.status(400).json({ error: "Not enough points" });
+
+    me[stat] = Number(me[stat] || 0) + amt;
+    me.points = Number(me.points || 0) - amt;
+
+    recompute(me);
+    res.json({ me });
+  });
+
   // ---- Shop
   router.get("/game/shop", (req, res) => res.json({ items: getShop() }));
 
@@ -340,6 +361,14 @@ function install(app) {
     res.json({ me });
   });
 
+  // NEW: quick give points (dev tool)
+  dev.post("/points", (req, res) => {
+    const { add = 10 } = req.body || {};
+    const me = ensure(req.userId);
+    me.points = Number(me.points || 0) + Math.floor(add);
+    res.json({ me });
+  });
+
   // give/equip item (ignores cost/locks)
   dev.post("/item", (req, res) => {
     const { itemId } = req.body || {};
@@ -400,6 +429,8 @@ function install(app) {
 }
 
 module.exports = { install };
+
+
 
 
 

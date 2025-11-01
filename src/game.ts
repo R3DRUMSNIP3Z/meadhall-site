@@ -85,7 +85,14 @@ function log(msg: string, cls?: string) {
 }
 
 /* ---------- tooltip helpers ---------- */
-const tipEl = document.getElementById("vaTooltip") as HTMLDivElement;
+let tipEl = document.getElementById("vaTooltip") as HTMLDivElement | null;
+if (!tipEl) {
+  tipEl = document.createElement("div");
+  tipEl.id = "vaTooltip";
+  tipEl.style.cssText =
+    "position:fixed;display:none;z-index:9999;min-width:220px;max-width:320px;padding:10px;border-radius:10px;border:1px solid rgba(212,169,77,.35);background:#101317;color:#d4a94d;box-shadow:0 8px 30px rgba(0,0,0,.45);font-family:Cinzel,serif;font-size:.95rem";
+  document.body.appendChild(tipEl);
+}
 function tipShow(x: number, y: number, html: string) {
   if (!tipEl) return;
   tipEl.innerHTML = html;
@@ -110,20 +117,19 @@ window.addEventListener("resize", tipHide);
 
 function sellPriceOf(item?: ShopItem): number {
   if (!item) return 0;
-  // @ts-ignore
+  // @ts-ignore optional field from server
   if (typeof (item as any).sellPrice === "number") return Math.max(0, Math.floor((item as any).sellPrice));
   return Math.max(0, Math.floor(item.cost * 0.5));
 }
-
 function tooltipHTML(item: ShopItem, slotKey: string) {
   const rarity = (item.rarity || "normal");
   const stat = `+${item.boost} ${item.stat}`;
   const sell = sellPriceOf(item);
   return `
-    <div class="tt-title">${item.name} <span class="muted">(${rarity})</span></div>
-    <div class="tt-row"><span>Slot</span><span class="muted">${capitalize(slotKey)}</span></div>
-    <div class="tt-row"><span>Stats</span><span class="muted">${stat}</span></div>
-    <div class="tt-row"><span>Sell</span><span class="muted">${sell}g</span></div>
+    <div class="tt-title" style="font-weight:900;margin-bottom:6px">${item.name} <span class="muted" style="opacity:.8">(${rarity})</span></div>
+    <div class="tt-row" style="display:flex;justify-content:space-between"><span>Slot</span><span class="muted" style="opacity:.85">${capitalize(slotKey)}</span></div>
+    <div class="tt-row" style="display:flex;justify-content:space-between"><span>Stats</span><span class="muted" style="opacity:.85">${stat}</span></div>
+    <div class="tt-row" style="display:flex;justify-content:space-between"><span>Sell</span><span class="muted" style="opacity:.85">${sell}g</span></div>
   `;
 }
 
@@ -181,6 +187,7 @@ function renderSlot(slotKey: string, item?: ShopItem) {
   const overlay = document.createElement("img");
   overlay.className = "rarity-frame";
   overlay.src = resolveImg(frameUrl);
+  overlay.alt = "";
   el.appendChild(overlay);
 
   el.onmouseenter = (ev) => tipShow(ev.clientX, ev.clientY, tooltipHTML(item, slotKey));
@@ -240,9 +247,10 @@ function render() {
 
     if (m.level < needed) {
       div.innerHTML = `${capitalize(slot)} (Lv ${needed})`;
-      div.onmouseenter = (ev) => tipShow(ev.clientX, ev.clientY,
-        `<div class="tt-title">${capitalize(slot)}</div>
-         <div class="muted">Unlocks at level ${needed}</div>`);
+      div.onmouseenter = (ev) =>
+        tipShow(ev.clientX, ev.clientY,
+          `<div class="tt-title" style="font-weight:900;margin-bottom:6px">${capitalize(slot)}</div>
+           <div class="muted" style="opacity:.85">Unlocks at level ${needed}</div>`);
       div.onmousemove = (ev) => tipMove(ev);
       div.onmouseleave = tipHide;
       return;
@@ -258,19 +266,26 @@ function render() {
   });
 
   $("powerTotal").textContent = `POWER ${totalPower(m)}`;
+
+  // enable/disable PvP button
   ($("fightRandom") as HTMLButtonElement).disabled = m.level < PVP_UNLOCK;
+
+  // refresh allocation controls (disable if no points)
+  const hasPts = (m.points ?? 0) > 0;
+  allocButtonsEnabled(hasPts);
 }
 
 /* ---------- SHOP ---------- */
 function renderShop() {
   const box = $("shop");
   box.innerHTML = "";
-
   if (!state.me) return;
+
   const me = state.me;
   const equippedIds = new Set(Object.values(me.slots || {}));
 
   state.shop.forEach((item) => {
+    // Hide items already equipped (prevents duplicate power stacking)
     if (equippedIds.has(item.id)) return;
 
     const locked = !!(item.levelReq && me.level < item.levelReq);
@@ -294,14 +309,11 @@ function renderShop() {
       </div>
       <div class="shop-right">
         <div class="shop-price">${item.cost}g</div>
-        <button data-id="${item.id}" ${locked ? "disabled" : ""}>
-          ${locked ? "Locked" : "Buy"}
-        </button>
+        <button data-id="${item.id}" ${locked ? "disabled" : ""}>${locked ? "Locked" : "Buy"}</button>
       </div>
     `;
 
-    line.onmouseenter = (ev) =>
-      tipShow(ev.clientX, ev.clientY, tooltipHTML(item, item.slot || "unknown"));
+    line.onmouseenter = (ev) => tipShow(ev.clientX, ev.clientY, tooltipHTML(item, item.slot || "unknown"));
     line.onmousemove = (ev) => tipMove(ev);
     line.onmouseleave = tipHide;
 
@@ -320,11 +332,72 @@ function renderShop() {
       state.me = res.me;
       log(`Bought ${res.item.name} (+${res.item.boost} ${res.item.stat})`, "ok");
       render();
-      renderShop();
+      renderShop(); // refresh to hide the now-equipped item
     } catch (err: any) {
       log("Shop error: " + err.message, "bad");
     }
   };
+}
+
+/* ---------- Allocation UI (injected, no HTML edits needed) ---------- */
+let allocInput: HTMLInputElement | null = null;
+let btnAllocPow: HTMLButtonElement | null = null;
+let btnAllocDef: HTMLButtonElement | null = null;
+let btnAllocSpd: HTMLButtonElement | null = null;
+
+function ensureAllocUI() {
+  // Insert after the "Unspent Points" row
+  const pointsRow = $("points").parentElement?.parentElement as HTMLElement | null;
+  if (!pointsRow) return;
+
+  // If already present, skip
+  if (document.getElementById("allocControls")) return;
+
+  const wrap = document.createElement("div");
+  wrap.id = "allocControls";
+  wrap.className = "row";
+  wrap.style.marginTop = "6px";
+  wrap.innerHTML = `
+    <div class="muted">Allocate</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="allocAmount" type="number" min="1" value="1" style="width:70px;padding:6px;border-radius:8px;border:1px solid #3b3325;background:#0e1216;color:#d4a94d">
+      <button id="btnAllocPower">+ Power</button>
+      <button id="btnAllocDefense">+ Defense</button>
+      <button id="btnAllocSpeed">+ Speed</button>
+    </div>
+  `;
+  pointsRow.after(wrap);
+
+  allocInput = document.getElementById("allocAmount") as HTMLInputElement;
+  btnAllocPow = document.getElementById("btnAllocPower") as HTMLButtonElement;
+  btnAllocDef = document.getElementById("btnAllocDefense") as HTMLButtonElement;
+  btnAllocSpd = document.getElementById("btnAllocSpeed") as HTMLButtonElement;
+
+  btnAllocPow.onclick = () => allocate("power");
+  btnAllocDef.onclick = () => allocate("defense");
+  btnAllocSpd.onclick = () => allocate("speed");
+}
+
+function allocButtonsEnabled(enabled: boolean) {
+  btnAllocPow && (btnAllocPow.disabled = !enabled);
+  btnAllocDef && (btnAllocDef.disabled = !enabled);
+  btnAllocSpd && (btnAllocSpd.disabled = !enabled);
+}
+
+async function allocate(stat: "power"|"defense"|"speed") {
+  if (!allocInput) return;
+  const amt = Math.max(1, Math.floor(Number(allocInput.value || "1")));
+  try {
+    const r = await api<ApiMe>("/api/game/allocate", {
+      method: "POST",
+      body: JSON.stringify({ stat, amount: amt }),
+    });
+    state.me = r.me;
+    render();
+    log(`Allocated ${amt} → ${stat}`, "ok");
+  } catch (err: any) {
+    log("Allocate error: " + err.message, "bad");
+  }
 }
 
 /* ---------- boot ---------- */
@@ -341,6 +414,7 @@ async function loadAll() {
   const shopRes = await api<ApiShop>("/api/game/shop");
   state.shop = shopRes.items;
 
+  ensureAllocUI();
   render();
   renderShop();
 }
@@ -398,6 +472,7 @@ loadAll().catch(e => log(e.message, "bad"));
 (() => {
   const DEV_KEY = localStorage.getItem("DEV_KEY") || "valhalla-dev";
   const initialUid = userId;
+
   async function call<T = any>(path: string, body?: any): Promise<T> {
     const activeUser = initialUid || getUserId();
     if (!activeUser) throw new Error("No user (log in first).");
@@ -417,8 +492,10 @@ loadAll().catch(e => log(e.message, "bad"));
   const dev = {
     me: () => call("/api/dev/me"),
     level: (n: number) => call("/api/dev/level", { level: n }),
-    gold: (n: number) => call("/api/dev/gold", { add: n }),
+    gold: (nOrOpts: number | { add?: number; set?: number }) =>
+      typeof nOrOpts === "number" ? call("/api/dev/gold", { add: nOrOpts }) : call("/api/dev/gold", nOrOpts),
     xp: (add: number) => call("/api/dev/xp", { add }),
+    points: (add: number) => call("/api/dev/points", { add }),
     item: (id: string) => call("/api/dev/item", { itemId: id }),
     slots: (slots: Record<string, string>) => call("/api/dev/slots", { slots }),
     drengr: () => call("/api/dev/drengr"),
@@ -428,8 +505,10 @@ loadAll().catch(e => log(e.message, "bad"));
   };
 
   (window as any).dev = dev;
-  console.log("%cwindow.dev ready → dev.me(), dev.level(25), dev.gold(9999), dev.item('drengr-helm'), dev.drengr()", "color:#39ff14");
+  // eslint-disable-next-line no-console
+  console.log("%cwindow.dev ready → dev.me(), dev.level(25), dev.points(50), dev.item('drengr-helm'), dev.drengr()", "color:#39ff14");
 })();
+
 
 
 
