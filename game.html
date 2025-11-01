@@ -142,6 +142,41 @@
       pointer-events:none;
       filter:drop-shadow(0 0 6px rgba(212,169,77,.45));
     }
+    /* Paper-doll equipment slots (fixed size + overlay frame) */
+.slot{
+  position: relative;          /* <-- critical for the overlay to anchor */
+  width: 96px;
+  height: 96px;
+  border: 1px solid #3b3325;
+  border-radius: 12px;
+  background: #0f1215;
+  display: grid;
+  place-items: center;
+  color: #cbb17a;
+  font-family: "Cinzel", serif;
+  overflow: hidden;            /* hide any overflow from big images */
+}
+.slot.locked{ opacity:.5; filter:grayscale(1); }
+
+/* The equipped item image inside the slot */
+.slot-img{
+  max-width: 88%;
+  max-height: 88%;
+  object-fit: contain;         /* keep aspect ratio, no stretching */
+  pointer-events: none;
+  display: block;
+}
+
+/* The rarity frame overlay */
+.rarity-frame{
+  position: absolute;
+  inset: 0;                    /* stretch to the slot edges */
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 
     /* Hover polish */
     .shop-item:hover .shop-img {
