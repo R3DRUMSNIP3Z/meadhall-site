@@ -45,7 +45,7 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, Stripe-Signature, x-user-id, x-user-name"
+    "Content-Type, Authorization, Stripe-Signature, x-user-id, x-user-name, x-dev-key"
   );
   res.setHeader("Vary", "Origin");
   next();
@@ -64,7 +64,9 @@ app.use(
       "Authorization",
       "Stripe-Signature",
       "x-user-id",
-      "x-user-name"
+      "x-user-name",
+        "x-dev-key"
+
     ],
   })
 );
