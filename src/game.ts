@@ -109,9 +109,7 @@ function tipMove(ev: MouseEvent) {
   if (!tipEl || tipEl.style.display === "none") return;
   tipShow(ev.clientX, ev.clientY, tipEl.innerHTML);
 }
-function tipHide() {
-  if (tipEl) tipEl.style.display = "none";
-}
+function tipHide() { if (tipEl) tipEl.style.display = "none"; }
 window.addEventListener("scroll", tipHide);
 window.addEventListener("resize", tipHide);
 
@@ -142,17 +140,12 @@ async function getItem(id: string): Promise<ShopItem | undefined> {
   if (!id) return;
   if (itemCache.has(id)) return itemCache.get(id)!;
   const fromShop = state.shop.find(i => i.id === id);
-  if (fromShop) {
-    itemCache.set(id, fromShop);
-    return fromShop;
-  }
+  if (fromShop) { itemCache.set(id, fromShop); return fromShop; }
   try {
     const info = await api<ShopItem>("/api/game/item/" + encodeURIComponent(id));
     itemCache.set(id, info);
     return info;
-  } catch {
-    return undefined;
-  }
+  } catch { return undefined; }
 }
 
 /* ---------- rarity frames ---------- */
@@ -167,14 +160,9 @@ function renderSlot(slotKey: string, item?: ShopItem) {
   const el = document.querySelector(`.slot[data-slot="${slotKey}"]`) as HTMLElement | null;
   if (!el) return;
   el.innerHTML = "";
-  el.onmouseenter = null;
-  el.onmousemove = null;
-  el.onmouseleave = null;
+  el.onmouseenter = null; el.onmousemove = null; el.onmouseleave = null;
 
-  if (!item) {
-    el.textContent = capitalize(slotKey);
-    return;
-  }
+  if (!item) { el.textContent = capitalize(slotKey); return; }
 
   const img = document.createElement("img");
   img.className = "slot-img";
@@ -203,7 +191,7 @@ const SLOT_UNLOCK: Record<Slot, number> = {
 const PVP_UNLOCK = 25;
 
 /* ---------- fetch wrapper ---------- */
-async function api<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
+async function api<T = any>(path: string, opts: RequestInit = {}) {
   const r = await fetch(apiBase + path, {
     ...opts,
     headers: {
@@ -256,10 +244,7 @@ function render() {
       return;
     }
 
-    if (!eqId) {
-      renderSlot(slot, undefined);
-      return;
-    }
+    if (!eqId) { renderSlot(slot, undefined); return; }
 
     const it = await getItem(eqId);
     renderSlot(slot, it);
@@ -267,10 +252,10 @@ function render() {
 
   $("powerTotal").textContent = `POWER ${totalPower(m)}`;
 
-  // enable/disable PvP button
+  // PvP enablement
   ($("fightRandom") as HTMLButtonElement).disabled = m.level < PVP_UNLOCK;
 
-  // refresh allocation controls (disable if no points)
+  // Allocation buttons enable/disable by points
   const hasPts = (m.points ?? 0) > 0;
   allocButtonsEnabled(hasPts);
 }
@@ -285,7 +270,6 @@ function renderShop() {
   const equippedIds = new Set(Object.values(me.slots || {}));
 
   state.shop.forEach((item) => {
-    // Hide items already equipped (prevents duplicate power stacking)
     if (equippedIds.has(item.id)) return;
 
     const locked = !!(item.levelReq && me.level < item.levelReq);
@@ -332,25 +316,27 @@ function renderShop() {
       state.me = res.me;
       log(`Bought ${res.item.name} (+${res.item.boost} ${res.item.stat})`, "ok");
       render();
-      renderShop(); // refresh to hide the now-equipped item
-    } catch (err: any) {
-      log("Shop error: " + err.message, "bad");
-    }
+      renderShop();
+    } catch (err: any) { log("Shop error: " + err.message, "bad"); }
   };
 }
 
-/* ---------- Allocation UI (injected, no HTML edits needed) ---------- */
+/* ---------- Allocation UI INSIDE TRAINING CARD ---------- */
 let allocInput: HTMLInputElement | null = null;
 let btnAllocPow: HTMLButtonElement | null = null;
 let btnAllocDef: HTMLButtonElement | null = null;
 let btnAllocSpd: HTMLButtonElement | null = null;
 
 function ensureAllocUI() {
-  // Insert after the "Unspent Points" row
-  const pointsRow = $("points").parentElement?.parentElement as HTMLElement | null;
-  if (!pointsRow) return;
+  // Find the "Train Speed" button row and insert our controls right after it
+  const trainSpeedBtn = document.getElementById("trainSpeed") as HTMLButtonElement | null;
+  if (!trainSpeedBtn) return;
 
-  // If already present, skip
+  // The row wrapper is the parent with class "row"
+  const row = trainSpeedBtn.closest(".row") as HTMLElement | null;
+  if (!row) return;
+
+  // Avoid duplicates
   if (document.getElementById("allocControls")) return;
 
   const wrap = document.createElement("div");
@@ -358,15 +344,16 @@ function ensureAllocUI() {
   wrap.className = "row";
   wrap.style.marginTop = "6px";
   wrap.innerHTML = `
-    <div class="muted">Allocate</div>
+    <div class="muted">Allocate Points</div>
     <div style="display:flex;gap:8px;align-items:center">
-      <input id="allocAmount" type="number" min="1" value="1" style="width:70px;padding:6px;border-radius:8px;border:1px solid #3b3325;background:#0e1216;color:#d4a94d">
+      <input id="allocAmount" type="number" min="1" value="1"
+        style="width:70px;padding:6px;border-radius:8px;border:1px solid #3b3325;background:#0e1216;color:#d4a94d">
       <button id="btnAllocPower">+ Power</button>
       <button id="btnAllocDefense">+ Defense</button>
       <button id="btnAllocSpeed">+ Speed</button>
     </div>
   `;
-  pointsRow.after(wrap);
+  row.after(wrap);
 
   allocInput = document.getElementById("allocAmount") as HTMLInputElement;
   btnAllocPow = document.getElementById("btnAllocPower") as HTMLButtonElement;
@@ -395,9 +382,7 @@ async function allocate(stat: "power"|"defense"|"speed") {
     state.me = r.me;
     render();
     log(`Allocated ${amt} → ${stat}`, "ok");
-  } catch (err: any) {
-    log("Allocate error: " + err.message, "bad");
-  }
+  } catch (err: any) { log("Allocate error: " + err.message, "bad"); }
 }
 
 /* ---------- boot ---------- */
@@ -414,7 +399,9 @@ async function loadAll() {
   const shopRes = await api<ApiShop>("/api/game/shop");
   state.shop = shopRes.items;
 
+  // Build allocation controls in the training card
   ensureAllocUI();
+
   render();
   renderShop();
 }
@@ -508,6 +495,7 @@ loadAll().catch(e => log(e.message, "bad"));
   // eslint-disable-next-line no-console
   console.log("%cwindow.dev ready → dev.me(), dev.level(25), dev.points(50), dev.item('drengr-helm'), dev.drengr()", "color:#39ff14");
 })();
+
 
 
 
