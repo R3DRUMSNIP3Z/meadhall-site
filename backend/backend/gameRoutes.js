@@ -204,25 +204,21 @@ function install(app) {
     res.json({ me });
   });
 
-  // ---- NEW: Allocate unspent points -> stats
+  // ---- Allocate unspent points (NEW)
   router.post("/game/allocate", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { stat, amount } = req.body || {};
-    if (!["power", "defense", "speed"].includes(stat))
+    if (!["power","defense","speed"].includes(stat)) {
       return res.status(400).json({ error: "Invalid stat" });
-
-    const amt = Number(amount);
-    if (!Number.isInteger(amt) || amt <= 0)
-      return res.status(400).json({ error: "Amount must be a positive integer" });
-
-    if ((me.points || 0) < amt)
-      return res.status(400).json({ error: "Not enough points" });
-
-    me[stat] = Number(me[stat] || 0) + amt;
-    me.points = Number(me.points || 0) - amt;
-
+    }
+    const amt = Math.max(1, Math.floor(Number(amount || 1)));
+    const have = Math.max(0, Number(me.points || 0));
+    if (have <= 0) return res.status(400).json({ error: "No points" });
+    const spend = Math.min(amt, have);
+    me.points = have - spend;
+    me[stat] = Math.max(0, Number(me[stat] || 0)) + spend;
     recompute(me);
-    res.json({ me });
+    return res.json({ me });
   });
 
   // ---- Shop
@@ -361,14 +357,6 @@ function install(app) {
     res.json({ me });
   });
 
-  // NEW: quick give points (dev tool)
-  dev.post("/points", (req, res) => {
-    const { add = 10 } = req.body || {};
-    const me = ensure(req.userId);
-    me.points = Number(me.points || 0) + Math.floor(add);
-    res.json({ me });
-  });
-
   // give/equip item (ignores cost/locks)
   dev.post("/item", (req, res) => {
     const { itemId } = req.body || {};
@@ -418,6 +406,16 @@ function install(app) {
     res.json({ me, equipped: items.map(i => i.id) });
   });
 
+  // (NEW) grant unspent points quickly
+  dev.post("/points", (req, res) => {
+    const { add } = req.body || {};
+    if (!Number.isFinite(add)) return res.status(400).json({ error: "add number" });
+    const me = ensure(req.userId);
+    me.points = Math.max(0, Number(me.points || 0) + Math.floor(add));
+    recompute(me);
+    res.json({ me });
+  });
+
   // reset user state
   dev.post("/reset", (req, res) => {
     delete state[req.userId];
@@ -429,6 +427,9 @@ function install(app) {
 }
 
 module.exports = { install };
+
+
+
 
 
 
