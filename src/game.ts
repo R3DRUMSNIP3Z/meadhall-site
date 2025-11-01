@@ -83,6 +83,53 @@ function log(msg: string, cls?: string) {
   p.textContent = msg;
   logBox.prepend(p);
 }
+/* ---------- tooltip helpers ---------- */
+const tipEl = document.getElementById("vaTooltip") as HTMLDivElement;
+
+function tipShow(x: number, y: number, html: string) {
+  if (!tipEl) return;
+  tipEl.innerHTML = html;
+  tipEl.style.display = "block";
+  // keep in viewport
+  const pad = 12;
+  const w = tipEl.offsetWidth || 260;
+  const h = tipEl.offsetHeight || 120;
+  const nx = Math.min(window.innerWidth  - w - pad, x + 16);
+  const ny = Math.min(window.innerHeight - h - pad, y + 16);
+  tipEl.style.left = nx + "px";
+  tipEl.style.top  = ny + "px";
+}
+function tipMove(ev: MouseEvent) {
+  if (!tipEl || tipEl.style.display === "none") return;
+  tipShow(ev.clientX, ev.clientY, tipEl.innerHTML);
+}
+function tipHide() {
+  if (tipEl) tipEl.style.display = "none";
+}
+window.addEventListener("scroll", tipHide);
+window.addEventListener("resize", tipHide);
+
+/* compute sell price (fallback = 50%) */
+function sellPriceOf(item?: ShopItem): number {
+  if (!item) return 0;
+  // @ts-ignore allow optional server field
+  if (typeof (item as any).sellPrice === "number") return Math.max(0, Math.floor((item as any).sellPrice));
+  return Math.max(0, Math.floor(item.cost * 0.5));
+}
+
+/* format tooltip HTML */
+function tooltipHTML(item: ShopItem, slotKey: string) {
+  const rarity = (item.rarity || "normal");
+  const stat   = `+${item.boost} ${item.stat}`;
+  const sell   = sellPriceOf(item);
+  return `
+    <div class="tt-title">${item.name} <span class="muted">(${rarity})</span></div>
+    <div class="tt-row"><span>Slot</span><span class="muted">${capitalize(slotKey)}</span></div>
+    <div class="tt-row"><span>Stats</span><span class="muted">${stat}</span></div>
+    <div class="tt-row"><span>Sell</span><span class="muted">${sell}g</span></div>
+  `;
+}
+
 
 /* ---------- client state ---------- */
 const state: { me: Me | null; shop: ShopItem[] } = { me: null, shop: [] };
@@ -121,12 +168,15 @@ const rarityFrame: Record<string, string> = {
 /* ---------- slot renderer with rarity overlay ---------- */
 function renderSlot(
   slotKey: string,
-  item?: { rarity?: string; imageUrl?: string; name?: string }
+  item?: { rarity?: string; imageUrl?: string; name?: string } & Partial<ShopItem>
 ) {
   const el = document.querySelector(`.slot[data-slot="${slotKey}"]`) as HTMLElement | null;
   if (!el) return;
 
   el.innerHTML = ""; // clear content
+  el.onmouseenter = null as any;
+  el.onmousemove  = null as any;
+  el.onmouseleave = null as any;
 
   if (!item) {
     el.textContent = slotKey.charAt(0).toUpperCase() + slotKey.slice(1);
@@ -148,7 +198,31 @@ function renderSlot(
     overlay.src = resolveImg(frameUrl);
     el.appendChild(overlay);
   }
+
+  // 🧠 Tooltip handlers
+  el.onmouseenter = (ev) => {
+    // enrich with full ShopItem if missing fields
+    const partial = item as Partial<ShopItem>;
+    if (partial.id && (!partial.cost || !partial.boost || !partial.stat)) {
+      getItem(partial.id).then((full) => {
+        tipShow(
+          (ev as MouseEvent).clientX,
+          (ev as MouseEvent).clientY,
+          tooltipHTML((full || (partial as ShopItem)) as ShopItem, slotKey)
+        );
+      });
+    } else {
+      tipShow(
+        (ev as MouseEvent).clientX,
+        (ev as MouseEvent).clientY,
+        tooltipHTML((partial as ShopItem), slotKey)
+      );
+    }
+  };
+  el.onmousemove  = (ev) => tipMove(ev as MouseEvent);
+  el.onmouseleave = () => tipHide();
 }
+
 
 /* ---------- unlock rules ---------- */
 const SLOT_UNLOCK: Record<Slot, number> = {
@@ -204,11 +278,22 @@ function render() {
     const eqId = m.slots?.[slot];
 
     // lock state first
-    div.classList.toggle("locked", m.level < needed);
     if (m.level < needed) {
-      div.innerHTML = `${capitalize(slot)} (Lv ${needed})`;
-      return;
-    }
+  div.innerHTML = `${capitalize(slot)} (Lv ${needed})`;
+
+  // Tooltip for locked slots
+  div.onmouseenter = (ev) => tipShow(
+    (ev as MouseEvent).clientX,
+    (ev as MouseEvent).clientY,
+    `<div class="tt-title">${capitalize(slot)}</div>
+     <div class="muted">Unlocks at level ${needed}</div>`
+  );
+  div.onmousemove  = (ev) => tipMove(ev as MouseEvent);
+  div.onmouseleave = () => tipHide();
+
+  return;
+}
+
 
     // no item equipped
     if (!eqId) {

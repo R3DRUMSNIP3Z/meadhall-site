@@ -184,9 +184,31 @@
       transform:scale(1.03);
       transition:transform .2s ease, filter .2s ease;
     }
+    /* === Valhalla tooltip === */
+.va-tip {
+  position: fixed;
+  z-index: 99999;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #0e1013;
+  color: #e9e4d5;
+  border: 1px solid rgba(212,169,77,.35);
+  box-shadow: 0 10px 40px rgba(0,0,0,.45);
+  pointer-events: none;
+  font-family: "Cinzel", serif;
+  font-size: .92rem;
+}
+.va-tip .tt-title { font-weight: 700; color: #d4a94d; margin-bottom: 4px; }
+.va-tip .tt-row  { display:flex; justify-content:space-between; gap:12px; }
+.va-tip .muted   { opacity:.8; }
+
   </style>
 </head>
 <body>
+  <div id="vaTooltip" class="va-tip" style="display:none"></div>
+
   <div class="wrap">
     <h1>⚔️ Valhalla Ascending — Arena</h1>
 
