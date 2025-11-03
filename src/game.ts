@@ -276,8 +276,8 @@ function renderShop() {
     const frame = document.createElement("img");
     frame.className = "shop-frame";
     frame.alt = "";
-    // Always overlay a frame; default to "normal"
-    frame.src = `/guildbook/frames/${(it.rarity || "normal")}.png`;
+    // ✅ correct: use SVG and the “-frame.svg” suffix
+    frame.src = `/guildbook/frames/${(it.rarity || "normal")}-frame.svg`;
 
     thumbWrap.appendChild(img);
     thumbWrap.appendChild(frame);
@@ -292,12 +292,13 @@ function renderShop() {
     const sub = document.createElement("div");
     sub.className = "muted";
     const statLabel = it.stat === "power" ? "Strength" : (it.stat || "—");
-    sub.textContent = `${it.set || ""} • ${it.slot || ""} • ${statLabel}${it.boost ? ` +${it.boost}` : ""}`;
+    const setTxt  = (it.set || "").toUpperCase();
+    const slotTxt = (it.slot || "").toUpperCase();
+    sub.textContent = `${setTxt} • ${slotTxt} • ${statLabel}${it.boost ? ` +${it.boost}` : ""}`;
 
     text.appendChild(ttl);
     text.appendChild(sub);
 
-    // ✅ append the thumb + text into left (this was easy to miss)
     left.appendChild(thumbWrap);
     left.appendChild(text);
 
