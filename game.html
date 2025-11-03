@@ -60,9 +60,19 @@
 
     /* (Old smaller slot rule kept the same class; we just increase size) */
     /* First definition used height only — keep but bump for consistency */
-    .slot { height:120px; display:flex; align-items:center; justify-content:center; border:1px dashed #3b3325; border-radius:10px; font-size:.9rem; opacity:.95; background:#0b0e10; text-align:center; padding:6px; }
-    .slot.locked { opacity:.45; position:relative; }
-    .slot.locked::after { content:"🔒"; position:absolute; right:6px; bottom:4px; font-size:.9rem; opacity:.8; }
+   /* === Wider equipment boxes (keep height) === */
+.equip-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+
+.slot {
+  width: 140px;     /* wider */
+  height: 96px;     /* keep height */
+}
+
+.slot-img {
+  max-width: 92%;
+  max-height: 82%;
+}
+
 
     .powertotal { margin-top:10px; text-align:center; font-size:1.5rem; font-weight:900; letter-spacing:1px; border-top:1px solid #3b3325; padding-top:8px; }
 

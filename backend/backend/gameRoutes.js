@@ -103,6 +103,7 @@ function ensure(uId) {
       slots: {},
       gearPower: 0,
       lastTick: Date.now(),
+      renameUsed: false, // 👈 account-level rename lock
     };
   }
   return state[uId];
@@ -293,7 +294,7 @@ function install(app) {
       return res.status(400).json({ error: "Not enough gold" });
 
     me.gold -= item.cost;
-    if (item.stat) me[item.stat] += item.boost || 0;
+    if (item.stat) me[item.stat] = Math.max(0, Number(me[item.stat] || 0)) + (item.boost || 0);
     if (item.slot) me.slots[item.slot] = item.id;
     recompute(me);
     res.json({ me, item });
@@ -332,6 +333,31 @@ function install(app) {
         deltaGold, deltaXP
       }
     });
+  });
+
+  // ---- Rename once per account
+  router.post("/game/rename", express.json(), (req, res) => {
+    const me = recompute(tick(ensure(req.userId)));
+    const { name } = req.body || {};
+
+    if (me.renameUsed) {
+      return res.status(400).json({ error: "Rename already used for this account." });
+    }
+    if (!name || typeof name !== "string") {
+      return res.status(400).json({ error: "Name required." });
+    }
+
+    const trimmed = name.trim();
+    if (trimmed.length < 3 || trimmed.length > 20) {
+      return res.status(400).json({ error: "Name must be 3–20 chars." });
+    }
+    if (!/^[A-Za-z0-9 _-]+$/.test(trimmed)) {
+      return res.status(400).json({ error: "Only letters, numbers, space, _ and -." });
+    }
+
+    me.name = trimmed;
+    me.renameUsed = true;
+    res.json({ me });
   });
 
   // ================== DEV ENDPOINTS ==================

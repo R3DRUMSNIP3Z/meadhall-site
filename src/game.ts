@@ -1,6 +1,6 @@
 // ===============================
 // Valhalla Ascending — src/game.ts
-// (unspent points fixed + DEV console for /api/dev/*)
+// (unspent points fixed + DEV console for /api/dev/* + server rename + wider slots + Profile btn)
 // ===============================
 
 type Gender = "female" | "male";
@@ -22,6 +22,8 @@ type Me = {
   slots?: Partial<Record<Slot, string>>;
   gearPower?: number;
   setBonus?: { power?: number; defense?: number; speed?: number };
+  // NEW: one-time rename per account (server-enforced)
+  renameUsed?: boolean;
 };
 
 type ShopItem = {
@@ -264,14 +266,20 @@ function refreshUI() {
     frame.src = `/guildbook/frames/${(it?.rarity || "normal")}-frame.svg`;
     el.appendChild(frame);
   });
+
+  // ensure rename button follows server rule
+  if (elRenameBtn) elRenameBtn.disabled = !!me.renameUsed;
 }
 
 // ------- load / actions -------
 async function loadMe() {
   const data = await api<{ me: Me }>("/api/game/me");
+  // preserve your visual local override if present
   const override = localStorage.getItem("va_name_override");
   if (override) data.me.name = override;
   me = data.me;
+  // server-enforced rename lock wins
+  if (elRenameBtn) elRenameBtn.disabled = !!me.renameUsed;
   refreshUI();
 }
 
@@ -437,27 +445,33 @@ async function pickGender(g: Gender) {
   }
 }
 
-// One-time client-side rename (localStorage)
-const NAME_LOCK_KEY = "va_name_changed";
-function nameChangeUsed(): boolean {
-  return localStorage.getItem(NAME_LOCK_KEY) === "1";
-}
-function markNameUsed() {
-  localStorage.setItem(NAME_LOCK_KEY, "1");
-}
-function handleRename() {
-  if (nameChangeUsed()) {
+
+
+// NEW: server-enforced rename
+async function handleRename() {
+  if (me?.renameUsed) {
     addLog("You already renamed your hero once.", "bad");
     return;
   }
   const current = (me?.name || "Skald").trim();
   const next = prompt("Choose your hero name (one-time):", current)?.trim();
   if (!next || next === current) return;
-  localStorage.setItem("va_name_override", next);
-  markNameUsed();
-  if (me) me.name = next;
-  elRenameBtn.disabled = true;
-  refreshUI();
+
+  try {
+    const resp = await api<{ me: Me }>("/api/game/rename", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: next }),
+    });
+    me = resp.me;
+    // keep your local visual override in sync (optional)
+    localStorage.setItem("va_name_override", me.name || next);
+    addLog(`Name set to ${me.name}`, "ok");
+    if (elRenameBtn) elRenameBtn.disabled = !!me.renameUsed;
+    refreshUI();
+  } catch (err: any) {
+    addLog(`Rename failed: ${err?.message || err}`, "bad");
+  }
 }
 
 // ------- DEV CONSOLE -------
@@ -703,7 +717,7 @@ btnFemale.addEventListener("click", () => pickGender("female"));
 btnMale.addEventListener("click", () => pickGender("male"));
 
 elRenameBtn.addEventListener("click", handleRename);
-if (nameChangeUsed()) elRenameBtn.disabled = true;
+
 
 // tiny cooldown (visual only) for train buttons
 function addCooldown(btn: HTMLButtonElement, ms = 1200) {
@@ -711,9 +725,47 @@ function addCooldown(btn: HTMLButtonElement, ms = 1200) {
   setTimeout(() => (btn.disabled = false), ms);
 }
 
+// --- small helpers: profile button + width override CSS ---
+function injectProfileButton(href = "/profile.html") {
+  if (document.getElementById("vaProfileBtn")) return;
+  const b = document.createElement("button");
+  b.id = "vaProfileBtn";
+  b.textContent = "← Profile";
+  Object.assign(b.style, {
+    position: "fixed",
+    top: "12px",
+    left: "12px",
+    zIndex: "9998",
+    background: "#1b2228",
+    color: "#d4a94d",
+    border: "1px solid #3b3325",
+    borderRadius: "10px",
+    padding: "6px 10px",
+    cursor: "pointer",
+  } as CSSStyleDeclaration);
+  b.addEventListener("click", () => { window.location.href = href; });
+  document.body.appendChild(b);
+}
+
+function injectWiderSlotCSS() {
+  if (document.getElementById("vaSlotWiderCSS")) return;
+  const style = document.createElement("style");
+  style.id = "vaSlotWiderCSS";
+  style.textContent = `
+    /* Wider equipment boxes without increasing height */
+    .equip-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+    .slot { width: 140px; height: 96px; }
+    .slot-img { max-width: 92%; max-height: 82%; }
+  `;
+  document.head.appendChild(style);
+}
+
 // ------- boot -------
 (async function start() {
   ensureDevConsole(); // Shift+D
+  injectWiderSlotCSS(); // wider boxes (not taller)
+  injectProfileButton("/profile.html"); // change path if yours differs
+
   await loadMe();
   await loadShop();
   // passive refresh
