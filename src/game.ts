@@ -256,10 +256,12 @@ function renderShop() {
     elShop.textContent = "No items available.";
     return;
   }
+
   for (const it of shop) {
     const row = document.createElement("div");
     row.className = "shop-item";
 
+    // LEFT: thumbnail (image + overlay frame) + text
     const left = document.createElement("div");
     left.className = "shop-left";
 
@@ -274,6 +276,7 @@ function renderShop() {
     const frame = document.createElement("img");
     frame.className = "shop-frame";
     frame.alt = "";
+    // Always overlay a frame; default to "normal"
     frame.src = `/guildbook/frames/${(it.rarity || "normal")}.png`;
 
     thumbWrap.appendChild(img);
@@ -281,9 +284,11 @@ function renderShop() {
 
     const text = document.createElement("div");
     text.className = "shop-text";
+
     const ttl = document.createElement("div");
     ttl.className = "shop-title";
     ttl.textContent = it.name;
+
     const sub = document.createElement("div");
     sub.className = "muted";
     const statLabel = it.stat === "power" ? "Strength" : (it.stat || "—");
@@ -292,11 +297,14 @@ function renderShop() {
     text.appendChild(ttl);
     text.appendChild(sub);
 
+    // ✅ append the thumb + text into left (this was easy to miss)
     left.appendChild(thumbWrap);
     left.appendChild(text);
 
+    // RIGHT: price + buy
     const right = document.createElement("div");
     right.className = "shop-right";
+
     const price = document.createElement("div");
     price.className = "shop-price";
     price.textContent = `${it.cost}g`;
@@ -313,6 +321,7 @@ function renderShop() {
     elShop.appendChild(row);
   }
 }
+
 
 async function buyItem(itemId: string) {
   try {
