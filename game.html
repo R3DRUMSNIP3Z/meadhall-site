@@ -45,11 +45,24 @@
     .ok { color:#8ad67a; }
     .bad { color:#f56; }
 
+    /* === Top bar profile button === */
+    .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px; }
+    .btn-profile {
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 12px; border-radius:10px; text-decoration:none; color:var(--gold);
+      background:#1b2228; border:1px solid #3b3325;
+    }
+    .btn-profile:hover { filter:brightness(1.1); }
+
     /* === Equipment Grid === */
-    .equip-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-    .slot { height:64px; display:flex; align-items:center; justify-content:center; border:1px dashed #3b3325; border-radius:10px; font-size:.85rem; opacity:.95; background:#0b0e10; text-align:center; padding:4px; }
+    /* Make grid flexible so you can add more slots later without layout break */
+    .equip-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; }
+
+    /* (Old smaller slot rule kept the same class; we just increase size) */
+    /* First definition used height only — keep but bump for consistency */
+    .slot { height:120px; display:flex; align-items:center; justify-content:center; border:1px dashed #3b3325; border-radius:10px; font-size:.9rem; opacity:.95; background:#0b0e10; text-align:center; padding:6px; }
     .slot.locked { opacity:.45; position:relative; }
-    .slot.locked::after { content:"🔒"; position:absolute; right:6px; bottom:4px; font-size:.85rem; opacity:.8; }
+    .slot.locked::after { content:"🔒"; position:absolute; right:6px; bottom:4px; font-size:.9rem; opacity:.8; }
 
     .powertotal { margin-top:10px; text-align:center; font-size:1.5rem; font-weight:900; letter-spacing:1px; border-top:1px solid #3b3325; padding-top:8px; }
 
@@ -69,10 +82,10 @@
     .shop-thumb { position:relative; display:inline-grid; place-items:center; width:40px; height:40px; flex:0 0 40px; }
     .shop-thumb .shop-frame { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; filter:drop-shadow(0 0 6px rgba(212,169,77,.45)); }
 
-    /* Paper-doll slots + overlay frame */
-    .slot{ position:relative; width:96px; height:96px; border:1px solid #3b3325; border-radius:12px; background:#0f1215; display:grid; place-items:center; color:#cbb17a; font-family:"Cinzel", serif; overflow:hidden; }
+    /* Paper-doll slots + overlay frame (second .slot rule — keep IDs/classes; just bump size) */
+    .slot{ position:relative; width:120px; height:120px; border:1px solid #3b3325; border-radius:12px; background:#0f1215; display:grid; place-items:center; color:#cbb17a; font-family:"Cinzel", serif; overflow:hidden; }
     .slot.locked{ opacity:.5; filter:grayscale(1); }
-    .slot-img{ max-width:88%; max-height:88%; object-fit:contain; pointer-events:none; display:block; }
+    .slot-img{ max-width:90%; max-height:90%; object-fit:contain; pointer-events:none; display:block; }
     .rarity-frame{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; }
 
     .shop-item:hover .shop-img { filter:brightness(1.15); transform:scale(1.03); transition:transform .2s ease, filter .2s ease; }
@@ -92,6 +105,11 @@
   <div id="vaTooltip" class="va-tip" style="display:none"></div>
 
   <div class="wrap">
+    <div class="topbar">
+      <a href="/profile.html" class="btn-profile">⬅️ Profile</a>
+      <span></span>
+    </div>
+
     <h1>⚔️ Valhalla Ascending — Arena</h1>
 
     <div id="genderPick" style="display:none; margin:12px 0;">
@@ -172,6 +190,7 @@
   <script type="module" src="/src/game.ts"></script>
 </body>
 </html>
+
 
 
 
