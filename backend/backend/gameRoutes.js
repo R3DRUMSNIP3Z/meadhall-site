@@ -17,7 +17,7 @@ const WINDOWS_CATALOG_PATH =
 // Render path
 const RENDER_PUBLIC = path.resolve(__dirname, "..", "..", "public", "guildbook", FILENAME);
 
-// Optional override
+// Optional override via env
 const ENV_PATH = process.env.SHOP_CATALOG_PATH;
 
 function pickCatalogPath() {
@@ -124,17 +124,22 @@ function tick(me) {
   return me;
 }
 
-// 🧩 recompute now handles bonuses for power/defense/speed
+// 🧩 recompute handles set bonuses and sums power boosts into gearPower
 function recompute(me) {
-  let gearBoostSum = 0;
+  let gearBoostSum = 0; // shown as "gearPower": we keep this tied to power-boosting gear
   const countsBySet = {};
+
   if (me.slots) {
     for (const slot of Object.keys(me.slots)) {
       const itemId = me.slots[slot];
       const it = findItem(itemId);
       if (!it) continue;
-      if (typeof it.boost === "number" && it.stat === "power")
+
+      // keep gearPower as sum of items that boost "power"
+      if (typeof it.boost === "number" && it.stat === "power") {
         gearBoostSum += it.boost;
+      }
+
       if (it.set) countsBySet[it.set] = (countsBySet[it.set] || 0) + 1;
     }
   }
@@ -175,6 +180,7 @@ function pickRandomOpponent(myId) {
 function install(app) {
   const router = express.Router();
 
+  // attach user id from header
   router.use((req, res, next) => {
     const uId = req.get("x-user-id");
     if (!uId) return res.status(401).json({ error: "Missing x-user-id" });
@@ -188,12 +194,12 @@ function install(app) {
     res.json({ me });
   });
 
-  router.post("/game/tick", express.json(), (req, res) => {
+  router.post("/game/tick", (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     res.json({ me });
   });
 
-  // ---- Train
+  // ---- Train (spends gold, +1 stat, +2 xp)
   router.post("/game/train", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { stat } = req.body || {};
@@ -208,7 +214,7 @@ function install(app) {
     res.json({ me });
   });
 
-  // ---- Allocate
+  // ---- Allocate (spends points)
   router.post("/game/allocate", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { stat, amount } = req.body || {};
@@ -237,6 +243,7 @@ function install(app) {
     res.json({ items });
   });
 
+  // single item info
   router.get("/game/item/:id", (req, res) => {
     const it = findItem(req.params.id);
     if (!it) return res.status(404).json({ error: "No such item" });
@@ -377,7 +384,7 @@ function install(app) {
     const it = findItem(itemId);
     if (!it) return res.status(404).json({ error: "No such item" });
     const me = ensure(req.userId);
-    if (it.stat) me[it.stat] += it.boost || 0;
+    if (it.stat) me[it.stat] = Math.max(0, Number(me[it.stat] || 0)) + (it.boost || 0);
     if (it.slot) me.slots[it.slot] = it.id;
     recompute(me);
     res.json({ me, item: it });
@@ -397,7 +404,7 @@ function install(app) {
     const me = ensure(req.userId);
     const items = getShop().filter(i => i.set === setId);
     for (const it of items) {
-      if (it.stat) me[it.stat] += it.boost || 0;
+      if (it.stat) me[it.stat] = Math.max(0, Number(me[it.stat] || 0)) + (it.boost || 0);
       if (it.slot) me.slots[it.slot] = it.id;
     }
     recompute(me);
@@ -408,7 +415,7 @@ function install(app) {
     const me = ensure(req.userId);
     const items = getShop().filter(i => i.set === "drengr");
     for (const it of items) {
-      if (it.stat) me[it.stat] += it.boost || 0;
+      if (it.stat) me[it.stat] = Math.max(0, Number(me[it.stat] || 0)) + (it.boost || 0);
       if (it.slot) me.slots[it.slot] = it.id;
     }
     recompute(me);
