@@ -1,6 +1,5 @@
 // ===============================
 // Valhalla Ascending — src/game.ts
-// (unspent points fixed + DEV console for /api/dev/* + server rename + wider slots + Profile btn)
 // ===============================
 
 type Gender = "female" | "male";
@@ -22,8 +21,6 @@ type Me = {
   slots?: Partial<Record<Slot, string>>;
   gearPower?: number;
   setBonus?: { power?: number; defense?: number; speed?: number };
-  // NEW: one-time rename per account (server-enforced)
-  renameUsed?: boolean;
 };
 
 type ShopItem = {
@@ -55,18 +52,13 @@ function uid(): string {
 }
 const USER_ID = uid();
 
-// DEV key helper (for /api/dev/*)
-function getDevKey(): string {
-  const META = (document.querySelector('meta[name="dev-key"]') as HTMLMetaElement)?.content?.trim();
-  if (META) {
-    localStorage.setItem("va_dev_key", META);
-    return META;
-  }
-  const saved = localStorage.getItem("va_dev_key");
-  if (saved) return saved;
-  const typed = prompt("Enter DEV KEY for /api/dev:", "")?.trim() || "";
-  if (typed) localStorage.setItem("va_dev_key", typed);
-  return typed;
+// one-time rename guard
+const NAME_LOCK_KEY = "va_name_changed";
+function nameChangeUsed(): boolean {
+  return localStorage.getItem(NAME_LOCK_KEY) === "1";
+}
+function markNameUsed() {
+  localStorage.setItem(NAME_LOCK_KEY, "1");
 }
 
 // simple fetch with headers
@@ -93,6 +85,8 @@ const elStrength = document.getElementById("strength") as HTMLElement;
 const elDefense = document.getElementById("defense") as HTMLElement;
 const elSpeed = document.getElementById("speed") as HTMLElement;
 const elPoints = document.getElementById("points") as HTMLElement;
+
+// 🔧 THIS is the element you actually have in HTML now
 const elBR = document.getElementById("battleRating") as HTMLElement;
 
 const elGenderPick = document.getElementById("genderPick") as HTMLElement;
@@ -118,6 +112,7 @@ function tipShow(html: string): void {
   tipEl.innerHTML = html;
   tipEl.style.display = "block";
 }
+
 function tipMove(e: MouseEvent): void {
   if (!tipEl) return;
   const pad = 14;
@@ -130,11 +125,14 @@ function tipMove(e: MouseEvent): void {
   tipEl.style.left = x + "px";
   tipEl.style.top  = y + "px";
 }
+
 function tipHide(): void {
   if (!tipEl) return;
   tipEl.style.display = "none";
   tipEl.innerHTML = "";
 }
+
+// Build tooltip HTML for a shop item
 function buildItemTip(it: ShopItem): string {
   const statLabel = it.stat === "power" ? "Strength" : (it.stat || "—");
   const setName = (it.set || "").toUpperCase();
@@ -167,7 +165,7 @@ const slotEls: Record<Slot, HTMLElement> = {
 let me: Me | null = null;
 let shop: ShopItem[] = [];
 
-// ------- UI helpers -------
+// ------- UI update -------
 function setText(n: HTMLElement | null, v: string | number) {
   if (n) n.textContent = String(v);
 }
@@ -178,26 +176,20 @@ function addLog(line: string, cls?: "ok" | "bad") {
   elLog.appendChild(div);
   elLog.scrollTop = elLog.scrollHeight;
 }
+
+// compute BR = sum of three stats
 function computeBR(m: Me): number {
   const s = Math.max(0, Math.floor(m.power || 0));
   const d = Math.max(0, Math.floor(m.defense || 0));
   const sp = Math.max(0, Math.floor(m.speed || 0));
   return s + d + sp;
 }
-function updateTrainButtons() {
-  const hasPts = (me?.points ?? 0) > 0;
-  btnTrainStr.disabled = !hasPts;
-  btnTrainDef.disabled = !hasPts;
-  btnTrainSpd.disabled = !hasPts;
-  elPoints?.classList.toggle("no-points", !hasPts);
-}
 
-// ------- UI refresh -------
 function refreshUI() {
   if (!me) return;
-
   setText(elHeroName, me.name || "Skald");
 
+  // XP bar
   const need = (me.level || 1) * 100;
   const have = Math.max(0, me.xp || 0);
   setText(elXPVal, `${have} / ${need}`);
@@ -212,9 +204,7 @@ function refreshUI() {
   setText(elSpeed, Math.max(0, me.speed || 0));
   setText(elPoints, Math.max(0, me.points || 0));
 
-  updateTrainButtons();
-
-  // BR
+  // Battle Rating (sparkly div in HTML)
   const br = computeBR(me);
   setText(elBR, `BATTLE RATING ${br}`);
 
@@ -266,20 +256,14 @@ function refreshUI() {
     frame.src = `/guildbook/frames/${(it?.rarity || "normal")}-frame.svg`;
     el.appendChild(frame);
   });
-
-  // ensure rename button follows server rule
-  if (elRenameBtn) elRenameBtn.disabled = !!me.renameUsed;
 }
 
 // ------- load / actions -------
 async function loadMe() {
   const data = await api<{ me: Me }>("/api/game/me");
-  // preserve your visual local override if present
   const override = localStorage.getItem("va_name_override");
   if (override) data.me.name = override;
   me = data.me;
-  // server-enforced rename lock wins
-  if (elRenameBtn) elRenameBtn.disabled = !!me.renameUsed;
   refreshUI();
 }
 
@@ -445,271 +429,26 @@ async function pickGender(g: Gender) {
   }
 }
 
-
-
-// NEW: server-enforced rename
-async function handleRename() {
-  if (me?.renameUsed) {
+// One-time client-side rename (localStorage)
+function handleRename() {
+  if (nameChangeUsed()) {
     addLog("You already renamed your hero once.", "bad");
     return;
   }
   const current = (me?.name || "Skald").trim();
   const next = prompt("Choose your hero name (one-time):", current)?.trim();
   if (!next || next === current) return;
-
-  try {
-    const resp = await api<{ me: Me }>("/api/game/rename", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: next }),
-    });
-    me = resp.me;
-    // keep your local visual override in sync (optional)
-    localStorage.setItem("va_name_override", me.name || next);
-    addLog(`Name set to ${me.name}`, "ok");
-    if (elRenameBtn) elRenameBtn.disabled = !!me.renameUsed;
-    refreshUI();
-  } catch (err: any) {
-    addLog(`Rename failed: ${err?.message || err}`, "bad");
-  }
-}
-
-// ------- DEV CONSOLE -------
-let devOpen = false;
-let devWrap: HTMLDivElement | null = null;
-let devInput: HTMLInputElement | null = null;
-
-function ensureDevConsole() {
-  if (devWrap) return;
-  devWrap = document.createElement("div");
-  devWrap.id = "vaDevConsole";
-  Object.assign(devWrap.style, {
-    position: "fixed",
-    right: "12px",
-    bottom: "12px",
-    zIndex: "9999",
-    background: "rgba(15,15,18,.92)",
-    border: "1px solid #3b3b44",
-    padding: "8px",
-    borderRadius: "10px",
-    boxShadow: "0 6px 24px rgba(0,0,0,.5)",
-    display: "none",
-    minWidth: "280px",
-  } as CSSStyleDeclaration);
-
-  const lab = document.createElement("div");
-  lab.textContent = "Dev Console (Shift+D)";
-  lab.style.fontSize = "12px";
-  lab.style.opacity = "0.75";
-  lab.style.marginBottom = "6px";
-
-  devInput = document.createElement("input");
-  devInput.type = "text";
-  devInput.placeholder = 'e.g., gold add 1000 | item skjaldmey-helm';
-  Object.assign(devInput.style, {
-    width: "100%",
-    padding: "8px 10px",
-    background: "#0e0e12",
-    border: "1px solid #2a2a32",
-    color: "#e8e8f0",
-    borderRadius: "8px",
-  } as CSSStyleDeclaration);
-  devInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      const txt = (devInput!.value || "").trim();
-      devInput!.value = "";
-      if (txt) handleDevCommand(txt);
-    } else if (e.key === "Escape") {
-      toggleDevConsole(false);
-    }
-  });
-
-  devWrap.appendChild(lab);
-  devWrap.appendChild(devInput);
-  document.body.appendChild(devWrap);
-}
-
-function toggleDevConsole(force?: boolean) {
-  ensureDevConsole();
-  devOpen = force ?? !devOpen;
-  if (!devWrap) return;
-  devWrap.style.display = devOpen ? "block" : "none";
-  if (devOpen) devInput?.focus();
-}
-
-window.addEventListener("keydown", (e) => {
-  if (e.shiftKey && (e.key === "D" || e.key === "d")) {
-    e.preventDefault();
-    toggleDevConsole();
-  }
-});
-
-// unified POST helper to /api/dev/*
-async function devPost<T>(path: string, body?: any): Promise<T> {
-  const devKey = getDevKey();
-  return api<T>(`/api/dev${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-dev-key": devKey || "",   // backend requireDev() checks this
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-}
-
-async function handleDevCommand(raw: string) {
-  const parts = raw.split(/\s+/);
-  const main = (parts.shift() || "").toLowerCase();
-
-  try {
-    switch (main) {
-      case "me": {
-        const devKey = getDevKey();
-        const r = await api<{ me: Me; devKeyOk: boolean; catalogPath: string }>("/api/dev/me", {
-          headers: { "x-dev-key": devKey || "" }
-        });
-        me = r.me;
-        addLog(`(DEV) me — ok (catalog: ${r.catalogPath})`, "ok");
-        refreshUI();
-        break;
-      }
-
-      case "gold": {
-        // gold add 1000   OR   gold set 50000
-        const mode = (parts.shift() || "").toLowerCase(); // "add" | "set"
-        const amt = Number(parts.shift() || 0);
-        if (!["add", "set"].includes(mode) || !Number.isFinite(amt)) {
-          throw new Error("Usage: gold add|set <number>");
-        }
-        const payload = mode === "set" ? { set: Math.floor(amt) } : { add: Math.floor(amt) };
-        const r = await devPost<{ me: Me }>("/gold", payload);
-        me = r.me;
-        addLog(`(DEV) gold ${mode} ${amt} — ok`, "ok");
-        refreshUI();
-        break;
-      }
-
-      case "points": {
-        // points add 10
-        const sub = (parts.shift() || "").toLowerCase();
-        const amt = Number(parts.shift() || 0);
-        if (sub !== "add" || !Number.isFinite(amt)) {
-          throw new Error("Usage: points add <number>");
-        }
-        const r = await devPost<{ me: Me }>("/points", { add: Math.floor(amt) });
-        me = r.me;
-        addLog(`(DEV) points +${amt}`, "ok");
-        refreshUI();
-        break;
-      }
-
-      case "xp": {
-        // xp add 500
-        const sub = (parts.shift() || "").toLowerCase();
-        const amt = Number(parts.shift() || 0);
-        if (sub !== "add" || !Number.isFinite(amt)) {
-          throw new Error("Usage: xp add <number>");
-        }
-        const r = await devPost<{ me: Me }>("/xp", { add: Math.floor(amt) });
-        me = r.me;
-        addLog(`(DEV) xp +${amt}`, "ok");
-        refreshUI();
-        break;
-      }
-
-      case "level": {
-        // level 25
-        const lv = Number(parts.shift() || 0);
-        if (!Number.isFinite(lv) || lv < 1) {
-          throw new Error("Usage: level <number>=1+");
-        }
-        const r = await devPost<{ me: Me }>("/level", { level: Math.floor(lv) });
-        me = r.me;
-        addLog(`(DEV) level -> ${lv}`, "ok");
-        refreshUI();
-        break;
-      }
-
-      case "item": {
-        // item <itemId>
-        const itemId = parts.shift();
-        if (!itemId) throw new Error("Usage: item <itemId>");
-        const r = await devPost<{ me: Me; item: ShopItem }>("/item", { itemId });
-        me = r.me;
-        addLog(`(DEV) item ${itemId} granted & auto-equipped if slot set`, "ok");
-        await loadShop();
-        refreshUI();
-        break;
-      }
-
-      case "slots": {
-        // slots {"helm":"skjaldmey-helm","chest":"skjaldmey-chest"}
-        const json = parts.join(" ");
-        let slots: Partial<Record<Slot, string>> | null = null;
-        try { slots = JSON.parse(json); } catch {}
-        if (!slots || typeof slots !== "object") {
-          throw new Error('Usage: slots {"helm":"id","chest":"id",...}');
-        }
-        const r = await devPost<{ me: Me }>("/slots", { slots });
-        me = r.me;
-        addLog(`(DEV) slots patched`, "ok");
-        refreshUI();
-        break;
-      }
-
-      case "equip-set": {
-        // equip-set skjaldmey
-        const setId = parts.shift();
-        if (!setId) throw new Error("Usage: equip-set <setId>");
-        const r = await devPost<{ me: Me; equipped: string[] }>("/equip-set", { setId });
-        me = r.me;
-        addLog(`(DEV) set equipped: ${r.equipped.join(", ")}`, "ok");
-        await loadShop();
-        refreshUI();
-        break;
-      }
-
-      case "drengr": {
-        const r = await devPost<{ me: Me; equipped: string[] }>("/drengr");
-        me = r.me;
-        addLog(`(DEV) drengr set equipped: ${r.equipped.join(", ")}`, "ok");
-        await loadShop();
-        refreshUI();
-        break;
-      }
-
-      case "reset": {
-        await devPost<{ ok: boolean }>("/reset");
-        addLog("(DEV) account reset.", "ok");
-        await loadMe();
-        await loadShop();
-        break;
-      }
-
-      case "help":
-      default: {
-        addLog("(DEV) Commands:", "ok");
-        addLog("  me", "ok");
-        addLog("  gold add <n> | gold set <n>", "ok");
-        addLog("  points add <n>", "ok");
-        addLog("  xp add <n>", "ok");
-        addLog("  level <n>", "ok");
-        addLog("  item <itemId>", "ok");
-        addLog('  slots {\"helm\":\"id\",\"chest\":\"id\"}', "ok");
-        addLog("  equip-set <setId>", "ok");
-        addLog("  drengr", "ok");
-        addLog("  reset", "ok");
-      }
-    }
-  } catch (err: any) {
-    addLog(`(DEV) ${main || "cmd"} failed: ${err?.message || err}`, "bad");
-  }
+  localStorage.setItem("va_name_override", next);
+  markNameUsed();
+  if (me) me.name = next;
+  elRenameBtn.disabled = true;
+  refreshUI();
 }
 
 // ------- events -------
-btnTrainStr.addEventListener("click", () => { addCooldown(btnTrainStr); train("power"); });   // Strength
-btnTrainDef.addEventListener("click", () => { addCooldown(btnTrainDef); train("defense"); });
-btnTrainSpd.addEventListener("click", () => { addCooldown(btnTrainSpd); train("speed"); });
+btnTrainStr.addEventListener("click", () => train("power"));   // Strength
+btnTrainDef.addEventListener("click", () => train("defense"));
+btnTrainSpd.addEventListener("click", () => train("speed"));
 btnTick.addEventListener("click", tickNow);
 btnFight.addEventListener("click", fightRandom);
 
@@ -717,60 +456,27 @@ btnFemale.addEventListener("click", () => pickGender("female"));
 btnMale.addEventListener("click", () => pickGender("male"));
 
 elRenameBtn.addEventListener("click", handleRename);
-
+if (nameChangeUsed()) elRenameBtn.disabled = true;
 
 // tiny cooldown (visual only) for train buttons
 function addCooldown(btn: HTMLButtonElement, ms = 1200) {
   btn.disabled = true;
   setTimeout(() => (btn.disabled = false), ms);
 }
-
-// --- small helpers: profile button + width override CSS ---
-function injectProfileButton(href = "/profile.html") {
-  if (document.getElementById("vaProfileBtn")) return;
-  const b = document.createElement("button");
-  b.id = "vaProfileBtn";
-  b.textContent = "← Profile";
-  Object.assign(b.style, {
-    position: "fixed",
-    top: "12px",
-    left: "12px",
-    zIndex: "9998",
-    background: "#1b2228",
-    color: "#d4a94d",
-    border: "1px solid #3b3325",
-    borderRadius: "10px",
-    padding: "6px 10px",
-    cursor: "pointer",
-  } as CSSStyleDeclaration);
-  b.addEventListener("click", () => { window.location.href = href; });
-  document.body.appendChild(b);
-}
-
-function injectWiderSlotCSS() {
-  if (document.getElementById("vaSlotWiderCSS")) return;
-  const style = document.createElement("style");
-  style.id = "vaSlotWiderCSS";
-  style.textContent = `
-    /* Wider equipment boxes without increasing height */
-    .equip-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-    .slot { width: 140px; height: 96px; }
-    .slot-img { max-width: 92%; max-height: 82%; }
-  `;
-  document.head.appendChild(style);
-}
+["click"].forEach(() => {
+  btnTrainStr.addEventListener("click", () => addCooldown(btnTrainStr));
+  btnTrainDef.addEventListener("click", () => addCooldown(btnTrainDef));
+  btnTrainSpd.addEventListener("click", () => addCooldown(btnTrainSpd));
+});
 
 // ------- boot -------
 (async function start() {
-  ensureDevConsole(); // Shift+D
-  injectWiderSlotCSS(); // wider boxes (not taller)
-  injectProfileButton("/profile.html"); // change path if yours differs
-
   await loadMe();
   await loadShop();
   // passive refresh
   setInterval(loadMe, 3000);
 })();
+
 
 
 

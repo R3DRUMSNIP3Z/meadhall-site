@@ -17,7 +17,7 @@ const WINDOWS_CATALOG_PATH =
 // Render path
 const RENDER_PUBLIC = path.resolve(__dirname, "..", "..", "public", "guildbook", FILENAME);
 
-// Optional override via env
+// Optional override
 const ENV_PATH = process.env.SHOP_CATALOG_PATH;
 
 function pickCatalogPath() {
@@ -103,7 +103,6 @@ function ensure(uId) {
       slots: {},
       gearPower: 0,
       lastTick: Date.now(),
-      renameUsed: false, // 👈 account-level rename lock
     };
   }
   return state[uId];
@@ -125,22 +124,17 @@ function tick(me) {
   return me;
 }
 
-// 🧩 recompute handles set bonuses and sums power boosts into gearPower
+// 🧩 recompute now handles bonuses for power/defense/speed
 function recompute(me) {
-  let gearBoostSum = 0; // shown as "gearPower": we keep this tied to power-boosting gear
+  let gearBoostSum = 0;
   const countsBySet = {};
-
   if (me.slots) {
     for (const slot of Object.keys(me.slots)) {
       const itemId = me.slots[slot];
       const it = findItem(itemId);
       if (!it) continue;
-
-      // keep gearPower as sum of items that boost "power"
-      if (typeof it.boost === "number" && it.stat === "power") {
+      if (typeof it.boost === "number" && it.stat === "power")
         gearBoostSum += it.boost;
-      }
-
       if (it.set) countsBySet[it.set] = (countsBySet[it.set] || 0) + 1;
     }
   }
@@ -181,7 +175,6 @@ function pickRandomOpponent(myId) {
 function install(app) {
   const router = express.Router();
 
-  // attach user id from header
   router.use((req, res, next) => {
     const uId = req.get("x-user-id");
     if (!uId) return res.status(401).json({ error: "Missing x-user-id" });
@@ -195,12 +188,12 @@ function install(app) {
     res.json({ me });
   });
 
-  router.post("/game/tick", (req, res) => {
+  router.post("/game/tick", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     res.json({ me });
   });
 
-  // ---- Train (spends gold, +1 stat, +2 xp)
+  // ---- Train
   router.post("/game/train", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { stat } = req.body || {};
@@ -215,7 +208,7 @@ function install(app) {
     res.json({ me });
   });
 
-  // ---- Allocate (spends points)
+  // ---- Allocate
   router.post("/game/allocate", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { stat, amount } = req.body || {};
@@ -244,7 +237,6 @@ function install(app) {
     res.json({ items });
   });
 
-  // single item info
   router.get("/game/item/:id", (req, res) => {
     const it = findItem(req.params.id);
     if (!it) return res.status(404).json({ error: "No such item" });
@@ -294,7 +286,7 @@ function install(app) {
       return res.status(400).json({ error: "Not enough gold" });
 
     me.gold -= item.cost;
-    if (item.stat) me[item.stat] = Math.max(0, Number(me[item.stat] || 0)) + (item.boost || 0);
+    if (item.stat) me[item.stat] += item.boost || 0;
     if (item.slot) me.slots[item.slot] = item.id;
     recompute(me);
     res.json({ me, item });
@@ -333,31 +325,6 @@ function install(app) {
         deltaGold, deltaXP
       }
     });
-  });
-
-  // ---- Rename once per account
-  router.post("/game/rename", express.json(), (req, res) => {
-    const me = recompute(tick(ensure(req.userId)));
-    const { name } = req.body || {};
-
-    if (me.renameUsed) {
-      return res.status(400).json({ error: "Rename already used for this account." });
-    }
-    if (!name || typeof name !== "string") {
-      return res.status(400).json({ error: "Name required." });
-    }
-
-    const trimmed = name.trim();
-    if (trimmed.length < 3 || trimmed.length > 20) {
-      return res.status(400).json({ error: "Name must be 3–20 chars." });
-    }
-    if (!/^[A-Za-z0-9 _-]+$/.test(trimmed)) {
-      return res.status(400).json({ error: "Only letters, numbers, space, _ and -." });
-    }
-
-    me.name = trimmed;
-    me.renameUsed = true;
-    res.json({ me });
   });
 
   // ================== DEV ENDPOINTS ==================
@@ -410,7 +377,7 @@ function install(app) {
     const it = findItem(itemId);
     if (!it) return res.status(404).json({ error: "No such item" });
     const me = ensure(req.userId);
-    if (it.stat) me[it.stat] = Math.max(0, Number(me[it.stat] || 0)) + (it.boost || 0);
+    if (it.stat) me[it.stat] += it.boost || 0;
     if (it.slot) me.slots[it.slot] = it.id;
     recompute(me);
     res.json({ me, item: it });
@@ -430,7 +397,7 @@ function install(app) {
     const me = ensure(req.userId);
     const items = getShop().filter(i => i.set === setId);
     for (const it of items) {
-      if (it.stat) me[it.stat] = Math.max(0, Number(me[it.stat] || 0)) + (it.boost || 0);
+      if (it.stat) me[it.stat] += it.boost || 0;
       if (it.slot) me.slots[it.slot] = it.id;
     }
     recompute(me);
@@ -441,7 +408,7 @@ function install(app) {
     const me = ensure(req.userId);
     const items = getShop().filter(i => i.set === "drengr");
     for (const it of items) {
-      if (it.stat) me[it.stat] = Math.max(0, Number(me[it.stat] || 0)) + (it.boost || 0);
+      if (it.stat) me[it.stat] += it.boost || 0;
       if (it.slot) me.slots[it.slot] = it.id;
     }
     recompute(me);
@@ -467,6 +434,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 

@@ -10,163 +10,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
   <style>
-    :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:#c7b07a; }
-    body {
-      background: var(--bg);
-      color: var(--gold);
-      font-family: "Cinzel", serif;
-      margin: 0;
-      display: flex;
-      min-height: 100vh;
-    }
-    .wrap { max-width:980px; margin:0 auto; padding:20px; flex:1; }
-    h1 { margin:10px 0 16px; font-size:1.6rem; }
-
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    .card {
-      background: var(--card);
-      border: 1px solid #3b3325;
-      border-radius: 14px;
-      padding: 14px;
-    }
-    .row { display:flex; justify-content:space-between; align-items:center; margin:6px 0; }
-    .stat { font-weight:700; }
-    button {
-      background: #1b2228;
-      border: 1px solid #3b3325;
-      border-radius: 10px;
-      color: var(--gold);
-      padding: 8px 12px;
-      cursor: pointer;
-    }
-    button:disabled { opacity:.6; cursor:not-allowed; }
-
-    .bar { height:8px; background:#1b1b1b; border-radius:999px; overflow:hidden; }
-    .bar > span { display:block; height:100%; background:var(--muted); width:0%; }
-
-    .log {
-      background:#0e1013;
-      border:1px dashed #3b3325;
-      border-radius:10px;
-      padding:10px;
-      font-size:.95rem;
-      height:180px;
-      overflow:auto;
-    }
-
-    .muted { opacity:.85; }
-    .ok { color:#8ad67a; }
-    .bad { color:#f56; }
-
-    /* === Equipment Grid === */
-    .equip-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-    .slot {
-      position: relative;
-      width: 96px;
-      height: 96px;
-      border: 1px solid #3b3325;
-      border-radius: 12px;
-      background: #0f1215;
-      display: grid;
-      place-items: center;
-      color: #cbb17a;
-      font-family: "Cinzel", serif;
-      overflow: hidden;
-    }
-    .slot.locked { opacity:.5; filter:grayscale(1); }
-    .slot-img {
-      max-width: 88%;
-      max-height: 88%;
-      object-fit: contain;
-      pointer-events: none;
-      display: block;
-    }
-    .rarity-frame {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      pointer-events: none;
-    }
-
-    .powertotal {
-      margin-top:10px;
-      text-align:center;
-      font-size:1.5rem;
-      font-weight:900;
-      letter-spacing:1px;
-      border-top:1px solid #3b3325;
-      padding-top:8px;
-    }
-
-    /* === Shop Layout === */
-    .shop-item {
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      padding:8px 0;
-      border-bottom:1px dashed rgba(212,169,77,.15);
-    }
-    .shop-left { display:flex; align-items:center; gap:8px; min-width:0; }
-    .shop-text { display:flex; flex-direction:column; }
-    .shop-title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .shop-right { display:flex; align-items:center; gap:10px; }
-    .shop-price { width:60px; text-align:right; }
-
-    .shop-thumb {
-      position:relative;
-      display:inline-grid;
-      place-items:center;
-      width:40px;
-      height:40px;
-      flex:0 0 40px;
-    }
-    .shop-thumb .shop-frame {
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      object-fit:contain;
-      pointer-events:none;
-      filter:drop-shadow(0 0 6px rgba(212,169,77,.45));
-    }
-    .shop-img {
-      width:40px !important;
-      height:40px !important;
-      object-fit:contain !important;
-      border-radius:6px;
-      background:rgba(0,0,0,.35);
-      box-shadow:0 0 0 1px rgba(212,169,77,.3);
-    }
-    .shop-item:hover .shop-img {
-      filter:brightness(1.15);
-      transform:scale(1.03);
-      transition:transform .2s ease, filter .2s ease;
-    }
-
-    /* Tooltip */
-    .va-tip {
-      position: fixed;
-      z-index: 99999;
-      min-width: 220px;
-      max-width: 320px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: #0e1013;
-      color: #e9e4d5;
-      border: 1px solid rgba(212,169,77,.35);
-      box-shadow: 0 10px 40px rgba(0,0,0,.45);
-      pointer-events: none;
-      font-family: "Cinzel", serif;
-      font-size: .92rem;
-    }
-    .va-tip .tt-title { font-weight: 700; color: #d4a94d; margin-bottom: 4px; }
-    .va-tip .tt-row  { display:flex; justify-content:space-between; gap:12px; }
-    .va-tip .muted   { opacity:.8; }
-
-    /* Sparkly BR */
     .va-sparkle {
       position: relative;
       color: #ffeaa0;
@@ -180,6 +23,69 @@
       0%,100% { filter: drop-shadow(0 0 10px rgba(212,169,77,.45)); }
       50%     { filter: drop-shadow(0 0 18px rgba(255,210,120,.85)); }
     }
+
+    :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:#c7b07a; }
+
+    body { background: var(--bg); color: var(--gold); font-family: "Cinzel", serif; margin: 0; display: flex; min-height: 100vh; }
+    .wrap { max-width:980px; margin:0 auto; padding:20px; flex:1; }
+    h1 { margin:10px 0 16px; font-size:1.6rem; }
+
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .card { background: var(--card); border: 1px solid #3b3325; border-radius: 14px; padding: 14px; }
+    .row { display:flex; justify-content:space-between; align-items:center; margin:6px 0; }
+    .stat { font-weight:700; }
+    button { background:#1b2228; border:1px solid #3b3325; border-radius:10px; color:var(--gold); padding:8px 12px; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+
+    .bar { height:8px; background:#1b1b1b; border-radius:999px; overflow:hidden; }
+    .bar > span { display:block; height:100%; background:var(--muted); width:0%; }
+
+    .log { background:#0e1013; border:1px dashed #3b3325; border-radius:10px; padding:10px; font-size:.95rem; height:180px; overflow:auto; }
+    .muted { opacity:.85; }
+    .ok { color:#8ad67a; }
+    .bad { color:#f56; }
+
+    /* === Equipment Grid === */
+    .equip-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .slot { height:64px; display:flex; align-items:center; justify-content:center; border:1px dashed #3b3325; border-radius:10px; font-size:.85rem; opacity:.95; background:#0b0e10; text-align:center; padding:4px; }
+    .slot.locked { opacity:.45; position:relative; }
+    .slot.locked::after { content:"🔒"; position:absolute; right:6px; bottom:4px; font-size:.85rem; opacity:.8; }
+
+    .powertotal { margin-top:10px; text-align:center; font-size:1.5rem; font-weight:900; letter-spacing:1px; border-top:1px solid #3b3325; padding-top:8px; }
+
+    /* === Shop Layout === */
+    .shop-item { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; border-bottom:1px dashed rgba(212,169,77,.15); }
+    .shop-left { display:flex; align-items:center; gap:8px; min-width:0; }
+    .shop-text { display:flex; flex-direction:column; }
+    .shop-title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .shop-right { display:flex; align-items:center; gap:10px; }
+    .shop-price { width:60px; text-align:right; }
+
+    /* Thumbnails (item only) */
+    #shop img.shop-img, #shop .shop-item img.shop-img, .shop-img {
+      width:40px !important; height:40px !important; max-width:40px !important; max-height:40px !important;
+      object-fit:contain !important; border-radius:6px; background:rgba(0,0,0,.35); box-shadow:0 0 0 1px rgba(212,169,77,.3); display:block;
+    }
+    .shop-thumb { position:relative; display:inline-grid; place-items:center; width:40px; height:40px; flex:0 0 40px; }
+    .shop-thumb .shop-frame { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; filter:drop-shadow(0 0 6px rgba(212,169,77,.45)); }
+
+    /* Paper-doll slots + overlay frame */
+    .slot{ position:relative; width:96px; height:96px; border:1px solid #3b3325; border-radius:12px; background:#0f1215; display:grid; place-items:center; color:#cbb17a; font-family:"Cinzel", serif; overflow:hidden; }
+    .slot.locked{ opacity:.5; filter:grayscale(1); }
+    .slot-img{ max-width:88%; max-height:88%; object-fit:contain; pointer-events:none; display:block; }
+    .rarity-frame{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; }
+
+    .shop-item:hover .shop-img { filter:brightness(1.15); transform:scale(1.03); transition:transform .2s ease, filter .2s ease; }
+
+    /* Tooltip */
+    .va-tip {
+      position: fixed; z-index: 99999; min-width: 220px; max-width: 320px; padding: 10px 12px;
+      border-radius: 10px; background: #0e1013; color: #e9e4d5; border: 1px solid rgba(212,169,77,.35);
+      box-shadow: 0 10px 40px rgba(0,0,0,.45); pointer-events: none; font-family: "Cinzel", serif; font-size: .92rem;
+    }
+    .va-tip .tt-title { font-weight: 700; color: #d4a94d; margin-bottom: 4px; }
+    .va-tip .tt-row  { display:flex; justify-content:space-between; gap:12px; }
+    .va-tip .muted   { opacity:.8; }
   </style>
 </head>
 <body>
@@ -221,9 +127,11 @@
             <div class="slot" data-slot="helm">Helm</div>
             <div class="slot" data-slot="shoulders">Shoulders</div>
             <div class="slot" data-slot="wings">Wings</div>
+
             <div class="slot" data-slot="ring">Ring</div>
             <div class="slot" data-slot="chest">Chest</div>
             <div class="slot" data-slot="pet">Pet</div>
+
             <div class="slot" data-slot="gloves">Gloves</div>
             <div class="slot" data-slot="boots">Boots</div>
             <div class="slot" data-slot="sylph">Sylph</div>
@@ -235,7 +143,8 @@
         <div class="row"><div class="stat">Speed</div><div id="speed">0</div></div>
         <div class="row"><div>Unspent Points</div><div id="points">0</div></div>
 
-        <div id="powerTotal" class="powertotal va-sparkle">Battle Rating 0</div>
+        <!-- Sparkly Battle Rating (matches #battleRating in TS) -->
+        <div id="battleRating" class="powertotal va-sparkle">BATTLE RATING 0</div>
       </div>
 
       <div class="card">
@@ -263,6 +172,7 @@
   <script type="module" src="/src/game.ts"></script>
 </body>
 </html>
+
 
 
 
