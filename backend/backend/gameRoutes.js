@@ -259,6 +259,15 @@ function install(app) {
     const item = findItem(itemId);
     if (!item) return res.status(404).json({ error: "No such item" });
 
+      // 🧩 Gender restrictions
+  if (item.set === "drengr" && me.gender !== "male") {
+    return res.status(400).json({ error: "Only male warriors can equip Drengr gear." });
+  }
+  if (item.set === "skjaldmey" && me.gender !== "female") {
+    return res.status(400).json({ error: "Only female warriors can equip Skjaldmey gear." });
+  }
+
+
     if (item.levelReq && me.level < item.levelReq)
       return res.status(400).json({ error: `Requires level ${item.levelReq}` });
     if (item.slot && me.level < (SLOT_UNLOCK[item.slot] || 0))
