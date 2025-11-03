@@ -85,7 +85,7 @@ const elXPBar = document.getElementById("xpBar") as HTMLSpanElement;
 const elStrength = document.getElementById("strength")!;
 const elDefense = document.getElementById("defense")!;
 const elSpeed = document.getElementById("speed")!;
-const elBR = document.getElementById("battleRating")!;
+const elBR = document.getElementById("powerTotal")!;
 
 const elGenderPick = document.getElementById("genderPick")!;
 const btnFemale = document.getElementById("pickFemale") as HTMLButtonElement;
@@ -101,6 +101,52 @@ const btnTick = document.getElementById("tickNow") as HTMLButtonElement;
 const elShop = document.getElementById("shop")!;
 const elLog = document.getElementById("log")!;
 const elAvatar = document.getElementById("avatar") as HTMLImageElement;
+
+// === Tooltip helpers ===
+const tipEl = document.getElementById("vaTooltip") as HTMLElement | null;
+
+function tipShow(html: string): void {
+  if (!tipEl) return;
+  tipEl.innerHTML = html;
+  tipEl.style.display = "block";
+}
+
+function tipMove(e: MouseEvent): void {
+  if (!tipEl) return;
+  const pad = 14;
+  let x = e.clientX + pad;
+  let y = e.clientY + pad;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const r = tipEl.getBoundingClientRect();
+  if (x + r.width  > vw) x = e.clientX - r.width  - pad;
+  if (y + r.height > vh) y = e.clientY - r.height - pad;
+  tipEl.style.left = x + "px";
+  tipEl.style.top  = y + "px";
+}
+
+function tipHide(): void {
+  if (!tipEl) return;
+  tipEl.style.display = "none";
+  tipEl.innerHTML = "";
+}
+
+// Build tooltip HTML for a shop item
+function buildItemTip(it: ShopItem): string {
+  const statLabel = it.stat === "power" ? "Strength" : (it.stat || "—");
+  const setName = (it.set || "").toUpperCase();
+  const slotName = (it.slot || "").toUpperCase();
+  return `
+    <div class="tt-title">${it.name}</div>
+    <div class="tt-row"><span class="muted">Set</span><span>${setName || "—"}</span></div>
+    <div class="tt-row"><span class="muted">Slot</span><span>${slotName || "—"}</span></div>
+    <div class="tt-row"><span class="muted">${statLabel}</span><span>+${it.boost ?? 0}</span></div>
+    ${it.levelReq ? `<div class="tt-row"><span class="muted">Req</span><span>Lv ${it.levelReq}</span></div>` : ""}
+    <div class="tt-row"><span class="muted">Rarity</span><span>${(it.rarity || "normal").toUpperCase()}</span></div>
+    <div style="margin-top:6px; opacity:.85">${it.description || ""}</div>
+  `;
+}
+
+
 
 // gear slots
 const slotEls: Record<Slot, HTMLElement> = {
@@ -206,7 +252,7 @@ function refreshUI() {
     const frame = document.createElement("img");
     frame.className = "rarity-frame";
     frame.alt = "";
-    frame.src = `/guildbook/frames/${(it?.rarity || "normal")}.png`;
+    frame.src = `/guildbook/frames/${(it?.rarity || "normal")}-frame.svg`;
     el.appendChild(frame);
   });
 }
@@ -276,8 +322,7 @@ function renderShop() {
     const frame = document.createElement("img");
     frame.className = "shop-frame";
     frame.alt = "";
-    // ✅ correct: use SVG and the “-frame.svg” suffix
-    frame.src = `/guildbook/frames/${(it.rarity || "normal")}-frame.svg`;
+    frame.src = `/guildbook/frames/${(it.rarity || "normal")}-frame.svg`; // ✅ correct file
 
     thumbWrap.appendChild(img);
     thumbWrap.appendChild(frame);
@@ -317,11 +362,18 @@ function renderShop() {
     right.appendChild(price);
     right.appendChild(btn);
 
+    // 🔎 Hover tooltip on the whole row (and works on thumb/text too)
+    const tipHTML = buildItemTip(it);
+    row.addEventListener("mouseenter", () => tipShow(tipHTML));
+    row.addEventListener("mousemove", tipMove);
+    row.addEventListener("mouseleave", tipHide);
+
     row.appendChild(left);
     row.appendChild(right);
     elShop.appendChild(row);
   }
 }
+
 
 
 async function buyItem(itemId: string) {
