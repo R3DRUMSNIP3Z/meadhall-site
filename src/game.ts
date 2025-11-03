@@ -13,7 +13,7 @@ type Me = {
   level: number;
   xp: number;
   gold: number;
-  power: number;     // server uses 'power' (we label it "Strength" in UI)
+  power: number;     // server uses 'power' (UI shows "Strength")
   defense: number;
   speed: number;
   points?: number;
@@ -39,8 +39,7 @@ type ShopItem = {
 
 // --------- helpers ----------
 const apiBase =
-  (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ||
-  "";
+  (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content || "";
 
 function uid(): string {
   const k = "va_uid";
@@ -76,18 +75,21 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 // --------- DOM refs ----------
-const elHeroName = document.getElementById("heroName")!;
+const elHeroName = document.getElementById("heroName") as HTMLElement;
 const elRenameBtn = document.getElementById("renameBtn") as HTMLButtonElement;
-const elLevel = document.getElementById("level")!;
-const elGold = document.getElementById("gold")!;
-const elXPVal = document.getElementById("xpVal")!;
+const elLevel = document.getElementById("level") as HTMLElement;
+const elGold = document.getElementById("gold") as HTMLElement;
+const elXPVal = document.getElementById("xpVal") as HTMLElement;
 const elXPBar = document.getElementById("xpBar") as HTMLSpanElement;
-const elStrength = document.getElementById("strength")!;
-const elDefense = document.getElementById("defense")!;
-const elSpeed = document.getElementById("speed")!;
-const elBR = document.getElementById("powerTotal")!;
+const elStrength = document.getElementById("strength") as HTMLElement;
+const elDefense = document.getElementById("defense") as HTMLElement;
+const elSpeed = document.getElementById("speed") as HTMLElement;
+const elPoints = document.getElementById("points") as HTMLElement;
 
-const elGenderPick = document.getElementById("genderPick")!;
+// 🔧 THIS is the element you actually have in HTML now
+const elBR = document.getElementById("battleRating") as HTMLElement;
+
+const elGenderPick = document.getElementById("genderPick") as HTMLElement;
 const btnFemale = document.getElementById("pickFemale") as HTMLButtonElement;
 const btnMale = document.getElementById("pickMale") as HTMLButtonElement;
 
@@ -98,8 +100,8 @@ const btnTrainSpd = document.getElementById("trainSpeed") as HTMLButtonElement;
 const btnFight = document.getElementById("fightRandom") as HTMLButtonElement;
 const btnTick = document.getElementById("tickNow") as HTMLButtonElement;
 
-const elShop = document.getElementById("shop")!;
-const elLog = document.getElementById("log")!;
+const elShop = document.getElementById("shop") as HTMLElement;
+const elLog = document.getElementById("log") as HTMLElement;
 const elAvatar = document.getElementById("avatar") as HTMLImageElement;
 
 // === Tooltip helpers ===
@@ -146,8 +148,6 @@ function buildItemTip(it: ShopItem): string {
   `;
 }
 
-
-
 // gear slots
 const slotEls: Record<Slot, HTMLElement> = {
   helm: document.querySelector('.slot[data-slot="helm"]') as HTMLElement,
@@ -166,8 +166,8 @@ let me: Me | null = null;
 let shop: ShopItem[] = [];
 
 // ------- UI update -------
-function setText(n: HTMLElement, v: string | number) {
-  n.textContent = String(v);
+function setText(n: HTMLElement | null, v: string | number) {
+  if (n) n.textContent = String(v);
 }
 function addLog(line: string, cls?: "ok" | "bad") {
   const div = document.createElement("div");
@@ -177,7 +177,7 @@ function addLog(line: string, cls?: "ok" | "bad") {
   elLog.scrollTop = elLog.scrollHeight;
 }
 
-// compute BR as sum of the three stats (your request)
+// compute BR = sum of three stats
 function computeBR(m: Me): number {
   const s = Math.max(0, Math.floor(m.power || 0));
   const d = Math.max(0, Math.floor(m.defense || 0));
@@ -198,21 +198,22 @@ function refreshUI() {
   setText(elLevel, me.level || 1);
   setText(elGold, Math.max(0, me.gold || 0));
 
-  // Strength (server field is still "power")
+  // Stats
   setText(elStrength, Math.max(0, me.power || 0));
   setText(elDefense, Math.max(0, me.defense || 0));
   setText(elSpeed, Math.max(0, me.speed || 0));
+  setText(elPoints, Math.max(0, me.points || 0));
 
-  // Battle Rating
+  // Battle Rating (sparkly div in HTML)
   const br = computeBR(me);
-  setText(elBR, `Battle Rating ${br}`);
+  setText(elBR, `BATTLE RATING ${br}`);
 
   // Avatar by gender
   if (me.gender === "female") elAvatar.src = "/guildbook/girl.png";
   else if (me.gender === "male") elAvatar.src = "/guildbook/boy.png";
 
   // Gender picker visible until chosen
-  (elGenderPick as HTMLElement).style.display = me.gender ? "none" : "block";
+  elGenderPick.style.display = me.gender ? "none" : "block";
 
   // PvP lock
   btnFight.disabled = (me.level || 1) < 25;
@@ -260,7 +261,6 @@ function refreshUI() {
 // ------- load / actions -------
 async function loadMe() {
   const data = await api<{ me: Me }>("/api/game/me");
-  // apply client-side name override (one-time rename)
   const override = localStorage.getItem("va_name_override");
   if (override) data.me.name = override;
   me = data.me;
@@ -269,7 +269,6 @@ async function loadMe() {
 
 async function tickNow() {
   const data = await api<{ me: Me }>("/api/game/tick", { method: "POST" });
-  // preserve override name
   const override = localStorage.getItem("va_name_override");
   if (override) data.me.name = override;
   me = data.me;
@@ -277,7 +276,6 @@ async function tickNow() {
 }
 
 async function train(statUi: "power" | "defense" | "speed") {
-  // server expects "power"/"defense"/"speed"; UI calls "Strength" -> send "power"
   const data = await api<{ me: Me }>("/api/game/train", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -307,7 +305,7 @@ function renderShop() {
     const row = document.createElement("div");
     row.className = "shop-item";
 
-    // LEFT: thumbnail (image + overlay frame) + text
+    // LEFT: thumb (image + overlay frame) + text
     const left = document.createElement("div");
     left.className = "shop-left";
 
@@ -322,7 +320,7 @@ function renderShop() {
     const frame = document.createElement("img");
     frame.className = "shop-frame";
     frame.alt = "";
-    frame.src = `/guildbook/frames/${(it.rarity || "normal")}-frame.svg`; // ✅ correct file
+    frame.src = `/guildbook/frames/${(it.rarity || "normal")}-frame.svg`;
 
     thumbWrap.appendChild(img);
     thumbWrap.appendChild(frame);
@@ -362,7 +360,7 @@ function renderShop() {
     right.appendChild(price);
     right.appendChild(btn);
 
-    // 🔎 Hover tooltip on the whole row (and works on thumb/text too)
+    // Tooltip
     const tipHTML = buildItemTip(it);
     row.addEventListener("mouseenter", () => tipShow(tipHTML));
     row.addEventListener("mousemove", tipMove);
@@ -373,8 +371,6 @@ function renderShop() {
     elShop.appendChild(row);
   }
 }
-
-
 
 async function buyItem(itemId: string) {
   try {
@@ -395,9 +391,14 @@ async function buyItem(itemId: string) {
 
 async function fightRandom() {
   try {
-    const data = await api<{ me: Me; result: { win: boolean; opponent: { id: string; name?: string; level: number }; deltaGold: number; deltaXP: number } }>("/api/pvp/fight", {
-      method: "POST",
-    });
+    const data = await api<{
+      me: Me;
+      result: {
+        win: boolean;
+        opponent: { id: string; name?: string; level: number };
+        deltaGold: number; deltaXP: number;
+      };
+    }>("/api/pvp/fight", { method: "POST" });
     const override = localStorage.getItem("va_name_override");
     if (override) data.me.name = override;
     me = data.me;
@@ -428,7 +429,7 @@ async function pickGender(g: Gender) {
   }
 }
 
-// One-time client-side rename (persists in localStorage; does not change backend user store)
+// One-time client-side rename (localStorage)
 function handleRename() {
   if (nameChangeUsed()) {
     addLog("You already renamed your hero once.", "bad");
@@ -475,6 +476,7 @@ function addCooldown(btn: HTMLButtonElement, ms = 1200) {
   // passive refresh
   setInterval(loadMe, 3000);
 })();
+
 
 
 
