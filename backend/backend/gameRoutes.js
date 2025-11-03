@@ -26,7 +26,8 @@ function pickCatalogPath() {
   for (const p of candidates) {
     try { if (fs.existsSync(p)) return p; } catch {}
   }
-  return RENDER_PUBLIC; // consistent log path even if missing
+  // Fall back to Render public path for consistent logging
+  return RENDER_PUBLIC;
 }
 
 let CATALOG_PATH = pickCatalogPath();
@@ -54,7 +55,7 @@ try {
   });
 } catch { /* no-op */ }
 
-const getShop = () => catalog.items;
+const getShop = () => catalog.items || [];
 const getSetBonuses = () => {
   const out = {};
   for (const [setId, setObj] of Object.entries(catalog.sets || {})) {
@@ -64,7 +65,7 @@ const getSetBonuses = () => {
 };
 const findItem = (id) => getShop().find((i) => i.id === id);
 
-// ================== GAME RULES ==================
+// ================== CONSTANTS (RULES) ==================
 const SLOT_UNLOCK = {
   helm: 5,
   shoulders: 8,
@@ -101,11 +102,14 @@ function ensure(uId) {
       speed: 5,
       points: 0,
       gender: undefined,
-      slots: {},      // { slotName: itemId }
-      gearPower: 0,   // legacy field, kept for UI
-      viewPower: 5,   // effective totals (base + gear + set)
-      viewDefense: 5,
-      viewSpeed: 5,
+      slots: {},        // { slotName: itemId }
+      // derived fields set by recompute():
+      totalPower: 5,
+      totalDefense: 5,
+      totalSpeed: 5,
+      gearPower: 0,
+      battleRating: 15,
+      renameUsed: false,
       lastTick: Date.now(),
     };
   }
@@ -128,28 +132,23 @@ function tick(me) {
   return me;
 }
 
+// Apply gear + set bonuses and compute totals/BR
 function recompute(me) {
   const gear = { power: 0, defense: 0, speed: 0 };
   const countsBySet = {};
-  if (me.slots) {
-    for (const slot of Object.keys(me.slots)) {
-      const itemId = me.slots[slot];
-      const it = findItem(itemId);
-      if (!it) continue;
-      if (it.stat && typeof it.boost === "number") {
-        gear[it.stat] += it.boost;
-      }
-      if (it.set) countsBySet[it.set] = (countsBySet[it.set] || 0) + 1;
-    }
+  for (const slot of Object.keys(me.slots || {})) {
+    const itemId = me.slots[slot];
+    const it = findItem(itemId);
+    if (!it) continue;
+    if (it.stat && typeof it.boost === "number") gear[it.stat] += it.boost;
+    if (it.set) countsBySet[it.set] = (countsBySet[it.set] || 0) + 1;
   }
 
-  // set bonuses (apply to any stat present)
-  const setBonus = { power: 0, defense: 0, speed: 0 };
   const SET_BONUSES = getSetBonuses();
+  const setBonus = { power: 0, defense: 0, speed: 0 };
   for (const setId of Object.keys(countsBySet)) {
     const n = countsBySet[setId];
-    const rules = SET_BONUSES[setId] || [];
-    for (const r of rules) {
+    for (const r of (SET_BONUSES[setId] || [])) {
       if (n >= (r.pieces || 0)) {
         const b = r.bonus || {};
         if (b.power)   setBonus.power   += b.power;
@@ -159,29 +158,17 @@ function recompute(me) {
     }
   }
 
-  // effective totals (base + gear + set)
-  const eff = {
-    power:   Math.max(0, (me.power   || 0) + gear.power   + setBonus.power),
-    defense: Math.max(0, (me.defense || 0) + gear.defense + setBonus.defense),
-    speed:   Math.max(0, (me.speed   || 0) + gear.speed   + setBonus.speed),
-  };
-
-  // legacy field showing only gear+set power for UI “gear power”
-  me.gearPower   = gear.power + setBonus.power;
-  me.viewPower   = eff.power;
-  me.viewDefense = eff.defense;
-  me.viewSpeed   = eff.speed;
-
+  me.totalPower   = Math.max(0, (me.power   || 0) + gear.power   + setBonus.power);
+  me.totalDefense = Math.max(0, (me.defense || 0) + gear.defense + setBonus.defense);
+  me.totalSpeed   = Math.max(0, (me.speed   || 0) + gear.speed   + setBonus.speed);
+  me.gearPower    = gear.power + setBonus.power; // legacy read by UI
+  me.battleRating = me.totalPower + me.totalDefense + me.totalSpeed;
   return me;
 }
 
 function fightCalc(m) {
-  // use effective totals for BR
-  const p = m.viewPower   ?? m.power   ?? 0;
-  const d = m.viewDefense ?? m.defense ?? 0;
-  const s = m.viewSpeed   ?? m.speed   ?? 0;
   const roll = () => Math.random() * 10 - 5; // [-5,+5)
-  return p * 1.0 + d * 0.8 + s * 0.6 + roll();
+  return m.totalPower * 1.0 + m.totalDefense * 0.8 + m.totalSpeed * 0.6 + roll();
 }
 
 function pickRandomOpponent(myId) {
@@ -189,6 +176,15 @@ function pickRandomOpponent(myId) {
   if (!ids.length) return null;
   const id = ids[Math.floor(Math.random() * ids.length)];
   return state[id];
+}
+
+// Gender lock helpers
+function violatesGenderLock(me, item) {
+  if (!item || !item.set) return null;
+  if (!me.gender) return "Pick a gender first.";
+  if (item.set === "skjaldmey" && me.gender !== "female") return "Skjaldmey is female-only.";
+  if (item.set === "drengr" && me.gender !== "male") return "Drengr is male-only.";
+  return null;
 }
 
 // ================== INSTALL (ROUTES) ==================
@@ -229,7 +225,7 @@ function install(app) {
     res.json({ me });
   });
 
-  // ---- Allocate unspent points (level-up)
+  // ---- Allocate unspent points (level-ups)
   router.post("/game/allocate", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { stat, amount } = req.body || {};
@@ -246,9 +242,34 @@ function install(app) {
     return res.json({ me });
   });
 
+  // ---- One-time rename
+  router.post("/game/rename", express.json(), (req, res) => {
+    const me = recompute(tick(ensure(req.userId)));
+    if (me.renameUsed) return res.status(400).json({ error: "Rename already used." });
+    let { name } = req.body || {};
+    if (typeof name !== "string") return res.status(400).json({ error: "Bad name" });
+    name = name.trim();
+    if (name.length < 2 || name.length > 20) return res.status(400).json({ error: "Name must be 2–20 chars." });
+    if (!/^[A-Za-z0-9 _-]+$/.test(name)) return res.status(400).json({ error: "Only letters, numbers, space, _ and -." });
+    me.name = name;
+    me.renameUsed = true;
+    res.json({ me });
+  });
+
+  // ---- Gender select
+  router.post("/game/gender", express.json(), (req, res) => {
+    const me = recompute(tick(ensure(req.userId)));
+    const { gender } = req.body || {};
+    if (!["female", "male"].includes(gender))
+      return res.status(400).json({ error: "Bad gender" });
+    me.gender = gender;
+    res.json({ me });
+  });
+
   // ---- Shop
   router.get("/game/shop", (req, res) => res.json({ items: getShop() }));
 
+  // Single item details (for slot rendering)
   router.get("/game/item/:id", (req, res) => {
     const it = findItem(req.params.id);
     if (!it) return res.status(404).json({ error: "No such item" });
@@ -267,17 +288,7 @@ function install(app) {
     });
   });
 
-  // ---- Gender select
-  router.post("/game/gender", express.json(), (req, res) => {
-    const me = recompute(tick(ensure(req.userId)));
-    const { gender } = req.body || {};
-    if (!["female", "male"].includes(gender))
-      return res.status(400).json({ error: "Bad gender" });
-    me.gender = gender;
-    res.json({ me });
-  });
-
-  // ---- Buy & auto-equip (no base stat mutation)
+  // ---- Buy & auto-equip (with gender + level + slot locks)
   router.post("/game/shop/buy", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { itemId } = req.body || {};
@@ -289,11 +300,15 @@ function install(app) {
     if (item.slot && me.level < (SLOT_UNLOCK[item.slot] || 0))
       return res.status(400).json({ error: `Slot locked until level ${SLOT_UNLOCK[item.slot]}` });
 
+    // Gender lock
+    const why = violatesGenderLock(me, item);
+    if (why) return res.status(400).json({ error: why });
+
     if (me.gold < item.cost)
       return res.status(400).json({ error: "Not enough gold" });
 
     me.gold -= item.cost;
-    if (item.slot) me.slots[item.slot] = item.id;  // equip only
+    if (item.slot) me.slots[item.slot] = item.id;
     recompute(me);
 
     res.json({ me, item });
@@ -381,33 +396,46 @@ function install(app) {
     res.json({ me });
   });
 
-  // give/equip item (ignores cost/locks) — do NOT mutate base stats
+  // give/equip item (ignores cost/locks) — still enforce gender lock
   dev.post("/item", (req, res) => {
     const { itemId } = req.body || {};
     const it = findItem(itemId);
     if (!it) return res.status(404).json({ error: "No such item" });
     const me = ensure(req.userId);
+    const why = violatesGenderLock(me, it);
+    if (why) return res.status(400).json({ error: why });
     if (it.slot) me.slots[it.slot] = it.id;
     recompute(me);
     res.json({ me, item: it });
   });
 
-  // set multiple slots directly
+  // set multiple slots directly — enforce gender lock per slot item
   dev.post("/slots", (req, res) => {
     const { slots } = req.body || {};
     const me = ensure(req.userId);
     if (slots && typeof slots === "object") {
+      for (const [slot, itemId] of Object.entries(slots)) {
+        const it = findItem(itemId);
+        if (!it) continue;
+        const why = violatesGenderLock(me, it);
+        if (why) return res.status(400).json({ error: why });
+      }
       me.slots = { ...me.slots, ...slots };
     }
     recompute(me);
     res.json({ me });
   });
 
-  // quick equip all items from a set (e.g., "drengr") — no base mutation
+  // quick equip all items from a set — enforce gender lock
   dev.post("/equip-set", (req, res) => {
     const { setId } = req.body || {};
     if (!setId) return res.status(400).json({ error: "setId required" });
     const me = ensure(req.userId);
+    const sample = getShop().find(i => i.set === setId);
+    if (sample) {
+      const why = violatesGenderLock(me, sample);
+      if (why) return res.status(400).json({ error: why });
+    }
     const items = getShop().filter(i => i.set === setId);
     for (const it of items) {
       if (it.slot) me.slots[it.slot] = it.id;
@@ -416,9 +444,10 @@ function install(app) {
     res.json({ me, equipped: items.map(i => i.id) });
   });
 
-  // drengr convenience — no base mutation
+  // drengr convenience — enforce gender lock
   dev.post("/drengr", (req, res) => {
     const me = ensure(req.userId);
+    if (me.gender !== "male") return res.status(400).json({ error: "Drengr is male-only." });
     const items = getShop().filter(i => i.set === "drengr");
     for (const it of items) {
       if (it.slot) me.slots[it.slot] = it.id;
@@ -448,6 +477,8 @@ function install(app) {
 }
 
 module.exports = { install };
+
+
 
 
 
