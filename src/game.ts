@@ -20,10 +20,10 @@ type Me = {
   gender?: Gender;
   slots?: Partial<Record<Slot, string>>;
   gearPower?: number;
-  // new effective totals from server
   viewPower?: number;
   viewDefense?: number;
   viewSpeed?: number;
+  renameUsed?: boolean;
 };
 
 type ShopItem = {
@@ -36,6 +36,7 @@ type ShopItem = {
   levelReq?: number;
   rarity?: "normal" | "epic" | "legendary";
   imageUrl?: string;
+  set?: "drengr" | "skjaldmey";
 };
 
 type ApiMe = { me: Me };
@@ -236,6 +237,10 @@ function render() {
   ($("avatar") as HTMLImageElement).src =
     m.gender === "male" ? resolveImg("/guildbook/boy.png") : resolveImg("/guildbook/girl.png");
 
+  // Rename button state
+  const renameBtn = $("renameBtn") as HTMLButtonElement;
+  renameBtn.disabled = !!m.renameUsed;
+
   document.querySelectorAll<HTMLDivElement>(".slot").forEach(async (div) => {
     const slot = div.dataset.slot as Slot;
     const needed = SLOT_UNLOCK[slot];
@@ -267,6 +272,9 @@ function render() {
   // Allocation buttons enable/disable by points
   const hasPts = (m.points ?? 0) > 0;
   allocButtonsEnabled(hasPts);
+
+  // Re-render shop to reflect gender locks (labels)
+  renderShop();
 }
 
 /* ---------- SHOP ---------- */
@@ -281,8 +289,19 @@ function renderShop() {
   state.shop.forEach((item) => {
     if (equippedIds.has(item.id)) return;
 
-    const locked = !!(item.levelReq && me.level < item.levelReq);
-    const req = item.levelReq ? ` <span class="muted">(Lv ${item.levelReq}+)</span>` : "";
+    const genderLock =
+      item.set === "skjaldmey" ? (me.gender !== "female" ? "Female only" : null)
+      : item.set === "drengr"  ? (me.gender !== "male"   ? "Male only"   : null)
+      : null;
+
+    const lockedByLevel = !!(item.levelReq && me.level < item.levelReq);
+    const hardLocked = lockedByLevel || !!genderLock;
+
+    const reqParts = [];
+    if (item.levelReq) reqParts.push(`Lv ${item.levelReq}+`);
+    if (genderLock) reqParts.push(genderLock);
+    const req = reqParts.length ? ` <span class="muted">(${reqParts.join(" • ")})</span>` : "";
+
     const slot = item.slot ? ` <span class="muted">[${capitalize(item.slot)}]</span>` : "";
     const rarity = (item.rarity || "normal").toLowerCase();
     const frameUrl = rarityFrame[rarity] || rarityFrame.normal;
@@ -302,11 +321,14 @@ function renderShop() {
       </div>
       <div class="shop-right">
         <div class="shop-price">${item.cost}g</div>
-        <button data-id="${item.id}" ${locked ? "disabled" : ""}>${locked ? "Locked" : "Buy"}</button>
+        <button data-id="${item.id}" ${hardLocked ? "disabled" : ""}>${hardLocked ? "Locked" : "Buy"}</button>
       </div>
     `;
 
-    line.onmouseenter = (ev) => tipShow(ev.clientX, ev.clientY, tooltipHTML(item, item.slot || "unknown"));
+    line.onmouseenter = (ev) => {
+      const extra = genderLock ? `<div class="tt-row"><span>Requires</span><span class="muted">${genderLock}</span></div>` : "";
+      tipShow(ev.clientX, ev.clientY, tooltipHTML(item, item.slot || "unknown") + extra);
+    };
     line.onmousemove = (ev) => tipMove(ev);
     line.onmouseleave = tipHide;
 
@@ -325,7 +347,6 @@ function renderShop() {
       state.me = res.me;
       log(`Bought ${res.item.name} (+${res.item.boost} ${res.item.stat})`, "ok");
       render();
-      renderShop();
     } catch (err: any) { log("Shop error: " + err.message, "bad"); }
   };
 }
@@ -337,15 +358,10 @@ let btnAllocDef: HTMLButtonElement | null = null;
 let btnAllocSpd: HTMLButtonElement | null = null;
 
 function ensureAllocUI() {
-  // Find the "Train Speed" button row and insert our controls right after it
   const trainSpeedBtn = document.getElementById("trainSpeed") as HTMLButtonElement | null;
   if (!trainSpeedBtn) return;
-
-  // The row wrapper is the parent with class "row"
   const row = trainSpeedBtn.closest(".row") as HTMLElement | null;
   if (!row) return;
-
-  // Avoid duplicates
   if (document.getElementById("allocControls")) return;
 
   const wrap = document.createElement("div");
@@ -410,6 +426,27 @@ async function loadAll() {
 
   // Build allocation controls in the training card
   ensureAllocUI();
+
+  // Wire rename
+  const renameBtn = $("renameBtn") as HTMLButtonElement;
+  renameBtn.onclick = async () => {
+    if (!state.me) return;
+    if (state.me.renameUsed) return log("You already used your rename.", "bad");
+    const cur = state.me.name || "";
+    const name = (prompt("Enter your hero name (2–20 chars):", cur) || "").trim();
+    if (!name) return;
+    try {
+      const r = await api<ApiMe>("/api/game/rename", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      state.me = r.me;
+      log("Name updated.", "ok");
+      render();
+    } catch (e: any) {
+      log("Rename error: " + e.message, "bad");
+    }
+  };
 
   render();
   renderShop();
@@ -505,6 +542,7 @@ loadAll().catch(e => log(e.message, "bad"));
   // eslint-disable-next-line no-console
   console.log("%cwindow.dev ready → dev.me(), dev.level(25), dev.points(50), dev.item('drengr-helm'), dev.drengr()", "color:#39ff14");
 })();
+
 
 
 
