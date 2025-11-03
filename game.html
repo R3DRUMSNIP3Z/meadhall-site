@@ -10,6 +10,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
   <style>
+    .va-sparkle {
+      position: relative;
+      color: #ffeaa0;
+      text-shadow:
+        0 0 6px rgba(255,220,120,.6),
+        0 0 16px rgba(212,169,77,.55),
+        0 0 28px rgba(212,169,77,.35);
+      animation: vaGlow 2.4s ease-in-out infinite;
+    }
+    @keyframes vaGlow {
+      0%,100% { filter: drop-shadow(0 0 10px rgba(212,169,77,.45)); }
+      50%     { filter: drop-shadow(0 0 18px rgba(255,210,120,.85)); }
+    }
+
     :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:#c7b07a; }
 
     body {
@@ -142,68 +156,63 @@
       pointer-events:none;
       filter:drop-shadow(0 0 6px rgba(212,169,77,.45));
     }
-    /* Paper-doll equipment slots (fixed size + overlay frame) */
-.slot{
-  position: relative;          /* <-- critical for the overlay to anchor */
-  width: 96px;
-  height: 96px;
-  border: 1px solid #3b3325;
-  border-radius: 12px;
-  background: #0f1215;
-  display: grid;
-  place-items: center;
-  color: #cbb17a;
-  font-family: "Cinzel", serif;
-  overflow: hidden;            /* hide any overflow from big images */
-}
-.slot.locked{ opacity:.5; filter:grayscale(1); }
 
-/* The equipped item image inside the slot */
-.slot-img{
-  max-width: 88%;
-  max-height: 88%;
-  object-fit: contain;         /* keep aspect ratio, no stretching */
-  pointer-events: none;
-  display: block;
-}
+    /* Paper-doll slots (fixed size + overlay frame) */
+    .slot{
+      position: relative;
+      width: 96px;
+      height: 96px;
+      border: 1px solid #3b3325;
+      border-radius: 12px;
+      background: #0f1215;
+      display: grid;
+      place-items: center;
+      color: #cbb17a;
+      font-family: "Cinzel", serif;
+      overflow: hidden;
+    }
+    .slot.locked{ opacity:.5; filter:grayscale(1); }
+    .slot-img{
+      max-width: 88%;
+      max-height: 88%;
+      object-fit: contain;
+      pointer-events: none;
+      display: block;
+    }
+    .rarity-frame{
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
 
-/* The rarity frame overlay */
-.rarity-frame{
-  position: absolute;
-  inset: 0;                    /* stretch to the slot edges */
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
-}
-
-
-    /* Hover polish */
     .shop-item:hover .shop-img {
       filter:brightness(1.15);
       transform:scale(1.03);
       transition:transform .2s ease, filter .2s ease;
     }
-    /* === Valhalla tooltip === */
-.va-tip {
-  position: fixed;
-  z-index: 99999;
-  min-width: 220px;
-  max-width: 320px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #0e1013;
-  color: #e9e4d5;
-  border: 1px solid rgba(212,169,77,.35);
-  box-shadow: 0 10px 40px rgba(0,0,0,.45);
-  pointer-events: none;
-  font-family: "Cinzel", serif;
-  font-size: .92rem;
-}
-.va-tip .tt-title { font-weight: 700; color: #d4a94d; margin-bottom: 4px; }
-.va-tip .tt-row  { display:flex; justify-content:space-between; gap:12px; }
-.va-tip .muted   { opacity:.8; }
 
+    /* Tooltip */
+    .va-tip {
+      position: fixed;
+      z-index: 99999;
+      min-width: 220px;
+      max-width: 320px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #0e1013;
+      color: #e9e4d5;
+      border: 1px solid rgba(212,169,77,.35);
+      box-shadow: 0 10px 40px rgba(0,0,0,.45);
+      pointer-events: none;
+      font-family: "Cinzel", serif;
+      font-size: .92rem;
+    }
+    .va-tip .tt-title { font-weight: 700; color: #d4a94d; margin-bottom: 4px; }
+    .va-tip .tt-row  { display:flex; justify-content:space-between; gap:12px; }
+    .va-tip .muted   { opacity:.8; }
   </style>
 </head>
 <body>
@@ -224,7 +233,14 @@
 
     <div class="grid">
       <div class="card" style="position:relative">
-        <div class="row"><div>Hero</div><div id="heroName">—</div></div>
+        <div class="row">
+          <div>Hero</div>
+          <div id="heroNameWrap">
+            <span id="heroName">—</span>
+            <button id="renameBtn" title="Rename once" style="margin-left:8px">✏️</button>
+          </div>
+        </div>
+
         <div class="row"><div>Level</div><div id="level">1</div></div>
         <div class="row"><div>XP</div><div id="xpVal">0 / 100</div></div>
         <div class="bar"><span id="xpBar"></span></div>
@@ -249,15 +265,17 @@
           </div>
         </div>
 
-        <div class="row" style="margin-top:8px"><div class="stat">Power</div><div id="power">0</div></div>
+        <div class="row" style="margin-top:8px"><div class="stat">Strength</div><div id="strength">0</div></div>
         <div class="row"><div class="stat">Defense</div><div id="defense">0</div></div>
         <div class="row"><div class="stat">Speed</div><div id="speed">0</div></div>
         <div class="row"><div>Unspent Points</div><div id="points">0</div></div>
-        <div id="powerTotal" class="powertotal">POWER 0</div>
+
+        <!-- Sparkly Battle Rating -->
+        <div id="battleRating" class="powertotal va-sparkle">Battle Rating 0</div>
       </div>
 
       <div class="card">
-        <div class="row"><button id="trainPower">Train Power (+1)</button><span class="muted">3s cd</span></div>
+        <div class="row"><button id="trainPower">Train Strength (+1)</button><span class="muted">3s cd</span></div>
         <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
         <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
         <hr/>
@@ -281,6 +299,7 @@
   <script type="module" src="/src/game.ts"></script>
 </body>
 </html>
+
 
 
 

@@ -8,17 +8,16 @@ const { users } = require("./db");
 const state = Object.create(null);
 
 // ================== CATALOG LOADING ==================
-const FILENAME = "catalogshop.json"; // single source of truth
+const FILENAME = "catalogshop.json";
 
 // Local Windows dev (yours)
 const WINDOWS_CATALOG_PATH =
   "C:\\Users\\Lisa\\meadhall-site\\public\\guildbook\\" + FILENAME;
 
-// On Render, __dirname ≈ /opt/render/project/src/backend/backend
-// Go up 2 levels to project root, then /public/guildbook/<file>
+// Render path
 const RENDER_PUBLIC = path.resolve(__dirname, "..", "..", "public", "guildbook", FILENAME);
 
-// Optional explicit override via env
+// Optional override
 const ENV_PATH = process.env.SHOP_CATALOG_PATH;
 
 function pickCatalogPath() {
@@ -26,7 +25,7 @@ function pickCatalogPath() {
   for (const p of candidates) {
     try { if (fs.existsSync(p)) return p; } catch {}
   }
-  return RENDER_PUBLIC; // consistent log path even if missing
+  return RENDER_PUBLIC;
 }
 
 let CATALOG_PATH = pickCatalogPath();
@@ -52,7 +51,7 @@ try {
     console.log("♻️ Shop catalog changed, reloading...");
     catalog = loadCatalogOnce(CATALOG_PATH);
   });
-} catch { /* no-op */ }
+} catch {}
 
 const getShop = () => catalog.items;
 const getSetBonuses = () => {
@@ -101,7 +100,7 @@ function ensure(uId) {
       speed: 5,
       points: 0,
       gender: undefined,
-      slots: {},      // { slotName: itemId }
+      slots: {},
       gearPower: 0,
       lastTick: Date.now(),
     };
@@ -113,8 +112,8 @@ function tick(me) {
   const now = Date.now();
   const dt = Math.max(0, Math.floor((now - (me.lastTick || now)) / 1000));
   if (dt > 0) {
-    me.gold += dt * 1;             // +1 gold/sec
-    me.xp   += Math.floor(dt / 5); // +1 xp per 5s
+    me.gold += dt * 1;
+    me.xp += Math.floor(dt / 5);
     while (me.xp >= me.level * 100) {
       me.xp -= me.level * 100;
       me.level += 1;
@@ -125,6 +124,7 @@ function tick(me) {
   return me;
 }
 
+// 🧩 recompute now handles bonuses for power/defense/speed
 function recompute(me) {
   let gearBoostSum = 0;
   const countsBySet = {};
@@ -133,29 +133,34 @@ function recompute(me) {
       const itemId = me.slots[slot];
       const it = findItem(itemId);
       if (!it) continue;
-      if (typeof it.boost === "number") gearBoostSum += it.boost;
+      if (typeof it.boost === "number" && it.stat === "power")
+        gearBoostSum += it.boost;
       if (it.set) countsBySet[it.set] = (countsBySet[it.set] || 0) + 1;
     }
   }
-  // set bonuses (power-only for now)
-  let setBonusPower = 0;
+
+  const setBonus = { power: 0, defense: 0, speed: 0 };
   const SET_BONUSES = getSetBonuses();
   for (const setId of Object.keys(countsBySet)) {
     const n = countsBySet[setId];
     const rules = SET_BONUSES[setId] || [];
     for (const r of rules) {
       if (n >= (r.pieces || 0)) {
-        const p = r.bonus && r.bonus.power ? r.bonus.power : 0;
-        setBonusPower += p;
+        const b = r.bonus || {};
+        if (b.power) setBonus.power += b.power;
+        if (b.defense) setBonus.defense += b.defense;
+        if (b.speed) setBonus.speed += b.speed;
       }
     }
   }
-  me.gearPower = gearBoostSum + setBonusPower;
+
+  me.gearPower = gearBoostSum + setBonus.power;
+  me.setBonus = setBonus;
   return me;
 }
 
 function fightCalc(m) {
-  const roll = () => Math.random() * 10 - 5; // [-5,+5)
+  const roll = () => Math.random() * 10 - 5;
   return m.power * 1.0 + m.defense * 0.8 + m.speed * 0.6 + roll();
 }
 
@@ -166,11 +171,10 @@ function pickRandomOpponent(myId) {
   return state[id];
 }
 
-// ================== INSTALL (ROUTES) ==================
+// ================== INSTALL ROUTES ==================
 function install(app) {
   const router = express.Router();
 
-  // simple auth shim
   router.use((req, res, next) => {
     const uId = req.get("x-user-id");
     if (!uId) return res.status(401).json({ error: "Missing x-user-id" });
@@ -204,13 +208,12 @@ function install(app) {
     res.json({ me });
   });
 
-  // ---- Allocate unspent points (NEW)
+  // ---- Allocate
   router.post("/game/allocate", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { stat, amount } = req.body || {};
-    if (!["power","defense","speed"].includes(stat)) {
+    if (!["power","defense","speed"].includes(stat))
       return res.status(400).json({ error: "Invalid stat" });
-    }
     const amt = Math.max(1, Math.floor(Number(amount || 1)));
     const have = Math.max(0, Number(me.points || 0));
     if (have <= 0) return res.status(400).json({ error: "No points" });
@@ -221,8 +224,18 @@ function install(app) {
     return res.json({ me });
   });
 
-  // ---- Shop
-  router.get("/game/shop", (req, res) => res.json({ items: getShop() }));
+  // ---- Shop (gender-filtered)
+  router.get("/game/shop", (req, res) => {
+    const me = ensure(req.userId);
+    const all = getShop();
+    const items = all.filter((it) => {
+      if (!me.gender) return true;
+      if (me.gender === "female" && it.set === "drengr") return false;
+      if (me.gender === "male"   && it.set === "skjaldmey") return false;
+      return true;
+    });
+    res.json({ items });
+  });
 
   router.get("/game/item/:id", (req, res) => {
     const it = findItem(req.params.id);
@@ -259,14 +272,10 @@ function install(app) {
     const item = findItem(itemId);
     if (!item) return res.status(404).json({ error: "No such item" });
 
-      // 🧩 Gender restrictions
-  if (item.set === "drengr" && me.gender !== "male") {
-    return res.status(400).json({ error: "Only male warriors can equip Drengr gear." });
-  }
-  if (item.set === "skjaldmey" && me.gender !== "female") {
-    return res.status(400).json({ error: "Only female warriors can equip Skjaldmey gear." });
-  }
-
+    if (item.set === "drengr" && me.gender !== "male")
+      return res.status(400).json({ error: "Only male warriors can equip Drengr gear." });
+    if (item.set === "skjaldmey" && me.gender !== "female")
+      return res.status(400).json({ error: "Only female warriors can equip Skjaldmey gear." });
 
     if (item.levelReq && me.level < item.levelReq)
       return res.status(400).json({ error: `Requires level ${item.levelReq}` });
@@ -280,7 +289,6 @@ function install(app) {
     if (item.stat) me[item.stat] += item.boost || 0;
     if (item.slot) me.slots[item.slot] = item.id;
     recompute(me);
-
     res.json({ me, item });
   });
 
@@ -291,16 +299,14 @@ function install(app) {
       return res.status(400).json({ error: `PvP unlocks at level ${PVP_UNLOCK}` });
 
     const opp = pickRandomOpponent(req.userId);
-    if (!opp) return res.status(400).json({ error: "No opponents yet. Get a friend to play!" });
+    if (!opp)
+      return res.status(400).json({ error: "No opponents yet. Get a friend to play!" });
 
     tick(opp); recompute(opp);
-
-    const myBR = fightCalc(me);
-    const opBR = fightCalc(opp);
-    const win = myBR >= opBR;
+    const win = fightCalc(me) >= fightCalc(opp);
 
     const deltaGold = win ? 25 : -10;
-    const deltaXP   = win ? 50 : 15;
+    const deltaXP = win ? 50 : 15;
 
     me.gold = Math.max(0, me.gold + deltaGold);
     me.xp += deltaXP;
@@ -366,7 +372,6 @@ function install(app) {
     res.json({ me });
   });
 
-  // give/equip item (ignores cost/locks)
   dev.post("/item", (req, res) => {
     const { itemId } = req.body || {};
     const it = findItem(itemId);
@@ -378,18 +383,14 @@ function install(app) {
     res.json({ me, item: it });
   });
 
-  // set multiple slots directly
   dev.post("/slots", (req, res) => {
     const { slots } = req.body || {};
     const me = ensure(req.userId);
-    if (slots && typeof slots === "object") {
-      me.slots = { ...me.slots, ...slots };
-    }
+    if (slots && typeof slots === "object") me.slots = { ...me.slots, ...slots };
     recompute(me);
     res.json({ me });
   });
 
-  // quick equip all items from a set (e.g., "drengr")
   dev.post("/equip-set", (req, res) => {
     const { setId } = req.body || {};
     if (!setId) return res.status(400).json({ error: "setId required" });
@@ -403,7 +404,6 @@ function install(app) {
     res.json({ me, equipped: items.map(i => i.id) });
   });
 
-  // drengr convenience
   dev.post("/drengr", (req, res) => {
     const me = ensure(req.userId);
     const items = getShop().filter(i => i.set === "drengr");
@@ -415,7 +415,6 @@ function install(app) {
     res.json({ me, equipped: items.map(i => i.id) });
   });
 
-  // (NEW) grant unspent points quickly
   dev.post("/points", (req, res) => {
     const { add } = req.body || {};
     if (!Number.isFinite(add)) return res.status(400).json({ error: "add number" });
@@ -425,7 +424,6 @@ function install(app) {
     res.json({ me });
   });
 
-  // reset user state
   dev.post("/reset", (req, res) => {
     delete state[req.userId];
     res.json({ ok: true });
@@ -436,6 +434,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 
