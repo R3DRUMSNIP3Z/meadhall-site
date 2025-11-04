@@ -13,27 +13,14 @@ type Me = {
   level: number;
   xp: number;
   gold: number;
-
-  // base stats
-  power: number;
+  power: number;     // server field; UI label is Strength
   defense: number;
   speed: number;
-
-  // progression
   points?: number;
   gender?: Gender;
-
-  // equipment
   slots?: Partial<Record<Slot, string>>;
-
-  // derived (returned by backend)
   gearPower?: number;
-  totalPower?: number;
-  totalDefense?: number;
-  totalSpeed?: number;
   battleRating?: number;
-
-  renameUsed?: boolean;
 };
 
 type ShopItem = {
@@ -46,7 +33,7 @@ type ShopItem = {
   levelReq?: number;
   rarity?: "normal" | "epic" | "legendary";
   imageUrl?: string;
-  set?: "drengr" | "skjaldmey" | string;
+  set?: "drengr" | "skjaldmey";
 };
 
 type ApiMe = { me: Me };
@@ -56,22 +43,14 @@ type FightResult = {
   result: {
     win: boolean;
     opponent: { id: string; name: string; level: number };
-    deltaGold?: number;
-    deltaXP?: number;
+    deltaGold: number;
+    deltaXP: number;
   };
 };
 
 /* ---------- config ---------- */
 const apiBase =
   (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content?.trim() || "";
-
-/* ---------- image resolver ---------- */
-function resolveImg(u?: string): string {
-  if (!u) return "";
-  if (/^https?:\/\//i.test(u)) return u;
-  if (u.startsWith("/")) return u;
-  return u;
-}
 
 /* ---------- user id helpers ---------- */
 const LS_KEY = "mh_user";
@@ -128,31 +107,16 @@ function tipHide() { if (tipEl) tipEl.style.display = "none"; }
 window.addEventListener("scroll", tipHide);
 window.addEventListener("resize", tipHide);
 
-/* ---------- money/tooltip helpers ---------- */
-function sellPriceOf(item?: ShopItem): number {
-  if (!item) return 0;
-  // @ts-ignore optional field from server
-  if (typeof (item as any).sellPrice === "number") return Math.max(0, Math.floor((item as any).sellPrice));
-  return Math.max(0, Math.floor(item.cost * 0.5));
+/* ---------- image resolver ---------- */
+function resolveImg(u?: string): string {
+  if (!u) return "";
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith("/")) return u;
+  return u;
 }
-function tooltipHTML(item: ShopItem, slotKey: string) {
-  const rarity = (item.rarity || "normal");
-  const stat = `+${item.boost} ${item.stat}`;
-  const sell = sellPriceOf(item);
-  const setTag = item.set ? `<div class="tt-row"><span>Set</span><span class="muted" style="opacity:.85">${capitalize(item.set)}</span></div>` : "";
-  return `
-    <div class="tt-title" style="font-weight:900;margin-bottom:6px">${item.name} <span class="muted" style="opacity:.8">(${rarity})</span></div>
-    <div class="tt-row" style="display:flex;justify-content:space-between"><span>Slot</span><span class="muted" style="opacity:.85">${capitalize(slotKey)}</span></div>
-    ${setTag}
-    <div class="tt-row" style="display:flex;justify-content:space-between"><span>Stats</span><span class="muted" style="opacity:.85">${stat}</span></div>
-    <div class="tt-row" style="display:flex;justify-content:space-between"><span>Sell</span><span class="muted" style="opacity:.85">${sell}g</span></div>
-  `;
-}
-
-/* ---------- client state ---------- */
-const state: { me: Me | null; shop: ShopItem[] } = { me: null, shop: [] };
 
 /* ---------- item cache + lookup ---------- */
+const state: { me: Me | null; shop: ShopItem[] } = { me: null, shop: [] };
 const itemCache = new Map<string, ShopItem>();
 async function getItem(id: string): Promise<ShopItem | undefined> {
   if (!id) return;
@@ -172,6 +136,17 @@ const rarityFrame: Record<string, string> = {
   epic: "/guildbook/frames/epic-frame.svg",
   legendary: "/guildbook/frames/legendary-frame.svg",
 };
+
+function tooltipHTML(item: ShopItem, slotKey: string) {
+  const rarity = (item.rarity || "normal");
+  const stat = `+${item.boost} ${item.stat}`;
+  const setTag = item.set ? ` <span class="muted" style="opacity:.8">[${item.set}]</span>` : "";
+  return `
+    <div class="tt-title" style="font-weight:900;margin-bottom:6px">${item.name}${setTag} <span class="muted" style="opacity:.8">(${rarity})</span></div>
+    <div class="tt-row" style="display:flex;justify-content:space-between"><span>Slot</span><span class="muted" style="opacity:.85">${capitalize(slotKey)}</span></div>
+    <div class="tt-row" style="display:flex;justify-content:space-between"><span>Stats</span><span class="muted" style="opacity:.85">${stat}</span></div>
+  `;
+}
 
 /* ---------- slot renderer ---------- */
 function renderSlot(slotKey: string, item?: ShopItem) {
@@ -201,7 +176,7 @@ function renderSlot(slotKey: string, item?: ShopItem) {
   el.onmouseleave = tipHide;
 }
 
-/* ---------- unlock rules (for labels) ---------- */
+/* ---------- unlock rules ---------- */
 const SLOT_UNLOCK: Record<Slot, number> = {
   helm: 5, shoulders: 8, chest: 10, gloves: 12, boots: 15,
   ring: 18, wings: 22, pet: 24, sylph: 28
@@ -219,49 +194,51 @@ async function api<T = any>(path: string, opts: RequestInit = {}) {
     },
   });
   if (!r.ok) {
-    let msg = "";
-    try { msg = await r.text(); } catch {}
-    throw new Error(msg || `HTTP ${r.status}`);
+    let t = "";
+    try { t = await r.text(); } catch {}
+    throw new Error(stripHtml(t) || r.statusText);
   }
   return r.json() as Promise<T>;
 }
+function stripHtml(s: string) {
+  return String(s || "").replace(/<[^>]*>/g, "").trim();
+}
 
-/* ---------- compute helpers ---------- */
-function battleRatingOf(m: Me): number {
-  // use backend totals when present; otherwise fallback to base + gearPower
-  const tp = (m.totalPower ?? (m.power + (m.gearPower ?? 0)));
-  const td = (m.totalDefense ?? m.defense);
-  const ts = (m.totalSpeed ?? m.speed);
-  return Math.max(0, tp + td + ts);
+/* ---------- compute ---------- */
+function clientBattleRating(m: Me): number {
+  if (typeof m.battleRating === "number") return m.battleRating;
+  return Math.max(0, m.power) + Math.max(0, m.defense) + Math.max(0, m.speed);
 }
 
 /* ---------- render ---------- */
 function render() {
   const m = state.me!;
-  $("heroName").textContent = m.name || "Unknown";
-  $("level").textContent = String(m.level);
-  $("gold").textContent = String(m.gold);
-  $("power").textContent = String(m.power);
-  $("defense").textContent = String(m.defense);
-  $("speed").textContent = String(m.speed);
-  $("points").textContent = String(m.points ?? 0);
+  safeSet("heroName", m.name || "Unknown");
+  safeSet("level", String(m.level));
+  safeSet("gold", String(m.gold));
+
+  // IMPORTANT: UI label “Strength” (id=strength) displays m.power
+  safeSet("strength", String(m.power));
+  safeSet("defense", String(m.defense));
+  safeSet("speed", String(m.speed));
+  safeSet("points", String(m.points ?? 0));
 
   const need = m.level * 100;
-  $("xpVal").textContent = `${m.xp} / ${need}`;
-  ($("xpBar") as HTMLSpanElement).style.width = Math.min(100, Math.floor((m.xp / need) * 100)) + "%";
+  safeSet("xpVal", `${m.xp} / ${need}`);
+  const xpBar = $("xpBar") as HTMLSpanElement | null;
+  if (xpBar) xpBar.style.width = Math.min(100, Math.floor((m.xp / need) * 100)) + "%";
 
-  // avatar by gender
-  ($("avatar") as HTMLImageElement).src =
+  const avatar = $("avatar") as HTMLImageElement | null;
+  if (avatar) avatar.src =
     m.gender === "male" ? resolveImg("/guildbook/boy.png") : resolveImg("/guildbook/girl.png");
 
-  // slots
   document.querySelectorAll<HTMLDivElement>(".slot").forEach(async (div) => {
     const slot = div.dataset.slot as Slot;
     const needed = SLOT_UNLOCK[slot];
     const eqId = m.slots?.[slot];
 
-    // lock label
     if (m.level < needed) {
+      div.classList.add("locked");
       div.innerHTML = `${capitalize(slot)} (Lv ${needed})`;
       div.onmouseenter = (ev) =>
         tipShow(ev.clientX, ev.clientY,
@@ -270,6 +247,8 @@ function render() {
       div.onmousemove = (ev) => tipMove(ev);
       div.onmouseleave = tipHide;
       return;
+    } else {
+      div.classList.remove("locked");
     }
 
     if (!eqId) { renderSlot(slot, undefined); return; }
@@ -278,23 +257,37 @@ function render() {
     renderSlot(slot, it);
   });
 
-  // Battle Rating (now totals)
-  const br = m.battleRating ?? battleRatingOf(m);
-  $("battleRating").textContent = `BATTLE RATING ${br}`;
+  // Battle Rating display (sum of three base stats)
+  safeSet("battleRating", `BATTLE RATING ${clientBattleRating(m)}`);
 
   // PvP enablement
-  ($("fightRandom") as HTMLButtonElement).disabled = m.level < PVP_UNLOCK;
+  const fightBtn = $("fightRandom") as HTMLButtonElement | null;
+  if (fightBtn) fightBtn.disabled = m.level < PVP_UNLOCK;
 
-  // Allocation buttons by points
+  // Allocation buttons enable/disable by points
   const hasPts = (m.points ?? 0) > 0;
   allocButtonsEnabled(hasPts);
+}
 
-  // rename button visibility (allow 1 time)
-  const renameBtn = $("renameBtn") as HTMLButtonElement;
-  renameBtn.disabled = !!m.renameUsed;
+function safeSet(id: string, text: string) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
 }
 
 /* ---------- SHOP ---------- */
+function genderLabelFor(setId?: string): string {
+  if (!setId) return "";
+  if (setId === "drengr") return " (Male-only)";
+  if (setId === "skjaldmey") return " (Female-only)";
+  return "";
+}
+
+function genderMismatch(me: Me, item: ShopItem): boolean {
+  if (item.set === "drengr")  return me.gender === "female";
+  if (item.set === "skjaldmey") return me.gender === "male";
+  return false;
+}
+
 function renderShop() {
   const box = $("shop");
   box.innerHTML = "";
@@ -306,23 +299,15 @@ function renderShop() {
   state.shop.forEach((item) => {
     if (equippedIds.has(item.id)) return;
 
-    const lockedByLevel = !!(item.levelReq && me.level < item.levelReq);
-    const req = item.levelReq ? ` <span class="muted">(Lv ${item.levelReq}+)</span>` : "";
+    const locked = !!(item.levelReq && me.level < item.levelReq);
     const slot = item.slot ? ` <span class="muted">[${capitalize(item.slot)}]</span>` : "";
+    const req = item.levelReq ? ` <span class="muted">(Lv ${item.levelReq}+)</span>` : "";
     const rarity = (item.rarity || "normal").toLowerCase();
     const frameUrl = rarityFrame[rarity] || rarityFrame.normal;
-
-    // gender restriction label
-    let genderLabel = "";
-    if (item.set === "drengr") genderLabel = " <span class=\"muted\">(Male only)</span>";
-    if (item.set === "skjaldmey") genderLabel = " <span class=\"muted\">(Female only)</span>";
-
-    // disable by gender if selected gender doesn't match
-    const genderMismatch =
-      (item.set === "drengr" && me.gender !== "male") ||
-      (item.set === "skjaldmey" && me.gender !== "female");
-
-    const disabled = lockedByLevel || genderMismatch;
+    const gMismatch = genderMismatch(me, item);
+    const gNote = genderLabelFor(item.set);
+    const disabled = locked || gMismatch;
+    const reason = gMismatch ? "Gender-locked" : (locked ? "Locked" : "Buy");
 
     const line = document.createElement("div");
     line.className = "shop-item";
@@ -333,13 +318,13 @@ function renderShop() {
           <img class="shop-frame" src="${resolveImg(frameUrl)}" alt="" onerror="this.style.display='none'">
         </span>
         <div class="shop-text">
-          <div class="shop-title">${item.name}${slot}${req}${genderLabel}</div>
+          <div class="shop-title">${item.name}${slot}${req}${gNote}</div>
           <div class="shop-sub muted">+${item.boost} ${item.stat}</div>
         </div>
       </div>
       <div class="shop-right">
         <div class="shop-price">${item.cost}g</div>
-        <button data-id="${item.id}" ${disabled ? "disabled" : ""}>${disabled ? "Locked" : "Buy"}</button>
+        <button data-id="${item.id}" ${disabled ? "disabled" : ""}>${reason}</button>
       </div>
     `;
 
@@ -363,7 +348,7 @@ function renderShop() {
       log(`Bought ${res.item.name} (+${res.item.boost} ${res.item.stat})`, "ok");
       render();
       renderShop();
-    } catch (err: any) { log("Shop error: " + cleanErr(err.message), "bad"); }
+    } catch (err: any) { log("Shop error: " + err.message, "bad"); }
   };
 }
 
@@ -376,10 +361,8 @@ let btnAllocSpd: HTMLButtonElement | null = null;
 function ensureAllocUI() {
   const trainSpeedBtn = document.getElementById("trainSpeed") as HTMLButtonElement | null;
   if (!trainSpeedBtn) return;
-
   const row = trainSpeedBtn.closest(".row") as HTMLElement | null;
   if (!row) return;
-
   if (document.getElementById("allocControls")) return;
 
   const wrap = document.createElement("div");
@@ -425,7 +408,30 @@ async function allocate(stat: "power"|"defense"|"speed") {
     state.me = r.me;
     render();
     log(`Allocated ${amt} → ${stat}`, "ok");
-  } catch (err: any) { log("Allocate error: " + cleanErr(err.message), "bad"); }
+  } catch (err: any) { log("Allocate error: " + err.message, "bad"); }
+}
+
+/* ---------- RENAME ---------- */
+function hookRename() {
+  const btn = document.getElementById("renameBtn") as HTMLButtonElement | null;
+  if (!btn) return;
+  btn.onclick = async () => {
+    const current = state.me?.name || "";
+    const name = prompt("Enter your hero name:", current || "");
+    if (!name) return;
+    try {
+      const r = await api<ApiMe>("/api/game/rename", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      state.me = r.me;
+      render();
+      // optional: disable after success if you want one-time rename
+      // btn.disabled = true;
+    } catch (e: any) {
+      log("Rename error: " + e.message, "bad");
+    }
+  };
 }
 
 /* ---------- boot ---------- */
@@ -455,31 +461,8 @@ async function setGender(g: Gender) {
     state.me = res.me;
     $("genderPick").style.display = "none";
     render();
-    renderShop(); // refresh gender-locked buttons
-  } catch (e: any) { log(cleanErr(e.message), "bad"); }
-}
-
-/* ---------- rename (one-time) ---------- */
-function hookRename() {
-  const btn = $("renameBtn") as HTMLButtonElement;
-  btn.onclick = async () => {
-    const m = state.me!;
-    if (m.renameUsed) {
-      log("Rename already used.", "bad");
-      return;
-    }
-    const name = prompt("Enter new name (2–20 chars, letters/numbers/space/_/-):", m.name || "");
-    if (!name) return;
-    try {
-      const r = await api<ApiMe>("/api/game/rename", {
-        method: "POST",
-        body: JSON.stringify({ name }),
-      });
-      state.me = r.me;
-      log("Name updated.", "ok");
-      render();
-    } catch (err: any) { log("Rename error: " + cleanErr(err.message), "bad"); }
-  };
+    renderShop(); // refresh shop for gender locks
+  } catch (e: any) { log(e.message, "bad"); }
 }
 
 /* ---------- buttons ---------- */
@@ -494,8 +477,8 @@ $("fightRandom").onclick = async () => {
   try {
     const r = await api<FightResult>("/api/pvp/fight", { method: "POST", body: JSON.stringify({ mode: "random" }) });
     state.me = r.me; render();
-    log(`${r.result.win ? "Victory!" : "Defeat."} vs ${r.result.opponent.name}`, r.result.win ? "ok" : "bad");
-  } catch (err: any) { log("Fight error: " + cleanErr(err.message), "bad"); }
+    log(`${r.result.win ? "Victory!" : "Defeat."} vs ${r.result.opponent.name} ΔGold ${r.result.deltaGold}, ΔXP ${r.result.deltaXP}`);
+  } catch (err: any) { log("Fight error: " + err.message, "bad"); }
 };
 
 const cooldowns: Record<"power"|"defense"|"speed", number> = { power: 0, defense: 0, speed: 0 };
@@ -506,7 +489,7 @@ async function train(stat: "power"|"defense"|"speed") {
   try {
     const r = await api<ApiMe>("/api/game/train", { method: "POST", body: JSON.stringify({ stat }) });
     state.me = r.me; render(); log(`Trained ${stat} (+1)`, "ok");
-  } catch (err: any) { log("Train error: " + cleanErr(err.message), "bad"); }
+  } catch (err: any) { log("Train error: " + err.message, "bad"); }
 }
 
 /* passive idle tick every 10s */
@@ -518,15 +501,9 @@ setInterval(async () => {
 }, 10000);
 
 function capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
-function cleanErr(s: string) {
-  // strip HTML bodies when server returns error pages
-  if (!s) return s;
-  const i = s.indexOf("<!DOCTYPE");
-  return i >= 0 ? s.slice(0, i).trim() || "Request failed" : s;
-}
 
 /* start */
-loadAll().catch(e => log(cleanErr(e.message), "bad"));
+loadAll().catch(e => log(e.message, "bad"));
 
 /* ---------- Dev console helpers ---------- */
 (() => {
@@ -566,9 +543,9 @@ loadAll().catch(e => log(cleanErr(e.message), "bad"));
   };
 
   (window as any).dev = dev;
-  // eslint-disable-next-line no-console
   console.log("%cwindow.dev ready → dev.me(), dev.level(25), dev.points(50), dev.item('drengr-helm'), dev.drengr()", "color:#39ff14");
 })();
+
 
 
 
