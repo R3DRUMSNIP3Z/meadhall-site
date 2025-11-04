@@ -205,6 +205,92 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 
 /* === Safety: remove any global transitions inside arena to avoid micro-shifts === */
 .grid *, .card * { transition: none 0s !important; }
+/* ===== Arena layout hardening ===== */
+
+/* 2 fixed columns so the right card doesn't drift; align tops */
+.grid {
+  grid-template-columns: minmax(0, 560px) minmax(0, 380px);
+  gap: 20px;
+  align-items: start;
+}
+
+/* Paper-doll row (avatar + 3x3 slots) with fixed heights so hover never reflows */
+.paper-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;  /* avatar column + slots column */
+  gap: 14px;
+  margin-top: 12px;
+  align-items: start;
+}
+
+/* Avatar box is a fixed box (no resizing) */
+.paper-row > div:first-child {
+  width: 140px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0c0f12;
+  border: 1px solid #3b3325;
+  border-radius: 12px;
+  padding: 6px;
+  contain: layout paint;
+}
+
+/* Make the avatar itself never affect layout */
+#avatar {
+  width: 120px;
+  height: 200px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Slot grid has a fixed minimum height so text/images swap without card wobble */
+.equip-grid {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  min-height: 220px;       /* lock the overall block height */
+  contain: layout paint;   /* isolate reflow from neighbors */
+}
+
+/* Each slot is a fixed box; no font changes or line wrapping to move things */
+.slot {
+  width: 100px;
+  height: 100px;
+  line-height: 1;
+  white-space: nowrap;     /* keep "Helm (Lv 5)" on one line */
+  user-select: none;       /* avoid text-selection flicker */
+  transform: translateZ(0);
+  contain: layout paint;
+}
+
+/* When a slot is locked, keep one-line label too */
+.slot.locked { white-space: nowrap; }
+
+/* Images & rarity overlay never overflow the slot box */
+.slot-img { width: 88%; height: 88%; object-fit: contain; }
+.rarity-frame { inset: 0; width: 100%; height: 100%; object-fit: contain; }
+
+/* Tooltip never captures pointer (prevents hover flicker) */
+#vaTooltip, .va-tip { pointer-events: none; }
+
+/* Shop thumbnails: keep hover fully inside the 40x40 so no layout nudge */
+.shop-thumb { overflow: hidden; }
+.shop-img {
+  transform-origin: 50% 50%;
+  backface-visibility: hidden;
+  transition: transform .16s ease, filter .16s ease;
+}
+.shop-item:hover .shop-img { transform: scale(1.02); filter: brightness(1.08); }
+
+/* Make both top cards visually even */
+.grid > .card:nth-child(1),
+.grid > .card:nth-child(2) {
+  min-height: 520px;       /* tweak if you want taller/shorter */
+  display: flex;
+  flex-direction: column;
+}
+
   </style>
 </head>
 
@@ -244,7 +330,7 @@ button:disabled { opacity: .6; cursor: not-allowed; }
         <div class="bar"><span id="xpBar"></span></div>
         <div class="row"><div>Gold</div><div id="gold">0</div></div>
 
-        <div style="display:grid;grid-template-columns:120px 1fr;gap:12px;margin-top:12px;">
+        <div class="paper-row">
           <div style="display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid #3b3325;border-radius:12px;padding:6px;">
             <img id="avatar" src="/guildbook/girl.png" alt="avatar" style="width:100%;max-width:110px;object-fit:contain;border-radius:10px;">
           </div>
