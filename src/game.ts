@@ -148,38 +148,45 @@ function tooltipHTML(item: ShopItem, slotKey: string) {
   `;
 }
 
-/* ---------- slot renderer (no hover) ---------- */
+/* ---------- slot renderer (wrap equipped with neon frame) ---------- */
 function renderSlot(slotKey: string, item?: ShopItem) {
   const el = document.querySelector(`.slot[data-slot="${slotKey}"]`) as HTMLElement | null;
   if (!el) return;
-  el.innerHTML = ""; // wipe
 
-  // spacer element so the 88x88 area is reserved (CSS uses .slot-box too)
+  // keep data-name attribute for the label bar
+  el.innerHTML = "";
+
+  // spacer to reserve the 88x88 box (prevents any wobble)
   const spacer = document.createElement("span");
   spacer.className = "slot-box";
-  spacer.setAttribute("aria-hidden", "true");
   el.appendChild(spacer);
 
-  if (!item) return; // label bar comes from CSS data-name
+  // Empty: just leave the named box visible (no frame)
+  if (!item) return;
 
-  // item icon
+  // Item icon
   const img = document.createElement("img");
   img.className = "slot-img";
   img.src = resolveImg(item.imageUrl);
   img.alt = item.name || slotKey;
   el.appendChild(img);
 
-  // frame overlay (fills 100% of slot; CSS ensures z-index over icon)
-  const r = (item.rarity || "normal").toLowerCase();
-  const frameUrl = rarityFrame[r] || rarityFrame.normal;
-  const overlay = document.createElement("img");
-  overlay.className = "rarity-frame";
-  overlay.src = resolveImg(frameUrl);
-  overlay.alt = "";
-  el.appendChild(overlay);
+  // Rarity frame (defaults to normal)
+  const rarity = (item.rarity || "normal").toLowerCase();
+  const frameUrl = resolveImg(rarityFrame[rarity] || rarityFrame.normal);
+
+  const frame = document.createElement("img");
+  frame.className = "rarity-frame";
+  frame.src = frameUrl;
+  frame.alt = "";
+  el.appendChild(frame);
+
+  // Character card has no hover/tooltip—don’t attach any listeners here
+}
+
 
   // IMPORTANT: no mouse handlers here — character grid is non-interactive
-}
+
 
 /* ---------- unlock rules ---------- */
 const SLOT_UNLOCK: Record<Slot, number> = {
