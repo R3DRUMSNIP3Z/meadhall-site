@@ -12,268 +12,265 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
-<style>
+
+  <style>
   /* === Sparkle === */
-.va-sparkle {
-  position: relative;
-  color: #ffeaa0;
-  text-shadow: 0 0 6px rgba(255,220,120,.6),
-               0 0 16px rgba(212,169,77,.55),
-               0 0 28px rgba(212,169,77,.35);
-  animation: vaGlow 2.4s ease-in-out infinite;
-}
-@keyframes vaGlow {
-  0%,100% { filter: drop-shadow(0 0 10px rgba(212,169,77,.45)); }
-  50%     { filter: drop-shadow(0 0 18px rgba(255,210,120,.85)); }
-}
+  .va-sparkle {
+    position: relative;
+    color: #ffeaa0;
+    text-shadow: 0 0 6px rgba(255,220,120,.6),
+                 0 0 16px rgba(212,169,77,.55),
+                 0 0 28px rgba(212,169,77,.35);
+    animation: vaGlow 2.4s ease-in-out infinite;
+  }
+  @keyframes vaGlow {
+    0%,100% { filter: drop-shadow(0 0 10px rgba(212,169,77,.45)); }
+    50%     { filter: drop-shadow(0 0 18px rgba(255,210,120,.85)); }
+  }
 
-/* === Colors & Layout === */
-:root {
-  --gold: #d4a94d;
-  --bg: #0b0e10;
-  --card: #12161a;
-  --muted: #c7b07a;
-}
-* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
-body {
-  background: var(--bg);
-  color: var(--gold);
-  font-family: "Cinzel", serif;
-  margin: 0;
-  min-height: 100vh;
-  overflow-y: scroll;
-}
-.wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
-h1 { margin: 10px 0 16px; font-size: 1.6rem; }
+  /* === Colors & Layout === */
+  :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:#c7b07a; }
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  body {
+    background: var(--bg);
+    color: var(--gold);
+    font-family: "Cinzel", serif;
+    margin: 0;
+    min-height: 100vh;
+    overflow-y: scroll;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
+  h1 { margin: 10px 0 16px; font-size: 1.6rem; }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  align-items: start;
-  contain: layout paint;
-}
-.card {
-  background: var(--card);
-  border: 1px solid #3b3325;
-  border-radius: 14px;
-  padding: 14px;
-  transform: translateZ(0);
-  will-change: transform;
-  contain: layout paint style;
-}
-.row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; }
-.stat { font-weight: 700; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+    contain: layout paint;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid #3b3325;
+    border-radius: 14px;
+    padding: 14px;
+    transform: translateZ(0);
+    will-change: transform;
+    contain: layout paint style;
+  }
+  .row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; }
+  .stat { font-weight: 700; }
 
-button {
-  background: #1b2228;
-  border: 1px solid #3b3325;
-  border-radius: 10px;
-  color: var(--gold);
-  padding: 8px 12px;
-  cursor: pointer;
-}
-button:disabled { opacity: .6; cursor: not-allowed; }
+  button {
+    background: #1b2228;
+    border: 1px solid #3b3325;
+    border-radius: 10px;
+    color: var(--gold);
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .6; cursor: not-allowed; }
 
-.bar { height: 8px; background: #1b1b1b; border-radius: 999px; overflow: hidden; }
-.bar > span { display: block; height: 100%; background: var(--muted); width: 0%; }
+  .bar { height: 8px; background: #1b1b1b; border-radius: 999px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--muted); width: 0%; }
 
-.log {
-  background: #0e1013;
-  border: 1px dashed #3b3325;
-  border-radius: 10px;
-  padding: 10px;
-  font-size: .95rem;
-  height: 180px;
-  overflow: auto;
-}
-.muted { opacity: .85; }
-.ok { color: #8ad67a; }
-.bad { color: #f56; }
+  .log {
+    background: #0e1013;
+    border: 1px dashed #3b3325;
+    border-radius: 10px;
+    padding: 10px;
+    font-size: .95rem;
+    height: 180px;
+    overflow: auto;
+  }
+  .muted { opacity: .85; }
+  .ok { color: #8ad67a; }
+  .bad { color: #f56; }
 
-/* === Equipment Grid === */
-.equip-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
+  /* === Equipment Grid === */
+  .equip-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
 
-/* === Fixed & Stable Slots (no hover, no tooltip) === */
-.slot {
-  contain: strict !important;
-  position: relative !important;
-  display: block !important;
-  width: 96px !important;
-  height: 96px !important;
-  padding: 0 !important;
-  margin: 0;
-  border: 1px solid #3b3325;
-  border-radius: 12px;
-  background: #0f1215;
-  overflow: hidden !important;
-  transform: translateZ(0);
-  will-change: transform;
-  color: #cbb17a;
-  font-family: "Cinzel", serif;
-  font-size: 0;
-  line-height: 0;
-  text-align: center;
-  pointer-events: none; /* disables hover & tooltip entirely */
-}
+  /* === Fixed & Stable Slots (no hover, no tooltip) === */
+  .slot {
+    contain: strict !important;
+    position: relative !important;
+    display: block !important;
+    width: 96px !important;
+    height: 96px !important;
+    padding: 0 !important;
+    margin: 0;
+    border: 1px solid #3b3325;
+    border-radius: 12px;
+    background: #0f1215;
+    overflow: hidden !important;
+    transform: translateZ(0);
+    will-change: transform;
+    color: #cbb17a;
+    font-family: "Cinzel", serif;
+    font-size: 0; line-height: 0;
+    text-align: center;
+    pointer-events: none; /* character card is non-interactive */
+  }
 
-.slot::before {
-  content: "";
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 88px; height: 88px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
+  /* Rock-solid spacer as a real element (frees ::before for lock badge) */
+  .slot-box {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 88px; height: 88px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
 
-.slot > .slot-img,
-.slot > .rarity-frame,
-.slot > .slot-label {
-  position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
-  transform: translate(-50%, -50%) !important;
-}
+  .slot > .slot-img,
+  .slot > .rarity-frame {
+    position: absolute !important;
+    left: 50% !important; top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+  }
+  .slot > .slot-img {
+    width: 88px !important; height: 88px !important;
+    max-width: 88px !important; max-height: 88px !important;
+    object-fit: contain !important; display: block !important;
+    backface-visibility: hidden; pointer-events: none !important;
+  }
+  .slot > .rarity-frame {
+    inset: 0 !important; width: 100% !important; height: 100% !important;
+    object-fit: contain !important; pointer-events: none !important;
+  }
 
-.slot > .slot-img {
-  width: 88px !important;
-  height: 88px !important;
-  max-width: 88px !important;
-  max-height: 88px !important;
-  object-fit: contain !important;
-  display: block !important;
-  backface-visibility: hidden;
-  pointer-events: none !important;
-}
+  .slot.empty > .slot-img { display: none !important; }
+  .slot * { transition: none !important; }
 
-.slot > .rarity-frame {
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  pointer-events: none !important;
-}
+  /* Remove hover entirely on character card */
+  .slot:hover, .slot:focus, .slot:active { filter:none !important; transform:none !important; }
 
-.slot > .slot-label {
-  font-size: 12px;
-  line-height: 1;
-  color: #cbb17a;
-  white-space: nowrap;
-  padding: 0 6px;
-}
+  /* === Power Total === */
+  .powertotal {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    border-top: 1px solid #3b3325;
+    padding-top: 8px;
+  }
 
-.slot.empty > .slot-img { display: none !important; }
-.slot * { transition: none !important; }
+  /* === Shop === */
+  .shop-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed rgba(212,169,77,.15);
+    transform: translateZ(0);
+    will-change: transform;
+    contain: layout paint;
+  }
+  .shop-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .shop-text { display: flex; flex-direction: column; }
+  .shop-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shop-right { display: flex; align-items: center; gap: 10px; }
+  .shop-price { width: 60px; text-align: right; }
 
-/* === Remove Hover Effects Entirely === */
-.slot:hover,
-.slot:focus,
-.slot:active {
-  filter: none !important;
-  transform: none !important;
-}
+  .shop-thumb {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 40px; height: 40px;
+    flex: 0 0 40px;
+    overflow: hidden;
+    will-change: contents;
+  }
+  .shop-img {
+    width: 40px; height: 40px;
+    object-fit: contain;
+    border-radius: 6px;
+    background: rgba(0,0,0,.35);
+    box-shadow: 0 0 0 1px rgba(212,169,77,.3);
+    display: block;
+    transform-origin: 50% 50%;
+    backface-visibility: hidden;
+    will-change: transform, filter;
+    transition: transform .18s ease, filter .18s ease;
+  }
+  .shop-thumb .shop-frame {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: contain; pointer-events: none;
+    filter: drop-shadow(0 0 6px rgba(212,169,77,.45));
+  }
 
-/* === Power Total === */
-.powertotal {
-  margin-top: 10px;
-  text-align: center;
-  font-size: 1.5rem;
-  font-weight: 900;
-  letter-spacing: 1px;
-  border-top: 1px solid #3b3325;
-  padding-top: 8px;
-}
+  /* === Tooltip disabled on character card === */
+  #vaTooltip, .va-tip { display: none !important; pointer-events: none !important; }
 
-/* === Shop === */
-.shop-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px dashed rgba(212,169,77,.15);
-  transform: translateZ(0);
-  will-change: transform;
-  contain: layout paint;
-}
-.shop-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.shop-text { display: flex; flex-direction: column; }
-.shop-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.shop-right { display: flex; align-items: center; gap: 10px; }
-.shop-price { width: 60px; text-align: right; }
+  /* === Back to Profile button === */
+  #backToProfile {
+    position: fixed; top: 14px; left: 20px;
+    background: #1b2228;
+    border: 1px solid #3b3325;
+    border-radius: 10px;
+    color: var(--gold);
+    padding: 8px 12px;
+    cursor: pointer;
+    font-family: "Cinzel", serif;
+    text-decoration: none;
+    z-index: 10000;
+    box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  }
+  #backToProfile:hover { background: #252c32; filter: drop-shadow(0 0 4px rgba(212,169,77,.6)); }
 
-.shop-thumb {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
-  overflow: hidden;
-  will-change: contents;
-}
-.shop-img {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
-  border-radius: 6px;
-  background: rgba(0,0,0,.35);
-  box-shadow: 0 0 0 1px rgba(212,169,77,.3);
-  display: block;
-  transform-origin: 50% 50%;
-  backface-visibility: hidden;
-  will-change: transform, filter;
-  transition: transform .18s ease, filter .18s ease;
-}
-.shop-thumb .shop-frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
-  filter: drop-shadow(0 0 6px rgba(212,169,77,.45));
-}
+  /* ===========================
+     EQUIPMENT BOX LABEL + LOCK
+     (gamehtml only, no hover)
+     =========================== */
 
-/* === Tooltip disabled === */
-#vaTooltip, .va-tip { display: none !important; pointer-events: none !important; }
+  /* Name strip (from data-name) */
+  .equip-grid .slot::after {
+    content: attr(data-name);
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 18px; padding: 0 6px; display: block;
+    font-size: 11px; line-height: 18px; letter-spacing: .02em;
+    text-align: center; color: #e6d5a9;
+    background: linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.35));
+    border-top: 1px solid rgba(200,169,107,.22);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    pointer-events: none;
+  }
+  /* Hide bar when no name (single non-empty rule = no linter warning) */
+  .equip-grid .slot:is([data-name=""], :not([data-name]))::after {
+    content: ""; height: 0; border-top: 0;
+  }
 
-/* === Back to Profile button === */
-#backToProfile {
-  position: fixed;
-  top: 14px;
-  left: 20px;
-  background: #1b2228;
-  border: 1px solid #3b3325;
-  border-radius: 10px;
-  color: var(--gold);
-  padding: 8px 12px;
-  cursor: pointer;
-  font-family: "Cinzel", serif;
-  text-decoration: none;
-  z-index: 10000;
-  box-shadow: 0 2px 6px rgba(0,0,0,.35);
-}
-#backToProfile:hover {
-  background: #252c32;
-  filter: drop-shadow(0 0 4px rgba(212,169,77,.6));
-}
+  /* Level-lock badge (🔒 + data-req) */
+  .equip-grid .slot[data-locked="true"] .rarity-frame { filter: grayscale(1) brightness(.85); }
+  .equip-grid .slot[data-locked="true"]::before {
+    content: "🔒 " attr(data-req);
+    position: absolute; top: 6px; left: 6px;
+    height: 18px; max-width: calc(100% - 12px);
+    padding: 0 8px;
+    font-size: 11px; line-height: 18px; font-weight: 700;
+    color: #f3d7a4;
+    background: rgba(122,29,29,.9);
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.45);
+    pointer-events: none;
+  }
 
-/* === Disable all transitions in arena === */
-.grid *, .card * { transition: none 0s !important; }
-</style>
-
+  /* Safety: no transitions anywhere inside the arena cards */
+  .grid *, .card * { transition: none 0s !important; }
+  </style>
 </head>
 
 <body>
   <!-- Fixed back button -->
   <a id="backToProfile" href="/profile.html">← Back to Profile</a>
 
-  <!-- Tooltip container (populated by JS) -->
+  <!-- Tooltip container (kept but disabled via CSS) -->
   <div id="vaTooltip" class="va-tip" style="display:none"></div>
 
   <div class="wrap">
@@ -310,16 +307,35 @@ button:disabled { opacity: .6; cursor: not-allowed; }
             <img id="avatar" src="/guildbook/girl.png" alt="avatar" style="width:100%;max-width:110px;object-fit:contain;border-radius:10px;">
           </div>
 
+          <!-- Character equipment (non-interactive) -->
           <div class="equip-grid">
-            <div class="slot" data-slot="helm">Helm</div>
-            <div class="slot" data-slot="shoulders">Shoulders</div>
-            <div class="slot" data-slot="wings">Wings</div>
-            <div class="slot" data-slot="ring">Ring</div>
-            <div class="slot" data-slot="chest">Chest</div>
-            <div class="slot" data-slot="pet">Pet</div>
-            <div class="slot" data-slot="gloves">Gloves</div>
-            <div class="slot" data-slot="boots">Boots</div>
-            <div class="slot" data-slot="sylph">Sylph</div>
+            <div class="slot" data-slot="helm"      data-name="Helm">
+              <span class="slot-box" aria-hidden="true"></span>
+            </div>
+            <div class="slot" data-slot="shoulders" data-name="Shoulders">
+              <span class="slot-box" aria-hidden="true"></span>
+            </div>
+            <div class="slot" data-slot="wings"     data-name="Wings">
+              <span class="slot-box" aria-hidden="true"></span>
+            </div>
+            <div class="slot" data-slot="ring"      data-name="Ring">
+              <span class="slot-box" aria-hidden="true"></span>
+            </div>
+            <div class="slot" data-slot="chest"     data-name="Chest">
+              <span class="slot-box" aria-hidden="true"></span>
+            </div>
+            <div class="slot" data-slot="pet"       data-name="Pet">
+              <span class="slot-box" aria-hidden="true"></span>
+            </div>
+            <div class="slot" data-slot="gloves"    data-name="Gloves">
+              <span class="slot-box" aria-hidden="true"></span>
+            </div>
+            <div class="slot" data-slot="boots"     data-name="Boots">
+              <span class="slot-box" aria-hidden="true"></span>
+            </div>
+            <div class="slot" data-slot="sylph"     data-name="Sylph">
+              <span class="slot-box" aria-hidden="true"></span>
+            </div>
           </div>
         </div>
 
@@ -360,5 +376,6 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   <script type="module" src="/src/game.ts"></script>
 </body>
 </html>
+
 
 
