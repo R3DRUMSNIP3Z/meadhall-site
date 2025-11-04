@@ -1,6 +1,6 @@
-/* =============================== */
-/* Valhalla Ascending — src/game.ts */
-/* =============================== */
+/* ===============================
+   Valhalla Ascending — src/game.ts
+   =============================== */
 
 type Gender = "female" | "male";
 type Slot =
@@ -13,7 +13,7 @@ type Me = {
   level: number;
   xp: number;
   gold: number;
-  power: number;     // server field; UI label is Strength
+  power: number;     // UI label "Strength"
   defense: number;
   speed: number;
   points?: number;
@@ -78,7 +78,7 @@ function log(msg: string, cls?: string) {
   logBox.prepend(p);
 }
 
-/* ---------- tooltip helpers ---------- */
+/* ---------- tooltip (shop-only) ---------- */
 let tipEl = document.getElementById("vaTooltip") as HTMLDivElement | null;
 if (!tipEl) {
   tipEl = document.createElement("div");
@@ -148,21 +148,28 @@ function tooltipHTML(item: ShopItem, slotKey: string) {
   `;
 }
 
-/* ---------- slot renderer ---------- */
+/* ---------- slot renderer (no hover) ---------- */
 function renderSlot(slotKey: string, item?: ShopItem) {
   const el = document.querySelector(`.slot[data-slot="${slotKey}"]`) as HTMLElement | null;
   if (!el) return;
-  el.innerHTML = "";
-  el.onmouseenter = null; el.onmousemove = null; el.onmouseleave = null;
+  el.innerHTML = ""; // wipe
 
-  if (!item) { el.textContent = capitalize(slotKey); return; }
+  // spacer element so the 88x88 area is reserved (CSS uses .slot-box too)
+  const spacer = document.createElement("span");
+  spacer.className = "slot-box";
+  spacer.setAttribute("aria-hidden", "true");
+  el.appendChild(spacer);
 
+  if (!item) return; // label bar comes from CSS data-name
+
+  // item icon
   const img = document.createElement("img");
   img.className = "slot-img";
   img.src = resolveImg(item.imageUrl);
   img.alt = item.name || slotKey;
   el.appendChild(img);
 
+  // frame overlay (fills 100% of slot; CSS ensures z-index over icon)
   const r = (item.rarity || "normal").toLowerCase();
   const frameUrl = rarityFrame[r] || rarityFrame.normal;
   const overlay = document.createElement("img");
@@ -171,9 +178,7 @@ function renderSlot(slotKey: string, item?: ShopItem) {
   overlay.alt = "";
   el.appendChild(overlay);
 
-  el.onmouseenter = (ev) => tipShow(ev.clientX, ev.clientY, tooltipHTML(item, slotKey));
-  el.onmousemove = (ev) => tipMove(ev);
-  el.onmouseleave = tipHide;
+  // IMPORTANT: no mouse handlers here — character grid is non-interactive
 }
 
 /* ---------- unlock rules ---------- */
@@ -217,7 +222,7 @@ function render() {
   safeSet("level", String(m.level));
   safeSet("gold", String(m.gold));
 
-  // IMPORTANT: UI label “Strength” (id=strength) displays m.power
+  // UI labels
   safeSet("strength", String(m.power));
   safeSet("defense", String(m.defense));
   safeSet("speed", String(m.speed));
@@ -232,32 +237,37 @@ function render() {
   if (avatar) avatar.src =
     m.gender === "male" ? resolveImg("/guildbook/boy.png") : resolveImg("/guildbook/girl.png");
 
+  // update each slot box
   document.querySelectorAll<HTMLDivElement>(".slot").forEach(async (div) => {
     const slot = div.dataset.slot as Slot;
     const needed = SLOT_UNLOCK[slot];
     const eqId = m.slots?.[slot];
 
+    // set label text (from slot name)
+    const label = (div.getAttribute("data-name") || slot || "").toUpperCase();
+    div.setAttribute("data-name", label);
+
+    // lock state
     if (m.level < needed) {
-      div.classList.add("locked");
-      div.innerHTML = `${capitalize(slot)} (Lv ${needed})`;
-      div.onmouseenter = (ev) =>
-        tipShow(ev.clientX, ev.clientY,
-          `<div class="tt-title" style="font-weight:900;margin-bottom:6px">${capitalize(slot)}</div>
-           <div class="muted" style="opacity:.85">Unlocks at level ${needed}</div>`);
-      div.onmousemove = (ev) => tipMove(ev);
-      div.onmouseleave = tipHide;
+      div.setAttribute("data-locked", "true");
+      div.setAttribute("data-req", `Lv ${needed}`);
+      div.innerHTML = '<span class="slot-box" aria-hidden="true"></span>'; // keep spacer
       return;
     } else {
-      div.classList.remove("locked");
+      div.removeAttribute("data-locked");
+      div.removeAttribute("data-req");
     }
 
-    if (!eqId) { renderSlot(slot, undefined); return; }
-
+    // render equipped item or empty
+    if (!eqId) {
+      div.innerHTML = '<span class="slot-box" aria-hidden="true"></span>';
+      return;
+    }
     const it = await getItem(eqId);
     renderSlot(slot, it);
   });
 
-  // Battle Rating display (sum of three base stats)
+  // Battle Rating display
   safeSet("battleRating", `BATTLE RATING ${clientBattleRating(m)}`);
 
   // PvP enablement
@@ -274,14 +284,13 @@ function safeSet(id: string, text: string) {
   if (el) el.textContent = text;
 }
 
-/* ---------- SHOP ---------- */
+/* ---------- SHOP (tooltips enabled here) ---------- */
 function genderLabelFor(setId?: string): string {
   if (!setId) return "";
   if (setId === "drengr") return " (Male-only)";
   if (setId === "skjaldmey") return " (Female-only)";
   return "";
 }
-
 function genderMismatch(me: Me, item: ShopItem): boolean {
   if (item.set === "drengr")  return me.gender === "female";
   if (item.set === "skjaldmey") return me.gender === "male";
@@ -290,6 +299,7 @@ function genderMismatch(me: Me, item: ShopItem): boolean {
 
 function renderShop() {
   const box = $("shop");
+  if (!box) return;
   box.innerHTML = "";
   if (!state.me) return;
 
@@ -328,6 +338,7 @@ function renderShop() {
       </div>
     `;
 
+    // Shop tooltips only
     line.onmouseenter = (ev) => tipShow(ev.clientX, ev.clientY, tooltipHTML(item, item.slot || "unknown"));
     line.onmousemove = (ev) => tipMove(ev);
     line.onmouseleave = tipHide;
@@ -352,7 +363,7 @@ function renderShop() {
   };
 }
 
-/* ---------- Allocation UI INSIDE TRAINING CARD ---------- */
+/* ---------- Allocation UI inside training card ---------- */
 let allocInput: HTMLInputElement | null = null;
 let btnAllocPow: HTMLButtonElement | null = null;
 let btnAllocDef: HTMLButtonElement | null = null;
@@ -426,8 +437,6 @@ function hookRename() {
       });
       state.me = r.me;
       render();
-      // optional: disable after success if you want one-time rename
-      // btn.disabled = true;
     } catch (e: any) {
       log("Rename error: " + e.message, "bad");
     }
@@ -453,6 +462,17 @@ async function loadAll() {
 
   render();
   renderShop();
+
+  // Optional: wire up Equipment Shop toggle if present in the page
+  const toggleBtn = document.getElementById("toggleShop");
+  const panel = document.getElementById("shopPanel");
+  if (toggleBtn && panel) {
+    toggleBtn.addEventListener("click", () => {
+      const open = panel.style.display !== "none";
+      panel.style.display = open ? "none" : "block";
+      toggleBtn.setAttribute("aria-expanded", String(!open));
+    });
+  }
 }
 
 async function setGender(g: Gender) {
@@ -545,6 +565,7 @@ loadAll().catch(e => log(e.message, "bad"));
   (window as any).dev = dev;
   console.log("%cwindow.dev ready → dev.me(), dev.level(25), dev.points(50), dev.item('drengr-helm'), dev.drengr()", "color:#39ff14");
 })();
+
 
 
 
