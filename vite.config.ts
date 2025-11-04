@@ -18,6 +18,8 @@ const inputs: Record<string, string> = {
   book:          html("book.html")!,
   meadhall:      html("meadhall.html")!,
   game:          html("game.html")!,        // ← ✅ add this line
+  shop:          html("shop.html")!,   // ← add this line
+
 };
 // drop undefined entries
 Object.keys(inputs).forEach((k) => inputs[k] === undefined && delete inputs[k]);
