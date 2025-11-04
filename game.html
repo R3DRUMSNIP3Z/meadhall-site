@@ -12,9 +12,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
-
-  <style>
-/* === Sparkle === */
+<style>
+  /* === Sparkle === */
 .va-sparkle {
   position: relative;
   color: #ffeaa0;
@@ -29,7 +28,12 @@
 }
 
 /* === Colors & Layout === */
-:root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:#c7b07a; }
+:root {
+  --gold: #d4a94d;
+  --bg: #0b0e10;
+  --card: #12161a;
+  --muted: #c7b07a;
+}
 * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
 body {
   background: var(--bg);
@@ -41,6 +45,7 @@ body {
 }
 .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
 h1 { margin: 10px 0 16px; font-size: 1.6rem; }
+
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -59,119 +64,82 @@ h1 { margin: 10px 0 16px; font-size: 1.6rem; }
 }
 .row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; }
 .stat { font-weight: 700; }
+
 button {
-  background: #1b2228; border: 1px solid #3b3325; border-radius: 10px;
-  color: var(--gold); padding: 8px 12px; cursor: pointer;
+  background: #1b2228;
+  border: 1px solid #3b3325;
+  border-radius: 10px;
+  color: var(--gold);
+  padding: 8px 12px;
+  cursor: pointer;
 }
 button:disabled { opacity: .6; cursor: not-allowed; }
+
 .bar { height: 8px; background: #1b1b1b; border-radius: 999px; overflow: hidden; }
 .bar > span { display: block; height: 100%; background: var(--muted); width: 0%; }
+
 .log {
-  background: #0e1013; border: 1px dashed #3b3325; border-radius: 10px;
-  padding: 10px; font-size: .95rem; height: 180px; overflow: auto;
+  background: #0e1013;
+  border: 1px dashed #3b3325;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: .95rem;
+  height: 180px;
+  overflow: auto;
 }
 .muted { opacity: .85; }
 .ok { color: #8ad67a; }
 .bad { color: #f56; }
 
-/* === Equipment Grid (paper-doll) === */
+/* === Equipment Grid === */
 .equip-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
-/* Base slot visuals (kept simple here; stability handled by scoped rules below) */
+
+/* === Fixed & Stable Slots (no hover, no tooltip) === */
 .slot {
-  position: relative;
-  width: 96px; height: 96px;
-  border: 1px solid #3b3325; border-radius: 12px; background: #0f1215;
-  color: #cbb17a; overflow: hidden;
-}
-.slot.locked { opacity: .5; filter: grayscale(1); }
-.rarity-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-
-/* === Power Total === */
-.powertotal {
-  margin-top: 10px; text-align: center; font-size: 1.5rem; font-weight: 900;
-  letter-spacing: 1px; border-top: 1px solid #3b3325; padding-top: 8px;
-}
-
-/* === Shop === */
-.shop-item {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 12px; padding: 8px 0; border-bottom: 1px dashed rgba(212,169,77,.15);
-  transform: translateZ(0); will-change: transform; contain: layout paint;
-}
-.shop-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.shop-text { display: flex; flex-direction: column; }
-.shop-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.shop-right { display: flex; align-items: center; gap: 10px; }
-.shop-price { width: 60px; text-align: right; }
-.shop-thumb {
-  position: relative; display: inline-grid; place-items: center;
-  width: 40px; height: 40px; flex: 0 0 40px; overflow: hidden; will-change: contents;
-}
-.shop-img {
-  width: 40px; height: 40px; object-fit: contain; border-radius: 6px;
-  background: rgba(0,0,0,.35);
-  box-shadow: 0 0 0 1px rgba(212,169,77,.3);
-  display: block; transform-origin: 50% 50%; backface-visibility: hidden;
-  will-change: transform, filter; transition: transform .18s ease, filter .18s ease;
-}
-.shop-item:hover .shop-img { transform: scale(1.02); filter: brightness(1.08); }
-.shop-thumb .shop-frame {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  object-fit: contain; pointer-events: none;
-  filter: drop-shadow(0 0 6px rgba(212,169,77,.45));
-}
-
-/* === Tooltip stability === */
-#vaTooltip, .va-tip { pointer-events: none; }
-
-/* === Back to Profile button === */
-#backToProfile {
-  position: fixed; top: 14px; left: 20px;
-  background: #1b2228; border: 1px solid #3b3325; border-radius: 10px;
-  color: var(--gold); padding: 8px 12px; cursor: pointer;
-  font-family: "Cinzel", serif; text-decoration: none;
-  z-index: 10000; box-shadow: 0 2px 6px rgba(0,0,0,.35);
-}
-#backToProfile:hover { background: #252c32; filter: drop-shadow(0 0 4px rgba(212,169,77,.6)); }
-
-/* === Safety: remove transitions inside cards === */
-.grid *, .card * { transition: none 0s !important; }
-
-/* =========================================================
-   GAMEHTML-ONLY: Rock-solid equipment slots (scoped)
-   ========================================================= */
-.equip-grid .slot {
   contain: strict !important;
   position: relative !important;
   display: block !important;
   width: 96px !important;
   height: 96px !important;
-  padding: 0 !important;                 /* eliminate padding rounding */
+  padding: 0 !important;
+  margin: 0;
+  border: 1px solid #3b3325;
+  border-radius: 12px;
+  background: #0f1215;
   overflow: hidden !important;
   transform: translateZ(0);
   will-change: transform;
-  font-size: 0; line-height: 0;          /* kill baseline jitter */
+  color: #cbb17a;
+  font-family: "Cinzel", serif;
+  font-size: 0;
+  line-height: 0;
+  text-align: center;
+  pointer-events: none; /* disables hover & tooltip entirely */
 }
-.equip-grid .slot::before {
+
+.slot::before {
   content: "";
   position: absolute;
   left: 50%; top: 50%;
-  width: 88px; height: 88px;             /* fixed inner box */
+  width: 88px; height: 88px;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
-.equip-grid .slot > .slot-img,
-.equip-grid .slot > .rarity-frame,
-.equip-grid .slot > .slot-label {
+
+.slot > .slot-img,
+.slot > .rarity-frame,
+.slot > .slot-label {
   position: absolute !important;
-  left: 50% !important; top: 50% !important;
+  left: 50% !important;
+  top: 50% !important;
   transform: translate(-50%, -50%) !important;
 }
-.equip-grid .slot > .slot-img {
+
+.slot > .slot-img {
   width: 88px !important;
   height: 88px !important;
   max-width: 88px !important;
@@ -179,20 +147,124 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   object-fit: contain !important;
   display: block !important;
   backface-visibility: hidden;
+  pointer-events: none !important;
 }
-.equip-grid .slot > .rarity-frame {
+
+.slot > .rarity-frame {
   inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
   object-fit: contain !important;
+  pointer-events: none !important;
+}
+
+.slot > .slot-label {
+  font-size: 12px;
+  line-height: 1;
+  color: #cbb17a;
+  white-space: nowrap;
+  padding: 0 6px;
+}
+
+.slot.empty > .slot-img { display: none !important; }
+.slot * { transition: none !important; }
+
+/* === Remove Hover Effects Entirely === */
+.slot:hover,
+.slot:focus,
+.slot:active {
+  filter: none !important;
+  transform: none !important;
+}
+
+/* === Power Total === */
+.powertotal {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  border-top: 1px solid #3b3325;
+  padding-top: 8px;
+}
+
+/* === Shop === */
+.shop-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(212,169,77,.15);
+  transform: translateZ(0);
+  will-change: transform;
+  contain: layout paint;
+}
+.shop-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.shop-text { display: flex; flex-direction: column; }
+.shop-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shop-right { display: flex; align-items: center; gap: 10px; }
+.shop-price { width: 60px; text-align: right; }
+
+.shop-thumb {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  overflow: hidden;
+  will-change: contents;
+}
+.shop-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: rgba(0,0,0,.35);
+  box-shadow: 0 0 0 1px rgba(212,169,77,.3);
+  display: block;
+  transform-origin: 50% 50%;
+  backface-visibility: hidden;
+  will-change: transform, filter;
+  transition: transform .18s ease, filter .18s ease;
+}
+.shop-thumb .shop-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   pointer-events: none;
+  filter: drop-shadow(0 0 6px rgba(212,169,77,.45));
 }
-.equip-grid .slot > .slot-label {
-  font-size: 12px; line-height: 1; color: #cbb17a;
-  white-space: nowrap; padding: 0 6px;
+
+/* === Tooltip disabled === */
+#vaTooltip, .va-tip { display: none !important; pointer-events: none !important; }
+
+/* === Back to Profile button === */
+#backToProfile {
+  position: fixed;
+  top: 14px;
+  left: 20px;
+  background: #1b2228;
+  border: 1px solid #3b3325;
+  border-radius: 10px;
+  color: var(--gold);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: "Cinzel", serif;
+  text-decoration: none;
+  z-index: 10000;
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
 }
-.equip-grid .slot.empty > .slot-img { display: none !important; }
-.equip-grid .slot * { transition: none !important; }
+#backToProfile:hover {
+  background: #252c32;
+  filter: drop-shadow(0 0 4px rgba(212,169,77,.6));
+}
+
+/* === Disable all transitions in arena === */
+.grid *, .card * { transition: none 0s !important; }
 </style>
 
 </head>
