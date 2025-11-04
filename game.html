@@ -115,6 +115,19 @@
     text-align: center;
     pointer-events: none; /* character card is non-interactive */
   }
+  /* ensure frame overlays the icon in character slots */
+.slot > .slot-img { z-index: 1; }
+.slot > .rarity-frame { z-index: 2; }
+/* --- Character slot stacking: make frame visible above everything --- */
+.slot { position: relative; }
+.slot::before { z-index: 0; }          /* spacer sits at the bottom */
+.slot > .slot-img { z-index: 1; }       /* item icon */
+.slot > .rarity-frame {
+  z-index: 2;                           /* neon frame on top */
+  pointer-events: none;
+  mix-blend-mode: normal;
+}
+
 
   /* Rock-solid spacer as a real element (frees ::before for lock badge) */
   .slot-box {
