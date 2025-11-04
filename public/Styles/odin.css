@@ -257,6 +257,71 @@ footer{
   background:rgba(0,0,0,.4);
   box-shadow:0 0 0 1px rgba(200,169,107,.3);
 }
+/* ===== NO-SHIVER PAPER-DOLL SLOTS (OVERRIDES) ===== */
+
+/* 1) Fully isolate each slot’s layout/paint and promote it */
+.slot {
+  contain: strict !important;        /* blocks layout ripple */
+  transform: translateZ(0);          /* own compositing layer */
+  will-change: transform;
+  position: relative !important;     /* for abs children */
+  overflow: hidden !important;
+  /* kill any font baseline flicker when empty */
+  font-size: 0; line-height: 0;
+}
+
+/* 2) Reserve a fixed 88x88 box in the center (even when empty) */
+.slot::before {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 88px; height: 88px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* 3) Pin visual children into that reserved box */
+.slot > .slot-img,
+.slot > .rarity-frame,
+.slot > .slot-label {
+  position: absolute !important;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 4) Fix the image size (no % that can recalc) */
+.slot > .slot-img {
+  width: 88px !important;
+  height: 88px !important;
+  max-width: 88px !important;
+  max-height: 88px !important;
+  object-fit: contain !important;
+  backface-visibility: hidden;
+}
+
+/* 5) Frame covers the slot but doesn't affect layout */
+.slot > .rarity-frame {
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  pointer-events: none;
+}
+
+/* 6) Clean empty-state text if you use it */
+.slot > .slot-label {
+  font-size: 12px; line-height: 1;   /* re-enable text sizing only here */
+  color: #cbb17a;
+  white-space: nowrap;
+  padding: 0 6px;
+}
+
+/* 7) Optional: empty slots don't render an <img> at all */
+.slot.empty > .slot-img { display: none !important; }
+
+/* 8) Belt & suspenders: kill micro-transitions inside slots */
+.slot * { transition: none !important; }
+
 
 
 
