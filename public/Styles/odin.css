@@ -1,3 +1,7 @@
+/* =========================================================
+   ODIN.CSS — Mead Hall Global Styles
+   ========================================================= */
+
 :root{
   --bg:#0b0f12; --bg-soft:#121820;
   --ink:#e9eef4; --ink-dim:#cfd8e3;
@@ -179,95 +183,18 @@ footer{
 .rarity-frame{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 
 /* === Valhalla Ascending — Arena === */
-
-.shop-item{
-  display:flex; justify-content:space-between; align-items:center;
-  gap:14px; padding:8px 0; border-bottom:1px dashed rgba(200,169,107,.15);
+body.arena {
+  overflow-y: scroll;
 }
-.shop-left{ display:flex; align-items:center; gap:8px; min-width:0; }
-.shop-text{ display:flex; flex-direction:column; }
-.shop-title{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.shop-sub{ font-size:.85rem; opacity:.8; }
-
-.shop-right{ display:flex; align-items:center; gap:10px; }
-.shop-price{ width:60px; text-align:right; }
-
-/* === Shop thumbnail frame overlay === */
-.shop-thumb{
-  position: relative;
-  width: 40px;
-  height: 40px;
-  display: inline-block;
-  flex: 0 0 40px;
+body.arena .grid {
+  display: grid;
+  grid-template-columns: minmax(0, 560px) minmax(0, 380px);
+  gap: 20px;
+  align-items: start;
 }
-
-.shop-thumb .shop-img{
-  width: 40px !important;
-  height: 40px !important;
-  max-width: 40px !important;
-  max-height: 40px !important;
-  object-fit: contain !important;
-  border-radius: 6px;
-  background: rgba(0,0,0,.4);
-  box-shadow: 0 0 0 1px rgba(200,169,107,.3);
-  display: block;
+body.arena .grid + .grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
-
-.shop-thumb .shop-frame{
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
-  /* optional extra glow pop */
-  filter: drop-shadow(0 0 6px rgba(200,169,107,.5));
-}
-
-/* Thumbnail size (classed) */
-.shop-img{
-  width:40px; height:40px; flex:0 0 40px;
-  border-radius:6px; object-fit:contain;
-  background:rgba(0,0,0,.4);
-  box-shadow:0 0 0 1px rgba(200,169,107,.3);
-}
-
-/* Hover feedback */
-.shop-item:hover .shop-img{
-  filter:brightness(1.2); transform:scale(1.03);
-  transition:transform .2s ease, filter .2s ease;
-}
-
-.btn-buy,
-.shop-item button{
-  border:1px solid rgba(200,169,107,.3);
-  background:linear-gradient(180deg, #1a1a1a, #101010);
-  color:var(--gold);
-  border-radius:10px; padding:6px 10px; cursor:pointer;
-  font-family:"Cinzel", serif; font-size:.9rem;
-}
-.btn-buy:hover,
-.shop-item button:hover{ filter:brightness(1.15); border-color:var(--gold); }
-
-/* === Force all shop images to be thumbnail size (bulletproof) === */
-#shop img.shop-img,
-#shop .shop-item img.shop-img,
-.shop-img{
-  width:40px !important;
-  height:40px !important;
-  max-width:40px !important;
-  max-height:40px !important;
-  object-fit:contain !important;
-  border-radius:6px;
-  background:rgba(0,0,0,.4);
-  box-shadow:0 0 0 1px rgba(200,169,107,.3);
-}
-
-/* ===== ARENA STABILITY FIX ===== */
-/* Add class="arena" to <body> on game.html so these only scope to the Arena page */
-body.arena { overflow-y: scroll; } /* stop width hop when scrollbar appears */
-
-/* isolate cards/slots/shop rows onto their own layers (prevents hover reflow “jiggle”) */
 body.arena .card,
 body.arena .slot,
 body.arena .shop-item {
@@ -276,54 +203,74 @@ body.arena .shop-item {
   transform: translateZ(0);
   will-change: transform;
 }
-
-/* clip scaled thumbnails so they never push siblings */
-body.arena .shop-thumb { overflow: hidden; }
-
-/* smoother + slightly smaller hover scale to stay inside 40x40 box */
-body.arena .shop-img {
-  transform-origin: 50% 50%;
-  backface-visibility: hidden;
-  will-change: transform, filter;
-  transition: transform .18s ease, filter .18s ease;
+body.arena .card > div[style*="grid-template-columns:120px"] {
+  align-items: start;
+  contain: layout paint;
 }
-body.arena .shop-item:hover .shop-img {
-  transform: scale(1.02) !important; /* override 1.03 above */
-  filter: brightness(1.08) !important;
+body.arena #avatar {
+  width: 120px;
+  height: 200px;
+  object-fit: contain;
+  display: block;
 }
-
-/* paper-doll image stability */
+body.arena .equip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  min-height: 220px;
+  contain: layout paint;
+}
+body.arena .slot {
+  width: 100px;
+  height: 100px;
+  overflow: hidden;
+  white-space: nowrap;
+}
 body.arena .slot-img,
 body.arena .rarity-frame { display:block; }
-
-/* tooltips never capture hover (prevents flicker -> relayout) */
 body.arena #vaTooltip,
 body.arena .va-tip { pointer-events:none; }
-
-/* neutralize any global transitions inside arena grid if Odin css adds them */
-body.arena .grid *,
+body.arena .shop-thumb { overflow: hidden; }
+body.arena .shop-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: rgba(0,0,0,.35);
+  box-shadow: 0 0 0 1px rgba(200,169,107,.3);
+  transform-origin: 50% 50%;
+  transition: transform .18s ease, filter .18s ease;
+  will-change: transform, filter;
+}
+body.arena .shop-item:hover .shop-img {
+  transform: scale(1.02);
+  filter: brightness(1.08);
+}
 body.arena .card * { transition: none 0s !important; }
 
-/* Back to Profile button fixed on top-right */
-#backToProfile {
+/* Back to Profile fixed top-left */
+body.arena #backToProfile,
+body.arena .back-to-profile {
   position: fixed;
   top: 14px;
-  right: 20px;
+  left: 16px;
   z-index: 9999;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 10px;
   background: #1b2228;
   border: 1px solid #3b3325;
-  border-radius: 10px;
   color: var(--gold);
-  padding: 8px 12px;
   font-family: "Cinzel", serif;
   font-size: .95rem;
-  cursor: pointer;
   box-shadow: 0 2px 6px rgba(0,0,0,.4);
 }
-#backToProfile:hover {
+body.arena #backToProfile:hover,
+body.arena .back-to-profile:hover {
   background: #252c32;
   filter: drop-shadow(0 0 4px rgba(212,169,77,.6));
 }
+
 
 
 
