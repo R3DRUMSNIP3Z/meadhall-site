@@ -1,4 +1,8 @@
-:root{
+/* =========================================================
+   ODIN.CSS  (Valhalla Ascending + Mead Hall unified theme)
+   ========================================================= */
+
+:root {
   --bg:#0b0f12; --bg-soft:#121820;
   --ink:#e9eef4; --ink-dim:#cfd8e3;
   --gold:#c8a96b; --ember:#d3702d;
@@ -7,6 +11,7 @@
   --radius:18px; --shadow:0 10px 40px rgba(0,0,0,.45);
 }
 
+/* === Base Layout === */
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -18,9 +23,9 @@ body{
     url('/images/viking-texture.webp');
   background-size:cover; background-attachment:fixed; background-position:center top;
 }
-
 .wrap{max-width:1200px; width:100%; margin:0 auto}
 
+/* === Header === */
 header{
   position:fixed; inset:0 0 auto 0; height:68px; display:flex; align-items:center;
   background:linear-gradient(to bottom, rgba(11,15,18,.92), rgba(11,15,18,.7));
@@ -28,7 +33,6 @@ header{
   border-bottom:1px solid rgba(200,169,107,.25);
   z-index:10;
 }
-
 .brand{display:flex; align-items:center; gap:14px; font-family:"Cinzel Decorative", serif; letter-spacing:.06em}
 .brand .mark{
   width:38px; height:38px; display:grid; place-items:center; border-radius:50%;
@@ -41,6 +45,7 @@ nav{margin-left:auto; display:flex; align-items:center; gap:16px}
 .navlink{color:var(--ink-dim); text-decoration:none; font-size:14px; letter-spacing:.06em}
 .navlink:hover{color:var(--ink)}
 
+/* === Hero Section === */
 .hero{
   position:relative; min-height:88vh; display:flex; align-items:center; justify-content:center;
   padding:clamp(24px, 5vw, 64px); overflow:hidden;
@@ -57,7 +62,8 @@ nav{margin-left:auto; display:flex; align-items:center; gap:16px}
 }
 
 .hero-card{
-  position:relative; z-index:2; max-width:860px; margin:110px auto 0; padding:clamp(24px, 4vw, 48px);
+  position:relative; z-index:2; max-width:860px; margin:110px auto 0;
+  padding:clamp(24px, 4vw, 48px);
   border-radius:var(--radius);
   background:linear-gradient(180deg, var(--glass), rgba(255,255,255,.03));
   border:1px solid rgba(200,169,107,.25);
@@ -70,23 +76,23 @@ nav{margin-left:auto; display:flex; align-items:center; gap:16px}
 
 .cta-row{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; margin-top:28px}
 
+/* === Buttons === */
 .btn{
   appearance:none; border:none; cursor:pointer; padding:14px 22px; border-radius:14px;
   letter-spacing:.08em; text-transform:uppercase; font-weight:700;
   transition:transform .08s ease, box-shadow .2s ease, background .3s ease
 }
 .btn:active{transform:translateY(1px)}
-
 .btn-viking{
   color:#111; background:linear-gradient(180deg, #e5c67f, #ba9457);
   box-shadow:0 2px 0 #745726 inset, 0 10px 30px rgba(200,169,107,.25);
   border:1px solid #a98245;
 }
 .btn-viking:hover{filter:brightness(1.05)}
-
 .btn-ghost{color:var(--ink); background:transparent; border:1px solid rgba(200,169,107,.35)}
 .btn-ghost:hover{background:rgba(200,169,107,.08)}
 
+/* === Plans Section === */
 .plans{padding:clamp(36px, 5vw, 72px) 20px; background:linear-gradient(180deg, rgba(17,25,30,.6), rgba(8,11,14,.8)); border-top:1px solid rgba(200,169,107,.25)}
 .grid{display:grid; gap:20px; grid-template-columns:repeat(1, 1fr)}
 @media(min-width:760px){ .grid{grid-template-columns:repeat(3, 1fr)} }
@@ -101,69 +107,185 @@ nav{margin-left:auto; display:flex; align-items:center; gap:16px}
 .price{font-size:34px; font-weight:900; color:var(--gold); margin:.2em 0 .5em}
 .feat{margin:0; padding:0; list-style:none}
 .feat li{padding:6px 0; color:var(--ink-dim)}
-
 .knot{height:18px; margin:28px auto; opacity:.6; filter:drop-shadow(0 2px 0 rgba(0,0,0,.4))}
 
+/* === Footer === */
 footer{
   padding:26px 20px; color:var(--ink-dim); text-align:center;
   border-top:1px solid rgba(200,169,107,.25);
   background:linear-gradient(180deg, rgba(11,15,18,.8), rgba(11,15,18,.95))
 }
 
-.sep{display:inline-block; opacity:.6; margin:0 8px}
-
-.embers{position:absolute; inset:0; pointer-events:none; overflow:hidden}
-.ember{position:absolute; width:3px; height:3px; background:var(--ember); border-radius:50%; opacity:.8; filter:blur(.4px); animation:rise 8s linear infinite}
-
-@keyframes rise{
-  from{transform:translateY(20vh) scale(.8); opacity:0}
-  to{transform:translateY(-90vh) scale(1.2); opacity:.9}
-}
-
-.input{
-  width:100%; padding:12px 14px; border-radius:12px;
-  border:1px solid rgba(200,169,107,.25);
-  background:rgba(255,255,255,.06); color:var(--ink)
-}
-.input:focus{outline:none; border-color:rgba(200,169,107,.55); box-shadow:0 0 0 2px rgba(200,169,107,.18)}
-
-.modal{
-  position:fixed; inset:0; display:none; align-items:center; justify-content:center;
-  z-index:50; background:rgba(0,0,0,.55); backdrop-filter:blur(6px)
-}
-
-/* --- Lock state for Mead Hall --- */
-.navlink.locked {
-  position: relative;
-  pointer-events: none;
-  opacity: .5;
-}
+/* === Locks / Subscriptions === */
+.navlink.locked { position: relative; pointer-events: none; opacity: .5; }
 .navlink.locked::after {
-  content: "🔒";
-  position: absolute;
-  right: -18px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 14px;
-  color: var(--gold);
+  content: "🔒"; position: absolute; right: -18px; top: 50%;
+  transform: translateY(-50%); font-size: 14px; color: var(--gold);
 }
-
-/* --- Lock overlay for non-subscriber accounts --- */
-.brand h1.locked {
-  position: relative;
-  color: var(--ink-dim); /* dimmed if locked */
-  pointer-events: none; /* prevent clicking */
-}
-
+.brand h1.locked { position: relative; color: var(--ink-dim); pointer-events: none; }
 .brand h1.locked::after {
-  content: "🔒";
-  font-size: 18px;
-  position: absolute;
-  top: 50%;
-  right: -28px;
-  transform: translateY(-50%);
-  color: var(--gold);
+  content: "🔒"; font-size: 18px; position: absolute; top: 50%; right: -28px;
+  transform: translateY(-50%); color: var(--gold);
 }
+
+/* === Profile Frames === */
+.pfp{
+  position: relative;
+  display: inline-block;
+  width: var(--pfp-size, 180px);
+  height: var(--pfp-size, 180px);
+  border-radius: 50%;
+}
+.pfp > img{
+  width: 100%; height: 100%; border-radius: 50%;
+  object-fit: cover; display: block; border: none;
+}
+.pfp::after{
+  content: ""; position: absolute; inset: 0;
+  background-repeat: no-repeat; background-position: center;
+  background-size: 100% 100%; pointer-events: none;
+}
+.pfp--reader::after  { background-image: url("/guildbook/reader-frame.svg"); }
+.pfp--premium::after { background-image: url("/guildbook/premium-frame.svg"); }
+.pfp--annual::after  { background-image: url("/guildbook/annual-frame.svg"); }
+
+/* =========================================================
+   STABLE, NO-SHIVER PAPER-DOLL SLOTS
+   ========================================================= */
+.slot {
+  contain: strict !important;
+  position: relative !important;
+  display: block !important;
+  width: 96px !important;
+  height: 96px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  transform: translateZ(0);
+  will-change: transform;
+  font-size: 0; line-height: 0;
+  border: 1px solid #3b3325;
+  border-radius: 12px;
+  background: #0f1215;
+  color: #cbb17a;
+  font-family: "Cinzel", serif;
+}
+.slot.locked { opacity:.5; filter:grayscale(1); }
+
+/* Inner fixed box */
+.slot::before {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 88px;
+  height: 88px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Center all children */
+.slot > .slot-img,
+.slot > .rarity-frame,
+.slot > .slot-label {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+/* Image locked size */
+.slot > .slot-img {
+  width: 88px !important;
+  height: 88px !important;
+  object-fit: contain !important;
+  display: block !important;
+  backface-visibility: hidden;
+}
+
+/* Frame overlay */
+.slot > .rarity-frame {
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  pointer-events: none;
+}
+
+/* Optional label */
+.slot > .slot-label {
+  font-size: 12px; line-height: 1;
+  color: #cbb17a;
+  white-space: nowrap;
+  padding: 0 6px;
+}
+
+/* Hide image on empty */
+.slot.empty > .slot-img { display: none !important; }
+
+/* Disable transitions inside */
+.slot * { transition: none !important; }
+
+/* =========================================================
+   SHOP & THUMBNAILS
+   ========================================================= */
+.shop-item{
+  display:flex; justify-content:space-between; align-items:center;
+  gap:14px; padding:8px 0;
+  border-bottom:1px dashed rgba(200,169,107,.15);
+}
+.shop-left{display:flex; align-items:center; gap:8px; min-width:0;}
+.shop-text{display:flex; flex-direction:column;}
+.shop-title{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.shop-sub{font-size:.85rem; opacity:.8;}
+.shop-right{display:flex; align-items:center; gap:10px;}
+.shop-price{width:60px; text-align:right;}
+
+.shop-thumb{
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: inline-block;
+  flex: 0 0 40px;
+}
+.shop-thumb .shop-img{
+  width: 40px !important;
+  height: 40px !important;
+  object-fit: contain !important;
+  border-radius: 6px;
+  background: rgba(0,0,0,.4);
+  box-shadow: 0 0 0 1px rgba(200,169,107,.3);
+  display: block;
+}
+.shop-thumb .shop-frame{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px rgba(200,169,107,.5));
+}
+.shop-item:hover .shop-img{
+  filter:brightness(1.2);
+  transform:scale(1.03);
+  transition:transform .2s ease, filter .2s ease;
+}
+.btn-buy, .shop-item button{
+  border:1px solid rgba(200,169,107,.3);
+  background:linear-gradient(180deg, #1a1a1a, #101010);
+  color:var(--gold);
+  border-radius:10px; padding:6px 10px; cursor:pointer;
+  font-family:"Cinzel", serif; font-size:.9rem;
+}
+.btn-buy:hover, .shop-item button:hover{
+  filter:brightness(1.15); border-color:var(--gold);
+}
+
+/* =========================================================
+   Misc
+   ========================================================= */
+footer .sep{display:inline-block; opacity:.6; margin:0 8px;}
+.grid *, .card * { transition:none 0s !important; }
+
 
 
 

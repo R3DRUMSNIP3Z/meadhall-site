@@ -168,15 +168,62 @@ footer{
 .pfp--annual::after  { background-image: url("/guildbook/annual-frame.svg"); }
 
 /* === Paper-doll equipment slots + rarity overlays === */
+/* CHANGED: minimal, targeted tweaks to stop “shiver” */
 .slot{
-  position: relative; width: 96px; height: 96px;
-  border: 1px solid #3b3325; border-radius: 12px; background: #0f1215;
-  display: grid; place-items: center; color: #cbb17a; font-family: "Cinzel", serif;
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border: 1px solid #3b3325;
+  border-radius: 12px;
+  background: #0f1215;
+  /* was: display:grid/place-items:center — removed to avoid line-box math */
+  display: block;
+  color: #cbb17a;
+  font-family: "Cinzel", serif;
   overflow: hidden;
+
+  /* additions for stability */
+  contain: strict;            /* isolate layout/paint/style */
+  font-size: 0;               /* kill baseline jitter when empty */
+  line-height: 0;
+  transform: translateZ(0);   /* its own layer */
+  will-change: transform;
 }
+/* reserve fixed inner box so empty vs image measure identically */
+.slot::before{
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:88px; height:88px;
+  transform:translate(-50%, -50%);
+  pointer-events:none;
+}
+
 .slot.locked{ opacity:.5; filter:grayscale(1); }
-.slot-img{ max-width: 88%; max-height: 88%; object-fit: contain; pointer-events: none; }
-.rarity-frame{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+
+/* CHANGED: image is fixed px, not % (no re-measure on load) */
+.slot-img{
+  width:88px;
+  height:88px;
+  object-fit:contain;
+  pointer-events:none;
+  display:block;
+  backface-visibility:hidden;
+}
+.rarity-frame{
+  position:absolute; inset:0;
+  width:100%; height:100%;
+  object-fit:contain; pointer-events:none;
+}
+
+/* optional: if you sometimes render a label for empties */
+.slot-label{
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%, -50%);
+  font-size:12px; line-height:1; color:#cbb17a; white-space:nowrap; padding:0 6px;
+}
+/* optional: hide image when you mark empties */
+.slot.empty .slot-img{ display:none; }
 
 /* === Valhalla Ascending — Arena === */
 .shop-item{
@@ -257,140 +304,7 @@ footer{
   background:rgba(0,0,0,.4);
   box-shadow:0 0 0 1px rgba(200,169,107,.3);
 }
-/* ===== NO-SHIVER PAPER-DOLL SLOTS (OVERRIDES) ===== */
 
-/* 1) Fully isolate each slot’s layout/paint and promote it */
-.slot {
-  contain: strict !important;        /* blocks layout ripple */
-  transform: translateZ(0);          /* own compositing layer */
-  will-change: transform;
-  position: relative !important;     /* for abs children */
-  overflow: hidden !important;
-  /* kill any font baseline flicker when empty */
-  font-size: 0; line-height: 0;
-}
-
-/* 2) Reserve a fixed 88x88 box in the center (even when empty) */
-.slot::before {
-  content: "";
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 88px; height: 88px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-/* 3) Pin visual children into that reserved box */
-.slot > .slot-img,
-.slot > .rarity-frame,
-.slot > .slot-label {
-  position: absolute !important;
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-/* 4) Fix the image size (no % that can recalc) */
-.slot > .slot-img {
-  width: 88px !important;
-  height: 88px !important;
-  max-width: 88px !important;
-  max-height: 88px !important;
-  object-fit: contain !important;
-  backface-visibility: hidden;
-}
-
-/* 5) Frame covers the slot but doesn't affect layout */
-.slot > .rarity-frame {
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  pointer-events: none;
-}
-
-/* 6) Clean empty-state text if you use it */
-.slot > .slot-label {
-  font-size: 12px; line-height: 1;   /* re-enable text sizing only here */
-  color: #cbb17a;
-  white-space: nowrap;
-  padding: 0 6px;
-}
-
-/* 7) Optional: empty slots don't render an <img> at all */
-.slot.empty > .slot-img { display: none !important; }
-
-/* 8) Belt & suspenders: kill micro-transitions inside slots */
-.slot * { transition: none !important; }
-/* ===== FINAL: rock-solid, no-shiver equipment slots ===== */
-
-/* 1) Slot is fully isolated and has no padding (padding caused subpixel wobble) */
-.slot {
-  contain: strict !important;
-  position: relative !important;
-  display: block !important;
-  width: 96px !important;
-  height: 96px !important;
-  padding: 0 !important;              /* <— key change */
-  overflow: hidden !important;
-  transform: translateZ(0);            /* own layer */
-  will-change: transform;
-  font-size: 0; line-height: 0;        /* kill baseline/line-box effects */
-}
-
-/* 2) Reserve an inner box that matches the intended content area */
-.slot::before {
-  content: "";
-  position: absolute;
-  left: 50%; top: 50%;
-  width: 88px;                          /* fixed, not % (no reflow math) */
-  height: 88px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-/* 3) Absolutely center all visible children in the reserved box */
-.slot > .slot-img,
-.slot > .rarity-frame,
-.slot > .slot-label {
-  position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
-  transform: translate(-50%, -50%) !important;
-}
-
-/* 4) Image is fixed to 88×88, never re-measured */
-.slot > .slot-img {
-  width: 88px !important;
-  height: 88px !important;
-  max-width: 88px !important;
-  max-height: 88px !important;
-  object-fit: contain !important;
-  display: block !important;
-  backface-visibility: hidden;
-}
-
-/* 5) Frame covers the slot without affecting layout */
-.slot > .rarity-frame {
-  inset: 0 !important;                /* paints over 96×96 */
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  pointer-events: none;
-}
-
-/* 6) Optional text label for empties (re-enable text sizing) */
-.slot > .slot-label {
-  font-size: 12px; line-height: 1;
-  color: #cbb17a;
-  white-space: nowrap;
-  padding: 0 6px;
-}
-
-/* 7) If you mark empties with .empty, don’t render an <img> */
-.slot.empty > .slot-img { display: none !important; }
-
-/* 8) Kill any micro-transitions inside the slot */
-.slot * { transition: none !important; }
 
 
 

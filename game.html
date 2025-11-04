@@ -29,12 +29,7 @@
 }
 
 /* === Colors & Layout === */
-:root {
-  --gold: #d4a94d;
-  --bg: #0b0e10;
-  --card: #12161a;
-  --muted: #c7b07a;
-}
+:root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:#c7b07a; }
 * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
 body {
   background: var(--bg);
@@ -42,7 +37,7 @@ body {
   font-family: "Cinzel", serif;
   margin: 0;
   min-height: 100vh;
-  overflow-y: scroll;           /* keeps layout width stable */
+  overflow-y: scroll;
 }
 .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
 h1 { margin: 10px 0 16px; font-size: 1.6rem; }
@@ -50,259 +45,133 @@ h1 { margin: 10px 0 16px; font-size: 1.6rem; }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  align-items: start;           /* prevents vertical wobble */
-  contain: layout paint;        /* isolate from surrounding flows */
+  align-items: start;
+  contain: layout paint;
 }
 .card {
   background: var(--card);
   border: 1px solid #3b3325;
   border-radius: 14px;
   padding: 14px;
-  transform: translateZ(0);     /* compositor layer */
+  transform: translateZ(0);
   will-change: transform;
-  contain: layout paint style;  /* no reflow ripple to neighbors */
+  contain: layout paint style;
 }
 .row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; }
 .stat { font-weight: 700; }
 button {
-  background: #1b2228;
-  border: 1px solid #3b3325;
-  border-radius: 10px;
-  color: var(--gold);
-  padding: 8px 12px;
-  cursor: pointer;
+  background: #1b2228; border: 1px solid #3b3325; border-radius: 10px;
+  color: var(--gold); padding: 8px 12px; cursor: pointer;
 }
 button:disabled { opacity: .6; cursor: not-allowed; }
 .bar { height: 8px; background: #1b1b1b; border-radius: 999px; overflow: hidden; }
 .bar > span { display: block; height: 100%; background: var(--muted); width: 0%; }
 .log {
-  background: #0e1013;
-  border: 1px dashed #3b3325;
-  border-radius: 10px;
-  padding: 10px;
-  font-size: .95rem;
-  height: 180px;
-  overflow: auto;
+  background: #0e1013; border: 1px dashed #3b3325; border-radius: 10px;
+  padding: 10px; font-size: .95rem; height: 180px; overflow: auto;
 }
 .muted { opacity: .85; }
 .ok { color: #8ad67a; }
 .bad { color: #f56; }
 
-/* === Equipment Grid === */
+/* === Equipment Grid (paper-doll) === */
 .equip-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
+/* Base slot visuals (kept simple here; stability handled by scoped rules below) */
 .slot {
   position: relative;
-  width: 96px;
-  height: 96px;
-  border: 1px solid #3b3325;
-  border-radius: 12px;
-  background: #0f1215;
-  display: grid;
-  place-items: center;
-  color: #cbb17a;
-  overflow: hidden;
-  text-align: center;
-  padding: 4px;
-  transform: translateZ(0);
-  contain: layout paint;
+  width: 96px; height: 96px;
+  border: 1px solid #3b3325; border-radius: 12px; background: #0f1215;
+  color: #cbb17a; overflow: hidden;
 }
 .slot.locked { opacity: .5; filter: grayscale(1); }
-.slot-img { max-width: 88%; max-height: 88%; object-fit: contain; pointer-events: none; display: block; }
 .rarity-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 
 /* === Power Total === */
 .powertotal {
-  margin-top: 10px;
-  text-align: center;
-  font-size: 1.5rem;
-  font-weight: 900;
-  letter-spacing: 1px;
-  border-top: 1px solid #3b3325;
-  padding-top: 8px;
+  margin-top: 10px; text-align: center; font-size: 1.5rem; font-weight: 900;
+  letter-spacing: 1px; border-top: 1px solid #3b3325; padding-top: 8px;
 }
 
 /* === Shop === */
 .shop-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px dashed rgba(212,169,77,.15);
-  transform: translateZ(0);
-  will-change: transform;
-  contain: layout paint;
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; padding: 8px 0; border-bottom: 1px dashed rgba(212,169,77,.15);
+  transform: translateZ(0); will-change: transform; contain: layout paint;
 }
 .shop-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .shop-text { display: flex; flex-direction: column; }
 .shop-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .shop-right { display: flex; align-items: center; gap: 10px; }
 .shop-price { width: 60px; text-align: right; }
-
 .shop-thumb {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
-  overflow: hidden;            /* stops any spillover flicker */
-  will-change: contents;
+  position: relative; display: inline-grid; place-items: center;
+  width: 40px; height: 40px; flex: 0 0 40px; overflow: hidden; will-change: contents;
 }
 .shop-img {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
-  border-radius: 6px;
+  width: 40px; height: 40px; object-fit: contain; border-radius: 6px;
   background: rgba(0,0,0,.35);
   box-shadow: 0 0 0 1px rgba(212,169,77,.3);
-  display: block;
-  transform-origin: 50% 50%;
-  backface-visibility: hidden;
-  will-change: transform, filter;
-  transition: transform .18s ease, filter .18s ease;
+  display: block; transform-origin: 50% 50%; backface-visibility: hidden;
+  will-change: transform, filter; transition: transform .18s ease, filter .18s ease;
 }
-/* Keep hover entirely inside the 40x40 box */
 .shop-item:hover .shop-img { transform: scale(1.02); filter: brightness(1.08); }
-
 .shop-thumb .shop-frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; pointer-events: none;
   filter: drop-shadow(0 0 6px rgba(212,169,77,.45));
 }
 
 /* === Tooltip stability === */
 #vaTooltip, .va-tip { pointer-events: none; }
 
-/* === Back to Profile button (fixed, top-left, above all) === */
+/* === Back to Profile button === */
 #backToProfile {
-  position: fixed;
-  top: 14px;
-  left: 20px;
-  background: #1b2228;
-  border: 1px solid #3b3325;
-  border-radius: 10px;
-  color: var(--gold);
-  padding: 8px 12px;
-  cursor: pointer;
-  font-family: "Cinzel", serif;
-  text-decoration: none;
-  z-index: 10000;               /* sit above every card */
-  box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  position: fixed; top: 14px; left: 20px;
+  background: #1b2228; border: 1px solid #3b3325; border-radius: 10px;
+  color: var(--gold); padding: 8px 12px; cursor: pointer;
+  font-family: "Cinzel", serif; text-decoration: none;
+  z-index: 10000; box-shadow: 0 2px 6px rgba(0,0,0,.35);
 }
-#backToProfile:hover {
-  background: #252c32;
-  filter: drop-shadow(0 0 4px rgba(212,169,77,.6));
-}
+#backToProfile:hover { background: #252c32; filter: drop-shadow(0 0 4px rgba(212,169,77,.6)); }
 
-/* === Safety: remove any global transitions inside arena to avoid micro-shifts === */
+/* === Safety: remove transitions inside cards === */
 .grid *, .card * { transition: none 0s !important; }
-/* --- Stable equipment slots (no shiver) -------------------- */
-.slot {
-  contain: strict;                 /* fully isolates size/layout/paint */
-  position: relative;              /* for absolute children */
-}
 
-/* Reserve a fixed render box so empty vs. image never changes layout */
-.slot::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 88px;                     /* matches your max-width */
-  height: 88px;                    /* matches your max-height */
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-/* Pin all visible children inside the reserved box */
-.slot-img,
-.rarity-frame,
-.slot-label {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-/* Keep the image inside the reserved box */
-.slot-img {
-  width: 88px;
-  height: 88px;
-  max-width: 88px !important;
-  max-height: 88px !important;
-  object-fit: contain;
-  backface-visibility: hidden;
-  will-change: transform;
-}
-
-/* Rarity frame covers the slot without affecting layout */
-.rarity-frame {
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
-}
-
-/* Optional: tidy empty-state label if you show text */
-.slot-label {
-  font-size: .9rem;
-  line-height: 1;
-  text-align: center;
-  white-space: nowrap;
-  padding: 0 6px;
-}
-
-/* If you use a class to mark empty slots, ensure no size jitter */
-.slot.empty .slot-img { display: none; }
-/* ===== FINAL: rock-solid, no-shiver equipment slots ===== */
-
-/* 1) Slot is fully isolated and has no padding (padding caused subpixel wobble) */
-.slot {
+/* =========================================================
+   GAMEHTML-ONLY: Rock-solid equipment slots (scoped)
+   ========================================================= */
+.equip-grid .slot {
   contain: strict !important;
   position: relative !important;
   display: block !important;
   width: 96px !important;
   height: 96px !important;
-  padding: 0 !important;              /* <— key change */
+  padding: 0 !important;                 /* eliminate padding rounding */
   overflow: hidden !important;
-  transform: translateZ(0);            /* own layer */
+  transform: translateZ(0);
   will-change: transform;
-  font-size: 0; line-height: 0;        /* kill baseline/line-box effects */
+  font-size: 0; line-height: 0;          /* kill baseline jitter */
 }
-
-/* 2) Reserve an inner box that matches the intended content area */
-.slot::before {
+.equip-grid .slot::before {
   content: "";
   position: absolute;
   left: 50%; top: 50%;
-  width: 88px;                          /* fixed, not % (no reflow math) */
-  height: 88px;
+  width: 88px; height: 88px;             /* fixed inner box */
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
-
-/* 3) Absolutely center all visible children in the reserved box */
-.slot > .slot-img,
-.slot > .rarity-frame,
-.slot > .slot-label {
+.equip-grid .slot > .slot-img,
+.equip-grid .slot > .rarity-frame,
+.equip-grid .slot > .slot-label {
   position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
+  left: 50% !important; top: 50% !important;
   transform: translate(-50%, -50%) !important;
 }
-
-/* 4) Image is fixed to 88×88, never re-measured */
-.slot > .slot-img {
+.equip-grid .slot > .slot-img {
   width: 88px !important;
   height: 88px !important;
   max-width: 88px !important;
@@ -311,32 +180,21 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   display: block !important;
   backface-visibility: hidden;
 }
-
-/* 5) Frame covers the slot without affecting layout */
-.slot > .rarity-frame {
-  inset: 0 !important;                /* paints over 96×96 */
+.equip-grid .slot > .rarity-frame {
+  inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
   object-fit: contain !important;
   pointer-events: none;
 }
-
-/* 6) Optional text label for empties (re-enable text sizing) */
-.slot > .slot-label {
-  font-size: 12px; line-height: 1;
-  color: #cbb17a;
-  white-space: nowrap;
-  padding: 0 6px;
+.equip-grid .slot > .slot-label {
+  font-size: 12px; line-height: 1; color: #cbb17a;
+  white-space: nowrap; padding: 0 6px;
 }
+.equip-grid .slot.empty > .slot-img { display: none !important; }
+.equip-grid .slot * { transition: none !important; }
+</style>
 
-/* 7) If you mark empties with .empty, don’t render an <img> */
-.slot.empty > .slot-img { display: none !important; }
-
-/* 8) Kill any micro-transitions inside the slot */
-.slot * { transition: none !important; }
-
-
-  </style>
 </head>
 
 <body>
