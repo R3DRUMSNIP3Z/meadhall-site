@@ -8,17 +8,10 @@ const { users } = require("./db");
 const state = Object.create(null);
 
 // ================== CATALOG LOADING ==================
-const FILENAME = "catalogshop.json"; // single source of truth
-
-// Local Windows dev (yours)
+const FILENAME = "catalogshop.json";
 const WINDOWS_CATALOG_PATH =
   "C:\\Users\\Lisa\\meadhall-site\\public\\guildbook\\" + FILENAME;
-
-// On Render, __dirname ≈ /opt/render/project/src/backend/backend
-// Go up 2 levels to project root, then /public/guildbook/<file>
 const RENDER_PUBLIC = path.resolve(__dirname, "..", "..", "public", "guildbook", FILENAME);
-
-// Optional explicit override via env
 const ENV_PATH = process.env.SHOP_CATALOG_PATH;
 
 function pickCatalogPath() {
@@ -26,7 +19,6 @@ function pickCatalogPath() {
   for (const p of candidates) {
     try { if (fs.existsSync(p)) return p; } catch {}
   }
-  // Fall back to Render public path for consistent logging
   return RENDER_PUBLIC;
 }
 
@@ -53,7 +45,7 @@ try {
     console.log("♻️ Shop catalog changed, reloading...");
     catalog = loadCatalogOnce(CATALOG_PATH);
   });
-} catch { /* no-op */ }
+} catch {}
 
 const getShop = () => catalog.items || [];
 const getSetBonuses = () => {
@@ -65,17 +57,10 @@ const getSetBonuses = () => {
 };
 const findItem = (id) => getShop().find((i) => i.id === id);
 
-// ================== CONSTANTS (RULES) ==================
+// ================== CONSTANTS ==================
 const SLOT_UNLOCK = {
-  helm: 5,
-  shoulders: 8,
-  chest: 10,
-  gloves: 12,
-  boots: 15,
-  ring: 18,
-  wings: 22,
-  pet: 24,
-  sylph: 28,
+  helm: 5, shoulders: 8, chest: 10, gloves: 12, boots: 15,
+  ring: 18, wings: 22, pet: 24, sylph: 28,
 };
 const PVP_UNLOCK = 25;
 
@@ -102,8 +87,7 @@ function ensure(uId) {
       speed: 5,
       points: 0,
       gender: undefined,
-      slots: {},        // { slotName: itemId }
-      // derived fields set by recompute():
+      slots: {},
       totalPower: 5,
       totalDefense: 5,
       totalSpeed: 5,
@@ -120,8 +104,8 @@ function tick(me) {
   const now = Date.now();
   const dt = Math.max(0, Math.floor((now - (me.lastTick || now)) / 1000));
   if (dt > 0) {
-    me.gold += dt * 1;             // +1 gold/sec
-    me.xp   += Math.floor(dt / 5); // +1 xp per 5s
+    me.gold += dt * 1;
+    me.xp   += Math.floor(dt / 5);
     while (me.xp >= me.level * 100) {
       me.xp -= me.level * 100;
       me.level += 1;
@@ -132,7 +116,6 @@ function tick(me) {
   return me;
 }
 
-// Apply gear + set bonuses and compute totals/BR
 function recompute(me) {
   const gear = { power: 0, defense: 0, speed: 0 };
   const countsBySet = {};
@@ -161,13 +144,13 @@ function recompute(me) {
   me.totalPower   = Math.max(0, (me.power   || 0) + gear.power   + setBonus.power);
   me.totalDefense = Math.max(0, (me.defense || 0) + gear.defense + setBonus.defense);
   me.totalSpeed   = Math.max(0, (me.speed   || 0) + gear.speed   + setBonus.speed);
-  me.gearPower    = gear.power + setBonus.power; // legacy read by UI
+  me.gearPower    = gear.power + setBonus.power;
   me.battleRating = me.totalPower + me.totalDefense + me.totalSpeed;
   return me;
 }
 
 function fightCalc(m) {
-  const roll = () => Math.random() * 10 - 5; // [-5,+5)
+  const roll = () => Math.random() * 10 - 5;
   return m.totalPower * 1.0 + m.totalDefense * 0.8 + m.totalSpeed * 0.6 + roll();
 }
 
@@ -178,7 +161,7 @@ function pickRandomOpponent(myId) {
   return state[id];
 }
 
-// Gender lock helpers
+// gender locks
 function violatesGenderLock(me, item) {
   if (!item || !item.set) return null;
   if (!me.gender) return "Pick a gender first.";
@@ -187,11 +170,10 @@ function violatesGenderLock(me, item) {
   return null;
 }
 
-// ================== INSTALL (ROUTES) ==================
+// ================== INSTALL ==================
 function install(app) {
   const router = express.Router();
 
-  // simple auth shim
   router.use((req, res, next) => {
     const uId = req.get("x-user-id");
     if (!uId) return res.status(401).json({ error: "Missing x-user-id" });
@@ -199,7 +181,7 @@ function install(app) {
     next();
   });
 
-  // ---- Info
+  // info
   router.get("/game/me", (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     res.json({ me });
@@ -210,7 +192,7 @@ function install(app) {
     res.json({ me });
   });
 
-  // ---- Train (spends gold, increases base stats)
+  // train
   router.post("/game/train", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { stat } = req.body || {};
@@ -225,7 +207,7 @@ function install(app) {
     res.json({ me });
   });
 
-  // ---- Allocate unspent points (level-ups)
+  // allocate points
   router.post("/game/allocate", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { stat, amount } = req.body || {};
@@ -242,7 +224,7 @@ function install(app) {
     return res.json({ me });
   });
 
-  // ---- One-time rename
+  // rename once
   router.post("/game/rename", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     if (me.renameUsed) return res.status(400).json({ error: "Rename already used." });
@@ -256,7 +238,7 @@ function install(app) {
     res.json({ me });
   });
 
-  // ---- Gender select
+  // gender
   router.post("/game/gender", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { gender } = req.body || {};
@@ -266,29 +248,20 @@ function install(app) {
     res.json({ me });
   });
 
-  // ---- Shop
+  // shop
   router.get("/game/shop", (req, res) => res.json({ items: getShop() }));
 
-  // Single item details (for slot rendering)
   router.get("/game/item/:id", (req, res) => {
     const it = findItem(req.params.id);
     if (!it) return res.status(404).json({ error: "No such item" });
     res.json({
-      id: it.id,
-      name: it.name,
-      set: it.set,
-      slot: it.slot,
-      stat: it.stat,
-      boost: it.boost,
-      cost: it.cost,
-      levelReq: it.levelReq,
-      rarity: it.rarity,
+      id: it.id, name: it.name, set: it.set, slot: it.slot, stat: it.stat,
+      boost: it.boost, cost: it.cost, levelReq: it.levelReq, rarity: it.rarity,
       description: it.description || `A ${it.name}.`,
       imageUrl: it.imageUrl || `/guildbook/items/${it.id}.png`,
     });
   });
 
-  // ---- Buy & auto-equip (with gender + level + slot locks)
   router.post("/game/shop/buy", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { itemId } = req.body || {};
@@ -300,7 +273,6 @@ function install(app) {
     if (item.slot && me.level < (SLOT_UNLOCK[item.slot] || 0))
       return res.status(400).json({ error: `Slot locked until level ${SLOT_UNLOCK[item.slot]}` });
 
-    // Gender lock
     const why = violatesGenderLock(me, item);
     if (why) return res.status(400).json({ error: why });
 
@@ -310,11 +282,10 @@ function install(app) {
     me.gold -= item.cost;
     if (item.slot) me.slots[item.slot] = item.id;
     recompute(me);
-
     res.json({ me, item });
   });
 
-  // ---- PvP
+  // PvP
   router.post("/pvp/fight", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     if (me.level < PVP_UNLOCK)
@@ -324,7 +295,6 @@ function install(app) {
     if (!opp) return res.status(400).json({ error: "No opponents yet. Get a friend to play!" });
 
     tick(opp); recompute(opp);
-
     const myBR = fightCalc(me);
     const opBR = fightCalc(opp);
     const win = myBR >= opBR;
@@ -396,7 +366,6 @@ function install(app) {
     res.json({ me });
   });
 
-  // give/equip item (ignores cost/locks) — still enforce gender lock
   dev.post("/item", (req, res) => {
     const { itemId } = req.body || {};
     const it = findItem(itemId);
@@ -409,7 +378,6 @@ function install(app) {
     res.json({ me, item: it });
   });
 
-  // set multiple slots directly — enforce gender lock per slot item
   dev.post("/slots", (req, res) => {
     const { slots } = req.body || {};
     const me = ensure(req.userId);
@@ -426,7 +394,6 @@ function install(app) {
     res.json({ me });
   });
 
-  // quick equip all items from a set — enforce gender lock
   dev.post("/equip-set", (req, res) => {
     const { setId } = req.body || {};
     if (!setId) return res.status(400).json({ error: "setId required" });
@@ -437,26 +404,20 @@ function install(app) {
       if (why) return res.status(400).json({ error: why });
     }
     const items = getShop().filter(i => i.set === setId);
-    for (const it of items) {
-      if (it.slot) me.slots[it.slot] = it.id;
-    }
+    for (const it of items) { if (it.slot) me.slots[it.slot] = it.id; }
     recompute(me);
     res.json({ me, equipped: items.map(i => i.id) });
   });
 
-  // drengr convenience — enforce gender lock
   dev.post("/drengr", (req, res) => {
     const me = ensure(req.userId);
     if (me.gender !== "male") return res.status(400).json({ error: "Drengr is male-only." });
     const items = getShop().filter(i => i.set === "drengr");
-    for (const it of items) {
-      if (it.slot) me.slots[it.slot] = it.id;
-    }
+    for (const it of items) { if (it.slot) me.slots[it.slot] = it.id; }
     recompute(me);
     res.json({ me, equipped: items.map(i => i.id) });
   });
 
-  // grant unspent points quickly
   dev.post("/points", (req, res) => {
     const { add } = req.body || {};
     if (!Number.isFinite(add)) return res.status(400).json({ error: "add number" });
@@ -466,7 +427,6 @@ function install(app) {
     res.json({ me });
   });
 
-  // reset user state
   dev.post("/reset", (req, res) => {
     delete state[req.userId];
     res.json({ ok: true });
