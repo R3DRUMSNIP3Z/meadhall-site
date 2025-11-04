@@ -35,25 +35,32 @@
   --card: #12161a;
   --muted: #c7b07a;
 }
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
 body {
   background: var(--bg);
   color: var(--gold);
   font-family: "Cinzel", serif;
   margin: 0;
-  display: flex;
   min-height: 100vh;
-  overflow-y: scroll; /* keeps layout stable */
+  overflow-y: scroll;           /* keeps layout width stable */
 }
-.wrap { max-width: 980px; margin: 0 auto; padding: 20px; flex: 1; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
 h1 { margin: 10px 0 16px; font-size: 1.6rem; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;           /* prevents vertical wobble */
+  contain: layout paint;        /* isolate from surrounding flows */
+}
 .card {
   background: var(--card);
   border: 1px solid #3b3325;
   border-radius: 14px;
   padding: 14px;
-  transform: translateZ(0); /* prevents jank */
+  transform: translateZ(0);     /* compositor layer */
   will-change: transform;
+  contain: layout paint style;  /* no reflow ripple to neighbors */
 }
 .row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; }
 .stat { font-weight: 700; }
@@ -101,6 +108,7 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   text-align: center;
   padding: 4px;
   transform: translateZ(0);
+  contain: layout paint;
 }
 .slot.locked { opacity: .5; filter: grayscale(1); }
 .slot-img { max-width: 88%; max-height: 88%; object-fit: contain; pointer-events: none; display: block; }
@@ -126,6 +134,8 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   padding: 8px 0;
   border-bottom: 1px dashed rgba(212,169,77,.15);
   transform: translateZ(0);
+  will-change: transform;
+  contain: layout paint;
 }
 .shop-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .shop-text { display: flex; flex-direction: column; }
@@ -140,7 +150,7 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   width: 40px;
   height: 40px;
   flex: 0 0 40px;
-  overflow: hidden; /* stops flicker */
+  overflow: hidden;            /* stops any spillover flicker */
   will-change: contents;
 }
 .shop-img {
@@ -156,6 +166,9 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   will-change: transform, filter;
   transition: transform .18s ease, filter .18s ease;
 }
+/* Keep hover entirely inside the 40x40 box */
+.shop-item:hover .shop-img { transform: scale(1.02); filter: brightness(1.08); }
+
 .shop-thumb .shop-frame {
   position: absolute;
   inset: 0;
@@ -165,22 +178,15 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   pointer-events: none;
   filter: drop-shadow(0 0 6px rgba(212,169,77,.45));
 }
-.shop-item:hover .shop-img {
-  transform: scale(1.02);
-  filter: brightness(1.08);
-}
 
 /* === Tooltip stability === */
-#vaTooltip, .va-tip {
-  pointer-events: none;
-  will-change: transform, opacity;
-}
+#vaTooltip, .va-tip { pointer-events: none; }
 
-/* === Back to Profile button === */
+/* === Back to Profile button (fixed, top-left, above all) === */
 #backToProfile {
   position: fixed;
   top: 14px;
-  right: 20px;
+  left: 20px;
   background: #1b2228;
   border: 1px solid #3b3325;
   border-radius: 10px;
@@ -188,26 +194,29 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   padding: 8px 12px;
   cursor: pointer;
   font-family: "Cinzel", serif;
-  z-index: 9999; /* stay on top of all cards */
+  text-decoration: none;
+  z-index: 10000;               /* sit above every card */
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
 }
 #backToProfile:hover {
   background: #252c32;
   filter: drop-shadow(0 0 4px rgba(212,169,77,.6));
 }
-</style>
 
+/* === Safety: remove any global transitions inside arena to avoid micro-shifts === */
+.grid *, .card * { transition: none 0s !important; }
+  </style>
 </head>
+
 <body>
+  <!-- Fixed back button -->
+  <a id="backToProfile" href="/profile.html">← Back to Profile</a>
+
   <!-- Tooltip container (populated by JS) -->
   <div id="vaTooltip" class="va-tip" style="display:none"></div>
 
   <div class="wrap">
     <h1>⚔️ Valhalla Ascending — Arena</h1>
-    <!-- Back to profile -->
-    <a href="/profile.html"
-       style="float:right;margin-top:-4px;background:#1b2228;border:1px solid #3b3325;border-radius:10px;color:#d4a94d;padding:6px 10px;text-decoration:none">
-      ← Back to Profile
-    </a>
 
     <!-- Gender pick (shown if no gender yet) -->
     <div id="genderPick" style="display:none; margin:12px 0;">
@@ -290,3 +299,4 @@ button:disabled { opacity: .6; cursor: not-allowed; }
   <script type="module" src="/src/game.ts"></script>
 </body>
 </html>
+
