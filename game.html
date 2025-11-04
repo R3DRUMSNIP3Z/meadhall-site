@@ -99,9 +99,35 @@
     font-size:0; line-height:0;
   }
   .slot-box { position:absolute; left:50%; top:50%; width:88px; height:88px; transform:translate(-50%,-50%); pointer-events:none; }
-  .slot > .slot-img, .slot > .rarity-frame {
-    position:absolute !important; left:50% !important; top:50% !important; transform:translate(-50%,-50%) !important;
-  }
+  /* center only the icon */
+/* Center item icon */
+.slot > .slot-img {
+  position:absolute !important;
+  left:50% !important;
+  top:50% !important;
+  transform:translate(-50%,-50%) !important;
+  width:88px !important;
+  height:88px !important;
+  object-fit:contain !important;
+  display:block !important;
+  z-index:1;
+  pointer-events:none !important;
+  backface-visibility:hidden;
+}
+
+/* Frame wraps entire slot neatly */
+.slot > .rarity-frame {
+  position:absolute !important;
+  inset:0 !important;
+  width:100% !important;
+  height:100% !important;
+  object-fit:contain !important;
+  transform:none !important;
+  z-index:2;
+  pointer-events:none !important;
+}
+
+
   .slot > .slot-img {
     width:88px !important; height:88px !important;
     object-fit:contain !important; display:block !important;
