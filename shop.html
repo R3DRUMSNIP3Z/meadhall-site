@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Valhalla Ascending — Equipment Shop</title>
+
+  <!-- Backend base URL (Render) -->
+  <meta name="api-base" content="https://meadhall-site.onrender.com" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; }
+    *{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+    body{ margin:0; background:var(--bg); color:var(--gold); font-family:"Cinzel",serif; }
+    .wrap{ max-width:980px; margin:0 auto; padding:20px; }
+    h1{ margin:10px 0 16px; font-size:1.6rem; }
+
+    .card{ background:var(--card); border:1px solid #3b3325; border-radius:14px; padding:14px; }
+    .row{ display:flex; justify-content:space-between; align-items:center; gap:12px; }
+
+    /* Back button */
+    #backBtn{ text-decoration:none; background:#1b2228; border:1px solid #3b3325; color:var(--gold);
+      padding:8px 12px; border-radius:10px; display:inline-block }
+    #backBtn:hover{ background:#252c32 }
+
+    /* Shop list */
+    .shop-item{
+      display:flex; justify-content:space-between; align-items:center;
+      gap:12px; padding:10px 0; border-bottom:1px dashed rgba(212,169,77,.15);
+    }
+    .shop-left{ display:flex; align-items:center; gap:10px; min-width:0; }
+    .shop-title{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .shop-sub{ opacity:.85; font-size:.95rem; }
+    .shop-right{ display:flex; align-items:center; gap:10px; }
+    .shop-price{ width:64px; text-align:right; }
+
+    .shop-thumb{ position:relative; width:44px; height:44px; display:inline-grid; place-items:center; overflow:hidden; flex:0 0 44px; }
+    .shop-img{ width:44px; height:44px; object-fit:contain; border-radius:6px; background:rgba(0,0,0,.35);
+               box-shadow:0 0 0 1px rgba(212,169,77,.3); display:block; }
+    .shop-thumb .shop-frame{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none;
+                              filter: drop-shadow(0 0 6px rgba(212,169,77,.45)); }
+
+    button{ background:#1b2228; border:1px solid #3b3325; border-radius:10px; color:var(--gold); padding:8px 12px; cursor:pointer; }
+    button:disabled{ opacity:.6; cursor:not-allowed; }
+
+    /* Tooltip bubble */
+    #vaTooltip{
+      position:fixed; display:none; z-index:9999; min-width:220px; max-width:320px;
+      padding:10px; border-radius:10px; border:1px solid rgba(212,169,77,.35);
+      background:#101317; color:#d4a94d; box-shadow:0 8px 30px rgba(0,0,0,.45);
+      font-size:.95rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="vaTooltip"></div>
+
+  <div class="wrap">
+    <div class="row" style="margin-bottom:10px">
+      <a id="backBtn" href="/game.html">← Back to Arena</a>
+      <div style="margin-left:auto">Gold: <strong id="gold">0</strong></div>
+    </div>
+
+    <h1>🛡️ Equipment Shop</h1>
+
+    <div class="card">
+      <div id="shop"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    // ---------- config ----------
+    const apiBase =
+      (document.querySelector('meta[name="api-base"]')?.content || "").trim();
+
+    // ---------- user id ----------
+    const LS_KEY = "mh_user";
+    function getUserId() {
+      try{
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+          const obj = JSON.parse(raw);
+          return obj?.id || obj?._id || obj?.user?.id || null;
+        }
+      } catch {}
+      const qs = new URLSearchParams(location.search).get("user");
+      return qs || null;
+    }
+    const userId = getUserId();
+    if (!userId) alert("Missing user. Log in first.");
+
+    // ---------- fetch helper ----------
+    async function api(path, opts = {}) {
+      const r = await fetch(apiBase + path, {
+        ...opts,
+        headers: { "Content-Type": "application/json", "x-user-id": userId || "", ...(opts.headers||{}) }
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    }
+
+    // ---------- frames ----------
+    const rarityFrame = {
+      normal: "/guildbook/frames/normal-frame.svg",
+      epic: "/guildbook/frames/epic-frame.svg",
+      legendary: "/guildbook/frames/legendary-frame.svg",
+    };
+
+    // ---------- tooltip ----------
+    const tip = document.getElementById("vaTooltip");
+    function tipShow(x, y, html){
+      tip.innerHTML = html; tip.style.display="block";
+      const pad=12, w=tip.offsetWidth||260, h=tip.offsetHeight||120;
+      tip.style.left = Math.min(window.innerWidth - w - pad, x + 16) + "px";
+      tip.style.top  = Math.min(window.innerHeight - h - pad, y + 16) + "px";
+    }
+    function tipHide(){ tip.style.display="none"; }
+    window.addEventListener("scroll", tipHide);
+    window.addEventListener("resize", tipHide);
+
+    function tooltipHTML(item){
+      const rarity = (item.rarity || "normal");
+      const stat = `+${item.boost} ${item.stat}`;
+      const setTag = item.set ? ` <span style="opacity:.8">[${item.set}]</span>` : "";
+      const slot = item.slot ? item.slot : "unknown";
+      return `
+        <div style="font-weight:900;margin-bottom:6px">${item.name}${setTag} <span style="opacity:.8">(${rarity})</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Slot</span><span style="opacity:.85">${slot.toUpperCase()}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Stats</span><span style="opacity:.85">${stat}</span></div>
+      `;
+    }
+
+    // ---------- gender helpers ----------
+    function genderMismatch(me, item){
+      if (item.set === "drengr")   return me.gender === "female";
+      if (item.set === "skjaldmey") return me.gender === "male";
+      return false;
+    }
+    function genderLabelFor(setId){
+      if (setId === "drengr") return " (Male-only)";
+      if (setId === "skjaldmey") return " (Female-only)";
+      return "";
+    }
+
+    // ---------- state ----------
+    let me = null;
+    let shop = [];
+
+    async function load(){
+      const meRes = await api("/api/game/me");
+      me = meRes.me;
+      document.getElementById("gold").textContent = String(me.gold);
+
+      const shopRes = await api("/api/game/shop");
+      shop = shopRes.items;
+
+      renderShop();
+    }
+
+    function renderShop(){
+      const box = document.getElementById("shop");
+      box.innerHTML = "";
+      if (!me) return;
+
+      const equipped = new Set(Object.values(me.slots || {}));
+
+      shop.forEach(item => {
+        if (equipped.has(item.id)) return; // don’t show already equipped
+
+        const locked = !!(item.levelReq && me.level < item.levelReq);
+        const rarity = (item.rarity || "normal").toLowerCase();
+        const frameUrl = rarityFrame[rarity] || rarityFrame.normal;
+        const gMismatch = genderMismatch(me, item);
+        const disabled = locked || gMismatch;
+        const reason = gMismatch ? "Gender-locked" : (locked ? "Locked" : "Buy");
+
+        const line = document.createElement("div");
+        line.className = "shop-item";
+        line.innerHTML = `
+          <div class="shop-left">
+            <span class="shop-thumb">
+              <img class="shop-img" src="${item.imageUrl || ""}" alt="${item.name}">
+              <img class="shop-frame" src="${frameUrl}" alt="">
+            </span>
+            <div>
+              <div class="shop-title">${item.name}${item.slot ? ` <span style="opacity:.8">[${item.slot.toUpperCase()}]</span>` : ""}${item.levelReq ? ` <span style="opacity:.8">(Lv ${item.levelReq}+)</span>` : ""}${genderLabelFor(item.set)}</div>
+              <div class="shop-sub">+${item.boost} ${item.stat}</div>
+            </div>
+          </div>
+          <div class="shop-right">
+            <div class="shop-price">${item.cost}g</div>
+            <button data-id="${item.id}" ${disabled ? "disabled" : ""}>${reason}</button>
+          </div>
+        `;
+
+        line.addEventListener("mouseenter", (ev)=> tipShow(ev.clientX, ev.clientY, tooltipHTML(item)));
+        line.addEventListener("mousemove",  (ev)=> tipShow(ev.clientX, ev.clientY, tooltipHTML(item)));
+        line.addEventListener("mouseleave", tipHide);
+
+        box.appendChild(line);
+      });
+
+      box.addEventListener("click", async (ev) => {
+        const btn = (ev.target).closest("button");
+        if (!btn || btn.disabled) return;
+        const id = btn.getAttribute("data-id");
+        try{
+          const res = await api("/api/game/shop/buy", {
+            method:"POST",
+            body: JSON.stringify({ itemId: id })
+          });
+          me = res.me; // server returns updated me
+          document.getElementById("gold").textContent = String(me.gold);
+          renderShop(); // refresh list (removes the bought item)
+        }catch(e){
+          alert(String(e));
+        }
+      }, { once:false });
+    }
+
+    load().catch(e => alert(String(e)));
+  </script>
+</body>
+</html>
