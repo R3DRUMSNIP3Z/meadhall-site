@@ -139,11 +139,24 @@
   }
 
   .slot > .slot-img,
-  .slot > .rarity-frame {
-    position: absolute !important;
-    left: 50% !important; top: 50% !important;
-    transform: translate(-50%, -50%) !important;
-  }
+  /* FINAL: frame wraps the whole slot in the character grid */
+.equip-grid .slot > .rarity-frame {
+  position: absolute !important;
+  inset: 0 !important;            /* fill the 96x96 slot */
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;     /* cancel old centering */
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  z-index: 2;
+  pointer-events: none !important;
+  mix-blend-mode: normal;
+}
+
+/* Make sure the icon is beneath the frame */
+.equip-grid .slot > .slot-img { z-index: 1; }
+  
   .slot > .slot-img {
     width: 88px !important; height: 88px !important;
     max-width: 88px !important; max-height: 88px !important;
