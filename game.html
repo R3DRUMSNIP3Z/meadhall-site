@@ -64,6 +64,25 @@
   }
   button:disabled { opacity:.6; cursor:not-allowed; }
 
+  /* Link that looks like a game button */
+  .game-btn {
+    display:inline-block;
+    text-align:center;
+    background:#1b2228;
+    border:1px solid #3b3325;
+    border-radius:10px;
+    color:var(--gold);
+    padding:8px 12px;
+    font-family:"Cinzel",serif;
+    text-decoration:none;
+    cursor:pointer;
+    transition:all .2s ease;
+  }
+  .game-btn:hover {
+    background:#252c32;
+    filter:drop-shadow(0 0 4px rgba(212,169,77,.6));
+  }
+
   .bar { height:8px; background:#1b1b1b; border-radius:999px; overflow:hidden; }
   .bar > span { display:block; height:100%; background:var(--muted); width:0%; }
 
@@ -99,45 +118,32 @@
     font-size:0; line-height:0;
   }
   .slot-box { position:absolute; left:50%; top:50%; width:88px; height:88px; transform:translate(-50%,-50%); pointer-events:none; }
-  /* center only the icon */
-/* Center item icon */
-.slot > .slot-img {
-  position:absolute !important;
-  left:50% !important;
-  top:50% !important;
-  transform:translate(-50%,-50%) !important;
-  width:88px !important;
-  height:88px !important;
-  object-fit:contain !important;
-  display:block !important;
-  z-index:1;
-  pointer-events:none !important;
-  backface-visibility:hidden;
-}
 
-/* Frame wraps entire slot neatly */
-.slot > .rarity-frame {
-  position:absolute !important;
-  inset:0 !important;
-  width:100% !important;
-  height:100% !important;
-  object-fit:contain !important;
-  transform:none !important;
-  z-index:2;
-  pointer-events:none !important;
-}
-
-
+  /* Center the icon only */
   .slot > .slot-img {
-    width:88px !important; height:88px !important;
-    object-fit:contain !important; display:block !important;
-    z-index:1; backface-visibility:hidden; pointer-events:none !important;
-  }
-  .slot > .rarity-frame {
-    position:absolute !important; inset:0 !important;
-    width:100% !important; height:100% !important;
+    position:absolute !important;
+    left:50% !important;
+    top:50% !important;
+    transform:translate(-50%,-50%) !important;
+    width:88px !important;
+    height:88px !important;
     object-fit:contain !important;
-    z-index:2; pointer-events:none !important;
+    display:block !important;
+    z-index:1;
+    pointer-events:none !important;
+    backface-visibility:hidden;
+  }
+
+  /* Frame wraps the ENTIRE slot (sits above the icon) */
+  .slot > .rarity-frame {
+    position:absolute !important;
+    inset:0 !important;
+    width:100% !important;
+    height:100% !important;
+    object-fit:contain !important;
+    transform:none !important;
+    z-index:2;
+    pointer-events:none !important;
   }
 
   /* Name label */
@@ -176,23 +182,6 @@
     border-top:1px solid #3b3325; padding-top:8px;
   }
 
-  /* Shop */
-  .shop-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
-  .shop-item {
-    display:flex; justify-content:space-between; align-items:center;
-    gap:12px; padding:8px 0;
-    border-bottom:1px dashed rgba(212,169,77,.15);
-  }
-  .shop-left { display:flex; align-items:center; gap:8px; min-width:0; }
-  .shop-text { display:flex; flex-direction:column; }
-  .shop-title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .shop-right { display:flex; align-items:center; gap:10px; }
-  .shop-price { width:60px; text-align:right; }
-  .shop-thumb { position:relative; display:inline-grid; place-items:center; width:40px; height:40px; overflow:hidden; }
-  .shop-img { width:40px; height:40px; object-fit:contain; border-radius:6px; background:rgba(0,0,0,.35); box-shadow:0 0 0 1px rgba(212,169,77,.3); }
-  .shop-item:hover .shop-img { transform:scale(1.02); filter:brightness(1.08); }
-  .shop-thumb .shop-frame { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; filter:drop-shadow(0 0 6px rgba(212,169,77,.45)); }
-
   /* Back button */
   #backToProfile {
     position:fixed; top:14px; left:20px;
@@ -212,7 +201,7 @@
   <!-- Fixed back button -->
   <a id="backToProfile" href="/profile.html">← Back to Profile</a>
 
-  <!-- Tooltip container -->
+  <!-- Tooltip container (kept for potential future use) -->
   <div id="vaTooltip" class="va-tip" style="display:none"></div>
 
   <div class="wrap">
@@ -270,12 +259,12 @@
         <div id="battleRating" class="powertotal va-sparkle">BATTLE RATING 0</div>
       </div>
 
-      <!-- Right: Actions + Shop toggle + Log -->
+      <!-- Right: Actions + Shop link + Log -->
       <div id="actionsCard" class="card">
         <div class="toolbar">
           <div style="font-weight:700">Actions</div>
           <span class="spacer"></span>
-          <a id="openShop" class="btn" href="/shop.html">Equipment Shop</a>
+          <a id="openShop" href="/shop.html" class="game-btn">Equipment Shop</a>
         </div>
 
         <div>
@@ -287,12 +276,7 @@
           <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">passive gold/xp</span></div>
         </div>
 
-        <!-- Collapsible shop -->
-        <div id="shopPanel" style="display:none; margin-top:10px;">
-          <div class="shop-head"><h3 style="margin:0">Shop</h3></div>
-          <div id="shop"></div>
-        </div>
-
+        <!-- Battle Log -->
         <div style="margin-top:12px">
           <h3 style="margin:0 0 6px">Battle Log</h3>
           <div id="log" class="log"></div>
@@ -302,20 +286,9 @@
   </div>
 
   <script type="module" src="/src/game.ts"></script>
-
-  <script>
-    const toggleBtn = document.getElementById("toggleShop");
-    const panel = document.getElementById("shopPanel");
-    if (toggleBtn && panel) {
-      toggleBtn.addEventListener("click", () => {
-        const open = panel.style.display !== "none";
-        panel.style.display = open ? "none" : "block";
-        toggleBtn.setAttribute("aria-expanded", String(!open));
-      });
-    }
-  </script>
 </body>
 </html>
+
 
 
 
