@@ -19,6 +19,8 @@ const inputs: Record<string, string> = {
   meadhall:      html("meadhall.html")!,
   game:          html("game.html")!,        // ← ✅ add this line
   shop:          html("shop.html")!,   // ← add this line
+  brisingrshop:  html("brisingrshop.html")!,  // ✅ Add this line
+
 
 };
 // drop undefined entries
