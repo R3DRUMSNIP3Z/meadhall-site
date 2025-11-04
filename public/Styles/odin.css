@@ -321,6 +321,77 @@ footer{
 
 /* 8) Belt & suspenders: kill micro-transitions inside slots */
 .slot * { transition: none !important; }
+/* ===== FINAL: rock-solid, no-shiver equipment slots ===== */
+
+/* 1) Slot is fully isolated and has no padding (padding caused subpixel wobble) */
+.slot {
+  contain: strict !important;
+  position: relative !important;
+  display: block !important;
+  width: 96px !important;
+  height: 96px !important;
+  padding: 0 !important;              /* <— key change */
+  overflow: hidden !important;
+  transform: translateZ(0);            /* own layer */
+  will-change: transform;
+  font-size: 0; line-height: 0;        /* kill baseline/line-box effects */
+}
+
+/* 2) Reserve an inner box that matches the intended content area */
+.slot::before {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 88px;                          /* fixed, not % (no reflow math) */
+  height: 88px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* 3) Absolutely center all visible children in the reserved box */
+.slot > .slot-img,
+.slot > .rarity-frame,
+.slot > .slot-label {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+/* 4) Image is fixed to 88×88, never re-measured */
+.slot > .slot-img {
+  width: 88px !important;
+  height: 88px !important;
+  max-width: 88px !important;
+  max-height: 88px !important;
+  object-fit: contain !important;
+  display: block !important;
+  backface-visibility: hidden;
+}
+
+/* 5) Frame covers the slot without affecting layout */
+.slot > .rarity-frame {
+  inset: 0 !important;                /* paints over 96×96 */
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  pointer-events: none;
+}
+
+/* 6) Optional text label for empties (re-enable text sizing) */
+.slot > .slot-label {
+  font-size: 12px; line-height: 1;
+  color: #cbb17a;
+  white-space: nowrap;
+  padding: 0 6px;
+}
+
+/* 7) If you mark empties with .empty, don’t render an <img> */
+.slot.empty > .slot-img { display: none !important; }
+
+/* 8) Kill any micro-transitions inside the slot */
+.slot * { transition: none !important; }
+
 
 
 
