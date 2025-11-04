@@ -1,8 +1,6 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <link rel="stylesheet" href="/Styles/odin.css">
-
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Valhalla Ascending — Arena</title>
@@ -15,11 +13,202 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
+  <style>
+/* === Sparkle === */
+.va-sparkle {
+  position: relative;
+  color: #ffeaa0;
+  text-shadow: 0 0 6px rgba(255,220,120,.6),
+               0 0 16px rgba(212,169,77,.55),
+               0 0 28px rgba(212,169,77,.35);
+  animation: vaGlow 2.4s ease-in-out infinite;
+}
+@keyframes vaGlow {
+  0%,100% { filter: drop-shadow(0 0 10px rgba(212,169,77,.45)); }
+  50%     { filter: drop-shadow(0 0 18px rgba(255,210,120,.85)); }
+}
 
+/* === Colors & Layout === */
+:root {
+  --gold: #d4a94d;
+  --bg: #0b0e10;
+  --card: #12161a;
+  --muted: #c7b07a;
+}
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+body {
+  background: var(--bg);
+  color: var(--gold);
+  font-family: "Cinzel", serif;
+  margin: 0;
+  min-height: 100vh;
+  overflow-y: scroll;           /* keeps layout width stable */
+}
+.wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
+h1 { margin: 10px 0 16px; font-size: 1.6rem; }
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;           /* prevents vertical wobble */
+  contain: layout paint;        /* isolate from surrounding flows */
+}
+.card {
+  background: var(--card);
+  border: 1px solid #3b3325;
+  border-radius: 14px;
+  padding: 14px;
+  transform: translateZ(0);     /* compositor layer */
+  will-change: transform;
+  contain: layout paint style;  /* no reflow ripple to neighbors */
+}
+.row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; }
+.stat { font-weight: 700; }
+button {
+  background: #1b2228;
+  border: 1px solid #3b3325;
+  border-radius: 10px;
+  color: var(--gold);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+button:disabled { opacity: .6; cursor: not-allowed; }
+.bar { height: 8px; background: #1b1b1b; border-radius: 999px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--muted); width: 0%; }
+.log {
+  background: #0e1013;
+  border: 1px dashed #3b3325;
+  border-radius: 10px;
+  padding: 10px;
+  font-size: .95rem;
+  height: 180px;
+  overflow: auto;
+}
+.muted { opacity: .85; }
+.ok { color: #8ad67a; }
+.bad { color: #f56; }
+
+/* === Equipment Grid === */
+.equip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.slot {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border: 1px solid #3b3325;
+  border-radius: 12px;
+  background: #0f1215;
+  display: grid;
+  place-items: center;
+  color: #cbb17a;
+  overflow: hidden;
+  text-align: center;
+  padding: 4px;
+  transform: translateZ(0);
+  contain: layout paint;
+}
+.slot.locked { opacity: .5; filter: grayscale(1); }
+.slot-img { max-width: 88%; max-height: 88%; object-fit: contain; pointer-events: none; display: block; }
+.rarity-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+
+/* === Power Total === */
+.powertotal {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  border-top: 1px solid #3b3325;
+  padding-top: 8px;
+}
+
+/* === Shop === */
+.shop-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(212,169,77,.15);
+  transform: translateZ(0);
+  will-change: transform;
+  contain: layout paint;
+}
+.shop-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.shop-text { display: flex; flex-direction: column; }
+.shop-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shop-right { display: flex; align-items: center; gap: 10px; }
+.shop-price { width: 60px; text-align: right; }
+
+.shop-thumb {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  overflow: hidden;            /* stops any spillover flicker */
+  will-change: contents;
+}
+.shop-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: rgba(0,0,0,.35);
+  box-shadow: 0 0 0 1px rgba(212,169,77,.3);
+  display: block;
+  transform-origin: 50% 50%;
+  backface-visibility: hidden;
+  will-change: transform, filter;
+  transition: transform .18s ease, filter .18s ease;
+}
+/* Keep hover entirely inside the 40x40 box */
+.shop-item:hover .shop-img { transform: scale(1.02); filter: brightness(1.08); }
+
+.shop-thumb .shop-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px rgba(212,169,77,.45));
+}
+
+/* === Tooltip stability === */
+#vaTooltip, .va-tip { pointer-events: none; }
+
+/* === Back to Profile button (fixed, top-left, above all) === */
+#backToProfile {
+  position: fixed;
+  top: 14px;
+  left: 20px;
+  background: #1b2228;
+  border: 1px solid #3b3325;
+  border-radius: 10px;
+  color: var(--gold);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: "Cinzel", serif;
+  text-decoration: none;
+  z-index: 10000;               /* sit above every card */
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
+}
+#backToProfile:hover {
+  background: #252c32;
+  filter: drop-shadow(0 0 4px rgba(212,169,77,.6));
+}
+
+/* === Safety: remove any global transitions inside arena to avoid micro-shifts === */
+.grid *, .card * { transition: none 0s !important; }
+  </style>
 </head>
 
-<body class="arena">
-
+<body>
   <!-- Fixed back button -->
   <a id="backToProfile" href="/profile.html">← Back to Profile</a>
 
@@ -55,7 +244,7 @@
         <div class="bar"><span id="xpBar"></span></div>
         <div class="row"><div>Gold</div><div id="gold">0</div></div>
 
-        <div class="paper-row">
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:12px;margin-top:12px;">
           <div style="display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid #3b3325;border-radius:12px;padding:6px;">
             <img id="avatar" src="/guildbook/girl.png" alt="avatar" style="width:100%;max-width:110px;object-fit:contain;border-radius:10px;">
           </div>
@@ -110,4 +299,5 @@
   <script type="module" src="/src/game.ts"></script>
 </body>
 </html>
+
 
