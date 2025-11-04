@@ -15,343 +15,144 @@
 
   <style>
   /* === Sparkle === */
-  .va-sparkle {
-    position: relative;
-    color: #ffeaa0;
-    text-shadow: 0 0 6px rgba(255,220,120,.6),
-                 0 0 16px rgba(212,169,77,.55),
-                 0 0 28px rgba(212,169,77,.35);
-    animation: vaGlow 2.4s ease-in-out infinite;
-  }
-  @keyframes vaGlow {
-    0%,100% { filter: drop-shadow(0 0 10px rgba(212,169,77,.45)); }
-    50%     { filter: drop-shadow(0 0 18px rgba(255,210,120,.85)); }
-  }
+  .va-sparkle { position: relative; color: #ffeaa0;
+    text-shadow: 0 0 6px rgba(255,220,120,.6), 0 0 16px rgba(212,169,77,.55), 0 0 28px rgba(212,169,77,.35);
+    animation: vaGlow 2.4s ease-in-out infinite; }
+  @keyframes vaGlow { 0%,100% { filter: drop-shadow(0 0 10px rgba(212,169,77,.45)); }
+                      50% { filter: drop-shadow(0 0 18px rgba(255,210,120,.85)); } }
 
   /* === Colors & Layout === */
   :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:#c7b07a; }
-  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
-  body {
-    background: var(--bg);
-    color: var(--gold);
-    font-family: "Cinzel", serif;
-    margin: 0;
-    min-height: 100vh;
-    overflow-y: scroll;
-  }
-  .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
-  h1 { margin: 10px 0 16px; font-size: 1.6rem; }
+  *{box-sizing:border-box; -webkit-font-smoothing:antialiased}
+  body{ background:var(--bg); color:var(--gold); font-family:"Cinzel", serif; margin:0; min-height:100vh; overflow-y:scroll; }
+  .wrap{ max-width:980px; margin:0 auto; padding:20px; }
+  h1{ margin:10px 0 16px; font-size:1.6rem; }
 
-  .grid {
-    display: grid;
+  /* Two equal columns; cards stretch to same height */
+  .grid{
+    display:grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    align-items: start;
+    gap:16px;
+    align-items: stretch;          /* make both columns equal height */
     contain: layout paint;
   }
-  .card {
-    background: var(--card);
-    border: 1px solid #3b3325;
-    border-radius: 14px;
-    padding: 14px;
+  .card{
+    background:var(--card);
+    border:1px solid #3b3325;
+    border-radius:14px;
+    padding:14px;
     transform: translateZ(0);
-    will-change: transform;
     contain: layout paint style;
   }
-  .row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; }
-  .stat { font-weight: 700; }
+  .fill{ display:flex; flex-direction:column; min-height:100%; }
+  .grow{ flex:1 1 auto; }
 
-  button {
-    background: #1b2228;
-    border: 1px solid #3b3325;
-    border-radius: 10px;
-    color: var(--gold);
-    padding: 8px 12px;
-    cursor: pointer;
+  .row{ display:flex; justify-content:space-between; align-items:center; margin:6px 0; }
+  .stat{ font-weight:700; }
+
+  button{
+    background:#1b2228; border:1px solid #3b3325; border-radius:10px;
+    color:var(--gold); padding:8px 12px; cursor:pointer;
   }
-  button:disabled { opacity: .6; cursor: not-allowed; }
+  button:disabled{ opacity:.6; cursor:not-allowed; }
 
-  .bar { height: 8px; background: #1b1b1b; border-radius: 999px; overflow: hidden; }
-  .bar > span { display: block; height: 100%; background: var(--muted); width: 0%; }
+  .bar{ height:8px; background:#1b1b1b; border-radius:999px; overflow:hidden; }
+  .bar>span{ display:block; height:100%; background:var(--muted); width:0%; }
 
-  .log {
-    background: #0e1013;
-    border: 1px dashed #3b3325;
-    border-radius: 10px;
-    padding: 10px;
-    font-size: .95rem;
-    height: 180px;
-    overflow: auto;
+  .log{
+    background:#0e1013; border:1px dashed #3b3325; border-radius:10px;
+    padding:10px; font-size:.95rem; overflow:auto;
+    min-height:160px;              /* grows with the card */
   }
-  .muted { opacity: .85; }
-  .ok { color: #8ad67a; }
-  .bad { color: #f56; }
+  .muted{ opacity:.85 } .ok{ color:#8ad67a } .bad{ color:#f56 }
 
   /* === Equipment Grid (tidy and centered) === */
-.equip-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 112px); /* three equal columns */
-  grid-auto-rows: 112px;
-  gap: 14px;
-  justify-content: center;
-  align-content: start;
-  margin-top: 8px;
-}
-
-/* each slot */
-.equip-grid .slot {
-  width: 112px !important;
-  height: 112px !important;
-  border-radius: 12px;
-  padding: 0 !important;
-  margin: 0 !important;
-  background: #0f1215;
-  border: 1px solid #3b3325;
-  position: relative;
-}
-
-/* make the rarity frame wrap properly around the slot */
-.equip-grid .slot > .rarity-frame {
-  position: absolute !important;
-  inset: 0 !important;
-  transform: none !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  z-index: 2;
-  pointer-events: none !important;
-}
-
-/* make sure the item sits below the frame */
-.equip-grid .slot > .slot-img {
-  position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  width: 88px !important;
-  height: 88px !important;
-  object-fit: contain !important;
-  z-index: 1;
-}
-
-/* name label */
-.equip-grid .slot::after {
-  content: attr(data-name);
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 18px;
-  font-size: 11px;
-  line-height: 18px;
-  text-align: center;
-  color: #e6d5a9;
-  background: linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.45));
-  border-top: 1px solid rgba(200,169,107,.22);
-}
-
-/* hide label for empty */
-.equip-grid .slot[data-name=""]::after,
-.equip-grid .slot:not([data-name])::after {
-  content: "";
-  height: 0;
-  border-top: 0;
-}
-
-
-  /* === Fixed & Stable Slots (no hover, no tooltip) === */
-  .slot {
+  .equip-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 112px);
+    grid-auto-rows:112px;
+    gap:14px;
+    justify-content:center;
+    align-content:start;
+    margin-top:8px;
+  }
+  .slot{
     contain: strict !important;
-    position: relative !important;
-    display: block !important;
-    width: 96px !important;
-    height: 96px !important;
-    padding: 0 !important;
-    margin: 0;
-    border: 1px solid #3b3325;
-    border-radius: 12px;
-    background: #0f1215;
-    overflow: hidden !important;
-    transform: translateZ(0);
-    will-change: transform;
-    color: #cbb17a;
-    font-family: "Cinzel", serif;
-    font-size: 0; line-height: 0;
-    text-align: center;
-    pointer-events: none; /* character card is non-interactive */
+    position:relative !important;
+    width:112px !important; height:112px !important;
+    padding:0 !important; margin:0 !important;
+    border:1px solid #3b3325; border-radius:12px; background:#0f1215;
+    overflow:hidden !important; transform: translateZ(0);
+    color:#cbb17a; text-align:center;
+    font-size:0; line-height:0;
   }
-  /* ensure frame overlays the icon in character slots */
-.slot > .slot-img { z-index: 1; }
-.slot > .rarity-frame { z-index: 2; }
-/* --- Character slot stacking: make frame visible above everything --- */
-.slot { position: relative; }
-.slot::before { z-index: 0; }          /* spacer sits at the bottom */
-.slot > .slot-img { z-index: 1; }       /* item icon */
-.slot > .rarity-frame {
-  z-index: 2;                           /* neon frame on top */
-  pointer-events: none;
-  mix-blend-mode: normal;
-}
-
-
-  /* Rock-solid spacer as a real element (frees ::before for lock badge) */
-  .slot-box {
-    position: absolute;
-    left: 50%; top: 50%;
-    width: 88px; height: 88px;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
+  /* solid internal spacer */
+  .slot-box{ position:absolute; left:50%; top:50%; width:88px; height:88px; transform:translate(-50%,-50%); pointer-events:none; }
+  .slot > .slot-img, .slot > .rarity-frame{
+    position:absolute !important; left:50% !important; top:50% !important; transform:translate(-50%,-50%) !important;
+  }
+  .slot > .slot-img{
+    width:88px !important; height:88px !important; object-fit:contain !important; display:block !important;
+    z-index:1; backface-visibility:hidden; pointer-events:none !important;
+  }
+  .slot > .rarity-frame{
+    position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; transform:none !important;
+    object-fit:contain !important; z-index:2; pointer-events:none !important; mix-blend-mode:normal;
   }
 
-  .slot > .slot-img,
-  /* FINAL: frame wraps the whole slot in the character grid */
-.equip-grid .slot > .rarity-frame {
-  position: absolute !important;
-  inset: 0 !important;            /* fill the 96x96 slot */
-  left: auto !important;
-  top: auto !important;
-  transform: none !important;     /* cancel old centering */
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: contain !important;
-  z-index: 2;
-  pointer-events: none !important;
-  mix-blend-mode: normal;
-}
-
-/* Make sure the icon is beneath the frame */
-.equip-grid .slot > .slot-img { z-index: 1; }
-  
-  .slot > .slot-img {
-    width: 88px !important; height: 88px !important;
-    max-width: 88px !important; max-height: 88px !important;
-    object-fit: contain !important; display: block !important;
-    backface-visibility: hidden; pointer-events: none !important;
+  /* Name strip from data-name */
+  .equip-grid .slot::after{
+    content: attr(data-name);
+    position:absolute; left:0; right:0; bottom:0; height:18px;
+    padding:0 6px; display:block; font-size:11px; line-height:18px;
+    text-align:center; color:#e6d5a9;
+    background: linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.45));
+    border-top:1px solid rgba(200,169,107,.22);
+    pointer-events:none;
   }
-  .slot > .rarity-frame {
-    inset: 0 !important; width: 100% !important; height: 100% !important;
-    object-fit: contain !important; pointer-events: none !important;
+  .equip-grid .slot[data-name=""]::after, .equip-grid .slot:not([data-name])::after{ content:""; height:0; border-top:0; }
+
+  /* Lock badge + desaturate when locked (data-locked="true", data-req="Lv 12") */
+  .equip-grid .slot[data-locked="true"] .rarity-frame{ filter:grayscale(1) brightness(.85); }
+  .equip-grid .slot[data-locked="true"]::before{
+    content:"🔒 " attr(data-req);
+    position:absolute; top:6px; left:6px; height:18px; max-width:calc(100% - 12px);
+    padding:0 8px; font-size:11px; line-height:18px; font-weight:700; color:#f3d7a4;
+    background:rgba(122,29,29,.9); border:1px solid rgba(255,255,255,.15);
+    border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.45); pointer-events:none;
+    z-index:3;
   }
 
-  .slot.empty > .slot-img { display: none !important; }
-  .slot * { transition: none !important; }
+  /* character side has no hover/tooltip */
+  .equip-grid .slot, .equip-grid .slot *{ pointer-events:none !important; }
+  #vaTooltip, .va-tip{ display:none !important; }
 
-  /* Remove hover entirely on character card */
-  .slot:hover, .slot:focus, .slot:active { filter:none !important; transform:none !important; }
-
-  /* === Power Total === */
-  .powertotal {
-    margin-top: 10px;
-    text-align: center;
-    font-size: 1.5rem;
-    font-weight: 900;
-    letter-spacing: 1px;
-    border-top: 1px solid #3b3325;
-    padding-top: 8px;
-  }
+  /* Power total */
+  .powertotal{ margin-top:10px; text-align:center; font-size:1.5rem; font-weight:900; letter-spacing:1px; border-top:1px solid #3b3325; padding-top:8px; }
 
   /* === Shop === */
-  .shop-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 0;
-    border-bottom: 1px dashed rgba(212,169,77,.15);
-    transform: translateZ(0);
-    will-change: transform;
-    contain: layout paint;
+  .shop-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .shop-item{
+    display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0;
+    border-bottom:1px dashed rgba(212,169,77,.15); contain:layout paint;
   }
-  .shop-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .shop-text { display: flex; flex-direction: column; }
-  .shop-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .shop-right { display: flex; align-items: center; gap: 10px; }
-  .shop-price { width: 60px; text-align: right; }
+  .shop-left{ display:flex; align-items:center; gap:8px; min-width:0; }
+  .shop-text{ display:flex; flex-direction:column; }
+  .shop-title{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .shop-right{ display:flex; align-items:center; gap:10px; }
+  .shop-price{ width:60px; text-align:right; }
+  .shop-thumb{ position:relative; display:inline-grid; place-items:center; width:40px; height:40px; flex:0 0 40px; overflow:hidden; }
+  .shop-img{ width:40px; height:40px; object-fit:contain; border-radius:6px; background:rgba(0,0,0,.35); box-shadow:0 0 0 1px rgba(212,169,77,.3); display:block; transform-origin:50% 50%; backface-visibility:hidden; transition:transform .18s ease, filter .18s ease; }
+  .shop-item:hover .shop-img{ transform:scale(1.02); filter:brightness(1.08); }
+  .shop-thumb .shop-frame{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; filter: drop-shadow(0 0 6px rgba(212,169,77,.45)); }
 
-  .shop-thumb {
-    position: relative;
-    display: inline-grid;
-    place-items: center;
-    width: 40px; height: 40px;
-    flex: 0 0 40px;
-    overflow: hidden;
-    will-change: contents;
-  }
-  .shop-img {
-    width: 40px; height: 40px;
-    object-fit: contain;
-    border-radius: 6px;
-    background: rgba(0,0,0,.35);
-    box-shadow: 0 0 0 1px rgba(212,169,77,.3);
-    display: block;
-    transform-origin: 50% 50%;
-    backface-visibility: hidden;
-    will-change: transform, filter;
-    transition: transform .18s ease, filter .18s ease;
-  }
-  .shop-thumb .shop-frame {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    object-fit: contain; pointer-events: none;
-    filter: drop-shadow(0 0 6px rgba(212,169,77,.45));
-  }
+  /* Back button */
+  #backToProfile{ position:fixed; top:14px; left:20px; background:#1b2228; border:1px solid #3b3325; border-radius:10px; color:var(--gold); padding:8px 12px; text-decoration:none; z-index:10000; box-shadow:0 2px 6px rgba(0,0,0,.35); }
+  #backToProfile:hover{ background:#252c32; filter:drop-shadow(0 0 4px rgba(212,169,77,.6)); }
 
-  /* === Tooltip disabled on character card === */
-  #vaTooltip, .va-tip { display: none !important; pointer-events: none !important; }
-
-  /* === Back to Profile button === */
-  #backToProfile {
-    position: fixed; top: 14px; left: 20px;
-    background: #1b2228;
-    border: 1px solid #3b3325;
-    border-radius: 10px;
-    color: var(--gold);
-    padding: 8px 12px;
-    cursor: pointer;
-    font-family: "Cinzel", serif;
-    text-decoration: none;
-    z-index: 10000;
-    box-shadow: 0 2px 6px rgba(0,0,0,.35);
-  }
-  #backToProfile:hover { background: #252c32; filter: drop-shadow(0 0 4px rgba(212,169,77,.6)); }
-
-  /* ===========================
-     EQUIPMENT BOX LABEL + LOCK
-     (gamehtml only, no hover)
-     =========================== */
-
-  /* Name strip (from data-name) */
-  .equip-grid .slot::after {
-    content: attr(data-name);
-    position: absolute; left: 0; right: 0; bottom: 0;
-    height: 18px; padding: 0 6px; display: block;
-    font-size: 11px; line-height: 18px; letter-spacing: .02em;
-    text-align: center; color: #e6d5a9;
-    background: linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.35));
-    border-top: 1px solid rgba(200,169,107,.22);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    pointer-events: none;
-  }
-  /* Hide bar when no name (single non-empty rule = no linter warning) */
-  .equip-grid .slot:is([data-name=""], :not([data-name]))::after {
-    content: ""; height: 0; border-top: 0;
-  }
-
-  /* Level-lock badge (🔒 + data-req) */
-  .equip-grid .slot[data-locked="true"] .rarity-frame { filter: grayscale(1) brightness(.85); }
-  .equip-grid .slot[data-locked="true"]::before {
-    content: "🔒 " attr(data-req);
-    position: absolute; top: 6px; left: 6px;
-    height: 18px; max-width: calc(100% - 12px);
-    padding: 0 8px;
-    font-size: 11px; line-height: 18px; font-weight: 700;
-    color: #f3d7a4;
-    background: rgba(122,29,29,.9);
-    border: 1px solid rgba(255,255,255,.15);
-    border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(0,0,0,.45);
-    pointer-events: none;
-  }
-
-  /* Safety: no transitions anywhere inside the arena cards */
-  .grid *, .card * { transition: none 0s !important; }
+  /* Small helpers */
+  .toolbar{ display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .toolbar .spacer{ flex:1 1 auto; }
   </style>
 </head>
 
@@ -359,7 +160,7 @@
   <!-- Fixed back button -->
   <a id="backToProfile" href="/profile.html">← Back to Profile</a>
 
-  <!-- Tooltip container (kept but disabled via CSS) -->
+  <!-- Tooltip container (kept for shop tooltips; CSS hides on equip grid) -->
   <div id="vaTooltip" class="va-tip" style="display:none"></div>
 
   <div class="wrap">
@@ -378,7 +179,7 @@
 
     <div class="grid">
       <!-- Left: Hero & Gear -->
-      <div class="card" style="position:relative">
+      <div id="heroCard" class="card fill">
         <div class="row">
           <div>Hero</div>
           <div id="heroNameWrap">
@@ -396,35 +197,16 @@
             <img id="avatar" src="/guildbook/girl.png" alt="avatar" style="width:100%;max-width:110px;object-fit:contain;border-radius:10px;">
           </div>
 
-          <!-- Character equipment (non-interactive) -->
           <div class="equip-grid">
-            <div class="slot" data-slot="helm"      data-name="Helm">
-              <span class="slot-box" aria-hidden="true"></span>
-            </div>
-            <div class="slot" data-slot="shoulders" data-name="Shoulders">
-              <span class="slot-box" aria-hidden="true"></span>
-            </div>
-            <div class="slot" data-slot="wings"     data-name="Wings">
-              <span class="slot-box" aria-hidden="true"></span>
-            </div>
-            <div class="slot" data-slot="ring"      data-name="Ring">
-              <span class="slot-box" aria-hidden="true"></span>
-            </div>
-            <div class="slot" data-slot="chest"     data-name="Chest">
-              <span class="slot-box" aria-hidden="true"></span>
-            </div>
-            <div class="slot" data-slot="pet"       data-name="Pet">
-              <span class="slot-box" aria-hidden="true"></span>
-            </div>
-            <div class="slot" data-slot="gloves"    data-name="Gloves">
-              <span class="slot-box" aria-hidden="true"></span>
-            </div>
-            <div class="slot" data-slot="boots"     data-name="Boots">
-              <span class="slot-box" aria-hidden="true"></span>
-            </div>
-            <div class="slot" data-slot="sylph"     data-name="Sylph">
-              <span class="slot-box" aria-hidden="true"></span>
-            </div>
+            <div class="slot" data-slot="helm"      data-name="HELM"></div>
+            <div class="slot" data-slot="shoulders" data-name="SHOULDERS"></div>
+            <div class="slot" data-slot="wings"     data-name="WINGS"></div>
+            <div class="slot" data-slot="ring"      data-name="RING"></div>
+            <div class="slot" data-slot="chest"     data-name="CHEST"></div>
+            <div class="slot" data-slot="pet"       data-name="PET"></div>
+            <div class="slot" data-slot="gloves"    data-name="GLOVES"></div>
+            <div class="slot" data-slot="boots"     data-name="BOOTS"></div>
+            <div class="slot" data-slot="sylph"     data-name="SYLPH"></div>
           </div>
         </div>
 
@@ -437,34 +219,56 @@
         <div id="battleRating" class="powertotal va-sparkle">BATTLE RATING 0</div>
       </div>
 
-      <!-- Right: Training / Actions -->
-      <div class="card">
-        <div class="row"><button id="trainPower">Train Strength (+1)</button><span class="muted">3s cd</span></div>
-        <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
-        <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
-        <hr/>
-        <div class="row"><button id="fightRandom" disabled>Battle: PvP (Lv 25+)</button><span class="muted">win gold/xp</span></div>
-        <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">passive gold/xp</span></div>
-      </div>
-    </div>
+      <!-- Right: Training / Actions + Shop toggle + Battle Log (same height as left) -->
+      <div id="actionsCard" class="card fill">
+        <div class="toolbar">
+          <div style="font-weight:700">Actions</div>
+          <span class="spacer"></span>
+          <button id="toggleShop" aria-expanded="false">Equipment Shop</button>
+        </div>
 
-    <div class="grid" style="margin-top:16px">
-      <div class="card">
-        <h3>Shop</h3>
-        <div id="shop"></div>
-      </div>
+        <div>
+          <div class="row"><button id="trainPower">Train Strength (+1)</button><span class="muted">3s cd</span></div>
+          <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
+          <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
+          <hr/>
+          <div class="row"><button id="fightRandom" disabled>Battle: PvP (Lv 25+)</button><span class="muted">win gold/xp</span></div>
+          <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">passive gold/xp</span></div>
+        </div>
 
-      <div class="card">
-        <h3>Battle Log</h3>
-        <div id="log" class="log"></div>
+        <!-- Collapsible shop panel -->
+        <div id="shopPanel" class="grow" style="display:none; margin-top:10px;">
+          <div class="shop-head"><h3 style="margin:0">Shop</h3></div>
+          <div id="shop"></div>
+        </div>
+
+        <!-- Battle Log inside the same card -->
+        <div style="margin-top:12px">
+          <h3 style="margin:0 0 6px">Battle Log</h3>
+          <div id="log" class="log"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- App script (TypeScript compiled by Vite) -->
   <script type="module" src="/src/game.ts"></script>
+
+  <!-- Tiny inline JS to toggle the shop panel -->
+  <script>
+    const toggleBtn = document.getElementById("toggleShop");
+    const panel = document.getElementById("shopPanel");
+    if (toggleBtn && panel) {
+      toggleBtn.addEventListener("click", () => {
+        const open = panel.style.display !== "none";
+        panel.style.display = open ? "none" : "block";
+        toggleBtn.setAttribute("aria-expanded", String(!open));
+      });
+    }
+  </script>
 </body>
 </html>
+
 
 
 
