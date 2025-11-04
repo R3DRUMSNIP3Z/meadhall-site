@@ -205,6 +205,66 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 
 /* === Safety: remove any global transitions inside arena to avoid micro-shifts === */
 .grid *, .card * { transition: none 0s !important; }
+/* --- Stable equipment slots (no shiver) -------------------- */
+.slot {
+  contain: strict;                 /* fully isolates size/layout/paint */
+  position: relative;              /* for absolute children */
+}
+
+/* Reserve a fixed render box so empty vs. image never changes layout */
+.slot::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 88px;                     /* matches your max-width */
+  height: 88px;                    /* matches your max-height */
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Pin all visible children inside the reserved box */
+.slot-img,
+.rarity-frame,
+.slot-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Keep the image inside the reserved box */
+.slot-img {
+  width: 88px;
+  height: 88px;
+  max-width: 88px !important;
+  max-height: 88px !important;
+  object-fit: contain;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* Rarity frame covers the slot without affecting layout */
+.rarity-frame {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* Optional: tidy empty-state label if you show text */
+.slot-label {
+  font-size: .9rem;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  padding: 0 6px;
+}
+
+/* If you use a class to mark empty slots, ensure no size jitter */
+.slot.empty .slot-img { display: none; }
+
   </style>
 </head>
 
