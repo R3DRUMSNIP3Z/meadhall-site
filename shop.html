@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 
   <style>
-    :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; }
+    :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:rgba(212,169,77,.8); }
     *{box-sizing:border-box;-webkit-font-smoothing:antialiased}
     body{ margin:0; background:var(--bg); color:var(--gold); font-family:"Cinzel",serif; }
     .wrap{ max-width:980px; margin:0 auto; padding:20px; }
@@ -22,11 +22,32 @@
 
     .card{ background:var(--card); border:1px solid #3b3325; border-radius:14px; padding:14px; }
     .row{ display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .muted{ opacity:.85 }
 
     /* Back button */
     #backBtn{ text-decoration:none; background:#1b2228; border:1px solid #3b3325; color:var(--gold);
       padding:8px 12px; border-radius:10px; display:inline-block }
     #backBtn:hover{ background:#252c32 }
+
+    /* Tabs */
+    .tabs { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px; }
+    .tab-btn {
+      background:#12171c; border:1px solid #3b3325; color:var(--gold);
+      padding:8px 12px; border-radius:10px; cursor:pointer; user-select:none;
+    }
+    .tab-btn[aria-selected="true"] {
+      background:#1b2228; box-shadow:0 0 0 1px rgba(212,169,77,.25), 0 2px 10px rgba(0,0,0,.35);
+      filter: drop-shadow(0 0 4px rgba(212,169,77,.4));
+    }
+
+    /* Brísingr balance (visible on Brísingr tab) */
+    .balance {
+      display:none; align-items:center; gap:8px; padding:6px 10px;
+      border:1px solid #3b3325; border-radius:10px; background:#0e1114;
+    }
+    .balance.show { display:inline-flex; }
+    .br-icon { width:20px; height:20px; object-fit:contain; display:block;
+      filter: drop-shadow(0 0 4px rgba(100,180,255,.45)); }
 
     /* Shop list */
     .shop-item{
@@ -37,7 +58,8 @@
     .shop-title{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .shop-sub{ opacity:.85; font-size:.95rem; }
     .shop-right{ display:flex; align-items:center; gap:10px; }
-    .shop-price{ width:64px; text-align:right; }
+    .shop-price{ display:inline-flex; align-items:center; gap:6px; min-width:70px; justify-content:flex-end; }
+    .gold-icon { width:18px; height:18px; object-fit:contain; display:block; }
 
     .shop-thumb{ position:relative; width:44px; height:44px; display:inline-grid; place-items:center; overflow:hidden; flex:0 0 44px; }
     .shop-img{ width:44px; height:44px; object-fit:contain; border-radius:6px; background:rgba(0,0,0,.35);
@@ -63,20 +85,40 @@
   <div class="wrap">
     <div class="row" style="margin-bottom:10px">
       <a id="backBtn" href="/game.html">← Back to Arena</a>
-      <div style="margin-left:auto">Gold: <strong id="gold">0</strong></div>
+      <div style="display:flex; align-items:center; gap:10px; margin-left:auto">
+        <div>Gold: <strong id="gold">0</strong></div>
+        <div id="brBalance" class="balance">
+          <img id="brIcon" class="br-icon" src="/guildbook/Currency/Br%C3%ADsingr.png" alt="Brísingr">
+          <span id="brCount">0</span>
+        </div>
+      </div>
     </div>
 
     <h1>🛡️ Equipment Shop</h1>
 
     <div class="card">
+      <!-- Tabs -->
+      <div class="tabs" role="tablist" aria-label="Shop categories">
+        <button class="tab-btn" data-tab="all" aria-selected="true"  role="tab">All</button>
+        <button class="tab-btn" data-tab="helm" role="tab">Helm</button>
+        <button class="tab-btn" data-tab="shoulders" role="tab">Shoulders</button>
+        <button class="tab-btn" data-tab="chest" role="tab">Chest</button>
+        <button class="tab-btn" data-tab="gloves" role="tab">Gloves</button>
+        <button class="tab-btn" data-tab="boots" role="tab">Boots</button>
+        <button class="tab-btn" data-tab="ring" role="tab">Ring</button>
+        <button class="tab-btn" data-tab="wings" role="tab">Wings</button>
+        <button class="tab-btn" data-tab="pet" role="tab">Pet</button>
+        <button class="tab-btn" data-tab="sylph" role="tab">Sylph</button>
+        <button class="tab-btn" data-tab="brisingr" role="tab">Brísingr</button>
+      </div>
+
       <div id="shop"></div>
     </div>
   </div>
 
   <script type="module">
     // ---------- config ----------
-    const apiBase =
-      (document.querySelector('meta[name="api-base"]')?.content || "").trim();
+    const apiBase = (document.querySelector('meta[name="api-base"]')?.content || "").trim();
 
     // ---------- user id ----------
     const LS_KEY = "mh_user";
@@ -130,7 +172,7 @@
       const slot = item.slot ? item.slot : "unknown";
       return `
         <div style="font-weight:900;margin-bottom:6px">${item.name}${setTag} <span style="opacity:.8">(${rarity})</span></div>
-        <div style="display:flex;justify-content:space-between"><span>Slot</span><span style="opacity:.85">${slot.toUpperCase()}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Slot</span><span style="opacity:.85">${String(slot).toUpperCase()}</span></div>
         <div style="display:flex;justify-content:space-between"><span>Stats</span><span style="opacity:.85">${stat}</span></div>
       `;
     }
@@ -149,28 +191,75 @@
 
     // ---------- state ----------
     let me = null;
-    let shop = [];
+    let goldItems = [];         // /api/game/shop
+    let brisingrItems = [];     // /api/game/brisingr-shop (if available)
+    let activeTab = "all";
+
+    const shopBox = document.getElementById("shop");
+    const goldEl  = document.getElementById("gold");
+    const brWrap  = document.getElementById("brBalance");
+    const brIcon  = document.getElementById("brIcon");
+    const brCount = document.getElementById("brCount");
+
+    // graceful icon fallback (accented filename)
+    brIcon?.addEventListener("error", () => { brIcon.src = "/guildbook/Currency/Brisingr.png"; });
 
     async function load(){
+      // me
       const meRes = await api("/api/game/me");
       me = meRes.me;
-      document.getElementById("gold").textContent = String(me.gold);
+      goldEl.textContent = String(me.gold ?? 0);
+      // diamond count (if present)
+      const br = (me && (me.brisingr ?? (me.diamonds ?? 0))) || 0;
+      brCount.textContent = String(br);
 
+      // gold shop
       const shopRes = await api("/api/game/shop");
-      shop = shopRes.items;
+      goldItems = shopRes.items || [];
+
+      // brisingr shop (optional)
+      try {
+        const r = await api("/api/game/brisingr-shop");
+        brisingrItems = r.items || [];
+      } catch {
+        brisingrItems = [];
+      }
 
       renderShop();
+      hookTabs();
+    }
+
+    function hookTabs(){
+      const tabs = Array.from(document.querySelectorAll(".tab-btn"));
+      tabs.forEach(btn => {
+        btn.addEventListener("click", () => {
+          tabs.forEach(b => b.setAttribute("aria-selected", "false"));
+          btn.setAttribute("aria-selected", "true");
+          activeTab = btn.dataset.tab || "all";
+          renderShop();
+        });
+      });
+    }
+
+    function currentItems(){
+      if (activeTab === "brisingr") return brisingrItems;
+      if (activeTab === "all")      return goldItems;
+      // slot filter for gold items only
+      return goldItems.filter(i => i.slot === activeTab);
     }
 
     function renderShop(){
-      const box = document.getElementById("shop");
-      box.innerHTML = "";
-      if (!me) return;
+      const items = currentItems();
+      const equipped = new Set(Object.values(me?.slots || {}));
+      shopBox.innerHTML = "";
 
-      const equipped = new Set(Object.values(me.slots || {}));
+      // Header balances visibility
+      const onBr = activeTab === "brisingr";
+      brWrap.classList.toggle("show", onBr);
 
-      shop.forEach(item => {
-        if (equipped.has(item.id)) return; // don’t show already equipped
+      items.forEach(item => {
+        // hide if already equipped (for both tabs)
+        if (equipped.has(item.id)) return;
 
         const locked = !!(item.levelReq && me.level < item.levelReq);
         const rarity = (item.rarity || "normal").toLowerCase();
@@ -188,12 +277,22 @@
               <img class="shop-frame" src="${frameUrl}" alt="">
             </span>
             <div>
-              <div class="shop-title">${item.name}${item.slot ? ` <span style="opacity:.8">[${item.slot.toUpperCase()}]</span>` : ""}${item.levelReq ? ` <span style="opacity:.8">(Lv ${item.levelReq}+)</span>` : ""}${genderLabelFor(item.set)}</div>
+              <div class="shop-title">
+                ${item.name}
+                ${item.slot ? ` <span style="opacity:.8">[${String(item.slot).toUpperCase()}]</span>` : ""}
+                ${item.levelReq ? ` <span style="opacity:.8">(Lv ${item.levelReq}+)</span>` : ""}
+                ${genderLabelFor(item.set)}
+              </div>
               <div class="shop-sub">+${item.boost} ${item.stat}</div>
             </div>
           </div>
           <div class="shop-right">
-            <div class="shop-price">${item.cost}g</div>
+            <div class="shop-price">
+              ${onBr
+                ? `<img class="br-icon" src="/guildbook/Currency/Br%C3%ADsingr.png" onerror="this.src='/guildbook/Currency/Brisingr.png'"><span>${item.costDiamonds ?? item.costDiamond ?? item.cost ?? 0}</span>`
+                : `<img class="gold-icon" src="/guildbook/Currency/gold-coin.png" alt="g" onerror="this.style.display='none'"><span>${item.cost}g</span>`
+              }
+            </div>
             <button data-id="${item.id}" ${disabled ? "disabled" : ""}>${reason}</button>
           </div>
         `;
@@ -202,28 +301,61 @@
         line.addEventListener("mousemove",  (ev)=> tipShow(ev.clientX, ev.clientY, tooltipHTML(item)));
         line.addEventListener("mouseleave", tipHide);
 
-        box.appendChild(line);
+        shopBox.appendChild(line);
       });
+    }
 
-      box.addEventListener("click", async (ev) => {
-        const btn = (ev.target).closest("button");
-        if (!btn || btn.disabled) return;
-        const id = btn.getAttribute("data-id");
-        try{
+    // Single delegated click handler (works for both tabs)
+    shopBox.addEventListener("click", async (ev) => {
+      const btn = ev.target.closest("button");
+      if (!btn || btn.disabled) return;
+      const id = btn.getAttribute("data-id");
+      btn.disabled = true;
+
+      try{
+        if (activeTab === "brisingr") {
+          // diamond purchase
+          const res = await api("/api/game/brisingr/buy", {
+            method:"POST",
+            body: JSON.stringify({ itemId: id })
+          });
+          me = res.me || me;
+          const br = (me && (me.brisingr ?? (me.diamonds ?? 0))) || 0;
+          document.getElementById("brCount").textContent = String(br);
+          // hide equipped after purchase
+          await refreshLists();
+        } else {
+          // gold purchase
           const res = await api("/api/game/shop/buy", {
             method:"POST",
             body: JSON.stringify({ itemId: id })
           });
-          me = res.me; // server returns updated me
-          document.getElementById("gold").textContent = String(me.gold);
-          renderShop(); // refresh list (removes the bought item)
-        }catch(e){
-          alert(String(e));
+          me = res.me;
+          document.getElementById("gold").textContent = String(me.gold ?? 0);
+          await refreshLists();
         }
-      }, { once:false });
+      } catch(e){
+        alert(String(e));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    async function refreshLists(){
+      // refresh me and lists so the bought item disappears
+      try {
+        const meRes = await api("/api/game/me"); me = meRes.me;
+        const shopRes = await api("/api/game/shop"); goldItems = shopRes.items || [];
+        try {
+          const r = await api("/api/game/brisingr-shop");
+          brisingrItems = r.items || [];
+        } catch { /* ignore if not present */ }
+      } catch {}
+      renderShop();
     }
 
     load().catch(e => alert(String(e)));
   </script>
 </body>
 </html>
+
