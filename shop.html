@@ -140,7 +140,8 @@
     </div>
   </div>
 
-  <script type="module">
+<!-- Load the unified game client (same include as game.html) -->
+<script type="module">
     // ---------- config ----------
     const apiBase = (document.querySelector('meta[name="api-base"]')?.content || "").trim();
 
@@ -371,6 +372,9 @@ line.innerHTML = `
 
     load().catch(e => alert(String(e)));
   </script>
+  <!-- Load the unified game client (same include as game.html) -->
+<script type="module" src="/src/game.ts"></script>
+
 </body>
 </html>
 

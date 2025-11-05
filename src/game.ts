@@ -134,13 +134,12 @@ const state = {
 
 const itemCache = new Map<string, ShopItem>();
 
-/* ---------- rarity frames ---------- */
+// rarity frames (add diamond)
 const rarityFrame: Record<string, string> = {
   normal: "/guildbook/frames/normal-frame.svg",
   epic: "/guildbook/frames/epic-frame.svg",
   legendary: "/guildbook/frames/legendary-frame.svg",
-  // NOTE: diamond UI uses normal SVG file + a CSS animation class.
-  // If you later add a dedicated diamond SVG, add a path here (e.g. diamond:"/guildbook/frames/diamond-frame.svg")
+  diamond: "/guildbook/frames/diamond-frame.svg", // ensure this file exists
 };
 
 /* ---------- fetch wrapper ---------- */
@@ -698,6 +697,7 @@ boot().catch(e => log(e.message, "bad"));
   (window as any).dev = dev;
   console.log("%cwindow.dev ready → dev.me(), dev.level(25), dev.points(50), dev.item('drengr-helm'), dev.drengr()", "color:#39ff14");
 })();
+
 
 
 
