@@ -274,107 +274,70 @@
     }
 
     function renderShop(){
-      const items = currentItems();
-      const equipped = new Set(Object.values(me?.slots || {}));
-      shopBox.innerHTML = "";
+  const items = currentItems();
+  const equipped = new Set(Object.values(me?.slots || {}));
+  shopBox.innerHTML = "";
 
-      const onBr = activeTab === "brisingr";
-const rarity = (item.rarity || "normal").toLowerCase();
-const frameUrl = onBr
-  ? rarityFrame.diamond
-  : (rarityFrame[rarity] || rarityFrame.normal);
+  const onBr = activeTab === "brisingr";
+  // show Brísingr balance only on Brísingr tab
+  if (brWrap) brWrap.classList.toggle("show", onBr);
 
-const line = document.createElement("div");
-line.className = "shop-item";
-line.innerHTML = `
-  <div class="shop-left">
-    <span class="shop-thumb">
-      <img class="shop-img" src="${item.imageUrl || ""}" alt="${item.name}">
-      <img class="shop-frame ${onBr ? "shop-frame--diamond" : ""}" src="${frameUrl}" alt="">
-    </span>
-    <div>
-      <div class="shop-title">
-        ${item.name}
-        ${item.slot ? ` <span style="opacity:.8">[${String(item.slot).toUpperCase()}]</span>` : ""}
-        ${item.levelReq ? ` <span style="opacity:.8">(Lv ${item.levelReq}+)</span>` : ""}
-        ${genderLabelFor(item.set)}
+  for (const item of items) {
+    // hide already-equipped items
+    if (equipped.has(item.id)) continue;
+
+    const locked = !!(item.levelReq && me.level < item.levelReq);
+    const gMismatch = (item.set === "drengr" && me.gender === "female")
+                   || (item.set === "skjaldmey" && me.gender === "male");
+    const disabled = locked || gMismatch;
+    const reason = gMismatch ? "Gender-locked" : (locked ? "Locked" : "Buy");
+
+    const rarity = (item.rarity || "normal").toLowerCase();
+    const frameUrl = rarityFrame[rarity] || rarityFrame.normal; // no diamond frame asset
+
+    const line = document.createElement("div");
+    line.className = "shop-item";
+    line.innerHTML = `
+      <div class="shop-left">
+        <span class="shop-thumb">
+          <img class="shop-img" src="${item.imageUrl || ""}" alt="${item.name}">
+          <img class="shop-frame ${onBr ? "shop-frame--diamond" : ""}" src="${frameUrl}" alt="">
+        </span>
+        <div>
+          <div class="shop-title">
+            ${item.name}
+            ${item.slot ? ` <span style="opacity:.8">[${String(item.slot).toUpperCase()}]</span>` : ""}
+            ${item.levelReq ? ` <span style="opacity:.8">(Lv ${item.levelReq}+)</span>` : ""}
+            ${item.set === "drengr" ? " (Male-only)" : (item.set === "skjaldmey" ? " (Female-only)" : "")}
+          </div>
+          <div class="shop-sub">+${item.boost} ${item.stat}</div>
+        </div>
       </div>
-      <div class="shop-sub">+${item.boost} ${item.stat}</div>
-    </div>
-  </div>
-  <div class="shop-right">
-    <div class="shop-price">
-      ${onBr
-        ? `<img class="br-icon" src="/guildbook/Currency/Br%C3%ADsingr.png" onerror="this.src='/guildbook/Currency/Brisingr.png'"><span>${item.costDiamonds ?? item.costDiamond ?? item.cost ?? 0}</span>`
-        : `<img class="gold-icon" src="/guildbook/Currency/gold-coin.png" alt="g" onerror="this.style.display='none'"><span>${item.cost}g</span>`
-      }
-    </div>
-    <button data-id="${item.id}" ${disabled ? "disabled" : ""}>${reason}</button>
-  </div>
-`;
+      <div class="shop-right">
+        <div class="shop-price">
+          ${
+            onBr
+              ? `<img class="br-icon" src="/guildbook/Currency/Br%C3%ADsingr.png" onerror="this.src='/guildbook/Currency/Brisingr.png'"><span>${item.costDiamonds ?? item.costDiamond ?? item.cost ?? 0}</span>`
+              : `<img class="gold-icon" src="/guildbook/Currency/gold-coin.png" alt="g" onerror="this.style.display='none'"><span>${item.cost}g</span>`
+          }
+        </div>
+        <button data-id="${item.id}" ${disabled ? "disabled" : ""}>${reason}</button>
+      </div>
+    `;
 
-        line.addEventListener("mouseenter", (ev)=> tipShow(ev.clientX, ev.clientY, tooltipHTML(item)));
-        line.addEventListener("mousemove",  (ev)=> tipShow(ev.clientX, ev.clientY, tooltipHTML(item)));
-        line.addEventListener("mouseleave", tipHide);
+    line.addEventListener("mouseenter", (ev)=> tipShow(ev.clientX, ev.clientY, tooltipHTML(item)));
+    line.addEventListener("mousemove",  (ev)=> tipShow(ev.clientX, ev.clientY, tooltipHTML(item)));
+    line.addEventListener("mouseleave", tipHide);
 
-        shopBox.appendChild(line);
-      };
-    
+    shopBox.appendChild(line);
+  }
+}
 
-    // Single delegated click handler (works for both tabs)
-    shopBox.addEventListener("click", async (ev) => {
-      const btn = ev.target.closest("button");
-      if (!btn || btn.disabled) return;
-      const id = btn.getAttribute("data-id");
-      btn.disabled = true;
-
-      try{
-        if (activeTab === "brisingr") {
-          // diamond purchase
-          const res = await api("/api/game/brisingr/buy", {
-            method:"POST",
-            body: JSON.stringify({ itemId: id })
-          });
-          me = res.me || me;
-          const br = (me && (me.brisingr ?? (me.diamonds ?? 0))) || 0;
-          document.getElementById("brCount").textContent = String(br);
-          // hide equipped after purchase
-          await refreshLists();
-        } else {
-          // gold purchase
-          const res = await api("/api/game/shop/buy", {
-            method:"POST",
-            body: JSON.stringify({ itemId: id })
-          });
-          me = res.me;
-          document.getElementById("gold").textContent = String(me.gold ?? 0);
-          await refreshLists();
-        }
-      } catch(e){
-        alert(String(e));
-      } finally {
-        btn.disabled = false;
-      }
-    });
-
-    async function refreshLists(){
-      // refresh me and lists so the bought item disappears
-      try {
-        const meRes = await api("/api/game/me"); me = meRes.me;
-        const shopRes = await api("/api/game/shop"); goldItems = shopRes.items || [];
-        try {
-          const r = await api("/api/game/brisingr-shop");
-          brisingrItems = r.items || [];
-        } catch { /* ignore if not present */ }
-      } catch {}
-      renderShop();
-    }
-
-    load().catch(e => alert(String(e)));
-  </script>
   <!-- Load the unified game client (same include as game.html) -->
-<script type="module" src="/src/game.ts"></script>
+  </script>
 
-</body>
+    <script type="module" src="/src/game.ts"></script>
+  </body>
 </html>
+
 
