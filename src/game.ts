@@ -6,7 +6,8 @@
 type Gender = "female" | "male";
 type Slot =
   | "helm" | "shoulders" | "chest" | "gloves" | "boots"
-  | "ring" | "wings" | "pet" | "sylph";
+  | "ring" | "wings" | "pet" | "sylph" | "weapon";
+
 
 type Me = {
   id?: string;
@@ -174,7 +175,7 @@ async function getItem(id: string): Promise<ShopItem | undefined> {
 /* ---------- unlocks ---------- */
 const SLOT_UNLOCK: Record<Slot, number> = {
   helm: 5, shoulders: 8, chest: 10, gloves: 12, boots: 15,
-  ring: 18, wings: 22, pet: 24, sylph: 28
+  ring: 18, wings: 22, pet: 24, sylph: 28, weapon: 1,
 };
 const PVP_UNLOCK = 25;
 
