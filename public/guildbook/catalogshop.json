@@ -33,7 +33,7 @@
     { "id": "drengr-wings", "set": "drengr", "slot": "wings", "name": "Drengr Wings", "rarity": "normal", "stat": "power", "boost": 6, "cost": 200, "levelReq": 22, "imageUrl": "/guildbook/items/drengr-wings.png" },
     { "id": "drengr-pet", "set": "drengr", "slot": "pet", "name": "Drengr Worm", "rarity": "normal", "stat": "power", "boost": 5, "cost": 180, "levelReq": 24, "imageUrl": "/guildbook/items/drengr-pet.png" },
     { "id": "drengr-sylph", "set": "drengr", "slot": "sylph", "name": "Drengr Sylph – Breeze the Airheaded", "rarity": "normal", "stat": "power", "boost": 7, "cost": 230, "levelReq": 28, "imageUrl": "/guildbook/items/drengr-sylph.png" },
-    { "id": "drengr-weapon", "set": "drengr", "slot": "weapon", "name": "Drengr Axe", "rarity": "normal", "stat": "power", "boost": 9, "cost": 250, "levelReq": 1, "imageUrl": "/guildbook/items/drengr-axe.png" },
+    { "id": "weapon", "set": "drengr", "slot": "weapon", "name": "Drengr Axe", "rarity": "normal", "stat": "power", "boost": 9, "cost": 250, "levelReq": 1, "imageUrl": "/guildbook/items/drengr-axe.png" },
 
     { "id": "skjaldmey-helm", "set": "skjaldmey", "slot": "helm", "name": "Skjaldmey Helm", "rarity": "normal", "stat": "defense", "boost": 6, "cost": 120, "levelReq": 5, "imageUrl": "/guildbook/items/skjaldmey-helm.png" },
     { "id": "skjaldmey-shoulders", "set": "skjaldmey", "slot": "shoulders", "name": "Skjaldmey Shoulders", "rarity": "normal", "stat": "defense", "boost": 5, "cost": 130, "levelReq": 8, "imageUrl": "/guildbook/items/skjaldmey-shoulders.png" },
@@ -44,7 +44,7 @@
     { "id": "skjaldmey-wings", "set": "skjaldmey", "slot": "wings", "name": "Skjaldmey Cloak", "rarity": "normal", "stat": "speed", "boost": 5, "cost": 200, "levelReq": 22, "imageUrl": "/guildbook/items/skjaldmey-wings.png" },
     { "id": "skjaldmey-pet", "set": "skjaldmey", "slot": "pet", "name": "Skjaldmey Raven", "rarity": "normal", "stat": "speed", "boost": 4, "cost": 180, "levelReq": 24, "imageUrl": "/guildbook/items/skjaldmey-pet.png" },
     { "id": "skjaldmey-sylph", "set": "skjaldmey", "slot": "sylph", "name": "Skjaldmey Sylph – Gale the Winged", "rarity": "normal", "stat": "defense", "boost": 7, "cost": 230, "levelReq": 28, "imageUrl": "/guildbook/items/skjaldmey-sylph.png" },
-    { "id": "skjaldmey-weapon", "set": "skjaldmey", "slot": "weapon", "name": "Skjaldmey Spear", "rarity": "normal", "stat": "speed", "boost": 9, "cost": 250, "levelReq": 1, "imageUrl": "/guildbook/items/skjaldmey-spear.png" }
+    { "id": "weapon", "set": "skjaldmey", "slot": "weapon", "name": "Skjaldmey Spear", "rarity": "normal", "stat": "speed", "boost": 9, "cost": 250, "levelReq": 1, "imageUrl": "/guildbook/items/skjaldmey-spear.png" }
   ]
 }
 

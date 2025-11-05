@@ -5,8 +5,10 @@
 
 type Gender = "female" | "male";
 type Slot =
+  | "weapon"
   | "helm" | "shoulders" | "chest" | "gloves" | "boots"
-  | "ring" | "wings" | "pet" | "sylph" | "weapon";
+  | "ring" | "wings" | "pet" | "sylph";
+
 
 
 type Me = {
