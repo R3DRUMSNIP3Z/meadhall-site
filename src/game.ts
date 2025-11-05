@@ -1,5 +1,6 @@
 /* ===============================
    Valhalla Ascending — src/game.ts
+   (Unified Arena + Shop logic)
    =============================== */
 
 type Gender = "female" | "male";
@@ -21,6 +22,9 @@ type Me = {
   slots?: Partial<Record<Slot, string>>;
   gearPower?: number;
   battleRating?: number;
+  // optional diamond balance names (support both)
+  brisingr?: number;
+  diamonds?: number;
 };
 
 type ShopItem = {
@@ -28,7 +32,9 @@ type ShopItem = {
   name: string;
   stat: "power" | "defense" | "speed";
   boost: number;
-  cost: number;
+  cost: number;              // gold or diamond fallback
+  costDiamonds?: number;     // preferred key for diamond shop
+  costDiamond?: number;      // alt spelling safety
   slot?: Slot;
   levelReq?: number;
   rarity?: "normal" | "epic" | "legendary";
@@ -36,7 +42,7 @@ type ShopItem = {
   set?: "drengr" | "skjaldmey";
 };
 
-type ApiMe = { me: Me };
+type ApiMe   = { me: Me };
 type ApiShop = { items: ShopItem[] };
 type FightResult = {
   me: Me;
@@ -62,22 +68,25 @@ function getUserId(): string | null {
       return obj?.id || obj?._id || obj?.user?.id || null;
     }
   } catch {}
-  // allow URL override for testing: game.html?user=<id>
+  // allow URL override for testing: ?user=<id>
   return new URLSearchParams(location.search).get("user");
 }
 const userId = getUserId();
 
 /* ---------- DOM helpers ---------- */
-const $ = (id: string) => document.getElementById(id)!;
-const logBox = $("log");
+function safeEl<T extends HTMLElement = HTMLElement>(id: string): T | null {
+  return document.getElementById(id) as T | null;
+}
 function log(msg: string, cls?: string) {
+  const logBox = safeEl<HTMLDivElement>("log");
+  if (!logBox) return;
   const p = document.createElement("div");
   if (cls) p.className = cls;
   p.textContent = msg;
   logBox.prepend(p);
 }
 
-/* ---------- tooltip (shop-only) ---------- */
+/* ---------- tooltip (used by shop; harmless on arena) ---------- */
 let tipEl = document.getElementById("vaTooltip") as HTMLDivElement | null;
 if (!tipEl) {
   tipEl = document.createElement("div");
@@ -90,109 +99,49 @@ function tipShow(x: number, y: number, html: string) {
   if (!tipEl) return;
   tipEl.innerHTML = html;
   tipEl.style.display = "block";
-  const pad = 12;
-  const w = tipEl.offsetWidth || 260;
-  const h = tipEl.offsetHeight || 120;
-  const nx = Math.min(window.innerWidth - w - pad, x + 16);
-  const ny = Math.min(window.innerHeight - h - pad, y + 16);
-  tipEl.style.left = nx + "px";
-  tipEl.style.top = ny + "px";
+  const pad = 12, w = tipEl.offsetWidth || 260, h = tipEl.offsetHeight || 120;
+  tipEl.style.left = Math.min(innerWidth - w - pad, x + 16) + "px";
+  tipEl.style.top  = Math.min(innerHeight - h - pad, y + 16) + "px";
 }
 function tipMove(ev: MouseEvent) {
   if (!tipEl || tipEl.style.display === "none") return;
   tipShow(ev.clientX, ev.clientY, tipEl.innerHTML);
 }
 function tipHide() { if (tipEl) tipEl.style.display = "none"; }
-window.addEventListener("scroll", tipHide);
-window.addEventListener("resize", tipHide);
+addEventListener("scroll", tipHide);
+addEventListener("resize", tipHide);
 
-/* ---------- image resolver ---------- */
+/* ---------- misc ---------- */
 function resolveImg(u?: string): string {
   if (!u) return "";
   if (/^https?:\/\//i.test(u)) return u;
   if (u.startsWith("/")) return u;
   return u;
 }
-
-/* ---------- item cache + lookup ---------- */
-const state: { me: Me | null; shop: ShopItem[] } = { me: null, shop: [] };
-const itemCache = new Map<string, ShopItem>();
-async function getItem(id: string): Promise<ShopItem | undefined> {
-  if (!id) return;
-  if (itemCache.has(id)) return itemCache.get(id)!;
-  const fromShop = state.shop.find(i => i.id === id);
-  if (fromShop) { itemCache.set(id, fromShop); return fromShop; }
-  try {
-    const info = await api<ShopItem>("/api/game/item/" + encodeURIComponent(id));
-    itemCache.set(id, info);
-    return info;
-  } catch { return undefined; }
+function stripHtml(s: string) {
+  return String(s || "").replace(/<[^>]*>/g, "").trim();
 }
+
+/* ---------- global state ---------- */
+const state = {
+  me: null as Me | null,
+
+  // shop page state (only populated on shop page)
+  goldItems: [] as ShopItem[],
+  brisingrItems: [] as ShopItem[],
+  activeTab: "all" as "all" | Slot | "brisingr",
+};
+
+const itemCache = new Map<string, ShopItem>();
 
 /* ---------- rarity frames ---------- */
 const rarityFrame: Record<string, string> = {
   normal: "/guildbook/frames/normal-frame.svg",
   epic: "/guildbook/frames/epic-frame.svg",
   legendary: "/guildbook/frames/legendary-frame.svg",
+  // NOTE: diamond UI uses normal SVG file + a CSS animation class.
+  // If you later add a dedicated diamond SVG, add a path here (e.g. diamond:"/guildbook/frames/diamond-frame.svg")
 };
-
-function tooltipHTML(item: ShopItem, slotKey: string) {
-  const rarity = (item.rarity || "normal");
-  const stat = `+${item.boost} ${item.stat}`;
-  const setTag = item.set ? ` <span class="muted" style="opacity:.8">[${item.set}]</span>` : "";
-  return `
-    <div class="tt-title" style="font-weight:900;margin-bottom:6px">${item.name}${setTag} <span class="muted" style="opacity:.8">(${rarity})</span></div>
-    <div class="tt-row" style="display:flex;justify-content:space-between"><span>Slot</span><span class="muted" style="opacity:.85">${capitalize(slotKey)}</span></div>
-    <div class="tt-row" style="display:flex;justify-content:space-between"><span>Stats</span><span class="muted" style="opacity:.85">${stat}</span></div>
-  `;
-}
-
-/* ---------- slot renderer (wrap equipped with neon frame) ---------- */
-function renderSlot(slotKey: string, item?: ShopItem) {
-  const el = document.querySelector(`.slot[data-slot="${slotKey}"]`) as HTMLElement | null;
-  if (!el) return;
-
-  // keep data-name attribute for the label bar
-  el.innerHTML = "";
-
-  // spacer to reserve the 88x88 box (prevents any wobble)
-  const spacer = document.createElement("span");
-  spacer.className = "slot-box";
-  el.appendChild(spacer);
-
-  // Empty: just leave the named box visible (no frame)
-  if (!item) return;
-
-  // Item icon
-  const img = document.createElement("img");
-  img.className = "slot-img";
-  img.src = resolveImg(item.imageUrl);
-  img.alt = item.name || slotKey;
-  el.appendChild(img);
-
-  // Rarity frame (defaults to normal)
-  const rarity = (item.rarity || "normal").toLowerCase();
-  const frameUrl = resolveImg(rarityFrame[rarity] || rarityFrame.normal);
-
-  const frame = document.createElement("img");
-  frame.className = "rarity-frame";
-  frame.src = frameUrl;
-  frame.alt = "";
-  el.appendChild(frame);
-
-  // Character card has no hover/tooltip—don’t attach any listeners here
-}
-
-
-  // IMPORTANT: no mouse handlers here — character grid is non-interactive
-
-
-/* ---------- unlock rules ---------- */
-const SLOT_UNLOCK: Record<Slot, number> = {
-  helm: 5, shoulders: 8, chest: 10, gloves: 12, boots: 15,
-  ring: 18, wings: 22, pet: 24, sylph: 28
-};
-const PVP_UNLOCK = 25;
 
 /* ---------- fetch wrapper ---------- */
 async function api<T = any>(path: string, opts: RequestInit = {}) {
@@ -211,172 +160,131 @@ async function api<T = any>(path: string, opts: RequestInit = {}) {
   }
   return r.json() as Promise<T>;
 }
-function stripHtml(s: string) {
-  return String(s || "").replace(/<[^>]*>/g, "").trim();
+
+/* ---------- server item lookup (for equipped slots) ---------- */
+async function getItem(id: string): Promise<ShopItem | undefined> {
+  if (!id) return;
+  if (itemCache.has(id)) return itemCache.get(id)!;
+  try {
+    const info = await api<ShopItem>("/api/game/item/" + encodeURIComponent(id));
+    itemCache.set(id, info);
+    return info;
+  } catch { return undefined; }
 }
 
-/* ---------- compute ---------- */
+/* ---------- unlocks ---------- */
+const SLOT_UNLOCK: Record<Slot, number> = {
+  helm: 5, shoulders: 8, chest: 10, gloves: 12, boots: 15,
+  ring: 18, wings: 22, pet: 24, sylph: 28
+};
+const PVP_UNLOCK = 25;
+
+/* ---------- BR ---------- */
 function clientBattleRating(m: Me): number {
   if (typeof m.battleRating === "number") return m.battleRating;
   return Math.max(0, m.power) + Math.max(0, m.defense) + Math.max(0, m.speed);
 }
 
-/* ---------- render ---------- */
-function render() {
-  const m = state.me!;
-  safeSet("heroName", m.name || "Unknown");
-  safeSet("level", String(m.level));
-  safeSet("gold", String(m.gold));
+/* =========================================================
+   ARENA: render character + stats + slots
+   ========================================================= */
+async function renderArena() {
+  const m = state.me;
+  if (!m) return;
 
-  // UI labels
-  safeSet("strength", String(m.power));
-  safeSet("defense", String(m.defense));
-  safeSet("speed", String(m.speed));
-  safeSet("points", String(m.points ?? 0));
+  // Basics
+  safeSetText("heroName", m.name || "Unknown");
+  safeSetText("level", String(m.level));
+  safeSetText("gold", String(m.gold));
 
+  // Stats
+  safeSetText("strength", String(m.power));
+  safeSetText("defense", String(m.defense));
+  safeSetText("speed", String(m.speed));
+  safeSetText("points", String(m.points ?? 0));
+
+  // XP bar
   const need = m.level * 100;
-  safeSet("xpVal", `${m.xp} / ${need}`);
-  const xpBar = $("xpBar") as HTMLSpanElement | null;
+  safeSetText("xpVal", `${m.xp} / ${need}`);
+  const xpBar = safeEl<HTMLSpanElement>("xpBar");
   if (xpBar) xpBar.style.width = Math.min(100, Math.floor((m.xp / need) * 100)) + "%";
 
-  const avatar = $("avatar") as HTMLImageElement | null;
-  if (avatar) avatar.src =
-    m.gender === "male" ? resolveImg("/guildbook/boy.png") : resolveImg("/guildbook/girl.png");
+  // Avatar
+  const avatar = safeEl<HTMLImageElement>("avatar");
+  if (avatar) {
+    avatar.src = m.gender === "male"
+      ? resolveImg("/guildbook/boy.png")
+      : resolveImg("/guildbook/girl.png");
+  }
 
-  // update each slot box
-  document.querySelectorAll<HTMLDivElement>(".slot").forEach(async (div) => {
-    const slot = div.dataset.slot as Slot;
+  // Equipment slots grid
+  const slotBoxes = Array.from(document.querySelectorAll<HTMLDivElement>(".slot"));
+  for (const box of slotBoxes) {
+    const slot = box.dataset.slot as Slot;
     const needed = SLOT_UNLOCK[slot];
     const eqId = m.slots?.[slot];
 
-    // set label text (from slot name)
-    const label = (div.getAttribute("data-name") || slot || "").toUpperCase();
-    div.setAttribute("data-name", label);
+    // label (sticky)
+    const label = (box.getAttribute("data-name") || slot || "").toUpperCase();
+    box.setAttribute("data-name", label);
 
-    // lock state
     if (m.level < needed) {
-      div.setAttribute("data-locked", "true");
-      div.setAttribute("data-req", `Lv ${needed}`);
-      div.innerHTML = '<span class="slot-box" aria-hidden="true"></span>'; // keep spacer
-      return;
+      box.setAttribute("data-locked", "true");
+      box.setAttribute("data-req", `Lv ${needed}`);
+      box.innerHTML = '<span class="slot-box" aria-hidden="true"></span>';
+      continue;
     } else {
-      div.removeAttribute("data-locked");
-      div.removeAttribute("data-req");
+      box.removeAttribute("data-locked");
+      box.removeAttribute("data-req");
     }
 
-    // render equipped item or empty
-    if (!eqId) {
-      div.innerHTML = '<span class="slot-box" aria-hidden="true"></span>';
-      return;
-    }
+    box.innerHTML = '<span class="slot-box" aria-hidden="true"></span>'; // spacer always
+    if (!eqId) continue;
+
     const it = await getItem(eqId);
-    renderSlot(slot, it);
-  });
+    if (!it) continue;
 
-  // Battle Rating display
-  safeSet("battleRating", `BATTLE RATING ${clientBattleRating(m)}`);
+    // icon
+    const img = document.createElement("img");
+    img.className = "slot-img";
+    img.src = resolveImg(it.imageUrl);
+    img.alt = it.name || slot;
+    box.appendChild(img);
 
-  // PvP enablement
-  const fightBtn = $("fightRandom") as HTMLButtonElement | null;
+    // frame
+    const rarity = (it.rarity || "normal").toLowerCase();
+    const frameUrl = resolveImg(rarityFrame[rarity] || rarityFrame.normal);
+    const frame = document.createElement("img");
+    frame.className = "rarity-frame";
+    frame.src = frameUrl;
+    frame.alt = "";
+    box.appendChild(frame);
+  }
+
+  // BR
+  safeSetText("battleRating", `BATTLE RATING ${clientBattleRating(m)}`);
+
+  // PvP gating
+  const fightBtn = safeEl<HTMLButtonElement>("fightRandom");
   if (fightBtn) fightBtn.disabled = m.level < PVP_UNLOCK;
 
-  // Allocation buttons enable/disable by points
+  // Allocate buttons (enable if has points)
   const hasPts = (m.points ?? 0) > 0;
   allocButtonsEnabled(hasPts);
 }
-
-function safeSet(id: string, text: string) {
+function safeSetText(id: string, text: string) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;
 }
 
-/* ---------- SHOP (tooltips enabled here) ---------- */
-function genderLabelFor(setId?: string): string {
-  if (!setId) return "";
-  if (setId === "drengr") return " (Male-only)";
-  if (setId === "skjaldmey") return " (Female-only)";
-  return "";
-}
-function genderMismatch(me: Me, item: ShopItem): boolean {
-  if (item.set === "drengr")  return me.gender === "female";
-  if (item.set === "skjaldmey") return me.gender === "male";
-  return false;
-}
-
-function renderShop() {
-  const box = $("shop");
-  if (!box) return;
-  box.innerHTML = "";
-  if (!state.me) return;
-
-  const me = state.me;
-  const equippedIds = new Set(Object.values(me.slots || {}));
-
-  state.shop.forEach((item) => {
-    if (equippedIds.has(item.id)) return;
-
-    const locked = !!(item.levelReq && me.level < item.levelReq);
-    const slot = item.slot ? ` <span class="muted">[${capitalize(item.slot)}]</span>` : "";
-    const req = item.levelReq ? ` <span class="muted">(Lv ${item.levelReq}+)</span>` : "";
-    const rarity = (item.rarity || "normal").toLowerCase();
-    const frameUrl = rarityFrame[rarity] || rarityFrame.normal;
-    const gMismatch = genderMismatch(me, item);
-    const gNote = genderLabelFor(item.set);
-    const disabled = locked || gMismatch;
-    const reason = gMismatch ? "Gender-locked" : (locked ? "Locked" : "Buy");
-
-    const line = document.createElement("div");
-    line.className = "shop-item";
-    line.innerHTML = `
-      <div class="shop-left">
-        <span class="shop-thumb">
-          <img class="shop-img" src="${resolveImg(item.imageUrl)}" alt="${item.name}" loading="lazy">
-          <img class="shop-frame" src="${resolveImg(frameUrl)}" alt="" onerror="this.style.display='none'">
-        </span>
-        <div class="shop-text">
-          <div class="shop-title">${item.name}${slot}${req}${gNote}</div>
-          <div class="shop-sub muted">+${item.boost} ${item.stat}</div>
-        </div>
-      </div>
-      <div class="shop-right">
-        <div class="shop-price">${item.cost}g</div>
-        <button data-id="${item.id}" ${disabled ? "disabled" : ""}>${reason}</button>
-      </div>
-    `;
-
-    // Shop tooltips only
-    line.onmouseenter = (ev) => tipShow(ev.clientX, ev.clientY, tooltipHTML(item, item.slot || "unknown"));
-    line.onmousemove = (ev) => tipMove(ev);
-    line.onmouseleave = tipHide;
-
-    box.appendChild(line);
-  });
-
-  box.onclick = async (ev) => {
-    const btn = (ev.target as HTMLElement).closest("button") as HTMLButtonElement | null;
-    if (!btn || btn.disabled) return;
-    const id = btn.getAttribute("data-id")!;
-    try {
-      const res = await api<{ me: Me; item: ShopItem }>("/api/game/shop/buy", {
-        method: "POST",
-        body: JSON.stringify({ itemId: id }),
-      });
-      state.me = res.me;
-      log(`Bought ${res.item.name} (+${res.item.boost} ${res.item.stat})`, "ok");
-      render();
-      renderShop();
-    } catch (err: any) { log("Shop error: " + err.message, "bad"); }
-  };
-}
-
-/* ---------- Allocation UI inside training card ---------- */
+/* ---------- Allocation UI ---------- */
 let allocInput: HTMLInputElement | null = null;
 let btnAllocPow: HTMLButtonElement | null = null;
 let btnAllocDef: HTMLButtonElement | null = null;
 let btnAllocSpd: HTMLButtonElement | null = null;
 
 function ensureAllocUI() {
-  const trainSpeedBtn = document.getElementById("trainSpeed") as HTMLButtonElement | null;
+  const trainSpeedBtn = safeEl<HTMLButtonElement>("trainSpeed");
   if (!trainSpeedBtn) return;
   const row = trainSpeedBtn.closest(".row") as HTMLElement | null;
   if (!row) return;
@@ -423,14 +331,14 @@ async function allocate(stat: "power"|"defense"|"speed") {
       body: JSON.stringify({ stat, amount: amt }),
     });
     state.me = r.me;
-    render();
+    await renderArena();
     log(`Allocated ${amt} → ${stat}`, "ok");
   } catch (err: any) { log("Allocate error: " + err.message, "bad"); }
 }
 
 /* ---------- RENAME ---------- */
 function hookRename() {
-  const btn = document.getElementById("renameBtn") as HTMLButtonElement | null;
+  const btn = safeEl<HTMLButtonElement>("renameBtn");
   if (!btn) return;
   btn.onclick = async () => {
     const current = state.me?.name || "";
@@ -442,95 +350,298 @@ function hookRename() {
         body: JSON.stringify({ name }),
       });
       state.me = r.me;
-      render();
+      await renderArena();
     } catch (e: any) {
       log("Rename error: " + e.message, "bad");
     }
   };
 }
 
-/* ---------- boot ---------- */
-async function loadAll() {
+/* =========================================================
+   SHOP: tabs + render + buys (only if shop DOM is present)
+   ========================================================= */
+
+// Shop DOM handles (null on arena page)
+const shopBox = document.getElementById("shop");
+const goldEl  = document.getElementById("gold");
+const brWrap  = document.getElementById("brBalance");
+const brIcon  = document.getElementById("brIcon") as HTMLImageElement | null;
+const brCount = document.getElementById("brCount");
+
+// accénted filename fallback
+brIcon?.addEventListener("error", () => { (brIcon as HTMLImageElement).src = "/guildbook/Currency/Brisingr.png"; });
+
+function onShopPage(): boolean {
+  // We consider it a shop page if #shop container exists
+  return !!shopBox;
+}
+
+function genderMismatch(me: Me, item: ShopItem): boolean {
+  if (item.set === "drengr")   return me.gender === "female";
+  if (item.set === "skjaldmey") return me.gender === "male";
+  return false;
+}
+function genderLabelFor(setId?: string): string {
+  if (!setId) return "";
+  if (setId === "drengr") return " (Male-only)";
+  if (setId === "skjaldmey") return " (Female-only)";
+  return "";
+}
+
+function currentItems(): ShopItem[] {
+  if (state.activeTab === "brisingr") return state.brisingrItems;
+  if (state.activeTab === "all")      return state.goldItems;
+  return state.goldItems.filter(i => i.slot === state.activeTab);
+}
+
+function tooltipHTML(item: ShopItem) {
+  const rarity = (item.rarity || "normal");
+  const stat = `+${item.boost} ${item.stat}`;
+  const setTag = item.set ? ` <span style="opacity:.8">[${item.set}]</span>` : "";
+  const slot = item.slot ? item.slot : "unknown";
+  return `
+    <div style="font-weight:900;margin-bottom:6px">${item.name}${setTag} <span style="opacity:.8">(${rarity})</span></div>
+    <div style="display:flex;justify-content:space-between"><span>Slot</span><span style="opacity:.85">${String(slot).toUpperCase()}</span></div>
+    <div style="display:flex;justify-content:space-between"><span>Stats</span><span style="opacity:.85">${stat}</span></div>
+  `;
+}
+
+function renderShop() {
+  if (!onShopPage()) return;
+
+  const me = state.me!;
+  const items = currentItems();
+  const equipped = new Set(Object.values(me?.slots || {}));
+
+  (shopBox as HTMLElement).innerHTML = "";
+
+  // show diamond balance only on Brísingr tab
+  const onBr = state.activeTab === "brisingr";
+  brWrap && brWrap.classList.toggle("show", onBr);
+
+  for (const item of items) {
+    if (equipped.has(item.id)) continue;
+
+    const locked = !!(item.levelReq && me.level < item.levelReq);
+    const gMismatch = genderMismatch(me, item);
+    const disabled = locked || gMismatch;
+    const reason = gMismatch ? "Gender-locked" : (locked ? "Locked" : "Buy");
+
+    const rarity = (item.rarity || "normal").toLowerCase();
+    // For diamond tab, we still use a regular frame file but add an animation class.
+    const frameUrl = resolveImg(rarityFrame[rarity] || rarityFrame.normal);
+
+    const line = document.createElement("div");
+    line.className = "shop-item";
+    line.innerHTML = `
+      <div class="shop-left">
+        <span class="shop-thumb">
+          <img class="shop-img" src="${item.imageUrl || ""}" alt="${item.name}">
+          <img class="shop-frame ${onBr ? "shop-frame--diamond" : ""}" src="${frameUrl}" alt="">
+        </span>
+        <div>
+          <div class="shop-title">
+            ${item.name}
+            ${item.slot ? ` <span style="opacity:.8">[${String(item.slot).toUpperCase()}]</span>` : ""}
+            ${item.levelReq ? ` <span style="opacity:.8">(Lv ${item.levelReq}+)</span>` : ""}
+            ${genderLabelFor(item.set)}
+          </div>
+          <div class="shop-sub">+${item.boost} ${item.stat}</div>
+        </div>
+      </div>
+      <div class="shop-right">
+        <div class="shop-price">
+          ${
+            onBr
+              ? `<img class="br-icon" src="/guildbook/Currency/Br%C3%ADsingr.png" onerror="this.src='/guildbook/Currency/Brisingr.png'"><span>${item.costDiamonds ?? item.costDiamond ?? item.cost ?? 0}</span>`
+              : `<img class="gold-icon" src="/guildbook/Currency/gold-coin.png" alt="g" onerror="this.style.display='none'"><span>${item.cost}g</span>`
+          }
+        </div>
+        <button data-id="${item.id}" ${disabled ? "disabled" : ""}>${reason}</button>
+      </div>
+    `;
+
+    line.addEventListener("mouseenter", (ev)=> tipShow(ev.clientX, ev.clientY, tooltipHTML(item)));
+    line.addEventListener("mousemove",  (ev)=> tipMove(ev));
+    line.addEventListener("mouseleave", tipHide);
+
+    (shopBox as HTMLElement).appendChild(line);
+  }
+}
+
+function hookShopTabs() {
+  if (!onShopPage()) return;
+  const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>(".tab-btn"));
+  if (!tabs.length) return;
+  tabs.forEach(btn => {
+    btn.addEventListener("click", () => {
+      tabs.forEach(b => b.setAttribute("aria-selected", "false"));
+      btn.setAttribute("aria-selected", "true");
+      state.activeTab = (btn.dataset.tab as any) || "all";
+      renderShop();
+    });
+  });
+}
+
+async function refreshShopLists() {
+  try {
+    const meRes = await api<ApiMe>("/api/game/me"); state.me = meRes.me;
+    const shopRes = await api<ApiShop>("/api/game/shop"); state.goldItems = shopRes.items || [];
+    try {
+      // brísingr shop is optional
+      const r = await api<ApiShop>("/api/game/brisingr-shop");
+      state.brisingrItems = r.items || [];
+    } catch {
+      state.brisingrItems = [];
+    }
+  } catch {}
+  renderShop();
+}
+
+/* delegated click handler — works for both tabs */
+function hookShopBuy() {
+  if (!onShopPage() || !shopBox) return;
+  shopBox.addEventListener("click", async (ev) => {
+    const btn = (ev.target as HTMLElement).closest("button") as HTMLButtonElement | null;
+    if (!btn || btn.disabled) return;
+    const id = btn.getAttribute("data-id");
+    if (!id) return;
+    btn.disabled = true;
+
+    try {
+      if (state.activeTab === "brisingr") {
+        const res = await api<ApiMe>("/api/game/brisingr/buy", {
+          method: "POST",
+          body: JSON.stringify({ itemId: id }),
+        });
+        state.me = res.me || state.me;
+        updateBalancesUI();  // update diamond header
+        await refreshShopLists();
+      } else {
+        const res = await api<ApiMe>("/api/game/shop/buy", {
+          method: "POST",
+          body: JSON.stringify({ itemId: id }),
+        });
+        state.me = res.me;
+        updateBalancesUI();
+        await refreshShopLists();
+      }
+    } catch (e:any) {
+      alert(String(e?.message || e));
+    } finally {
+      btn.disabled = false;
+    }
+  }, { passive: true });
+}
+
+function updateBalancesUI() {
+  if (!onShopPage()) return;
+  const m = state.me!;
+  if (goldEl) goldEl.textContent = String(m.gold ?? 0);
+  const br = (m.brisingr ?? m.diamonds ?? 0) as number;
+  if (brCount) brCount.textContent = String(br);
+}
+
+/* =========================================================
+   BOOTSTRAP
+   ========================================================= */
+
+async function boot() {
   if (!userId) {
     log("No user found. Open profile/login first or add ?user=<id> to the URL.", "bad");
     return;
   }
 
+  // Get me
   const meRes = await api<ApiMe>("/api/game/me");
   state.me = meRes.me;
 
-  if (!state.me.gender) {
-    $("genderPick").style.display = "block";
-    $("pickFemale").onclick = () => setGender("female");
-    $("pickMale").onclick = () => setGender("male");
+  // Gender prompt (arena page)
+  const genderPick = safeEl("genderPick");
+  if (genderPick && !state.me.gender) {
+    genderPick.style.display = "block";
+    safeEl<HTMLButtonElement>("pickFemale")?.addEventListener("click", () => setGender("female"));
+    safeEl<HTMLButtonElement>("pickMale")?.addEventListener("click", () => setGender("male"));
   }
 
-  const shopRes = await api<ApiShop>("/api/game/shop");
-  state.shop = shopRes.items;
-
+  // Arena-only bindings (bind if present)
   ensureAllocUI();
   hookRename();
 
-  // Fallback bindings so Rename/Tick always work
-  (document.getElementById("renameBtn") as HTMLButtonElement | null)?.addEventListener("click", async () => {
-    const current = state.me?.name || "";
-    const name = prompt("Enter your hero name:", current || "");
-    if (!name) return;
-    try {
-      const r = await api<ApiMe>("/api/game/rename", { method: "POST", body: JSON.stringify({ name }) });
-      state.me = r.me; render();
-    } catch (e:any) { log("Rename error: " + e.message, "bad"); }
-  });
+  const btnTrainPow = safeEl<HTMLButtonElement>("trainPower");
+  const btnTrainDef = safeEl<HTMLButtonElement>("trainDefense");
+  const btnTrainSpd = safeEl<HTMLButtonElement>("trainSpeed");
+  const btnTick     = safeEl<HTMLButtonElement>("tickNow");
+  const btnFight    = safeEl<HTMLButtonElement>("fightRandom");
 
-  (document.getElementById("tickNow") as HTMLButtonElement | null)?.addEventListener("click", async () => {
+  btnTrainPow && (btnTrainPow.onclick = () => train("power"));
+  btnTrainDef && (btnTrainDef.onclick = () => train("defense"));
+  btnTrainSpd && (btnTrainSpd.onclick = () => train("speed"));
+  btnTick     && (btnTick.onclick = async () => {
     try {
       const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
-      state.me = r.me; render(); log("Idle tick processed");
+      state.me = r.me; await renderArena(); log("Idle tick processed");
     } catch (e:any) { log("Tick error: " + e.message, "bad"); }
   });
+  btnFight && (btnFight.onclick = async () => {
+    try {
+      const r = await api<FightResult>("/api/pvp/fight", {
+        method: "POST",
+        body: JSON.stringify({ mode: "random" })
+      });
+      state.me = r.me; await renderArena();
+      log(`${r.result.win ? "Victory!" : "Defeat."} vs ${r.result.opponent.name} ΔGold ${r.result.deltaGold}, ΔXP ${r.result.deltaXP}`);
+    } catch (err: any) { log("Fight error: " + err.message, "bad"); }
+  });
 
-  render();
-  renderShop();
+  // Shop page bootstrap (only if shop DOM exists)
+  if (onShopPage()) {
+    // balances
+    updateBalancesUI();
 
-  // (keep optional toggle if you still have it in this page)
-  const toggleBtn = document.getElementById("toggleShop");
-  const panel = document.getElementById("shopPanel");
-  if (toggleBtn && panel) {
-    toggleBtn.addEventListener("click", () => {
-      const open = panel.style.display !== "none";
-      panel.style.display = open ? "none" : "block";
-      toggleBtn.setAttribute("aria-expanded", String(!open));
-    });
+    // load both lists
+    try {
+      const shopRes = await api<ApiShop>("/api/game/shop");
+      state.goldItems = shopRes.items || [];
+    } catch { state.goldItems = []; }
+
+    try {
+      const br = await api<ApiShop>("/api/game/brisingr-shop");
+      state.brisingrItems = br.items || [];
+    } catch { state.brisingrItems = []; }
+
+    // tabs + buy
+    hookShopTabs();
+    hookShopBuy();
+    renderShop();
   }
-}
 
+  // Initial arena render (safe if arena DOM exists)
+  await renderArena();
+
+  // Passive idle tick every 10s (arena stats keep moving, works on both pages)
+  setInterval(async () => {
+    try {
+      const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
+      state.me = r.me;
+      updateBalancesUI();
+      await renderArena();
+      if (onShopPage()) renderShop(); // keep locks & equipped hiding fresh
+    } catch {}
+  }, 10000);
+}
 
 async function setGender(g: Gender) {
   try {
     const res = await api<ApiMe>("/api/game/gender", { method: "POST", body: JSON.stringify({ gender: g }) });
     state.me = res.me;
-    $("genderPick").style.display = "none";
-    render();
-    renderShop(); // refresh shop for gender locks
+    const genderPick = safeEl("genderPick"); if (genderPick) genderPick.style.display = "none";
+    await renderArena();
+    if (onShopPage()) renderShop(); // refresh gender locks
   } catch (e: any) { log(e.message, "bad"); }
 }
 
-/* ---------- buttons ---------- */
-$("trainPower").onclick = () => train("power");
-$("trainDefense").onclick = () => train("defense");
-$("trainSpeed").onclick = () => train("speed");
-$("tickNow").onclick = async () => {
-  const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
-  state.me = r.me; render(); log("Idle tick processed");
-};
-$("fightRandom").onclick = async () => {
-  try {
-    const r = await api<FightResult>("/api/pvp/fight", { method: "POST", body: JSON.stringify({ mode: "random" }) });
-    state.me = r.me; render();
-    log(`${r.result.win ? "Victory!" : "Defeat."} vs ${r.result.opponent.name} ΔGold ${r.result.deltaGold}, ΔXP ${r.result.deltaXP}`);
-  } catch (err: any) { log("Fight error: " + err.message, "bad"); }
-};
-
+/* ---------- training ---------- */
 const cooldowns: Record<"power"|"defense"|"speed", number> = { power: 0, defense: 0, speed: 0 };
 async function train(stat: "power"|"defense"|"speed") {
   const now = Date.now();
@@ -538,24 +649,16 @@ async function train(stat: "power"|"defense"|"speed") {
   cooldowns[stat] = now + 3000;
   try {
     const r = await api<ApiMe>("/api/game/train", { method: "POST", body: JSON.stringify({ stat }) });
-    state.me = r.me; render(); log(`Trained ${stat} (+1)`, "ok");
+    state.me = r.me; await renderArena(); log(`Trained ${stat} (+1)`, "ok");
   } catch (err: any) { log("Train error: " + err.message, "bad"); }
 }
 
-/* passive idle tick every 10s */
-setInterval(async () => {
-  try {
-    const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
-    state.me = r.me; render();
-  } catch {}
-}, 10000);
+/* ---------- start ---------- */
+boot().catch(e => log(e.message, "bad"));
 
-function capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
-
-/* start */
-loadAll().catch(e => log(e.message, "bad"));
-
-/* ---------- Dev console helpers ---------- */
+/* =========================================================
+   Dev console helpers
+   ========================================================= */
 (() => {
   const DEV_KEY = localStorage.getItem("DEV_KEY") || "valhalla-dev";
   const initialUid = userId;
@@ -595,6 +698,7 @@ loadAll().catch(e => log(e.message, "bad"));
   (window as any).dev = dev;
   console.log("%cwindow.dev ready → dev.me(), dev.level(25), dev.points(50), dev.item('drengr-helm'), dev.drengr()", "color:#39ff14");
 })();
+
 
 
 
