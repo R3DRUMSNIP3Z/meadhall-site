@@ -67,6 +67,14 @@ const getSetBonuses = () => {
 };
 const findItem = (id) => getShop().find((i) => i.id === id);
 
+// ---- Brísingr helpers
+const diamondCost = (it) =>
+  Number.isFinite(it?.costDiamonds) ? it.costDiamonds :
+  Number.isFinite(it?.costDiamond)  ? it.costDiamond  : null;
+
+const getBrisingrShop = () =>
+  (catalog.items || []).filter(i => Number.isFinite(diamondCost(i)));
+
 // ================== GAME RULES ==================
 const SLOT_UNLOCK = {
   helm: 5, shoulders: 8, chest: 10, gloves: 12, boots: 15,
@@ -93,6 +101,7 @@ function ensure(uId) {
       level: 1,
       xp: 0,
       gold: 100,
+      brisingr: 0,        // ← Brísingr balance
       power: 5,
       defense: 5,
       speed: 5,
@@ -252,7 +261,7 @@ function install(app) {
     res.json({ me });
   });
 
-  // ---- Shop
+  // ---- Gold Shop
   router.get("/game/shop", (req, res) => res.json({ items: getShop() }));
   router.get("/game/item/:id", (req, res) => {
     const it = findItem(req.params.id);
@@ -265,6 +274,11 @@ function install(app) {
     const { itemId } = req.body || {};
     const item = findItem(itemId);
     if (!item) return res.status(404).json({ error: "No such item" });
+
+    // If the item is actually a diamond item, block here (must use diamond endpoint)
+    if (Number.isFinite(diamondCost(item))) {
+      return res.status(400).json({ error: "Use Brísingr shop for this item" });
+    }
 
     if (violatesGenderLock(me, item))
       return res.status(400).json({
@@ -284,6 +298,46 @@ function install(app) {
       return res.status(400).json({ error: "Not enough gold" });
 
     me.gold -= item.cost;
+    if (item.stat) me[item.stat] += item.boost || 0;
+    if (item.slot) me.slots[item.slot] = item.id;
+    recompute(me);
+    res.json({ me, item });
+  });
+
+  // ---- Brísingr (Diamond) Shop
+  router.get("/game/brisingr-shop", (req, res) => {
+    res.json({ items: getBrisingrShop() });
+  });
+
+  router.post("/game/brisingr/buy", express.json(), (req, res) => {
+    const me = recompute(tick(ensure(req.userId)));
+    const { itemId } = req.body || {};
+    const item = findItem(itemId);
+    if (!item) return res.status(404).json({ error: "No such item" });
+
+    const dCost = diamondCost(item);
+    if (!Number.isFinite(dCost))
+      return res.status(400).json({ error: "This is not a Brísingr item" });
+
+    if (violatesGenderLock(me, item))
+      return res.status(400).json({
+        error:
+          item.set === "drengr"
+            ? "Drengr gear is male only"
+            : "Skjaldmey gear is female only",
+      });
+
+    if (item.levelReq && me.level < item.levelReq)
+      return res.status(400).json({ error: `Requires level ${item.levelReq}` });
+    if (item.slot && me.level < (SLOT_UNLOCK[item.slot] || 0))
+      return res
+        .status(400)
+        .json({ error: `Slot locked until level ${SLOT_UNLOCK[item.slot]}` });
+
+    if ((me.brisingr ?? 0) < dCost)
+      return res.status(400).json({ error: "Not enough Brísingr" });
+
+    me.brisingr -= dCost;
     if (item.stat) me[item.stat] += item.boost || 0;
     if (item.slot) me.slots[item.slot] = item.id;
     recompute(me);
@@ -356,6 +410,13 @@ function install(app) {
     const me = ensure(req.userId);
     if (Number.isFinite(set)) me.gold = Math.max(0, set);
     else if (Number.isFinite(add)) me.gold += add;
+    res.json({ me });
+  });
+  dev.post("/brisingr", (req, res) => {
+    const { add, set } = req.body || {};
+    const me = ensure(req.userId);
+    if (Number.isFinite(set)) me.brisingr = Math.max(0, set);
+    else if (Number.isFinite(add)) me.brisingr = Math.max(0, (me.brisingr || 0) + add);
     res.json({ me });
   });
   dev.post("/xp", (req, res) => {
@@ -431,6 +492,7 @@ function install(app) {
 }
 
 module.exports = { install };
+
 
 
 
