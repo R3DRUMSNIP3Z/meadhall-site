@@ -79,7 +79,9 @@ const getBrisingrShop = () =>
 const SLOT_UNLOCK = {
   helm: 5, shoulders: 8, chest: 10, gloves: 12, boots: 15,
   ring: 18, wings: 22, pet: 24, sylph: 28,
+  weapon: 1, // ← add this so weapons are available from level 1
 };
+
 const PVP_UNLOCK = 25;
 
 // ================== DEV KEY ==================
