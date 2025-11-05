@@ -77,6 +77,30 @@
       background:#101317; color:#d4a94d; box-shadow:0 8px 30px rgba(0,0,0,.45);
       font-size:.95rem;
     }
+    /* Diamond pulse — subtle scale + glow */
+.shop-thumb .shop-frame--diamond {
+  animation: dfPulse 2.8s ease-in-out infinite;
+}
+
+@keyframes dfPulse {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 6px rgba(130, 220, 255, .35));
+  }
+  50% {
+    transform: scale(1.03);
+    filter: drop-shadow(0 0 10px rgba(160, 235, 255, .6));
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 6px rgba(130, 220, 255, .35));
+  }
+}
+/* Character slot diamond frame (if you reuse it there) */
+.rarity-frame.diamond {
+  animation: dfPulse 2.8s ease-in-out infinite;
+}
+
   </style>
 </head>
 <body>
@@ -253,57 +277,48 @@
       const equipped = new Set(Object.values(me?.slots || {}));
       shopBox.innerHTML = "";
 
-      // Header balances visibility
       const onBr = activeTab === "brisingr";
-      brWrap.classList.toggle("show", onBr);
+const rarity = (item.rarity || "normal").toLowerCase();
+const frameUrl = onBr
+  ? rarityFrame.diamond
+  : (rarityFrame[rarity] || rarityFrame.normal);
 
-      items.forEach(item => {
-        // hide if already equipped (for both tabs)
-        if (equipped.has(item.id)) return;
-
-        const locked = !!(item.levelReq && me.level < item.levelReq);
-        const rarity = (item.rarity || "normal").toLowerCase();
-        const frameUrl = rarityFrame[rarity] || rarityFrame.normal;
-        const gMismatch = genderMismatch(me, item);
-        const disabled = locked || gMismatch;
-        const reason = gMismatch ? "Gender-locked" : (locked ? "Locked" : "Buy");
-
-        const line = document.createElement("div");
-        line.className = "shop-item";
-        line.innerHTML = `
-          <div class="shop-left">
-            <span class="shop-thumb">
-              <img class="shop-img" src="${item.imageUrl || ""}" alt="${item.name}">
-              <img class="shop-frame" src="${frameUrl}" alt="">
-            </span>
-            <div>
-              <div class="shop-title">
-                ${item.name}
-                ${item.slot ? ` <span style="opacity:.8">[${String(item.slot).toUpperCase()}]</span>` : ""}
-                ${item.levelReq ? ` <span style="opacity:.8">(Lv ${item.levelReq}+)</span>` : ""}
-                ${genderLabelFor(item.set)}
-              </div>
-              <div class="shop-sub">+${item.boost} ${item.stat}</div>
-            </div>
-          </div>
-          <div class="shop-right">
-            <div class="shop-price">
-              ${onBr
-                ? `<img class="br-icon" src="/guildbook/Currency/Br%C3%ADsingr.png" onerror="this.src='/guildbook/Currency/Brisingr.png'"><span>${item.costDiamonds ?? item.costDiamond ?? item.cost ?? 0}</span>`
-                : `<img class="gold-icon" src="/guildbook/Currency/gold-coin.png" alt="g" onerror="this.style.display='none'"><span>${item.cost}g</span>`
-              }
-            </div>
-            <button data-id="${item.id}" ${disabled ? "disabled" : ""}>${reason}</button>
-          </div>
-        `;
+const line = document.createElement("div");
+line.className = "shop-item";
+line.innerHTML = `
+  <div class="shop-left">
+    <span class="shop-thumb">
+      <img class="shop-img" src="${item.imageUrl || ""}" alt="${item.name}">
+      <img class="shop-frame ${onBr ? "shop-frame--diamond" : ""}" src="${frameUrl}" alt="">
+    </span>
+    <div>
+      <div class="shop-title">
+        ${item.name}
+        ${item.slot ? ` <span style="opacity:.8">[${String(item.slot).toUpperCase()}]</span>` : ""}
+        ${item.levelReq ? ` <span style="opacity:.8">(Lv ${item.levelReq}+)</span>` : ""}
+        ${genderLabelFor(item.set)}
+      </div>
+      <div class="shop-sub">+${item.boost} ${item.stat}</div>
+    </div>
+  </div>
+  <div class="shop-right">
+    <div class="shop-price">
+      ${onBr
+        ? `<img class="br-icon" src="/guildbook/Currency/Br%C3%ADsingr.png" onerror="this.src='/guildbook/Currency/Brisingr.png'"><span>${item.costDiamonds ?? item.costDiamond ?? item.cost ?? 0}</span>`
+        : `<img class="gold-icon" src="/guildbook/Currency/gold-coin.png" alt="g" onerror="this.style.display='none'"><span>${item.cost}g</span>`
+      }
+    </div>
+    <button data-id="${item.id}" ${disabled ? "disabled" : ""}>${reason}</button>
+  </div>
+`;
 
         line.addEventListener("mouseenter", (ev)=> tipShow(ev.clientX, ev.clientY, tooltipHTML(item)));
         line.addEventListener("mousemove",  (ev)=> tipShow(ev.clientX, ev.clientY, tooltipHTML(item)));
         line.addEventListener("mouseleave", tipHide);
 
         shopBox.appendChild(line);
-      });
-    }
+      };
+    
 
     // Single delegated click handler (works for both tabs)
     shopBox.addEventListener("click", async (ev) => {
