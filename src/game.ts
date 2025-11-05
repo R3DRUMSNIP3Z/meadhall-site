@@ -62,11 +62,10 @@ function getUserId(): string | null {
       return obj?.id || obj?._id || obj?.user?.id || null;
     }
   } catch {}
-  const qs = new URLSearchParams(location.search).get("user");
-  return qs || null;
+  // allow URL override for testing: game.html?user=<id>
+  return new URLSearchParams(location.search).get("user");
 }
 const userId = getUserId();
-if (!userId) alert("Missing user. Make sure you're logged in.");
 
 /* ---------- DOM helpers ---------- */
 const $ = (id: string) => document.getElementById(id)!;
@@ -452,6 +451,11 @@ function hookRename() {
 
 /* ---------- boot ---------- */
 async function loadAll() {
+  if (!userId) {
+    log("No user found. Open profile/login first or add ?user=<id> to the URL.", "bad");
+    return;
+  }
+
   const meRes = await api<ApiMe>("/api/game/me");
   state.me = meRes.me;
 
@@ -467,10 +471,28 @@ async function loadAll() {
   ensureAllocUI();
   hookRename();
 
+  // Fallback bindings so Rename/Tick always work
+  (document.getElementById("renameBtn") as HTMLButtonElement | null)?.addEventListener("click", async () => {
+    const current = state.me?.name || "";
+    const name = prompt("Enter your hero name:", current || "");
+    if (!name) return;
+    try {
+      const r = await api<ApiMe>("/api/game/rename", { method: "POST", body: JSON.stringify({ name }) });
+      state.me = r.me; render();
+    } catch (e:any) { log("Rename error: " + e.message, "bad"); }
+  });
+
+  (document.getElementById("tickNow") as HTMLButtonElement | null)?.addEventListener("click", async () => {
+    try {
+      const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
+      state.me = r.me; render(); log("Idle tick processed");
+    } catch (e:any) { log("Tick error: " + e.message, "bad"); }
+  });
+
   render();
   renderShop();
 
-  // Optional: wire up Equipment Shop toggle if present in the page
+  // (keep optional toggle if you still have it in this page)
   const toggleBtn = document.getElementById("toggleShop");
   const panel = document.getElementById("shopPanel");
   if (toggleBtn && panel) {
@@ -481,6 +503,7 @@ async function loadAll() {
     });
   }
 }
+
 
 async function setGender(g: Gender) {
   try {
