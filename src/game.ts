@@ -659,7 +659,7 @@ async function train(stat: "power"|"defense"|"speed") {
 boot().catch(e => log(e.message, "bad"));
 
 /* =========================================================
-   Dev console helpers
+   Dev console helpers (expanded)
    ========================================================= */
 (() => {
   const DEV_KEY = localStorage.getItem("DEV_KEY") || "valhalla-dev";
@@ -682,24 +682,66 @@ boot().catch(e => log(e.message, "bad"));
   }
 
   const dev = {
+    // --- Basic info ---
     me: () => call("/api/dev/me"),
+    reset: () => call("/api/dev/reset"),
+    setKey: (k: string) => { localStorage.setItem("DEV_KEY", k); (dev as any)._key = k; return "✅ DEV_KEY set"; },
+    _key: DEV_KEY,
+
+    // --- Core Stats ---
     level: (n: number) => call("/api/dev/level", { level: n }),
     gold: (nOrOpts: number | { add?: number; set?: number }) =>
-      typeof nOrOpts === "number" ? call("/api/dev/gold", { add: nOrOpts }) : call("/api/dev/gold", nOrOpts),
+      typeof nOrOpts === "number"
+        ? call("/api/dev/gold", { add: nOrOpts })
+        : call("/api/dev/gold", nOrOpts),
     xp: (add: number) => call("/api/dev/xp", { add }),
     points: (add: number) => call("/api/dev/points", { add }),
+
+    // --- Brísingr (diamonds) ---
+    brisingr: (nOrOpts: number | { add?: number; set?: number }) =>
+      typeof nOrOpts === "number"
+        ? call("/api/dev/brisingr", { add: nOrOpts })
+        : call("/api/dev/brisingr", nOrOpts),
+
+    // --- Inventory / Items ---
     item: (id: string) => call("/api/dev/item", { itemId: id }),
     slots: (slots: Record<string, string>) => call("/api/dev/slots", { slots }),
     equipSet: (setId: string) => call("/api/dev/equip-set", { setId }),
     drengr: () => call("/api/dev/drengr"),
-    reset: () => call("/api/dev/reset"),
-    setKey: (k: string) => { localStorage.setItem("DEV_KEY", k); (dev as any)._key = k; return "DEV_KEY set"; },
-    _key: DEV_KEY,
+
+    // --- Quick combos ---
+    maxOut: async () => {
+      await dev.level(30);
+      await dev.gold({ set: 9999 });
+      await dev.points(300);
+      await dev.brisingr({ set: 9999 });
+      return dev.me();
+    },
+    rich: () => dev.gold({ add: 10000 }),
+    bless: () => dev.points(100),
+    ascend: () => dev.level(50),
+
+    // --- Quick equip shortcuts ---
+    helm: (id = "drengr-helm") => dev.item(id),
+    chest: (id = "drengr-chest") => dev.item(id),
+    weapon: (id = "drengr-weapon") => dev.item(id),
   };
 
   (window as any).dev = dev;
-  console.log("%cwindow.dev ready → dev.me(), dev.level(25), dev.points(50), dev.item('drengr-helm'), dev.drengr()", "color:#39ff14");
+
+  console.log("%cwindow.dev ready!", "color:#39ff14");
+  console.log(`
+🛠️ Dev Console Commands:
+- dev.me() → see your stats
+- dev.level(25), dev.gold(1000), dev.points(50)
+- dev.brisingr(500) → add 500 Brísingr
+- dev.item("drengr-helm") → instantly equip
+- dev.equipSet("skjaldmey") → full set
+- dev.maxOut() → god mode
+- dev.reset() → wipe state
+  `);
 })();
+
 
 
 
