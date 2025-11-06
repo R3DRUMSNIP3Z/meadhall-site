@@ -273,11 +273,47 @@ async function renderArena() {
   // Allocate buttons (enable if has points)
   const hasPts = (m.points ?? 0) > 0;
   allocButtonsEnabled(hasPts);
+
+  // Update avatar appearance based on equipped set
+  updateAvatar(m);
 }
+
+
 function safeSetText(id: string, text: string) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;
 }
+
+// ---- helper: check if a full set is equipped (all 10 slots)
+function hasFullSet(me: Me, setId: "drengr" | "skjaldmey") {
+  const need: Slot[] = ["weapon","helm","shoulders","chest","gloves","boots","ring","wings","pet","sylph"];
+  const slots = me.slots || {};
+  return need.every(s => (slots[s] || "").startsWith(setId + "-"));
+}
+
+// ---- Avatar — gender + full-set-aware (no hyphens in filenames)
+function updateAvatar(m: Me) {
+  const avatar = document.getElementById("avatar") as HTMLImageElement | null;
+  if (!avatar) return;
+
+  const drengrFull = hasFullSet(m, "drengr");
+  const skjaldFull = hasFullSet(m, "skjaldmey");
+
+  let newSrc = "";
+  if (m.gender === "male") {
+    newSrc = drengrFull ? "/guildbook/boydrengr.png" : "/guildbook/boy.png";
+  } else {
+    newSrc = skjaldFull ? "/guildbook/girlskjaldmey.png" : "/guildbook/girl.png";
+  }
+
+  avatar.style.opacity = "0";
+  setTimeout(() => {
+    avatar.src = newSrc;
+    avatar.onload = () => (avatar.style.opacity = "1");
+    avatar.onerror = () => (avatar.style.opacity = "1");
+  }, 120);
+}
+
 
 /* ---------- Allocation UI ---------- */
 let allocInput: HTMLInputElement | null = null;
