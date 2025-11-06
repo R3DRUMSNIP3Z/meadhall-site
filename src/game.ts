@@ -556,6 +556,10 @@ function hookShopTabs() {
 async function refreshShopLists() {
   try {
     const meRes = await api<ApiMe>("/api/game/me"); state.me = meRes.me;
+    console.log("[ME on load]", JSON.stringify({
+  slots: state.me?.slots, level: state.me?.level, gold: state.me?.gold
+}, null, 2));
+
     const shopRes = await api<ApiShop>("/api/game/shop"); state.goldItems = shopRes.items || [];
     try {
       // brísingr shop is optional

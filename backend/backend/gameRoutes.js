@@ -206,6 +206,8 @@ function install(app) {
   });
   router.post("/game/tick", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
+    console.log("[/game/me]", req.userId, "slots:", me.slots);
+
     res.json({ me });
   });
 
@@ -276,6 +278,11 @@ function install(app) {
     const { itemId } = req.body || {};
     const item = findItem(itemId);
     if (!item) return res.status(404).json({ error: "No such item" });
+    // No-op if already equipped in that slot
+if (item.slot && me.slots[item.slot] === item.id) {
+  return res.status(200).json({ me, item });
+}
+
 
     // If the item is actually a diamond item, block here (must use diamond endpoint)
     if (Number.isFinite(diamondCost(item))) {
@@ -316,6 +323,11 @@ function install(app) {
     const { itemId } = req.body || {};
     const item = findItem(itemId);
     if (!item) return res.status(404).json({ error: "No such item" });
+    // No-op if already equipped in that slot
+if (item.slot && me.slots[item.slot] === item.id) {
+  return res.status(200).json({ me, item });
+}
+
 
     const dCost = diamondCost(item);
     if (!Number.isFinite(dCost))
@@ -447,8 +459,13 @@ function install(app) {
     if (!it) return res.status(404).json({ error: "No such item" });
     if (violatesGenderLock(me, it))
       return res.status(400).json({ error: "Gender restricted item" });
-    if (it.stat) me[it.stat] += it.boost || 0;
-    if (it.slot) me.slots[it.slot] = it.id;
+    if (it.slot && me.slots[it.slot] === it.id) {
+  // already equipped; do nothing
+} else {
+  if (it.stat) me[it.stat] += it.boost || 0;
+  if (it.slot) me.slots[it.slot] = it.id;
+}
+
     recompute(me);
     res.json({ me, item: it });
   });
@@ -465,8 +482,13 @@ function install(app) {
     const items = getShop().filter((i) => i.set === setId);
     for (const it of items) {
       if (!violatesGenderLock(me, it)) {
-        if (it.stat) me[it.stat] += it.boost || 0;
-        if (it.slot) me.slots[it.slot] = it.id;
+        if (it.slot && me.slots[it.slot] === it.id) {
+  // skip; already equipped
+} else {
+  if (it.stat) me[it.stat] += it.boost || 0;
+  if (it.slot) me.slots[it.slot] = it.id;
+}
+
       }
     }
     recompute(me);
@@ -477,8 +499,13 @@ function install(app) {
     const items = getShop().filter((i) => i.set === "drengr");
     for (const it of items) {
       if (!violatesGenderLock(me, it)) {
-        if (it.stat) me[it.stat] += it.boost || 0;
-        if (it.slot) me.slots[it.slot] = it.id;
+        if (it.slot && me.slots[it.slot] === it.id) {
+  // skip; already equipped
+} else {
+  if (it.stat) me[it.stat] += it.boost || 0;
+  if (it.slot) me.slots[it.slot] = it.id;
+}
+
       }
     }
     recompute(me);
