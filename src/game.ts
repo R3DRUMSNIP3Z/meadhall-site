@@ -63,6 +63,7 @@ const apiBase =
 
 /* ---------- user id helpers ---------- */
 const LS_KEY = "mh_user";
+
 function getUserId(): string | null {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -74,7 +75,33 @@ function getUserId(): string | null {
   // allow URL override for testing: ?user=<id>
   return new URLSearchParams(location.search).get("user");
 }
+
+/* ---------- avatar cache helpers ---------- */
+const AVATAR_KEY = "va_avatar_src";
+
+function getSavedAvatar(): string | null {
+  try {
+    return localStorage.getItem(AVATAR_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveAvatar(src: string) {
+  try {
+    localStorage.setItem(AVATAR_KEY, src);
+  } catch {}
+}
+
 const userId = getUserId();
+
+(() => {
+  const cached = getSavedAvatar();
+  if (!cached) return;
+  const img = document.getElementById("avatar") as HTMLImageElement | null;
+  if (img) { img.src = cached; img.style.opacity = "1"; }
+})();
+
 
 /* ---------- DOM helpers ---------- */
 function safeEl<T extends HTMLElement = HTMLElement>(id: string): T | null {
@@ -306,13 +333,18 @@ function updateAvatar(m: Me) {
     newSrc = skjaldFull ? "/guildbook/girlskjaldmey.png" : "/guildbook/girl.png";
   }
 
+  // if it’s already correct, skip
+  if (avatar.src.endsWith(newSrc)) return;
+
   avatar.style.opacity = "0";
   setTimeout(() => {
+    avatar.onload = () => { avatar.style.opacity = "1"; };
+    avatar.onerror = () => { avatar.style.opacity = "1"; };
     avatar.src = newSrc;
-    avatar.onload = () => (avatar.style.opacity = "1");
-    avatar.onerror = () => (avatar.style.opacity = "1");
-  }, 120);
+    saveAvatar(newSrc); // remember for next refresh
+  }, 60);
 }
+
 
 
 /* ---------- Allocation UI ---------- */
