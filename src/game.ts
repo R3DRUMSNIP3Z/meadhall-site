@@ -212,12 +212,12 @@ async function renderArena() {
   if (xpBar) xpBar.style.width = Math.min(100, Math.floor((m.xp / need) * 100)) + "%";
 
   // Avatar
-  const avatar = safeEl<HTMLImageElement>("avatar");
-  if (avatar) {
-    avatar.src = m.gender === "male"
-      ? resolveImg("/guildbook/boy.png")
-      : resolveImg("/guildbook/girl.png");
-  }
+ // const avatar = safeEl<HTMLImageElement>("avatar");
+  //if (avatar) {
+    //avatar.src = m.gender === "male"
+      //? resolveImg("/guildbook/boy.png")
+      //: resolveImg("/guildbook/girl.png");
+  //}
 
   // Equipment slots grid
   const slotBoxes = Array.from(document.querySelectorAll<HTMLDivElement>(".slot"));
