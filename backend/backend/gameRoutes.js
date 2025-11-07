@@ -274,31 +274,58 @@ function install(app) {
   });
 
   router.post("/game/shop/buy", express.json(), (req, res) => {
-    const nextEquipped = [];
-for (const it of items) {
-  if (violatesGenderLock(me, it)) continue;
+  try {
+    const me = recompute(tick(ensure(req.userId)));
+    const { itemId } = req.body || {};
+    const item = findItem(itemId);
+    if (!item) return res.status(404).json({ error: "No such item" });
 
-  // skip if already equipped
-  if (it.slot && me.slots[it.slot] === it.id) {
-    nextEquipped.push(it.id);
-    continue;
-  }
-
-  // swap logic: remove previous boost then apply new
-  if (it.slot) {
-    const prevId = me.slots[it.slot];
-    if (prevId) {
-      const prev = findItem(prevId);
-      if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
+    // diamond items must use brisingr route
+    if (Number.isFinite(diamondCost(item))) {
+      return res.status(400).json({ error: "Use Brísingr shop for this item" });
     }
-    me.slots[it.slot] = it.id;
-  }
 
-  if (it.stat) me[it.stat] = (me[it.stat] || 0) + (it.boost || 0);
-  nextEquipped.push(it.id);
-}
-recompute(me);
-res.json({ me, equipped: nextEquipped });
+    if (violatesGenderLock(me, item)) {
+      return res.status(400).json({
+        error: item.set === "drengr" ? "Drengr gear is male only" : "Skjaldmey gear is female only",
+      });
+    }
+
+    if (item.levelReq && me.level < item.levelReq) {
+      return res.status(400).json({ error: `Requires level ${item.levelReq}` });
+    }
+    if (item.slot && me.level < (SLOT_UNLOCK[item.slot] || 0)) {
+      return res.status(400).json({ error: `Slot locked until level ${SLOT_UNLOCK[item.slot]}` });
+    }
+
+    // idempotent: already wearing it
+    if (item.slot && me.slots[item.slot] === item.id) {
+      return res.json({ me: recompute(me), item });
+    }
+
+    if (me.gold < item.cost) return res.status(400).json({ error: "Not enough gold" });
+
+    // swap: remove previous boost if replacing
+    if (item.slot) {
+      const prevId = me.slots[item.slot];
+      if (prevId) {
+        const prev = findItem(prevId);
+        if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
+      }
+      me.slots[item.slot] = item.id;
+    }
+
+    if (item.stat) me[item.stat] = (me[item.stat] || 0) + (item.boost || 0);
+    me.gold -= item.cost;
+
+    recompute(me);
+    return res.json({ me, item });
+  } catch (e) {
+    console.error("💥 /game/shop/buy error:", e);
+    return res.status(500).json({ ok:false, error: String(e.message || e) });
+  }
+});
+
 
 
 
@@ -329,7 +356,7 @@ res.json({ me, equipped: nextEquipped });
     if (item.slot) me.slots[item.slot] = item.id;
     recompute(me);
     res.json({ me, item });
-  });
+  
 
   // ---- Brísingr (Diamond) Shop
   router.get("/game/brisingr-shop", (req, res) => {
@@ -471,52 +498,18 @@ if (item.slot && me.slots[item.slot] === item.id) {
     res.json({ me });
   });
   dev.post("/item", (req, res) => {
-    const { itemId } = req.body || {};
-    const me = ensure(req.userId);
-    const it = findItem(itemId);
-    // idempotent equip for slotted items
-if (it.slot) {
-  const prevId = me.slots[it.slot];
-  if (prevId === it.id) {
-    return res.json({ me: recompute(me), item: it });
-  }
-  if (prevId) {
-    const prev = findItem(prevId);
-    if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
-  }
-}
+  const { itemId } = req.body || {};
+  const me = ensure(req.userId);
+  const it = findItem(itemId);
+  if (!it) return res.status(404).json({ error: "No such item" });
+  if (violatesGenderLock(me, it)) return res.status(400).json({ error: "Gender restricted item" });
 
-if (it.stat) me[it.stat] = (me[it.stat] || 0) + (it.boost || 0);
-if (it.slot) me.slots[it.slot] = it.id;
-
-recompute(me);
-res.json({ me, item: it });
-
-
-    recompute(me);
-    res.json({ me, item: it });
-  });
-  dev.post("/slots", (req, res) => {
-    const { slots } = req.body || {};
-    const me = ensure(req.userId);
-    me.slots = { ...me.slots, ...slots };
-    recompute(me);
-    res.json({ me });
-  });
-  dev.post("/equip-set", (req, res) => {
-    const nextEquipped = [];
-for (const it of items) {
-  if (violatesGenderLock(me, it)) continue;
-
-  // skip if already equipped
-  if (it.slot && me.slots[it.slot] === it.id) {
-    nextEquipped.push(it.id);
-    continue;
-  }
-
-  // swap logic: remove previous boost then apply new
+  // idempotent for slotted gear + proper swap
   if (it.slot) {
     const prevId = me.slots[it.slot];
+    if (prevId === it.id) {
+      return res.json({ me: recompute(me), item: it });
+    }
     if (prevId) {
       const prev = findItem(prevId);
       if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
@@ -525,12 +518,55 @@ for (const it of items) {
   }
 
   if (it.stat) me[it.stat] = (me[it.stat] || 0) + (it.boost || 0);
-  nextEquipped.push(it.id);
-}
-recompute(me);
-res.json({ me, equipped: nextEquipped });
 
+  recompute(me);
+  return res.json({ me, item: it });
+});
+
+
+
+  dev.post("/slots", (req, res) => {
+    const { slots } = req.body || {};
+    const me = ensure(req.userId);
+    me.slots = { ...me.slots, ...slots };
+    recompute(me);
+    res.json({ me });
   });
+  dev.post("/equip-set", (req, res) => {
+  const { setId } = req.body || {};
+  const me = ensure(req.userId);
+  const items = getShop().filter(i => i.set === setId);
+
+  const nextEquipped = [];
+  for (const it of items) {
+    if (violatesGenderLock(me, it)) continue;
+
+    // already equipped? skip
+    if (it.slot && me.slots[it.slot] === it.id) {
+      nextEquipped.push(it.id);
+      continue;
+    }
+
+    // swap remove previous boost
+    if (it.slot) {
+      const prevId = me.slots[it.slot];
+      if (prevId) {
+        const prev = findItem(prevId);
+        if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
+      }
+      me.slots[it.slot] = it.id;
+    }
+
+    if (it.stat) me[it.stat] = (me[it.stat] || 0) + (it.boost || 0);
+    nextEquipped.push(it.id);
+  }
+
+  recompute(me);
+  res.json({ me, equipped: nextEquipped });
+});
+
+
+  
   dev.post("/reset", (req, res) => {
     delete state[req.userId];
     res.json({ ok: true });
