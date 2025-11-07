@@ -293,6 +293,34 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
         entryId: s.metadata?.entryId || null,
       });
 
+      // --- One-time Brísingr fulfillment ---
+if (s.mode === "payment" && s.metadata?.source === "brisingr") {
+  const userId = s.metadata.userId || null;
+  const tier   = s.metadata.tier  || "";
+  const amount = brisingrForTier(tier);
+
+  if (userId && typeof app.locals.brisingrCredit === "function") {
+    try {
+      await app.locals.brisingrCredit(userId, amount);
+    } catch (e) {
+      console.error("brisingrCredit failed:", e.message);
+    }
+  }
+
+  appendRecord({
+    ts: Date.now(),
+    event: "brisingr.credited",
+    sessionId: s.id,
+    userId,
+    tier,
+    credited: amount,
+    priceId,
+  });
+
+  console.log(`💎 Credited ${amount} Brísingr to ${userId} (tier ${tier})`);
+}
+
+
       // ✅ Stamp membership (this unlocks frames the same way Mead Hall is unlocked)
       const plan = planFromPrice(priceId);
       if (plan) {
@@ -515,7 +543,7 @@ app.get("/api/subscription/by-email", (req, res) => {
   }
 });
 
-// Stripe price ids
+// --- Stripe price IDs ---
 const PRICE = {
   reader: process.env.STRIPE_PRICE_READER,
   premium: process.env.STRIPE_PRICE_PREMIUM,
@@ -525,11 +553,42 @@ const PRICE = {
 // --- membership helpers ---
 function planFromPrice(priceId) {
   if (!priceId) return null;
+
+  // Match the right Stripe price IDs to plan names
   if (priceId === PRICE.premium) return "premium";
   if (priceId === PRICE.annual)  return "annual";
   if (priceId === PRICE.reader)  return "reader";
+
+  // If no match, return null (avoid undefined)
   return null;
 }
+
+// --- One-time Brísingr recharge tiers ---
+const BRISINGR_PRICE = {
+  "100":   process.env.STRIPE_PRICE_BRISINGR_100,
+  "500":   process.env.STRIPE_PRICE_BRISINGR_500,
+  "1000":  process.env.STRIPE_PRICE_BRISINGR_1000,
+  "2000":  process.env.STRIPE_PRICE_BRISINGR_2000,
+  "5000":  process.env.STRIPE_PRICE_BRISINGR_5000,
+  "10000": process.env.STRIPE_PRICE_BRISINGR_10000,
+};
+
+// Base + bonus table for each tier
+function brisingrForTier(tier) {
+  const table = {
+    "100":   200,   // 100 + 100 bonus
+    "500":   800,   // 500 + 300 bonus
+    "1000":  1800,  // 1000 + 800 bonus
+    "2000":  6000,  // 2000 + 4000 bonus
+    "5000":  11000, // 5000 + 6000 bonus
+    "10000": 25000, // 10000 + 15000 bonus
+  };
+  return table[String(tier)] || 0;
+}
+
+
+
+
 
 function saveUsersMapToDisk() {
   const arr = [...users.values()];
@@ -636,6 +695,32 @@ app.post("/api/contest/checkout", async (req, res) => {
         uploadedAt: Date.now(),
         emailed: false,
       });
+
+      // --- Brísingr one-time checkout route ---
+app.post("/api/game/checkout/brisingr/:tier", async (req, res) => {
+  try {
+    const userId = String(req.body.userId || "");
+    const tier   = String(req.params.tier || "");
+    const price  = BRISINGR_PRICE[tier];
+
+    if (!userId) return res.status(400).send("userId required");
+    if (!price)  return res.status(400).send("Unknown tier");
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [{ price, quantity: 1 }],
+      success_url: `${CLIENT_URL}/game.html?success=true`,
+      cancel_url:  `${CLIENT_URL}/game.html?canceled=true`,
+      metadata: { userId, source: "brisingr", tier },
+    });
+
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error("brisingr checkout failed:", e);
+    res.status(500).send("Checkout failed");
+  }
+});
+
     }
 
     if (!entryId) return res.status(400).send("Missing entryId");
