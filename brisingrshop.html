@@ -92,12 +92,11 @@
 
   <div class="wrap">
     <h1>
-  <img src="/guildbook/Currency/Br%C3%ADsingr.png" alt="Brísingr"
-       style="width:26px;height:26px;vertical-align:middle;margin-right:8px;
-              filter:drop-shadow(0 0 6px rgba(130,220,255,.5));">
-  Brísingr Shop
-</h1>
-
+      <img src="/guildbook/Currency/Br%C3%ADsingr.png" alt="Brísingr"
+           style="width:26px;height:26px;vertical-align:middle;margin-right:8px;
+                  filter:drop-shadow(0 0 6px rgba(130,220,255,.5));">
+      Brísingr Shop
+    </h1>
 
     <div class="card">
       <div class="toolbar">
@@ -171,18 +170,6 @@
     window.addEventListener("scroll", tipHide);
     window.addEventListener("resize", tipHide);
 
-    function tooltipHTML(item) {
-      const rarity = (item.rarity || "normal");
-      const stat = `+${item.boost} ${item.stat}`;
-      const slot = item.slot ? String(item.slot).charAt(0).toUpperCase() + String(item.slot).slice(1) : "Unknown";
-      const setTag = item.set ? ` <span class="muted-line">[${item.set}]</span>` : "";
-      return `
-        <div class="tt-title">${item.name}${setTag} <span class="muted-line">(${rarity})</span></div>
-        <div class="muted-line">Slot: ${slot}</div>
-        <div class="muted-line">Stats: ${stat}</div>
-      `;
-    }
-
     async function api(path, opts = {}) {
       const r = await fetch(apiBase + path, {
         ...opts,
@@ -199,67 +186,81 @@
     // ---- State ----
     const state = { me: null, items: [] };
 
+    // --- Recharge packages (edit bonuses/prices anytime) ---
+    const PACKAGES = [
+      { id:"pack100",   amount:100,   bonus:100,   price:0.99  },
+      { id:"pack500",   amount:500,   bonus:300,   price:4.99  },
+      { id:"pack1000",  amount:1000,  bonus:800,   price:9.99  },
+      { id:"pack2000",  amount:2000,  bonus:2000,  price:19.99 },
+      { id:"pack5000",  amount:5000,  bonus:6000,  price:49.99 },
+      { id:"pack10000", amount:10000, bonus:15000, price:99.99 },
+    ];
+
+    // where your images live; change the folder if needed
+    const PACK_IMG_BASE = "/guildbook/Packages/";
+
+    // build filename that tolerates the accent (falls back to non-accent)
+    function packImg(amount){
+      const withAccent = `${PACK_IMG_BASE}${amount}Br%C3%ADsingr.png`;
+      const noAccent   = `${PACK_IMG_BASE}${amount}Brisingr.png`;
+      return { withAccent, noAccent };
+    }
+
     function setBrisingrCount(n) { $("brCount").textContent = String(n ?? 0); }
 
     function renderShop() {
       const box = $("shop");
       box.innerHTML = "";
 
-      state.items.forEach(item => {
-        const rarity = (item.rarity || "normal").toLowerCase();
-        const frameUrl = rarityFrame[rarity] || rarityFrame.normal;
-        const cost = item.costDiamonds ?? item.costDiamond ?? item.cost; // flexible naming
+      PACKAGES.forEach(p => {
+        const total = p.amount + (p.bonus || 0);
+        const { withAccent, noAccent } = packImg(p.amount);
 
         const line = document.createElement("div");
         line.className = "shop-item";
         line.innerHTML = `
           <div class="shop-left">
             <span class="shop-thumb">
-              <img class="shop-img" src="${resolveImg(item.imageUrl)}" alt="${item.name}">
-              <img class="shop-frame" src="${resolveImg(frameUrl)}" alt="">
+              <img class="shop-img" src="${withAccent}" onerror="this.src='${noAccent}'" alt="${p.amount} Brísingr">
             </span>
             <div class="shop-text">
-              <div class="shop-title">${item.name}${item.levelReq ? ` <span class="muted">(Lv ${item.levelReq}+)</span>` : ""}</div>
-              <div class="shop-sub muted">+${item.boost} ${item.stat}${item.slot ? ` • ${String(item.slot).toUpperCase()}` : ""}</div>
+              <div class="shop-title">
+                ${p.amount.toLocaleString()} Brísingr
+                <span class="muted"> + ${p.bonus.toLocaleString()} Bonus</span>
+              </div>
+              <div class="shop-sub">
+                Total: <strong>${total.toLocaleString()} Brísingr</strong>
+              </div>
             </div>
           </div>
           <div class="shop-right">
             <div class="price">
-              <img class="br-icon" src="/guildbook/Currency/Br%C3%ADsingr.png" alt="Brísingr" onerror="this.src='/guildbook/Currency/Brisingr.png'">
-              <span>${cost ?? 0}</span>
+              <span>$${p.price.toFixed(2)}</span>
             </div>
-            <button class="game-btn buy-btn" data-id="${item.id}">Buy</button>
+            <button class="game-btn buy-btn" data-sku="${p.id}">Buy</button>
           </div>
         `;
 
-        line.onmouseenter = (ev) => tipShow(ev.clientX, ev.clientY, tooltipHTML(item));
-        line.onmousemove = (ev) => tipMove(ev);
+        // Optional tooltip reuse
+        line.onmouseenter = (ev) => tipShow(ev.clientX, ev.clientY, `
+          <div class="tt-title">${p.amount} Brísingr <span class="muted-line">(+${p.bonus} bonus)</span></div>
+          <div class="muted-line">Total after purchase: ${total.toLocaleString()}</div>
+          <div class="muted-line">Price: $${p.price.toFixed(2)}</div>
+        `);
+        line.onmousemove  = (ev) => tipMove(ev);
         line.onmouseleave = tipHide;
 
         box.appendChild(line);
       });
 
-      box.addEventListener("click", async (ev) => {
+      // Click → handoff to your account/checkout with SKU.
+      // Swap to Stripe Checkout session create when ready.
+      box.addEventListener("click", (ev) => {
         const btn = ev.target.closest(".buy-btn");
         if (!btn) return;
-        const id = btn.getAttribute("data-id");
-        btn.disabled = true;
-        try {
-          const res = await api("/api/game/brisingr/buy", {
-            method: "POST",
-            body: JSON.stringify({ itemId: id }),
-          });
-          state.me = res.me || state.me;
-          const br = (state.me && (state.me.brisingr ?? (state.me.diamonds ?? 0))) || 0;
-          setBrisingrCount(br);
-          // naive refresh to hide purchased item if server omits it from list next time
-          await loadItems();
-        } catch (e) {
-          alert((e && e.message) ? e.message : "Purchase failed.");
-        } finally {
-          btn.disabled = false;
-        }
-      });
+        const sku = btn.getAttribute("data-sku") || "";
+        location.href = `/account.html#brisingr?sku=${encodeURIComponent(sku)}`;
+      }, { passive: true });
     }
 
     async function loadMe() {
@@ -271,13 +272,9 @@
       } catch {}
     }
 
+    // For recharge page we don't load items from server—use fixed packages
     async function loadItems() {
-      try {
-        const r = await api("/api/game/brisingr-shop");
-        state.items = r.items || [];
-      } catch {
-        state.items = [];
-      }
+      state.items = PACKAGES;
       renderShop();
     }
 
@@ -293,3 +290,4 @@
   </script>
 </body>
 </html>
+
