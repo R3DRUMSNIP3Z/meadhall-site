@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+  <defs>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4.2" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <linearGradient id="epicGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8a2be2"/>
+      <stop offset="50%" stop-color="#a13aff"/>
+      <stop offset="100%" stop-color="#d281ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Single neon border (no animation, fits perfectly) -->
+  <g filter="url(#glow)">
+    <rect x="1.5" y="1.5" width="97" height="97" rx="10" ry="10"
+          fill="none"
+          stroke="url(#epicGradient)"
+          stroke-width="3"
+          vector-effect="non-scaling-stroke"/>
+  </g>
+</svg>
