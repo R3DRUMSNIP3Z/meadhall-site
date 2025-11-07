@@ -270,10 +270,14 @@ function packImg(amount){
         try {
           btn.disabled = true;
           const r = await fetch(`${apiBase}/api/game/checkout/brisingr/${tier}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId }),
-          });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-user-id": userId,              // ✅ FIX — send header
+  },
+  body: JSON.stringify({ userId }),   // safe metadata for webhook
+});
+
 
           if (!r.ok) throw new Error(await r.text());
           const { url } = await r.json();
