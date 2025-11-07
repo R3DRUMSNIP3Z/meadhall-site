@@ -79,13 +79,13 @@ function getUserId(): string | null {
 /* ---------- avatar cache helpers ---------- */
 const AVATAR_KEY = "va_avatar_src";
 
-function getSavedAvatar(): string | null {
-  try {
-    return localStorage.getItem(AVATAR_KEY);
-  } catch {
-    return null;
-  }
-}
+//function getSavedAvatar(): string | null {
+ // try {
+  //  return localStorage.getItem(AVATAR_KEY);
+ // } catch {
+  //  return null;
+ // }
+//}
 
 function saveAvatar(src: string) {
   try {
@@ -95,12 +95,7 @@ function saveAvatar(src: string) {
 
 const userId = getUserId();
 
-(() => {
-  const cached = getSavedAvatar();
-  if (!cached) return;
-  const img = document.getElementById("avatar") as HTMLImageElement | null;
-  if (img) { img.src = cached; img.style.opacity = "1"; }
-})();
+
 
 
 /* ---------- DOM helpers ---------- */
@@ -163,6 +158,21 @@ const state = {
 };
 
 const itemCache = new Map<string, ShopItem>();
+// --- Item index built once to avoid per-slot fetch jitter ---
+let itemIndex: Record<string, ShopItem> = Object.create(null);
+
+async function preloadItemIndex() {
+  try {
+    const r = await api<ApiShop>("/api/game/shop");
+    const list = r.items || [];
+    itemIndex = Object.fromEntries(list.map(it => [it.id, it]));
+    // hydrate cache too
+    for (const it of list) itemCache.set(it.id, it);
+  } catch {
+    itemIndex = Object.create(null);
+  }
+}
+
 
 // rarity frames (add diamond)
 const rarityFrame: Record<string, string> = {
@@ -191,15 +201,15 @@ async function api<T = any>(path: string, opts: RequestInit = {}) {
 }
 
 /* ---------- server item lookup (for equipped slots) ---------- */
-async function getItem(id: string): Promise<ShopItem | undefined> {
-  if (!id) return;
-  if (itemCache.has(id)) return itemCache.get(id)!;
-  try {
-    const info = await api<ShopItem>("/api/game/item/" + encodeURIComponent(id));
-    itemCache.set(id, info);
-    return info;
-  } catch { return undefined; }
-}
+//async function getItem(id: string): Promise<ShopItem | undefined> {
+ // if (!id) return;
+ // if (itemCache.has(id)) return itemCache.get(id)!;
+ // try {
+   // const info = await api<ShopItem>("/api/game/item/" + encodeURIComponent(id));
+   // itemCache.set(id, info);
+  //  return info;
+  //} catch { return undefined; }
+//}
 
 /* ---------- unlocks ---------- */
 const SLOT_UNLOCK: Record<Slot, number> = {
@@ -270,7 +280,7 @@ async function renderArena() {
     box.innerHTML = '<span class="slot-box" aria-hidden="true"></span>'; // spacer always
     if (!eqId) continue;
 
-    const it = await getItem(eqId);
+    const it = itemIndex[eqId] || itemCache.get(eqId);
     if (!it) continue;
 
     // icon
@@ -629,6 +639,8 @@ async function boot() {
   // Get me
   const meRes = await api<ApiMe>("/api/game/me");
   state.me = meRes.me;
+  await preloadItemIndex(); // build item index so slots render in one pass
+
 
   // Gender prompt (arena page)
   const genderPick = safeEl("genderPick");
