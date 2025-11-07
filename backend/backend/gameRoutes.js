@@ -332,6 +332,44 @@ function install(app) {
     
 
   // ---- Brísingr (Diamond) Shop
+    // === Brísingr Recharge Checkout (Stripe) ===
+  router.post("/game/checkout/brisingr/:tier", express.json(), async (req, res) => {
+    try {
+      const { tier } = req.params;
+      const { userId } = req.body || {};
+      const xuid = req.get("x-user-id") || userId;
+      if (!xuid) return res.status(400).json({ error: "Missing x-user-id" });
+
+      // Map tiers → Stripe Price IDs
+      const PRICES = {
+        "100":   process.env.STRIPE_PRICE_READER,   // $0.99
+        "500":   process.env.STRIPE_PRICE_PREMIUM,  // $4.99
+        "1000":  process.env.STRIPE_PRICE_ANNUAL,   // $9.99
+         "2000": process.env.STRIPE_PRICE_2000,
+         "5000": process.env.STRIPE_PRICE_5000,
+         "10000": process.env.STRIPE_PRICE_10000,
+      };
+
+      const priceId = PRICES[tier];
+      if (!priceId) return res.status(400).json({ error: `Unknown tier: ${tier}` });
+
+      const stripe = require("stripe")(process.env.STRIPE_SECRET);
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${process.env.CLIENT_URL}/game.html?success=1`,
+        cancel_url: `${process.env.CLIENT_URL}/brisingrshop.html?cancel=1`,
+        metadata: { userId: xuid, tier },
+      });
+
+      res.json({ url: session.url });
+    } catch (err) {
+      console.error("Stripe checkout error:", err);
+      res.status(500).json({ error: err.message || String(err) });
+    }
+  });
+
   router.get("/game/brisingr-shop", (req, res) => {
     res.json({ items: getBrisingrShop() });
   });
@@ -547,6 +585,26 @@ if (item.slot && me.slots[item.slot] === item.id) {
 
   router.use("/dev", dev);
   app.use("/api", router);
+    // Expose credit helper for webhook usage
+  app.locals.brisingrCredit = (userId, amount) => {
+    const u = users.get(userId);
+    if (!u) {
+      console.warn(`⚠️ User ${userId} not found for Brísingr credit`);
+      return;
+    }
+    const add = Number(amount || 0);
+
+    // Update in-memory state if present
+    const me = state[userId];
+    if (me) me.brisingr = (me.brisingr || 0) + add;
+
+    // Persist to users map
+    u.brisingr = (u.brisingr || 0) + add;
+    users.set(u.id, u);
+
+    console.log(`💰 Added ${add} Brísingr to ${u.name || u.id}`);
+  };
+
 }
 // --- Expose credit helper for Stripe webhook ---
 app.locals.brisingrCredit = (userId, amount) => {
