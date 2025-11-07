@@ -24,10 +24,11 @@ const chatGlobal = require("./chatGlobal");
 const galleryRoutes = require("./galleryRoutes"); // ⬅️ gallery API
 const notifications = require("./notifications");
 const gameRoutes = require("./gameRoutes");
-app.locals.brisingrCredit = gameRoutes.brisingrCredit; // <-- add this line
-
 
 const app = express();
+
+// expose credit helper for webhook fulfillment
+app.locals.brisingrCredit = gameRoutes.brisingrCredit;
 
 // very small request logger
 app.use((req, _res, next) => { console.log(`[req] ${req.method} ${req.url}`); next(); });
