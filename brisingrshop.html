@@ -138,38 +138,6 @@
     const $ = (id) => document.getElementById(id);
     const tooltip = $("vaTooltip");
 
-    function resolveImg(u) {
-      if (!u) return "";
-      if (/^https?:\/\//i.test(u)) return u;
-      if (u.startsWith("/")) return u;
-      return u;
-    }
-
-    const rarityFrame = {
-      normal: "/guildbook/frames/normal-frame.svg",
-      epic: "/guildbook/frames/epic-frame.svg",
-      legendary: "/guildbook/frames/legendary-frame.svg",
-    };
-
-    function tipShow(x, y, html) {
-      tooltip.innerHTML = html;
-      tooltip.style.display = "block";
-      const pad = 12;
-      const w = tooltip.offsetWidth || 260;
-      const h = tooltip.offsetHeight || 120;
-      const nx = Math.min(window.innerWidth - w - pad, x + 16);
-      const ny = Math.min(window.innerHeight - h - pad, y + 16);
-      tooltip.style.left = nx + "px";
-      tooltip.style.top = ny + "px";
-    }
-    function tipMove(ev) {
-      if (tooltip.style.display === "none") return;
-      tipShow(ev.clientX, ev.clientY, tooltip.innerHTML);
-    }
-    function tipHide(){ tooltip.style.display = "none"; }
-    window.addEventListener("scroll", tipHide);
-    window.addEventListener("resize", tipHide);
-
     async function api(path, opts = {}) {
       const r = await fetch(apiBase + path, {
         ...opts,
@@ -196,7 +164,7 @@
       { id:"pack10000", amount:10000, bonus:15000, price:99.99 },
     ];
 
-    // where your images live; change the folder if needed
+    // where your images live; packages go in /guildbook/Packages/
     const PACK_IMG_BASE = "/guildbook/Packages/";
 
     // build filename that tolerates the accent (falls back to non-accent)
@@ -206,7 +174,9 @@
       return { withAccent, noAccent };
     }
 
-    function setBrisingrCount(n) { $("brCount").textContent = String(n ?? 0); }
+    function setBrisingrCount(n) {
+      $("brCount").textContent = String(n ?? 0);
+    }
 
     function renderShop() {
       const box = $("shop");
@@ -252,17 +222,71 @@
 
         box.appendChild(line);
       });
+    }
 
-      // Click → handoff to your account/checkout with SKU.
-      // Swap to Stripe Checkout session create when ready.
-      box.addEventListener("click", (ev) => {
+    function tipShow(x, y, html) {
+      tooltip.innerHTML = html;
+      tooltip.style.display = "block";
+      const pad = 12;
+      const w = tooltip.offsetWidth || 260;
+      const h = tooltip.offsetHeight || 120;
+      const nx = Math.min(window.innerWidth - w - pad, x + 16);
+      const ny = Math.min(window.innerHeight - h - pad, y + 16);
+      tooltip.style.left = nx + "px";
+      tooltip.style.top = ny + "px";
+    }
+    function tipMove(ev) {
+      if (tooltip.style.display === "none") return;
+      tipShow(ev.clientX, ev.clientY, tooltip.innerHTML);
+    }
+    function tipHide(){ tooltip.style.display = "none"; }
+    window.addEventListener("scroll", tipHide);
+    window.addEventListener("resize", tipHide);
+
+    // === Stripe Checkout integration for Brísingr packages ===
+    const shopBox = document.getElementById("shop");
+    if (shopBox) {
+      shopBox.addEventListener("click", async (ev) => {
         const btn = ev.target.closest(".buy-btn");
         if (!btn) return;
+
+        // Map button SKU to Stripe tiers
         const sku = btn.getAttribute("data-sku") || "";
-        location.href = `/account.html#brisingr?sku=${encodeURIComponent(sku)}`;
+        const skuToTier = {
+          pack100:   "100",
+          pack500:   "500",
+          pack1000:  "1000",
+          pack2000:  "2000",
+          pack5000:  "5000",
+          pack10000: "10000",
+        };
+
+        const tier = skuToTier[sku];
+        if (!tier) { alert("Unknown package."); return; }
+        if (!userId) { alert("Missing user. Please log in first."); return; }
+
+        try {
+          btn.disabled = true;
+          const r = await fetch(`${apiBase}/api/game/checkout/brisingr/${tier}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId }),
+          });
+
+          if (!r.ok) throw new Error(await r.text());
+          const { url } = await r.json();
+          if (!url) throw new Error("No checkout URL returned");
+          location.href = url; // redirect to Stripe Checkout
+        } catch (e) {
+          console.error(e);
+          alert("Checkout failed: " + (e?.message || e));
+        } finally {
+          btn.disabled = false;
+        }
       }, { passive: true });
     }
 
+    // === Player data + Shop rendering ===
     async function loadMe() {
       try {
         const r = await api("/api/game/me");
@@ -280,14 +304,15 @@
 
     // Icon fallback if the accent filename isn’t present in hosting
     const icon = document.getElementById("brIcon");
-    icon?.addEventListener("error", () => { icon.src = "/guildbook/Currency/Brisingr.png"; });
+    icon?.addEventListener("error", () => {
+      icon.src = "/guildbook/Currency/Brisingr.png";
+    });
 
     // Boot
-    (async function boot(){
+    (async function boot() {
       await loadMe();
       await loadItems();
     })();
   </script>
 </body>
 </html>
-
