@@ -168,11 +168,13 @@
     const PACK_IMG_BASE = "/guildbook/Packages/";
 
     // build filename that tolerates the accent (falls back to non-accent)
-    function packImg(amount){
-      const withAccent = `${PACK_IMG_BASE}${amount}Br%C3%ADsingr.png`;
-      const noAccent   = `${PACK_IMG_BASE}${amount}Brisingr.png`;
-      return { withAccent, noAccent };
-    }
+// Your files are named: Brísingr100.png, Brísingr500.png, ...
+function packImg(amount){
+  const withAccent = `${PACK_IMG_BASE}Br%C3%ADsingr${amount}.png`; // Brísingr100.png
+  const noAccent   = `${PACK_IMG_BASE}Brisingr${amount}.png`;     // Brisingr100.png (fallback)
+  return { withAccent, noAccent };
+}
+
 
     function setBrisingrCount(n) {
       $("brCount").textContent = String(n ?? 0);
