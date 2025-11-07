@@ -274,14 +274,32 @@ function install(app) {
   });
 
   router.post("/game/shop/buy", express.json(), (req, res) => {
-    const me = recompute(tick(ensure(req.userId)));
-    const { itemId } = req.body || {};
-    const item = findItem(itemId);
-    if (!item) return res.status(404).json({ error: "No such item" });
-    // No-op if already equipped in that slot
-if (item.slot && me.slots[item.slot] === item.id) {
-  return res.status(200).json({ me, item });
+    const nextEquipped = [];
+for (const it of items) {
+  if (violatesGenderLock(me, it)) continue;
+
+  // skip if already equipped
+  if (it.slot && me.slots[it.slot] === it.id) {
+    nextEquipped.push(it.id);
+    continue;
+  }
+
+  // swap logic: remove previous boost then apply new
+  if (it.slot) {
+    const prevId = me.slots[it.slot];
+    if (prevId) {
+      const prev = findItem(prevId);
+      if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
+    }
+    me.slots[it.slot] = it.id;
+  }
+
+  if (it.stat) me[it.stat] = (me[it.stat] || 0) + (it.boost || 0);
+  nextEquipped.push(it.id);
 }
+recompute(me);
+res.json({ me, equipped: nextEquipped });
+
 
 
     // If the item is actually a diamond item, block here (must use diamond endpoint)
@@ -456,15 +474,24 @@ if (item.slot && me.slots[item.slot] === item.id) {
     const { itemId } = req.body || {};
     const me = ensure(req.userId);
     const it = findItem(itemId);
-    if (!it) return res.status(404).json({ error: "No such item" });
-    if (violatesGenderLock(me, it))
-      return res.status(400).json({ error: "Gender restricted item" });
-    if (it.slot && me.slots[it.slot] === it.id) {
-  // already equipped; do nothing
-} else {
-  if (it.stat) me[it.stat] += it.boost || 0;
-  if (it.slot) me.slots[it.slot] = it.id;
+    // idempotent equip for slotted items
+if (it.slot) {
+  const prevId = me.slots[it.slot];
+  if (prevId === it.id) {
+    return res.json({ me: recompute(me), item: it });
+  }
+  if (prevId) {
+    const prev = findItem(prevId);
+    if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
+  }
 }
+
+if (it.stat) me[it.stat] = (me[it.stat] || 0) + (it.boost || 0);
+if (it.slot) me.slots[it.slot] = it.id;
+
+recompute(me);
+res.json({ me, item: it });
+
 
     recompute(me);
     res.json({ me, item: it });
@@ -477,39 +504,32 @@ if (item.slot && me.slots[item.slot] === item.id) {
     res.json({ me });
   });
   dev.post("/equip-set", (req, res) => {
-    const { setId } = req.body || {};
-    const me = ensure(req.userId);
-    const items = getShop().filter((i) => i.set === setId);
-    for (const it of items) {
-      if (!violatesGenderLock(me, it)) {
-        if (it.slot && me.slots[it.slot] === it.id) {
-  // skip; already equipped
-} else {
-  if (it.stat) me[it.stat] += it.boost || 0;
-  if (it.slot) me.slots[it.slot] = it.id;
-}
+    const nextEquipped = [];
+for (const it of items) {
+  if (violatesGenderLock(me, it)) continue;
 
-      }
-    }
-    recompute(me);
-    res.json({ me, equipped: items.map((i) => i.id) });
-  });
-  dev.post("/drengr", (req, res) => {
-    const me = ensure(req.userId);
-    const items = getShop().filter((i) => i.set === "drengr");
-    for (const it of items) {
-      if (!violatesGenderLock(me, it)) {
-        if (it.slot && me.slots[it.slot] === it.id) {
-  // skip; already equipped
-} else {
-  if (it.stat) me[it.stat] += it.boost || 0;
-  if (it.slot) me.slots[it.slot] = it.id;
-}
+  // skip if already equipped
+  if (it.slot && me.slots[it.slot] === it.id) {
+    nextEquipped.push(it.id);
+    continue;
+  }
 
-      }
+  // swap logic: remove previous boost then apply new
+  if (it.slot) {
+    const prevId = me.slots[it.slot];
+    if (prevId) {
+      const prev = findItem(prevId);
+      if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
     }
-    recompute(me);
-    res.json({ me, equipped: items.map((i) => i.id) });
+    me.slots[it.slot] = it.id;
+  }
+
+  if (it.stat) me[it.stat] = (me[it.stat] || 0) + (it.boost || 0);
+  nextEquipped.push(it.id);
+}
+recompute(me);
+res.json({ me, equipped: nextEquipped });
+
   });
   dev.post("/reset", (req, res) => {
     delete state[req.userId];
