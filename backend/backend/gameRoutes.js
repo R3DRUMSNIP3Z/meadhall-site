@@ -606,29 +606,27 @@ if (item.slot && me.slots[item.slot] === item.id) {
   };
 
 }
-// --- Expose credit helper for Stripe webhook ---
-app.locals.brisingrCredit = (userId, amount) => {
+// --- Brísingr credit helper (no direct app reference) ---
+function brisingrCredit(userId, amount) {
   const u = users.get(userId);
   if (!u) {
     console.warn(`⚠️ User ${userId} not found for Brísingr credit`);
     return;
   }
 
-  // If the user exists in the in-memory state too, update both
+  // in-memory state (for live session)
   const me = state[userId];
-  if (me) {
-    me.brisingr = (me.brisingr || 0) + Number(amount || 0);
-  }
+  if (me) me.brisingr = (me.brisingr || 0) + Number(amount || 0);
 
-  // Persist to users map (for long-term data)
+  // persist to users map (simple DB)
   u.brisingr = (u.brisingr || 0) + Number(amount || 0);
   users.set(u.id, u);
 
   console.log(`💰 Added ${amount} Brísingr to ${u.name} (${u.id})`);
-};
+}
 
+module.exports = { install, brisingrCredit };
 
-module.exports = { install };
 
 
 

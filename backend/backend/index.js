@@ -24,6 +24,8 @@ const chatGlobal = require("./chatGlobal");
 const galleryRoutes = require("./galleryRoutes"); // ⬅️ gallery API
 const notifications = require("./notifications");
 const gameRoutes = require("./gameRoutes");
+app.locals.brisingrCredit = gameRoutes.brisingrCredit; // <-- add this line
+
 
 const app = express();
 
@@ -640,6 +642,31 @@ app.post("/api/stripe/checkout", async (req, res) => {
     res.status(500).send("Checkout failed");
   }
 });
+// --- Brísingr one-time checkout route ---
+app.post("/api/game/checkout/brisingr/:tier", async (req, res) => {
+  try {
+    const userId = String(req.body.userId || "");
+    const tier   = String(req.params.tier || "");
+    const price  = BRISINGR_PRICE[tier];
+
+    if (!userId) return res.status(400).send("userId required");
+    if (!price)  return res.status(400).send("Unknown tier");
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [{ price, quantity: 1 }],
+      success_url: `${CLIENT_URL}/game.html?success=true`,
+      cancel_url:  `${CLIENT_URL}/game.html?canceled=true`,
+      metadata: { userId, source: "brisingr", tier },
+    });
+
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error("brisingr checkout failed:", e);
+    res.status(500).send("Checkout failed");
+  }
+});
+
 
 /* ==============================
    CONTEST: upload + $1 checkout
@@ -696,30 +723,9 @@ app.post("/api/contest/checkout", async (req, res) => {
         emailed: false,
       });
 
-      // --- Brísingr one-time checkout route ---
-app.post("/api/game/checkout/brisingr/:tier", async (req, res) => {
-  try {
-    const userId = String(req.body.userId || "");
-    const tier   = String(req.params.tier || "");
-    const price  = BRISINGR_PRICE[tier];
+  
 
-    if (!userId) return res.status(400).send("userId required");
-    if (!price)  return res.status(400).send("Unknown tier");
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [{ price, quantity: 1 }],
-      success_url: `${CLIENT_URL}/game.html?success=true`,
-      cancel_url:  `${CLIENT_URL}/game.html?canceled=true`,
-      metadata: { userId, source: "brisingr", tier },
-    });
-
-    res.json({ url: session.url });
-  } catch (e) {
-    console.error("brisingr checkout failed:", e);
-    res.status(500).send("Checkout failed");
-  }
-});
+ 
 
     }
 
