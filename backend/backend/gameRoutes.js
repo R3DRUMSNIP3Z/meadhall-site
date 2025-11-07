@@ -329,34 +329,7 @@ function install(app) {
 
 
 
-    // If the item is actually a diamond item, block here (must use diamond endpoint)
-    if (Number.isFinite(diamondCost(item))) {
-      return res.status(400).json({ error: "Use Brísingr shop for this item" });
-    }
-
-    if (violatesGenderLock(me, item))
-      return res.status(400).json({
-        error:
-          item.set === "drengr"
-            ? "Drengr gear is male only"
-            : "Skjaldmey gear is female only",
-      });
-
-    if (item.levelReq && me.level < item.levelReq)
-      return res.status(400).json({ error: `Requires level ${item.levelReq}` });
-    if (item.slot && me.level < (SLOT_UNLOCK[item.slot] || 0))
-      return res
-        .status(400)
-        .json({ error: `Slot locked until level ${SLOT_UNLOCK[item.slot]}` });
-    if (me.gold < item.cost)
-      return res.status(400).json({ error: "Not enough gold" });
-
-    me.gold -= item.cost;
-    if (item.stat) me[item.stat] += item.boost || 0;
-    if (item.slot) me.slots[item.slot] = item.id;
-    recompute(me);
-    res.json({ me, item });
-  
+    
 
   // ---- Brísingr (Diamond) Shop
   router.get("/game/brisingr-shop", (req, res) => {
