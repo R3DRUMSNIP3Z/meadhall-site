@@ -254,6 +254,16 @@
 .qm-reward{ opacity:.95; }
 .qm-status{ opacity:.85; }
 
+#heroTitle {
+  display:flex; align-items:center; gap:8px;
+  font-weight:900;
+}
+#heroBadge img, #heroBadge svg {
+  height:34px; width:auto; display:block;
+  filter: drop-shadow(0 0 6px rgba(212,169,77,.4));
+}
+
+
 
 
 
@@ -283,14 +293,15 @@
 
     <div class="grid">
   <!-- Left: Hero -->
-  <div id="heroCard" class="card">
-    <div class="row">
+  <div class="row">
   <div id="heroTitle">Hero</div>
+  <div id="heroBadge" aria-label="Race badge" style="margin-left:8px;"></div>
   <div id="heroNameWrap">
     <span id="heroName">—</span>
     <button id="renameBtn" title="Rename">✏️</button>
   </div>
 </div>
+
 
     <div class="row"><div>Level</div><div id="level">1</div></div>
     <div class="row"><div>XP</div><div id="xpVal">0 / 100</div></div>
@@ -571,7 +582,55 @@
   }
 })();
 </script>
+<!-- === Race Badge + Title Update === -->
+<script>
+  function getUserId() {
+    try {
+      const raw = localStorage.getItem('mh_user');
+      if (raw) {
+        const obj = JSON.parse(raw);
+        return obj?.id || obj?._id || obj?.user?.id || null;
+      }
+    } catch {}
+    return new URLSearchParams(location.search).get('user');
+  }
+  const UID = getUserId() || 'guest';
+  const userKey = (base) => `${base}__${UID}`;
+  const RACE_KEY = userKey('va_race');
 
+  function currentRace() { return localStorage.getItem(RACE_KEY); }
+
+  function renderRaceBadge() {
+    const badgeContainer = document.getElementById("heroBadge");
+    const titleEl = document.getElementById("heroTitle");
+    if (!badgeContainer || !titleEl) return;
+
+    const race = currentRace();
+    if (!race) {
+      badgeContainer.innerHTML = "";
+      titleEl.textContent = "Hero";
+      titleEl.classList.remove('va-sparkle');
+      return;
+    }
+
+    const srcMap = {
+      myriador:  "/guildbook/badges/myriadorian.svg",
+      dreadheim: "/guildbook/badges/dreadheimer.svg",
+      wildwood:  "/guildbook/badges/wildwooder.svg"
+    };
+    const label = race === "myriador" ? "Myriador"
+                : race === "dreadheim" ? "Dreadheim"
+                : "Wildwood";
+
+    titleEl.textContent = label;
+    titleEl.classList.add('va-sparkle');
+
+    const src = srcMap[race];
+    badgeContainer.innerHTML = src ? `<img src="${src}" alt="${label} badge" loading="eager">` : "";
+  }
+
+  renderRaceBadge();
+</script>
 
 
 <script type="module" src="/src/game.ts"></script>

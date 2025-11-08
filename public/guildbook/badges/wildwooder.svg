@@ -1,0 +1,71 @@
+<svg width="340" height="120" viewBox="0 0 340 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Forest plate gradient -->
+    <linearGradient id="forestPlate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1d2b1d"/>
+      <stop offset="50%" stop-color="#0f1c10"/>
+      <stop offset="100%" stop-color="#071207"/>
+    </linearGradient>
+
+    <!-- Subtle wooden rim -->
+    <linearGradient id="forestRim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3a492f"/>
+      <stop offset="50%" stop-color="#647d52"/>
+      <stop offset="100%" stop-color="#3a492f"/>
+    </linearGradient>
+
+    <!-- Animated text gradient (moss → jade → gold) -->
+    <linearGradient id="forestText" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3d7f3d"/>
+      <stop offset="40%" stop-color="#4db24d"/>
+      <stop offset="60%" stop-color="#e7d97f"/>
+      <stop offset="100%" stop-color="#3d7f3d"/>
+      <animateTransform attributeName="gradientTransform" type="translate"
+        from="-0.25 0" to="0.25 0" dur="3s" repeatCount="indefinite"/>
+    </linearGradient>
+
+    <!-- Gentle glow -->
+    <filter id="forestGlow" x="-30%" y="-50%" width="160%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Sheen mask -->
+    <linearGradient id="sheenGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"  stop-color="rgba(255,255,255,0)"/>
+      <stop offset="50%" stop-color="rgba(255,255,255,0.9)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+    <mask id="sheenMask">
+      <rect width="340" height="120" fill="black"/>
+      <rect x="-140" y="20" width="120" height="80" fill="url(#sheenGrad)">
+        <animate attributeName="x" from="-160" to="380" dur="3s" repeatCount="indefinite"/>
+      </rect>
+    </mask>
+  </defs>
+
+  <!-- Plate -->
+  <rect x="6" y="6" width="328" height="108" rx="18" ry="18" fill="url(#forestPlate)"/>
+  <rect x="6" y="6" width="328" height="108" rx="18" ry="18"
+        fill="none" stroke="url(#forestRim)" stroke-width="2"/>
+
+  <!-- Title text -->
+  <g filter="url(#forestGlow)">
+    <text x="170" y="70" text-anchor="middle"
+          font-family="Cinzel, serif" font-size="34" font-weight="700"
+          fill="url(#forestText)" stroke="#1a3d1a" stroke-width="1.3"
+          paint-order="stroke fill" letter-spacing="1.5">
+      WILDWOODER
+    </text>
+    <text x="170" y="70" text-anchor="middle"
+          font-family="Cinzel, serif" font-size="34" font-weight="700"
+          fill="white" opacity="0.3" mask="url(#sheenMask)" letter-spacing="1.5">
+      WILDWOODER
+    </text>
+  </g>
+</svg>
