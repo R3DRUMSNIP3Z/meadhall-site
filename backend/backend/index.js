@@ -950,8 +950,7 @@ app.post("/api/notifications/mark-read", (req, res) => {
   return res.json({ ok: true, updated: Array.isArray(ids) ? ids.length : 0 });
 });
 
-// ⬅️ Mount the gallery routes (uses app.locals.uploadsDir)
-galleryRoutes.install(app);
+
 
 /* ======== Friends-of-User (public read-only) — used by friendprofile.html ======== */
 function safeUser(u) {

@@ -186,7 +186,9 @@ async function fetchGallery(): Promise<Photo[]> {
   ];
   for (const u of endpoints) {
     try {
-      const r = await fetch(u);
+      const r = await fetch(u, {
+  headers: { "x-user-id": currentUser!.id } // ADD
+});
       if (!r.ok) continue;
       const data = await r.json();
       const list = Array.isArray(data?.items) ? data.items : data;
@@ -238,7 +240,10 @@ async function deletePhotoOnServer(photoId: string): Promise<void> {
   ];
   for (const u of urls) {
     try {
-      const r = await fetch(u, { method: "DELETE" });
+      const r = await fetch(u, {
+  method: "DELETE",
+  headers: { "x-user-id": currentUser!.id } // ADD
+});
       if (r.ok || r.status === 204) return;
     } catch {}
   }
