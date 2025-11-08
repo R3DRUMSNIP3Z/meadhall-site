@@ -282,81 +282,105 @@
     </div>
 
     <div class="grid">
-      <!-- Left: Hero -->
-      <div id="heroCard" class="card">
-        <div class="row">
-          <div>Hero</div>
-          <div id="heroNameWrap">
-            <span id="heroName">—</span>
-            <button id="renameBtn" title="Rename">✏️</button>
-          </div>
-        </div>
-        <div class="row"><div>Level</div><div id="level">1</div></div>
-        <div class="row"><div>XP</div><div id="xpVal">0 / 100</div></div>
-        <div class="bar"><span id="xpBar"></span></div>
-        <div class="row"><div>Gold</div><div id="gold">0</div></div>
+  <!-- Left: Hero -->
+  <div id="heroCard" class="card">
+    <div class="row">
+      <div>Hero</div>
+      <div id="heroNameWrap">
+        <span id="heroName">—</span>
+        <button id="renameBtn" title="Rename">✏️</button>
+      </div>
+    </div>
+    <div class="row"><div>Level</div><div id="level">1</div></div>
+    <div class="row"><div>XP</div><div id="xpVal">0 / 100</div></div>
+    <div class="bar"><span id="xpBar"></span></div>
+    <div class="row"><div>Gold</div><div id="gold">0</div></div>
 
-        <div style="display:grid;grid-template-columns:120px 1fr;gap:12px;margin-top:12px;">
-  <div style="display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid #3b3325;border-radius:12px;padding:6px;">
-    <img id="avatar" alt="avatar"
-         style="width:100%;max-width:110px;object-fit:contain;border-radius:10px;opacity:0">
-  </div>
-
-
-          <div class="equip-grid">
-            <div class="slot" data-slot="helm" data-name="HELM"></div>
-            <div class="slot" data-slot="shoulders" data-name="SHOULDERS"></div>
-            <div class="slot" data-slot="wings" data-name="WINGS"></div>
-            <div class="slot" data-slot="ring" data-name="RING"></div>
-            <div class="slot" data-slot="chest" data-name="CHEST"></div>
-            <div class="slot" data-slot="pet" data-name="PET"></div>
-            <div class="slot" data-slot="gloves" data-name="GLOVES"></div>
-            <div class="slot" data-slot="boots" data-name="BOOTS"></div>
-            <div class="slot" data-slot="sylph" data-name="SYLPH"></div>
-            <div class="slot" data-slot="weapon" data-name="WEAPON"></div>
-          </div>
-        </div>
-
-        <div class="row" style="margin-top:8px"><div class="stat">Strength</div><div id="strength">0</div></div>
-        <div class="row"><div class="stat">Defense</div><div id="defense">0</div></div>
-        <div class="row"><div class="stat">Speed</div><div id="speed">0</div></div>
-        <div class="row"><div>Unspent Points</div><div id="points">0</div></div>
-
-        <div id="battleRating" class="powertotal va-sparkle">BATTLE RATING 0</div>
+    <div style="display:grid;grid-template-columns:120px 1fr;gap:12px;margin-top:12px;">
+      <div style="display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid #3b3325;border-radius:12px;padding:6px;">
+        <img id="avatar" alt="avatar"
+             style="width:100%;max-width:110px;object-fit:contain;border-radius:10px;opacity:0">
       </div>
 
-      <!-- Right: Actions + Shop links + Log -->
-<div id="actionsCard" class="card">
-  <div class="actions-head">
-    <div style="font-weight:700">Actions</div>
-    <div class="actions-buttons">
-      <a id="openShop" href="/shop.html" class="game-btn">Equipment Shop</a>
-      <a id="openBrisingr" href="/brisingrshop.html" class="game-btn">
-        <img src="/guildbook/Currency/Brísingr.png" alt="Brísingr" class="currency-icon">
-        Brísingr Shop
-      </a>
-      <button id="openQuests" type="button" class="game-btn">📜 Quests</button>
+      <div class="equip-grid">
+        <div class="slot" data-slot="helm" data-name="HELM"></div>
+        <div class="slot" data-slot="shoulders" data-name="SHOULDERS"></div>
+        <div class="slot" data-slot="wings" data-name="WINGS"></div>
+        <div class="slot" data-slot="ring" data-name="RING"></div>
+        <div class="slot" data-slot="chest" data-name="CHEST"></div>
+        <div class="slot" data-slot="pet" data-name="PET"></div>
+        <div class="slot" data-slot="gloves" data-name="GLOVES"></div>
+        <div class="slot" data-slot="boots" data-name="BOOTS"></div>
+        <div class="slot" data-slot="sylph" data-name="SYLPH"></div>
+        <div class="slot" data-slot="weapon" data-name="WEAPON"></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:8px"><div class="stat">Strength</div><div id="strength">0</div></div>
+    <div class="row"><div class="stat">Defense</div><div id="defense">0</div></div>
+    <div class="row"><div class="stat">Speed</div><div id="speed">0</div></div>
+    <div class="row"><div>Unspent Points</div><div id="points">0</div></div>
+
+    <div id="battleRating" class="powertotal va-sparkle">BATTLE RATING 0</div>
+  </div>
+
+  <!-- Right: Actions + Shop links + Log -->
+  <div id="actionsCard" class="card">
+    <div class="actions-head">
+      <div style="font-weight:700">Actions</div>
+      <div class="actions-buttons">
+        <a id="openShop" href="/shop.html" class="game-btn">Equipment Shop</a>
+        <a id="openBrisingr" href="/brisingrshop.html" class="game-btn">
+          <img src="/guildbook/Currency/Brísingr.png" alt="Brísingr" class="currency-icon">
+          Brísingr Shop
+        </a>
+        <button id="openQuests" type="button" class="game-btn">📜 Quests</button>
+      </div>
+    </div>
+
+    <hr class="soft">
+
+    <!-- Training + Battle section -->
+    <div>
+      <div class="row"><button id="trainPower">Train Strength (+1)</button><span class="muted">3s cd</span></div>
+      <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
+      <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
+      <hr/>
+      <div class="row"><button id="fightRandom" disabled>Battle: PvP (Lv 25+)</button><span class="muted">win gold/xp</span></div>
+      <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">passive gold/xp</span></div>
+    </div>
+
+    <!-- Battle Log -->
+    <div style="margin-top:12px">
+      <h3 style="margin:0 0 6px">Battle Log</h3>
+      <div id="log" class="log"></div>
     </div>
   </div>
 
-  <hr class="soft">
+  <!-- Active Quest slot -->
+  <div id="activeQuest" class="card" style="display:none">
+    <div style="font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+      <span>Active Quest</span>
+      <span id="aqStatus" class="muted">—</span>
+    </div>
+    <div id="aqTitle" class="qtitle" style="margin-top:4px; font-weight:800;">—</div>
+    <div id="aqDesc" class="muted" style="margin-top:6px">—</div>
 
-  <!-- Training + Battle section -->
-  <div>
-    <div class="row"><button id="trainPower">Train Strength (+1)</button><span class="muted">3s cd</span></div>
-    <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
-    <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
-    <hr/>
-    <div class="row"><button id="fightRandom" disabled>Battle: PvP (Lv 25+)</button><span class="muted">win gold/xp</span></div>
-    <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">passive gold/xp</span></div>
-  </div>
+    <div style="margin-top:10px">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="muted">Progress</div>
+        <div class="muted"><span id="aqProgVal">0</span>%</div>
+      </div>
+      <div class="bar"><span id="aqProgBar" style="width:0%"></span></div>
+    </div>
 
-  <!-- Battle Log -->
-  <div style="margin-top:12px">
-    <h3 style="margin:0 0 6px">Battle Log</h3>
-    <div id="log" class="log"></div>
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
+      <button id="aqOpen" class="game-btn">Choose Race</button>
+      <button id="aqAbandon" class="game-btn" title="Abandon this quest">Abandon</button>
+    </div>
   </div>
 </div>
+
 <!-- === Quests Modal === -->
 <div id="questsOverlay" style="display:none">
   <div id="questsModal" role="dialog" aria-modal="true" aria-labelledby="qmTitle">

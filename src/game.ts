@@ -355,6 +355,64 @@ function updateAvatar(m: Me) {
   }, 60);
 }
 
+// === Active Quest widget wiring (Pick Race main quest) ===
+function readQuests(): any[] {
+  try { return JSON.parse(localStorage.getItem('va_quests') || '[]'); }
+  catch { return []; }
+}
+function getMainQuest() {
+  return readQuests().find((q: any) => q.id === 'q_main_pick_race');
+}
+
+function renderActiveQuest() {
+  const slot = document.getElementById('activeQuest') as HTMLElement | null;
+  if (!slot) return;
+
+  const q = getMainQuest();
+  if (!q || q.status === 'completed') {
+    slot.style.display = 'none';
+    return;
+  }
+
+  // Populate fields
+  const title = document.getElementById('aqTitle');
+  const desc  = document.getElementById('aqDesc');
+  const st    = document.getElementById('aqStatus');
+  const pv    = document.getElementById('aqProgVal');
+  const pb    = document.getElementById('aqProgBar') as HTMLElement | null;
+
+  title && (title.textContent = q.title || '—');
+  desc  && (desc.textContent  = q.desc  || '—');
+  st    && (st.textContent    = `Status: ${q.status[0].toUpperCase()}${q.status.slice(1)}`);
+  const prog = Math.max(0, Math.min(100, q.progress || 0));
+  pv && (pv.textContent = String(prog));
+  pb && (pb.style.width = prog + '%');
+
+  slot.style.display = 'flex';
+
+  // Buttons in the card
+  const openBtn    = document.getElementById('aqOpen');
+  const abandonBtn = document.getElementById('aqAbandon');
+
+  // Reopen the modal to choose race
+  openBtn?.addEventListener('click', () => {
+    const el = document.getElementById('questsOverlay') as HTMLElement | null;
+    if (el) el.style.display = 'flex';
+  }, { once: true });
+
+  // Abandon back to "available"
+  abandonBtn?.addEventListener('click', () => {
+    const all = readQuests();
+    const mm = all.find((x: any) => x.id === 'q_main_pick_race');
+    if (mm) { mm.status = 'available'; mm.progress = 0; localStorage.setItem('va_quests', JSON.stringify(all)); }
+    renderActiveQuest();
+  }, { once: true });
+}
+
+// Re-render the card whenever the modal script updates quests
+window.addEventListener('va-quest-updated', renderActiveQuest);
+
+
 
 
 /* ---------- Allocation UI ---------- */
@@ -704,6 +762,8 @@ async function boot() {
 
   // Initial arena render (safe if arena DOM exists)
   await renderArena();
+  renderActiveQuest();
+
 
   // Passive idle tick every 10s (arena stats keep moving, works on both pages)
   setInterval(async () => {
