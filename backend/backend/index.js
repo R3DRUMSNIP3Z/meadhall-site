@@ -175,11 +175,19 @@ const USERS_FILE = path.join(DATA_DIR, "users.json");
 if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, "[]");
 
 function loadUsersFromDisk() {
-  try { return JSON.parse(fs.readFileSync(USERS_FILE, "utf8")); }
-  catch { return []; }
+  try {
+    return JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
+  } catch {
+    return [];
+  }
 }
+
 function saveUsersToDisk(arr) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(arr, null, 2));
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(arr, null, 2));
+  } catch (e) {
+    console.error("Failed to save users.json:", e.message);
+  }
 }
 
 // --- Email setup: Resend (preferred) + SMTP fallback ---
@@ -941,6 +949,49 @@ app.locals.notify = notifications.createNotification; // ✅ expose notifier
 gameRoutes.install(app);
 // 👇 Add this right here
 galleryRoutes.install(app);
+ /* ==============================
+   Mug Reactions (in-memory)
+   ============================== */
+// shape: votes[target][userId] = "up" | "down"
+const mugVotes = Object.create(null);
+
+function mugCounts(target) {
+  const t = mugVotes[target] || {};
+  let up = 0, down = 0;
+  for (const v of Object.values(t)) {
+    if (v === "up") up++;
+    else if (v === "down") down++;
+  }
+  return { up, down };
+}
+
+// GET /api/reactions/mug?target=homepage
+app.get("/api/reactions/mug", (req, res) => {
+  const target = String(req.query.target || "homepage");
+  return res.json(mugCounts(target));
+});
+
+// POST /api/reactions/mug  { target, action: "up"|"down"|"clear" }
+app.post("/api/reactions/mug", (req, res) => {
+  const target = String(req.body?.target || "homepage");
+  const action = String(req.body?.action || "").toLowerCase(); // up | down | clear
+  const userId = String(req.headers["x-user-id"] || "").trim();
+
+  if (!userId) return res.status(401).json({ error: "userId header required" });
+
+  mugVotes[target] ||= Object.create(null);
+
+  if (action === "clear") {
+    delete mugVotes[target][userId];
+  } else if (action === "up" || action === "down") {
+    mugVotes[target][userId] = action;
+  } else {
+    return res.status(400).json({ error: "action must be up|down|clear" });
+  }
+
+  const { up, down } = mugCounts(target);
+  return res.json({ target, action, up, down });
+});
 
 
 // ⬇⬇⬇ ADD: Minimal “mark read” endpoints so the frontend stops 404'ing.
@@ -1030,13 +1081,18 @@ async function sendContestEmail(entry, buyerEmail) {
     `Uploaded: ${new Date(entry.uploadedAt).toISOString()}\n` +
     `File URL: ${fileUrl}\n`;
 
-  // We’ll send a simple message (no attachment) to avoid big-message blocks.
   await sendEmail({
     to: CONTEST_INBOX,
     subject: `[Skald Contest] ${entry.name} (${entry.id})`,
     text,
+    attachments: entry.filePath ? [{
+      filename: entry.originalName || "story.pdf",
+      path: entry.filePath,
+      contentType: "application/pdf",
+    }] : undefined,
   });
 }
+
 
 
 
