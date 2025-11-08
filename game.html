@@ -220,6 +220,40 @@
   filter: drop-shadow(0 0 6px rgba(212,169,77,.7));
   background: linear-gradient(180deg,#2b2416,#3a2e1c);
 }
+/* === Quests Modal === */
+#questsOverlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.6);
+  display:none; align-items:center; justify-content:center;
+  z-index:100000;
+}
+#questsModal{
+  width:min(720px, 94vw);
+  background:var(--card);
+  border:1px solid #3b3325;
+  border-radius:16px;
+  box-shadow:0 10px 40px rgba(0,0,0,.6);
+  color:var(--gold);
+  padding:14px;
+}
+.qm-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+#qmTitle{ font-weight:900; font-size:1.2rem; }
+.qm-close{ background:#1b2228; border:1px solid #3b3325; color:var(--gold); border-radius:10px; padding:6px 10px; cursor:pointer; }
+.qm-body{ border-top:1px solid #3b3325; border-bottom:1px solid #3b3325; padding:10px 0; }
+.qm-sub{ margin:6px 0 12px; opacity:.9; }
+.race-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
+.race-card{
+  text-align:left; background:#0f1215; border:1px solid #3b3325; border-radius:12px; padding:12px;
+  cursor:pointer; transition:.15s;
+}
+.race-card:hover{ background:#141a1f; filter:drop-shadow(0 0 4px rgba(212,169,77,.5)); }
+.race-card.selected{ outline:2px solid var(--gold); }
+.race-name{ font-weight:800; margin-bottom:4px; }
+.race-desc{ font-size:.95rem; opacity:.9; }
+.qm-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+.qm-foot{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding-top:8px; }
+.qm-reward{ opacity:.95; }
+.qm-status{ opacity:.85; }
+
 
 
 
@@ -301,7 +335,7 @@
         <img src="/guildbook/Currency/Brísingr.png" alt="Brísingr" class="currency-icon">
         Brísingr Shop
       </a>
-      <a id="openQuests" href="/quests.html" class="game-btn">📜 Quests</a>
+      <button id="openQuests" type="button" class="game-btn">📜 Quests</button>
     </div>
   </div>
 
@@ -323,6 +357,142 @@
     <div id="log" class="log"></div>
   </div>
 </div>
+<!-- === Quests Modal === -->
+<div id="questsOverlay" style="display:none">
+  <div id="questsModal" role="dialog" aria-modal="true" aria-labelledby="qmTitle">
+    <div class="qm-head">
+      <div id="qmTitle">Main Quest: Choose Your Race</div>
+      <button id="qmClose" class="qm-close" aria-label="Close">✖</button>
+    </div>
+    <div class="qm-body">
+      <p class="qm-sub">You must choose your lineage before you can step onto the path of glory.</p>
+
+      <div class="race-grid">
+        <button class="race-card" data-race="myriador">
+          <div class="race-name">Myriador</div>
+          <div class="race-desc">Human realm of cities and scholars. +1 Strength at level 5.</div>
+        </button>
+
+        <button class="race-card" data-race="dreadheim">
+          <div class="race-name">Dreadheim</div>
+          <div class="race-desc">Viking north—iron and frost. +1 Defense at level 5.</div>
+        </button>
+
+        <button class="race-card" data-race="wildwood">
+          <div class="race-name">Wildwood</div>
+          <div class="race-desc">Forest-born wanderers. +1 Speed at level 5.</div>
+        </button>
+      </div>
+
+      <div class="qm-actions">
+        <button id="qmAccept" class="game-btn" disabled>Accept</button>
+        <button id="qmAbandon" class="game-btn">Later</button>
+      </div>
+    </div>
+    <div class="qm-foot">
+      <span class="qm-reward">Reward: 25 gold · 25 xp</span>
+      <span id="qmStatus" class="qm-status">Status: Available</span>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const STORAGE_KEY = 'va_quests';
+  const RACE_KEY = 'va_race';
+
+  // Seed/ensure the main quest exists
+  function loadQuests(){
+    let q; try { q = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch { q = []; }
+    const byId = Object.fromEntries(q.map(x=>[x.id,x]));
+    if (!byId['q_main_pick_race']) {
+      q.push({
+        id:'q_main_pick_race',
+        title:'Choose Your Race',
+        desc:'Pick your lineage to begin your saga.',
+        status:'available',
+        progress:0,
+        rewards:{gold:25,xp:25}
+      });
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(q));
+    return q;
+  }
+  function saveQuests(q){ localStorage.setItem(STORAGE_KEY, JSON.stringify(q)); }
+
+  function setLog(msg, cls=''){
+    const log = document.getElementById('log'); if (!log) return;
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    log.prepend(line);
+  }
+
+  const quests = loadQuests();
+
+  // Elements
+  const openBtn = document.getElementById('openQuests');
+  const overlay = document.getElementById('questsOverlay');
+  const modal   = document.getElementById('questsModal');
+  const closeBtn= document.getElementById('qmClose');
+  const laterBtn= document.getElementById('qmAbandon');
+  const acceptBtn=document.getElementById('qmAccept');
+  const statusEl= document.getElementById('qmStatus');
+
+  // Selection handling
+  let chosen = null;
+  modal?.querySelectorAll('.race-card').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      modal.querySelectorAll('.race-card').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      chosen = btn.dataset.race || null;
+      acceptBtn.disabled = !chosen;
+    });
+  });
+
+  function showQuest(){
+    const q = (JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')).find(x=>x.id==='q_main_pick_race');
+    if (!q) return;
+    statusEl.textContent = `Status: ${q.status[0].toUpperCase()}${q.status.slice(1)}`;
+    acceptBtn.disabled = (q.status === 'completed');
+    overlay.style.display = 'flex';
+  }
+
+  function hideQuest(){ overlay.style.display = 'none'; }
+
+  function completeQuest(){
+    if (!chosen) return;
+    const qlist = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+    const q = qlist.find(x=>x.id==='q_main_pick_race');
+    if (q){
+      q.status='completed'; q.progress=100;
+      saveQuests(qlist);
+    }
+    // Persist race
+    localStorage.setItem(RACE_KEY, chosen);
+
+    // Optional: grant immediate rewards to your player cache if you store it in localStorage
+    // (If your /src/game.ts loads "me" from server, you can skip this and just log.)
+    setLog(`Quest Completed: Choose Your Race — You chose ${chosen}. +25 gold, +25 xp`, 'ok');
+
+    hideQuest();
+  }
+
+  openBtn?.addEventListener('click', (e)=>{ e.preventDefault(); showQuest(); });
+  closeBtn?.addEventListener('click', hideQuest);
+  laterBtn?.addEventListener('click', hideQuest);
+  acceptBtn?.addEventListener('click', completeQuest);
+
+  // Auto-open on first visit if not completed
+  const q = quests.find(x=>x.id==='q_main_pick_race');
+  const hasRace = !!localStorage.getItem(RACE_KEY);
+  if (q && q.status !== 'completed' && !hasRace) {
+    // small delay so page finishes painting
+    setTimeout(()=> showQuest(), 250);
+  }
+})();
+</script>
+
+
 <script type="module" src="/src/game.ts"></script>
 </body>
 </html>
