@@ -292,16 +292,16 @@
     </div>
 
     <div class="grid">
-  <!-- Left: Hero -->
-  <div class="row">
-  <div id="heroTitle">Hero</div>
-  <div id="heroBadge" aria-label="Race badge" style="margin-left:8px;"></div>
-  <div id="heroNameWrap">
-    <span id="heroName">—</span>
-    <button id="renameBtn" title="Rename">✏️</button>
-  </div>
-</div>
-
+  <!-- Left: Hero card -->
+  <div id="heroCard" class="card">
+    <div class="row">
+      <div id="heroTitle">Hero</div>
+      <div id="heroBadge" aria-label="Race badge" style="margin-left:8px;"></div>
+      <div id="heroNameWrap" style="margin-left:auto; display:flex; align-items:center; gap:6px;">
+        <span id="heroName">—</span>
+        <button id="renameBtn" title="Rename">✏️</button>
+      </div>
+    </div>
 
     <div class="row"><div>Level</div><div id="level">1</div></div>
     <div class="row"><div>XP</div><div id="xpVal">0 / 100</div></div>
@@ -336,62 +336,61 @@
     <div id="battleRating" class="powertotal va-sparkle">BATTLE RATING 0</div>
   </div>
 
-  <!-- Right: Actions + Quests + Log -->
-<div id="actionsCard" class="card">
-  <div class="actions-head">
-    <div style="font-weight:700">Actions</div>
-    <div class="actions-buttons">
-      <a id="openShop" href="/shop.html" class="game-btn">Equipment Shop</a>
-      <a id="openBrisingr" href="/brisingrshop.html" class="game-btn">
-        <img src="/guildbook/Currency/Br%C3%ADsingr.png" onerror="this.src='/guildbook/Currency/Brisingr.png'" alt="Brísingr" class="currency-icon">
-        Brísingr Shop
-      </a>
-      <button id="openQuests" type="button" class="game-btn">📜 Quests</button>
-    </div>
-  </div>
-
-  <hr class="soft">
-
-  <!-- Training + Battle section -->
-  <div>
-    <div class="row"><button id="trainPower">Train Strength (+1)</button><span class="muted">3s cd</span></div>
-    <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
-    <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
-    <hr/>
-    <div class="row"><button id="fightRandom" disabled>Battle: PvP (Lv 25+)</button><span class="muted">win gold/xp</span></div>
-    <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">passive gold/xp</span></div>
-  </div>
-
-  <!-- Active Quest (now inside this card, above the Battle Log) -->
-  <div id="activeQuest" class="card" style="display:none; margin-top:12px;">
-    <div style="font-weight:700; display:flex; justify-content:space-between; align-items:center;">
-      <span>Active Quest</span>
-      <span id="aqStatus" class="muted">—</span>
-    </div>
-    <div id="aqTitle" class="qtitle" style="margin-top:4px; font-weight:800;">—</div>
-    <div id="aqDesc" class="muted" style="margin-top:6px">—</div>
-
-    <div style="margin-top:10px">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div class="muted">Progress</div>
-        <div class="muted"><span id="aqProgVal">0</span>%</div>
+  <!-- Right: Actions + Quests + Log card -->
+  <div id="actionsCard" class="card">
+    <div class="actions-head">
+      <div style="font-weight:700">Actions</div>
+      <div class="actions-buttons">
+        <a id="openShop" href="/shop.html" class="game-btn">Equipment Shop</a>
+        <a id="openBrisingr" href="/brisingrshop.html" class="game-btn">
+          <img src="/guildbook/Currency/Br%C3%ADsingr.png" onerror="this.src='/guildbook/Currency/Brisingr.png'" alt="Brísingr" class="currency-icon">
+          Brísingr Shop
+        </a>
+        <button id="openQuests" type="button" class="game-btn">📜 Quests</button>
       </div>
-      <div class="bar"><span id="aqProgBar" style="width:0%"></span></div>
     </div>
 
-    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
-      <button id="aqOpen" class="game-btn">Open</button>
-      <a id="aqTravel" class="game-btn" style="display:none" href="#">Travel</a>
-      <button id="aqAbandon" class="game-btn" title="Abandon this quest">Abandon</button>
-    </div>
-  </div>
+    <hr class="soft">
 
-  <!-- Battle Log -->
-  <div style="margin-top:12px">
-    <h3 style="margin:0 0 6px">Battle Log</h3>
-    <div id="log" class="log"></div>
+    <div>
+      <div class="row"><button id="trainPower">Train Strength (+1)</button><span class="muted">3s cd</span></div>
+      <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
+      <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
+      <hr/>
+      <div class="row"><button id="fightRandom" disabled>Battle: PvP (Lv 25+)</button><span class="muted">win gold/xp</span></div>
+      <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">passive gold/xp</span></div>
+    </div>
+
+    <div id="activeQuest" class="card" style="display:none; margin-top:12px;">
+      <div style="font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+        <span>Active Quest</span>
+        <span id="aqStatus" class="muted">—</span>
+      </div>
+      <div id="aqTitle" class="qtitle" style="margin-top:4px; font-weight:800;">—</div>
+      <div id="aqDesc" class="muted" style="margin-top:6px">—</div>
+
+      <div style="margin-top:10px">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="muted">Progress</div>
+          <div class="muted"><span id="aqProgVal">0</span>%</div>
+        </div>
+        <div class="bar"><span id="aqProgBar" style="width:0%"></span></div>
+      </div>
+
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
+        <button id="aqOpen" class="game-btn">Open</button>
+        <a id="aqTravel" class="game-btn" style="display:none" href="#">Travel</a>
+        <button id="aqAbandon" class="game-btn" title="Abandon this quest">Abandon</button>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <h3 style="margin:0 0 6px">Battle Log</h3>
+      <div id="log" class="log"></div>
+    </div>
   </div>
 </div>
+
 
 
 <!-- === Quests Modal === -->
