@@ -1,0 +1,12 @@
+<!-- public/logo/avatar-placeholder.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#222"/>
+      <stop offset="1" stop-color="#111"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="62" fill="url(#g)" stroke="#d4a94d" stroke-width="4"/>
+  <circle cx="64" cy="50" r="22" fill="#1a1a1a"/>
+  <rect x="24" y="80" width="80" height="32" rx="16" fill="#1a1a1a"/>
+</svg>
