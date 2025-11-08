@@ -423,46 +423,46 @@
 </div>
 <script>
 (() => {
-  const STORAGE_KEY = 'va_quests';
-  const RACE_KEY = 'va_race';
-
-  // Map race -> display + travel link (adjust hrefs if needed)
-  const RACES = {
-    myriador: { name: 'Myriador', travelHref: '/myriador.html' },
-    dreadheim:{ name: 'Dreadheim', travelHref: '/dreadheim.html' },
-    wildwood: { name: 'Wildwood', travelHref: '/wildwood.html' },
-  };
-
-  // ---------- tiny helpers ----------
-  const $ = (id) => document.getElementById(id);
-  const getQ = () => JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
-  const setQ = (q) => localStorage.setItem(STORAGE_KEY, JSON.stringify(q));
-  const getRace = () => localStorage.getItem(RACE_KEY);
-  const setRace = (r) => localStorage.setItem(RACE_KEY, r);
-
-  function setLog(msg, cls=''){
-    const log = $('log'); if (!log) return;
-    const line = document.createElement('div');
-    if (cls) line.className = cls;
-    line.textContent = msg;
-    log.prepend(line);
+  // --- derive a per-user storage suffix (same logic your app uses) ---
+  function getUserId() {
+    try {
+      const raw = localStorage.getItem('mh_user');
+      if (raw) {
+        const obj = JSON.parse(raw);
+        return obj?.id || obj?._id || obj?.user?.id || null;
+      }
+    } catch {}
+    // allow ?user=<id> override for testing
+    return new URLSearchParams(location.search).get('user');
   }
+  const UID = getUserId() || 'guest';
 
-  function cap(s){ return (s||'').slice(0,1).toUpperCase() + (s||'').slice(1); }
+  // helper to namespace storage keys by user id
+  const userKey = (base) => `${base}__${UID}`;
 
-  // Update left-card title from race
-  function setHeroTitleFromRace() {
-    const t = $('heroTitle');
-    if (!t) return;
-    const r = getRace();
-    t.textContent = r && RACES[r] ? RACES[r].name : 'Hero';
-  }
+  // OLD global keys (for migration)
+  const OLD_QUESTS = 'va_quests';
+  const OLD_RACE   = 'va_race';
 
-  // Seed main quest if missing
-  function ensureSeed(){
-    const q = getQ();
-    const by = Object.fromEntries(q.map(x=>[x.id,x]));
-    if (!by['q_main_pick_race']) {
+  // NEW per-user keys
+  const STORAGE_KEY = userKey('va_quests');
+  const RACE_KEY    = userKey('va_race');
+
+  // ---- one-time migration (optional): if new keys are empty but old exist, copy then ignore old
+  try {
+    if (!localStorage.getItem(STORAGE_KEY) && localStorage.getItem(OLD_QUESTS)) {
+      localStorage.setItem(STORAGE_KEY, localStorage.getItem(OLD_QUESTS));
+    }
+    if (!localStorage.getItem(RACE_KEY) && localStorage.getItem(OLD_RACE)) {
+      localStorage.setItem(RACE_KEY, localStorage.getItem(OLD_RACE));
+    }
+  } catch {}
+
+  // Seed/ensure the main quest exists (per user)
+  function loadQuests(){
+    let q; try { q = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch { q = []; }
+    const byId = Object.fromEntries(q.map(x=>[x.id,x]));
+    if (!byId['q_main_pick_race']) {
       q.push({
         id:'q_main_pick_race',
         title:'Choose Your Race',
@@ -472,195 +472,103 @@
         rewards:{gold:25,xp:25}
       });
     }
-    // If race already chosen earlier, ensure “pick race” is completed and travel quest exists
-    const race = getRace();
-    if (race) {
-      const i = q.findIndex(x=>x.id==='q_main_pick_race');
-      if (i >= 0) q[i] = { ...q[i], status:'completed', progress:100 };
-      if (!by['q_main_travel']) {
-        q.push(makeTravelQuest(race));
-      }
-    }
-    setQ(q);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(q));
+    return q;
+  }
+  function saveQuests(q){ localStorage.setItem(STORAGE_KEY, JSON.stringify(q)); }
+
+  function setLog(msg, cls=''){
+    const log = document.getElementById('log'); if (!log) return;
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    log.prepend(line);
   }
 
-  function makeTravelQuest(raceKey){
-    const r = RACES[raceKey] || { name: cap(raceKey), travelHref:'#' };
-    return {
-      id:'q_main_travel',
-      title:`Journey to ${r.name}`,
-      desc:`Travel to ${r.name} and begin your path.`,
-      status:'active',
-      progress:0,
-      target: raceKey,
-      href: r.travelHref
-    };
-  }
+  const quests = loadQuests();
 
-  function read(id){ return getQ().find(x=>x.id===id); }
-  function write(id, updater){
-    const list = getQ();
-    const i = list.findIndex(x=>x.id===id);
-    if (i>=0) { list[i] = updater(list[i]); setQ(list); }
-  }
+  // Elements
+  const openBtn  = document.getElementById('openQuests');
+  const overlay  = document.getElementById('questsOverlay');
+  const modal    = document.getElementById('questsModal');
+  const closeBtn = document.getElementById('qmClose');
+  const laterBtn = document.getElementById('qmAbandon');
+  const acceptBtn= document.getElementById('qmAccept');
+  const statusEl = document.getElementById('qmStatus');
 
-  // ---------- Modal wiring ----------
-  const openBtn   = $('openQuests');
-  const overlay   = $('questsOverlay');
-  const modal     = $('questsModal');
-  const closeBtn  = $('qmClose');
-  const laterBtn  = $('qmAbandon');
-  const acceptBtn = $('qmAccept');
-  const statusEl  = $('qmStatus');
-
+  // Selection handling
   let chosen = null;
-
   modal?.querySelectorAll('.race-card').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const locked = !!getRace();           // already picked: no reselection
-      if (locked) return;
       modal.querySelectorAll('.race-card').forEach(b=>b.classList.remove('selected'));
       btn.classList.add('selected');
       chosen = btn.dataset.race || null;
-      acceptBtn.textContent = chosen ? 'Confirm' : 'Accept';
-      acceptBtn.disabled = false;
+      acceptBtn.disabled = !chosen;
     });
   });
 
-  function showQuest(){
-    const pick = read('q_main_pick_race');
-    if (!pick) return;
-    statusEl.textContent = `Status: ${cap(pick.status)}`;
+  function getQuest() {
+    try { 
+      const list = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+      return list.find(x=>x.id==='q_main_pick_race');
+    } catch { return null; }
+  }
 
-    const locked = !!getRace();
-    // If race already chosen, you can’t change it
-    acceptBtn.disabled = (pick.status === 'completed') || locked;
-    acceptBtn.textContent = chosen ? 'Confirm' : 'Accept';
+  function showQuest(){
+    const q = getQuest();
+    if (!q) return;
+    statusEl.textContent = `Status: ${q.status[0].toUpperCase()}${q.status.slice(1)}`;
+    acceptBtn.disabled = (q.status === 'completed');
     overlay.style.display = 'flex';
   }
+
   function hideQuest(){ overlay.style.display = 'none'; }
 
-  // ---------- Active Quest panel (inside right card) ----------
-  const aqBox     = $('activeQuest');
-  const aqTitle   = $('aqTitle');
-  const aqDesc    = $('aqDesc');
-  const aqProgVal = $('aqProgVal');
-  const aqProgBar = $('aqProgBar');
-  const aqStatus  = $('aqStatus');
-  const aqOpen    = $('aqOpen');
-  const aqAbandon = $('aqAbandon');
-  const aqTravel  = $('aqTravel');
-
-  function renderActive(){
-    // Priority: travel quest if exists and not completed; else pick-race if active
-    const travel = read('q_main_travel');
-    const pick   = read('q_main_pick_race');
-    let q = null;
-
-    if (travel && travel.status !== 'completed') q = travel;
-    else if (pick && pick.status !== 'completed' && pick.status !== 'available') q = pick;
-
-    if (!q) { aqBox.style.display = 'none'; return; }
-
-    aqBox.style.display = 'flex';
-    aqTitle.textContent = q.title;
-    aqDesc.textContent  = q.desc;
-    aqProgVal.textContent = String(q.progress||0);
-    aqProgBar.style.width = (q.progress||0) + '%';
-    aqStatus.textContent = cap(q.status);
-
-    // Button modes
-    aqOpen.style.display   = (q.id === 'q_main_pick_race') ? '' : 'none';
-    aqTravel.style.display = (q.id === 'q_main_travel') ? '' : 'none';
-    if (q.id === 'q_main_travel') {
-      aqTravel.href = q.href || '#';
+  function completeQuest(){
+    if (!chosen) return;
+    const qlist = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+    const q = qlist.find(x=>x.id==='q_main_pick_race');
+    if (q){
+      q.status='completed'; q.progress=100;
+      saveQuests(qlist);
     }
-  }
-
-  // Accept/Confirm in modal:
-  // - If no race chosen yet -> mark pick-race quest Active
-  // - If a race is chosen -> complete pick-race, set race, add travel quest
-  function acceptOrConfirm(){
-    const pick = read('q_main_pick_race');
-    if (!pick) return;
-
-    // Already picked once: do nothing
-    if (getRace()) { hideQuest(); return; }
-
-    if (!chosen) {
-      // move to Active so it shows in the right card
-      write('q_main_pick_race', prev => ({ ...prev, status:'active', progress:0 }));
-      renderActive();
-      setLog('Quest accepted: Choose Your Race', 'ok');
-      hideQuest();
-      return;
-    }
-
-    // Confirm race choice once → final (cannot be changed)
-    setRace(chosen);
-
-    // complete pick race
-    write('q_main_pick_race', prev => ({ ...prev, status:'completed', progress:100 }));
-    setLog(`Quest Completed: Choose Your Race — You chose ${RACES[chosen].name}. +25 gold, +25 xp`, 'ok');
-
-    // add/activate next quest (travel)
-    const list = getQ();
-    if (!read('q_main_travel')) {
-      list.push(makeTravelQuest(chosen));
-      setQ(list);
-    }
-
-    setHeroTitleFromRace(); // update left-card title
-    renderActive();
+    localStorage.setItem(RACE_KEY, chosen);
+    setLog(`Quest Completed: Choose Your Race — You chose ${chosen}. +25 gold, +25 xp`, 'ok');
     hideQuest();
 
-    // OPTIONAL: server reward call (uncomment + add backend route if you want real rewards)
-    /*
-    const apiBase = document.querySelector('meta[name="api-base"]')?.content || "";
-    const uid = JSON.parse(localStorage.getItem('mh_user')||'{}')?.id || "";
-    fetch(apiBase + "/api/game/quest/complete", {
-      method:"POST",
-      headers:{ "Content-Type":"application/json", "x-user-id": uid },
-      body: JSON.stringify({ id:"q_main_pick_race" })
-    }).catch(()=>{});
-    */
-  }
+    // update the "Active Quest" panel to next quest
+    const aq = document.getElementById('activeQuest');
+    if (aq) {
+      aq.style.display = 'block';
+      const t = document.getElementById('aqTitle');
+      const d = document.getElementById('aqDesc');
+      const s = document.getElementById('aqStatus');
+      const b = document.getElementById('aqProgBar');
+      const v = document.getElementById('aqProgVal');
+      const btnOpen   = document.getElementById('aqOpen');
+      const btnTravel = document.getElementById('aqTravel');
 
-  // Abandon → only affects whichever is showing
-  function abandon(){
-    const travel = read('q_main_travel');
-    const pick   = read('q_main_pick_race');
-
-    if (travel && travel.status !== 'completed') {
-      write('q_main_travel', prev => ({ ...prev, status:'available', progress:0 }));
-      renderActive();
-      hideQuest();
-      return;
-    }
-    if (pick && pick.status !== 'completed') {
-      write('q_main_pick_race', prev => ({ ...prev, status:'available', progress:0 }));
-      renderActive();
-      hideQuest();
+      if (t) t.textContent = 'Travel to your homeland';
+      if (d) d.textContent = `Go to ${chosen === 'myriador' ? 'Myriador' : chosen === 'dreadheim' ? 'Dreadheim' : 'Wildwood'}.`;
+      if (s) s.textContent = 'Available';
+      if (b) b.style.width = '0%';
+      if (v) v.textContent = '0';
+      if (btnOpen)  btnOpen.textContent = 'Open';
+      if (btnTravel) btnTravel.style.display = 'inline-block';
     }
   }
 
-  // Wire buttons
   openBtn?.addEventListener('click', (e)=>{ e.preventDefault(); showQuest(); });
-  $('aqOpen')?.addEventListener('click', (e)=>{ e.preventDefault(); showQuest(); });
   closeBtn?.addEventListener('click', hideQuest);
   laterBtn?.addEventListener('click', hideQuest);
-  acceptBtn?.addEventListener('click', acceptOrConfirm);
-  aqAbandon?.addEventListener('click', abandon);
+  acceptBtn?.addEventListener('click', completeQuest);
 
-  // Boot
-  ensureSeed();
-  setHeroTitleFromRace();  // paint “Hero” → race if already chosen
-  // First-time auto-open (only if no race & pick quest not completed)
-  const pick = read('q_main_pick_race');
-  if (pick && pick.status !== 'completed' && !getRace()) {
+  // Auto-open on first visit if not completed for THIS user
+  const q = quests.find(x=>x.id==='q_main_pick_race');
+  const hasRace = !!localStorage.getItem(RACE_KEY);
+  if (q && q.status !== 'completed' && !hasRace) {
     setTimeout(()=> showQuest(), 250);
   }
-  renderActive();
 })();
 </script>
 
