@@ -81,7 +81,7 @@ function cacheBust(u?: string | null): string {
 }
 
 function avatarSrc(p?: string | null): string {
-  const src = p && p.trim() ? fullUrl(p) : "/logo/avatar-placeholder.svg";
+  const src = p && p.trim() ? fullUrl(p) : "/logo/logo-512.png";
   return cacheBust(src);
 }
 
@@ -213,11 +213,15 @@ async function loadUser(API: string, userId: string): Promise<SafeUser> {
 }
 
 async function loadStories(API: string, userId: string): Promise<Story[]> {
-  const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/stories`);
+  const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/stories`, {
+    headers: authHeaders(),              // ✅ send x-user-id
+    credentials: "include"
+  });
   const raw = await r.json();
   const list: Story[] = Array.isArray(raw) ? raw : raw?.items ?? [];
   return list.map((s) => ({ ...s, imageUrl: s.imageUrl ? fullUrl(s.imageUrl) : undefined }));
 }
+
 
 /* ------ GALLERY + LIGHTBOX ------ */
 function normalizePhotoArray(raw: any): Photo[] {
@@ -607,11 +611,15 @@ actions.append(likeC, dislikeC, replyBtn);
 
 /* ------------------ Gallery Loader/Renderer ------------------ */
 async function loadGallery(API: string, userId: string): Promise<Photo[]> {
-  const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/gallery`);
+  const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/gallery`, {
+    headers: authHeaders(),              // ✅ send x-user-id
+    credentials: "include"
+  });
   if (!r.ok) return [];
   const data = await r.json();
   return normalizePhotoArray(data);
 }
+
 
 function renderGalleryFromPhotos(photos: Photo[]) {
   galleryGrid.innerHTML = "";
@@ -868,7 +876,10 @@ function openStoryModal(story: Story) {
 async function loadCompanions(API: string, userId: string) {
   companionsEl.innerHTML = `<div class="muted">Loading…</div>`;
   try {
-    const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/companions`);
+    const r = await fetch(`${API}/api/users/${encodeURIComponent(userId)}/companions`, {
+      headers: authHeaders(),            // ✅ send x-user-id
+      credentials: "include"
+    });
     if (!r.ok) throw new Error(String(r.status));
     const list: SafeUser[] = await r.json();
 
