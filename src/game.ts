@@ -365,25 +365,29 @@ function readQuests(): any[] {
   catch { return []; }
 }
 
-function writeQuests(list: any[]) {
-  localStorage.setItem(QKEY, JSON.stringify(list));
-}
 
-function getMainQuest() {
-  return readQuests().find((q: any) => q.id === "q_main_pick_race");
-}
 
 
 function renderActiveQuest() {
   const slot = document.getElementById('activeQuest') as HTMLElement | null;
   if (!slot) return;
 
-  // Make sure seed quest exists and header is synced
-  if ((window as any).VAQ?.ensureQuestState) (window as any).VAQ.ensureQuestState();
-  if ((window as any).VAQ?.updateHeroTitle)  (window as any).VAQ.updateHeroTitle();
+  // Seed/sync if bridge exists
+  (window as any).VAQ?.ensureQuestState?.();
+  (window as any).VAQ?.updateHeroTitle?.();
 
-  const q = getMainQuest();
-  if (!q || q.status === 'completed') {
+  // helpers
+  const read = ((window as any).VAQ?.readQuests) || readQuests;
+  const quests = read() || [];
+
+  // pick which quest to show:
+  // 1) main quest if not completed
+  // 2) else travel quest if present and not completed
+  let q: any =
+    quests.find((x: any) => x.id === "q_main_pick_race" && x.status !== "completed") ||
+    quests.find((x: any) => x.id === "q_travel_home" && x.status !== "completed");
+
+  if (!q) {
     slot.style.display = 'none';
     return;
   }
@@ -391,7 +395,7 @@ function renderActiveQuest() {
   // show card
   slot.style.display = 'flex';
 
-  // Populate fields
+  // fields
   const title = document.getElementById('aqTitle')   as HTMLElement | null;
   const desc  = document.getElementById('aqDesc')    as HTMLElement | null;
   const st    = document.getElementById('aqStatus')  as HTMLElement | null;
@@ -408,25 +412,53 @@ function renderActiveQuest() {
   if (pv) pv.textContent = String(prog);
   if (pb) pb.style.width = prog + '%';
 
-  // Buttons in the card
-  const openBtn    = document.getElementById('aqOpen');
-  const abandonBtn = document.getElementById('aqAbandon');
+  // buttons
+  const openBtn    = document.getElementById('aqOpen') as HTMLButtonElement | null;
+  const travelBtn  = document.getElementById('aqTravel') as HTMLAnchorElement | null;
+  const abandonBtn = document.getElementById('aqAbandon') as HTMLButtonElement | null;
 
-  // Reopen the modal to choose race
-  openBtn?.addEventListener('click', () => {
-    const el = document.getElementById('questsOverlay') as HTMLElement | null;
-    if (el) el.style.display = 'flex';
-  }, { once: true });
+  // reset defaults
+  if (travelBtn) travelBtn.style.display = 'none';
 
-  // Abandon back to "available"
-  abandonBtn?.addEventListener('click', () => {
-    const list = readQuests();
-    const main = list.find((x: any) => x.id === 'q_main_pick_race');
-    if (main) { main.status = 'available'; main.progress = 0; }
-    ((window as any).VAQ?.writeQuests || writeQuests)(list);
-    renderActiveQuest();
-  }, { once: true });
+  // If it's the main quest, Open should re-open the modal
+  if (q.id === "q_main_pick_race") {
+    openBtn && openBtn.replaceWith(openBtn.cloneNode(true));
+    const freshOpen = document.getElementById('aqOpen') as HTMLButtonElement | null;
+    freshOpen?.addEventListener('click', () => {
+      const el = document.getElementById('questsOverlay') as HTMLElement | null;
+      if (el) el.style.display = 'flex';
+    }, { once: true });
+  } else {
+    // Travel quest: show Travel button (you can wire the href to your map page)
+    if (travelBtn) {
+      travelBtn.style.display = 'inline-block';
+      // example target – adjust to your real destination:
+      travelBtn.href = "/map.html"; 
+      travelBtn.textContent = "Travel";
+    }
+    // "Open" just shows a small hint for travel quests
+    if (openBtn) {
+      openBtn.textContent = "Details";
+      openBtn.onclick = () => alert(q.desc || "Travel to your homeland.");
+    }
+  }
+
+  // Abandon button → set quest back to available
+  if (abandonBtn) {
+    abandonBtn.replaceWith(abandonBtn.cloneNode(true));
+    const freshAbandon = document.getElementById('aqAbandon') as HTMLButtonElement | null;
+    freshAbandon?.addEventListener('click', () => {
+      const list = read();
+      const curr = list.find((x: any) => x.id === q.id);
+      if (curr) { curr.status = 'available'; curr.progress = 0; }
+(((window as any).VAQ?.writeQuests as ((l: any[]) => void)) 
+  || ((l: any[]) => localStorage.setItem('va_quests', JSON.stringify(l))))(list);
+      window.dispatchEvent(new CustomEvent('va-quest-updated'));
+      renderActiveQuest();
+    }, { once: true });
+  }
 }
+
 
 
 

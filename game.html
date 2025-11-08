@@ -535,43 +535,63 @@
   function hideQuest(){ overlay.style.display = 'none'; }
 
   function completeQuest(){
-    if (!chosen) return;
-    const qlist = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
-    const q = qlist.find(x=>x.id==='q_main_pick_race');
-    if (q){
-      q.status='completed'; q.progress=100;
-      saveQuests(qlist);
-    }
-    localStorage.setItem(RACE_KEY, chosen);
-    setLog(`Quest Completed: Choose Your Race — You chose ${chosen}. +25 gold, +25 xp`, 'ok');
-    hideQuest();
+  if (!chosen) return;
 
-    // update the "Active Quest" panel to next quest
-    const aq = document.getElementById('activeQuest');
-    if (aq) {
-      aq.style.display = 'block';
-      const t = document.getElementById('aqTitle');
-      const d = document.getElementById('aqDesc');
-      const s = document.getElementById('aqStatus');
-      const b = document.getElementById('aqProgBar');
-      const v = document.getElementById('aqProgVal');
-      const btnOpen   = document.getElementById('aqOpen');
-      const btnTravel = document.getElementById('aqTravel');
+  // 1) Load quests
+  let list;
+  try { list = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { list = []; }
 
-      if (t) t.textContent = 'Travel to your homeland';
-      if (d) d.textContent = `Go to ${chosen === 'myriador' ? 'Myriador' : chosen === 'dreadheim' ? 'Dreadheim' : 'Wildwood'}.`;
-      if (s) s.textContent = 'Available';
-      if (b) b.style.width = '0%';
-      if (v) v.textContent = '0';
-      if (btnOpen)  btnOpen.textContent = 'Open';
-      if (btnTravel) btnTravel.style.display = 'inline-block';
-    }
+  // 2) Mark main quest completed
+  const main = list.find(x => x.id === 'q_main_pick_race');
+  if (main) { main.status = 'completed'; main.progress = 100; }
+
+  // 3) Add / reset Travel quest
+  const label =
+    chosen === 'myriador'  ? 'Myriador' :
+    chosen === 'dreadheim' ? 'Dreadheim' :
+                             'Wildwood';
+
+  let travel = list.find(x => x.id === 'q_travel_home');
+  if (!travel) {
+    travel = {
+      id: 'q_travel_home',
+      title: 'Travel to your homeland',
+      desc: `Go to ${label}.`,
+      status: 'available',
+      progress: 0
+    };
+    list.push(travel);
+  } else {
+    travel.status = 'available';
+    travel.progress = 0;
+    travel.desc = `Go to ${label}.`;
   }
 
-  openBtn?.addEventListener('click', (e)=>{ e.preventDefault(); showQuest(); });
-  closeBtn?.addEventListener('click', hideQuest);
-  laterBtn?.addEventListener('click', hideQuest);
-  acceptBtn?.addEventListener('click', completeQuest);
+  // 4) Save everything
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  localStorage.setItem(RACE_KEY, chosen);
+
+  // 5) Log completion
+  setLog(`Quest Completed: Choose Your Race — You chose ${label}. +25 gold, +25 xp`, 'ok');
+  hideQuest();
+
+  // 6) Update UI immediately
+  try { window.dispatchEvent(new CustomEvent('va-quest-updated')); } catch {}
+  try { renderActiveQuest?.(); } catch {}
+  // 6) Update UI immediately
+try { window.dispatchEvent(new CustomEvent('va-quest-updated')); } catch {}
+try { if (typeof renderActiveQuest === 'function') renderActiveQuest(); } catch {}
+try {
+  var VAQ = window.VAQ;
+  if (VAQ && typeof VAQ.updateHeroTitle === 'function') VAQ.updateHeroTitle();
+} catch {}
+try {
+  if (typeof window.renderRaceBadge === 'function') window.renderRaceBadge();
+} catch {}
+
+
+}
 
   // Auto-open on first visit if not completed for THIS user
   const q = quests.find(x=>x.id==='q_main_pick_race');
@@ -583,18 +603,6 @@
 </script>
 <!-- === Race Badge + Title Update === -->
 <script>
-  function getUserId() {
-    try {
-      const raw = localStorage.getItem('mh_user');
-      if (raw) {
-        const obj = JSON.parse(raw);
-        return obj?.id || obj?._id || obj?.user?.id || null;
-      }
-    } catch {}
-    return new URLSearchParams(location.search).get('user');
-  }
-  const UID = getUserId() || 'guest';
-  const userKey = (base) => `${base}__${UID}`;
   const RACE_KEY = userKey('va_race');
 
   function currentRace() { return localStorage.getItem(RACE_KEY); }
