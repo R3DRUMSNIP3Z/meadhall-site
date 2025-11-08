@@ -394,6 +394,45 @@
 
 
 <!-- === Quests Modal (UI already on the page) + Bridge for game.ts === -->
+ <!-- === Quests Modal === -->
+<div id="questsOverlay" style="display:none">
+  <div id="questsModal" role="dialog" aria-modal="true" aria-labelledby="qmTitle">
+    <div class="qm-head">
+      <div id="qmTitle">Main Quest: Choose Your Race</div>
+      <button id="qmClose" class="qm-close" aria-label="Close">✖</button>
+    </div>
+    <div class="qm-body">
+      <p class="qm-sub">You must choose your lineage before you can step onto the path of glory.</p>
+
+      <div class="race-grid">
+        <button class="race-card" data-race="myriador">
+          <div class="race-name">Myriador</div>
+          <div class="race-desc">Human realm of cities and scholars. +1 Strength at level 5.</div>
+        </button>
+
+        <button class="race-card" data-race="dreadheim">
+          <div class="race-name">Dreadheim</div>
+          <div class="race-desc">Viking north—iron and frost. +1 Defense at level 5.</div>
+        </button>
+
+        <button class="race-card" data-race="wildwood">
+          <div class="race-name">Wildwood</div>
+          <div class="race-desc">Forest-born wanderers. +1 Speed at level 5.</div>
+        </button>
+      </div>
+
+      <div class="qm-actions">
+        <button id="qmAccept" class="game-btn" disabled>Accept</button>
+        <button id="qmAbandon" class="game-btn">Later</button>
+      </div>
+    </div>
+    <div class="qm-foot">
+      <span class="qm-reward">Reward: 25 gold · 25 xp</span>
+      <span id="qmStatus" class="qm-status">Status: Available</span>
+    </div>
+  </div>
+</div>
+
 <script>
 (() => {
   // ---------- Per-user storage helpers ----------
@@ -477,12 +516,27 @@
   function getMainQuest() { return readQuests().find(x => x.id === 'q_main_pick_race'); }
 
   function showQuest() {
-    ensureQuestState();
-    const q = getMainQuest(); if (!q) return;
-    statusEl.textContent = `Status: ${q.status[0].toUpperCase()}${q.status.slice(1)}`;
-    acceptBtn.disabled = (q.status === 'completed');
-    overlay.style.display = 'flex';
+  const q = getMainQuest();
+  if (!q) return;
+
+  const overlay = document.getElementById('questsOverlay');
+  const statusEl = document.getElementById('qmStatus');
+  const acceptBtn = document.getElementById('qmAccept');
+
+  if (!overlay || !statusEl || !acceptBtn) {
+    console.warn("⚠️ Quest modal elements not found.");
+    return;
   }
+
+  const statusText = q.status
+    ? `Status: ${q.status.charAt(0).toUpperCase()}${q.status.slice(1)}`
+    : "Status: Unknown";
+
+  statusEl.textContent = statusText;
+  acceptBtn.disabled = q.status === "completed";
+  overlay.style.display = "flex";
+}
+
   function hideQuest() { overlay.style.display = 'none'; }
 
   // Complete the race quest → set race, add "travel" quest, notify game.ts
