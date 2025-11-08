@@ -191,14 +191,15 @@ function saveUsersToDisk(arr) {
 }
 
 // --- Email setup: Resend (preferred) + SMTP fallback ---
-const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
-const HAVE_RESEND = !!(process.env.RESEND_API_KEY && FROM_EMAIL && Resend);
-if (HAVE_RESEND && !String(FROM_EMAIL).includes("onboarding@resend.dev")) {
-  console.warn("⚠️ Resend ON but FROM_EMAIL is not onboarding@resend.dev — set FROM_EMAIL=Mead Hall <onboarding@resend.dev>");
-}
+const FROM_EMAIL =
+  process.env.FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
 
+// Allow Resend only if a key exists AND the sender is NOT the onboarding address
+const HAVE_RESEND =
+  !!(process.env.RESEND_API_KEY && Resend && FROM_EMAIL && !/onboarding@resend\.dev/i.test(FROM_EMAIL));
 
 const resendClient = HAVE_RESEND ? new Resend(process.env.RESEND_API_KEY) : null;
+
 
 let smtpTransport = null;
 if (process.env.SMTP_HOST) {
@@ -246,26 +247,43 @@ if (process.env.SMTP_HOST) {
 
 // unified email helper
 async function sendEmail({ to, subject, text, html, attachments }) {
-  console.log("📧 sendEmail ->", {
-    to,
-    subject,
-    using: (HAVE_RESEND ? "resend" : (smtpTransport ? "smtp" : "none")),
-    from: FROM_EMAIL
-  });
+  const recipients = Array.isArray(to) ? to : [to];
+  let lastErr = null;
+
+  // Try Resend first ONLY if allowed (note: no path-based attachments here)
   if (resendClient) {
     try {
-      const r = await resendClient.emails.send({ from: FROM_EMAIL, to, subject, text, html, attachments });
+      const payload = { from: FROM_EMAIL, to: recipients, subject, text, html };
+      const r = await resendClient.emails.send(payload);
+      console.log("📧 sendEmail ->", { to: recipients, subject, using: "resend", from: FROM_EMAIL, id: r?.id || null });
       return { ok: true, provider: "resend", id: r?.id || null };
     } catch (e) {
-      console.warn("sendEmail via Resend failed:", e.message);
+      lastErr = e;
+      console.warn("sendEmail via Resend failed:", e?.response?.data || e?.message || e);
+      // fall through to SMTP
     }
   }
+
+  // Fallback / primary: SMTP (supports { path } attachments)
   if (smtpTransport) {
-    const from = FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
-    const info = await smtpTransport.sendMail({ from, to, subject, text, html, attachments });
-    return { ok: true, provider: "smtp", id: info?.messageId || null };
+    try {
+      const info = await smtpTransport.sendMail({
+        from: FROM_EMAIL,
+        to: recipients,
+        subject,
+        text,
+        html,
+        attachments,
+      });
+      console.log("📧 sendEmail ->", { to: recipients, subject, using: "smtp", from: FROM_EMAIL, id: info?.messageId || null });
+      return { ok: true, provider: "smtp", id: info?.messageId || null };
+    } catch (e) {
+      lastErr = e;
+      console.error("sendEmail via SMTP failed:", e?.message || e);
+    }
   }
-  throw new Error("No email provider configured");
+
+  throw new Error("No email provider configured or both failed" + (lastErr ? `: ${lastErr.message || lastErr}` : ""));
 }
 
 // --- Multer for contest PDF upload ---
