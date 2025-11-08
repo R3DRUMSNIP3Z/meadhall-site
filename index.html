@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Mead Hall</title>
-  <script defer src="https://vercel.com/analytics/script.js"></script>
 
 
   <!-- Favicon -->
@@ -297,6 +296,17 @@
       const noteEl = document.getElementById("mugNote");
       const offlineEl = document.getElementById("mugOffline");
 
+function authHeaders() {
+  try {
+    const u = JSON.parse(localStorage.getItem("mh_user") || "null");
+    return u?.id
+      ? { "Content-Type": "application/json", "x-user-id": String(u.id) }
+      : { "Content-Type": "application/json" };
+  } catch {
+    return { "Content-Type": "application/json" };
+  }
+}
+
       function getUser() {
         try { return JSON.parse(localStorage.getItem(LS_USER) || "null"); } catch { return null; }
       }
@@ -325,7 +335,7 @@
       async function fetchCounts() {
         if (!API_BASE) return;
         try {
-          const res = await fetch(`${API_BASE}/api/reactions/mug?target=${encodeURIComponent(target)}`, { credentials: "include" });
+          const res = await fetch(`${API_BASE}/api/reactions/mug?target=${encodeURIComponent(target)}`, { headers: authHeaders(), credentials: "include" });
           if (!res.ok) throw new Error("bad status");
           const data = await res.json(); // { up:number, down:number }
           upCountEl.textContent = String(n(data.up));
@@ -339,8 +349,8 @@
       async function sendVote(action) {
         if (!API_BASE) { offlineEl.classList.add("show"); return; }
         const user = getUser() || {};
-        const headers = { "Content-Type": "application/json" };
-        if (user.id) headers["x-user-id"] = user.id; // your backend allows this header
+        const headers = authHeaders();
+
         try {
           const res = await fetch(`${API_BASE}/api/reactions/mug`, {
             method: "POST",
