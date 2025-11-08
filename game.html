@@ -285,12 +285,13 @@
   <!-- Left: Hero -->
   <div id="heroCard" class="card">
     <div class="row">
-      <div>Hero</div>
-      <div id="heroNameWrap">
-        <span id="heroName">—</span>
-        <button id="renameBtn" title="Rename">✏️</button>
-      </div>
-    </div>
+  <div id="heroTitle">Hero</div>
+  <div id="heroNameWrap">
+    <span id="heroName">—</span>
+    <button id="renameBtn" title="Rename">✏️</button>
+  </div>
+</div>
+
     <div class="row"><div>Level</div><div id="level">1</div></div>
     <div class="row"><div>XP</div><div id="xpVal">0 / 100</div></div>
     <div class="bar"><span id="xpBar"></span></div>
@@ -324,41 +325,34 @@
     <div id="battleRating" class="powertotal va-sparkle">BATTLE RATING 0</div>
   </div>
 
-  <!-- Right: Actions + Shop links + Log -->
-  <div id="actionsCard" class="card">
-    <div class="actions-head">
-      <div style="font-weight:700">Actions</div>
-      <div class="actions-buttons">
-        <a id="openShop" href="/shop.html" class="game-btn">Equipment Shop</a>
-        <a id="openBrisingr" href="/brisingrshop.html" class="game-btn">
-          <img src="/guildbook/Currency/Brísingr.png" alt="Brísingr" class="currency-icon">
-          Brísingr Shop
-        </a>
-        <button id="openQuests" type="button" class="game-btn">📜 Quests</button>
-      </div>
-    </div>
-
-    <hr class="soft">
-
-    <!-- Training + Battle section -->
-    <div>
-      <div class="row"><button id="trainPower">Train Strength (+1)</button><span class="muted">3s cd</span></div>
-      <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
-      <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
-      <hr/>
-      <div class="row"><button id="fightRandom" disabled>Battle: PvP (Lv 25+)</button><span class="muted">win gold/xp</span></div>
-      <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">passive gold/xp</span></div>
-    </div>
-
-    <!-- Battle Log -->
-    <div style="margin-top:12px">
-      <h3 style="margin:0 0 6px">Battle Log</h3>
-      <div id="log" class="log"></div>
+  <!-- Right: Actions + Quests + Log -->
+<div id="actionsCard" class="card">
+  <div class="actions-head">
+    <div style="font-weight:700">Actions</div>
+    <div class="actions-buttons">
+      <a id="openShop" href="/shop.html" class="game-btn">Equipment Shop</a>
+      <a id="openBrisingr" href="/brisingrshop.html" class="game-btn">
+        <img src="/guildbook/Currency/Br%C3%ADsingr.png" onerror="this.src='/guildbook/Currency/Brisingr.png'" alt="Brísingr" class="currency-icon">
+        Brísingr Shop
+      </a>
+      <button id="openQuests" type="button" class="game-btn">📜 Quests</button>
     </div>
   </div>
 
-  <!-- Active Quest slot -->
-  <div id="activeQuest" class="card" style="display:none">
+  <hr class="soft">
+
+  <!-- Training + Battle section -->
+  <div>
+    <div class="row"><button id="trainPower">Train Strength (+1)</button><span class="muted">3s cd</span></div>
+    <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
+    <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
+    <hr/>
+    <div class="row"><button id="fightRandom" disabled>Battle: PvP (Lv 25+)</button><span class="muted">win gold/xp</span></div>
+    <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">passive gold/xp</span></div>
+  </div>
+
+  <!-- Active Quest (now inside this card, above the Battle Log) -->
+  <div id="activeQuest" class="card" style="display:none; margin-top:12px;">
     <div style="font-weight:700; display:flex; justify-content:space-between; align-items:center;">
       <span>Active Quest</span>
       <span id="aqStatus" class="muted">—</span>
@@ -375,11 +369,19 @@
     </div>
 
     <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
-      <button id="aqOpen" class="game-btn">Choose Race</button>
+      <button id="aqOpen" class="game-btn">Open</button>
+      <a id="aqTravel" class="game-btn" style="display:none" href="#">Travel</a>
       <button id="aqAbandon" class="game-btn" title="Abandon this quest">Abandon</button>
     </div>
   </div>
+
+  <!-- Battle Log -->
+  <div style="margin-top:12px">
+    <h3 style="margin:0 0 6px">Battle Log</h3>
+    <div id="log" class="log"></div>
+  </div>
 </div>
+
 
 <!-- === Quests Modal === -->
 <div id="questsOverlay" style="display:none">
@@ -424,11 +426,43 @@
   const STORAGE_KEY = 'va_quests';
   const RACE_KEY = 'va_race';
 
-  // Seed/ensure the main quest exists
-  function loadQuests(){
-    let q; try { q = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch { q = []; }
-    const byId = Object.fromEntries(q.map(x=>[x.id,x]));
-    if (!byId['q_main_pick_race']) {
+  // Map race -> display + travel link (adjust hrefs if needed)
+  const RACES = {
+    myriador: { name: 'Myriador', travelHref: '/myriador.html' },
+    dreadheim:{ name: 'Dreadheim', travelHref: '/dreadheim.html' },
+    wildwood: { name: 'Wildwood', travelHref: '/wildwood.html' },
+  };
+
+  // ---------- tiny helpers ----------
+  const $ = (id) => document.getElementById(id);
+  const getQ = () => JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+  const setQ = (q) => localStorage.setItem(STORAGE_KEY, JSON.stringify(q));
+  const getRace = () => localStorage.getItem(RACE_KEY);
+  const setRace = (r) => localStorage.setItem(RACE_KEY, r);
+
+  function setLog(msg, cls=''){
+    const log = $('log'); if (!log) return;
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    log.prepend(line);
+  }
+
+  function cap(s){ return (s||'').slice(0,1).toUpperCase() + (s||'').slice(1); }
+
+  // Update left-card title from race
+  function setHeroTitleFromRace() {
+    const t = $('heroTitle');
+    if (!t) return;
+    const r = getRace();
+    t.textContent = r && RACES[r] ? RACES[r].name : 'Hero';
+  }
+
+  // Seed main quest if missing
+  function ensureSeed(){
+    const q = getQ();
+    const by = Object.fromEntries(q.map(x=>[x.id,x]));
+    if (!by['q_main_pick_race']) {
       q.push({
         id:'q_main_pick_race',
         title:'Choose Your Race',
@@ -438,83 +472,198 @@
         rewards:{gold:25,xp:25}
       });
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(q));
-    return q;
+    // If race already chosen earlier, ensure “pick race” is completed and travel quest exists
+    const race = getRace();
+    if (race) {
+      const i = q.findIndex(x=>x.id==='q_main_pick_race');
+      if (i >= 0) q[i] = { ...q[i], status:'completed', progress:100 };
+      if (!by['q_main_travel']) {
+        q.push(makeTravelQuest(race));
+      }
+    }
+    setQ(q);
   }
-  function saveQuests(q){ localStorage.setItem(STORAGE_KEY, JSON.stringify(q)); }
 
-  function setLog(msg, cls=''){
-    const log = document.getElementById('log'); if (!log) return;
-    const line = document.createElement('div');
-    if (cls) line.className = cls;
-    line.textContent = msg;
-    log.prepend(line);
+  function makeTravelQuest(raceKey){
+    const r = RACES[raceKey] || { name: cap(raceKey), travelHref:'#' };
+    return {
+      id:'q_main_travel',
+      title:`Journey to ${r.name}`,
+      desc:`Travel to ${r.name} and begin your path.`,
+      status:'active',
+      progress:0,
+      target: raceKey,
+      href: r.travelHref
+    };
   }
 
-  const quests = loadQuests();
+  function read(id){ return getQ().find(x=>x.id===id); }
+  function write(id, updater){
+    const list = getQ();
+    const i = list.findIndex(x=>x.id===id);
+    if (i>=0) { list[i] = updater(list[i]); setQ(list); }
+  }
 
-  // Elements
-  const openBtn = document.getElementById('openQuests');
-  const overlay = document.getElementById('questsOverlay');
-  const modal   = document.getElementById('questsModal');
-  const closeBtn= document.getElementById('qmClose');
-  const laterBtn= document.getElementById('qmAbandon');
-  const acceptBtn=document.getElementById('qmAccept');
-  const statusEl= document.getElementById('qmStatus');
+  // ---------- Modal wiring ----------
+  const openBtn   = $('openQuests');
+  const overlay   = $('questsOverlay');
+  const modal     = $('questsModal');
+  const closeBtn  = $('qmClose');
+  const laterBtn  = $('qmAbandon');
+  const acceptBtn = $('qmAccept');
+  const statusEl  = $('qmStatus');
 
-  // Selection handling
   let chosen = null;
+
   modal?.querySelectorAll('.race-card').forEach(btn=>{
     btn.addEventListener('click', ()=>{
+      const locked = !!getRace();           // already picked: no reselection
+      if (locked) return;
       modal.querySelectorAll('.race-card').forEach(b=>b.classList.remove('selected'));
       btn.classList.add('selected');
       chosen = btn.dataset.race || null;
-      acceptBtn.disabled = !chosen;
+      acceptBtn.textContent = chosen ? 'Confirm' : 'Accept';
+      acceptBtn.disabled = false;
     });
   });
 
   function showQuest(){
-    const q = (JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')).find(x=>x.id==='q_main_pick_race');
-    if (!q) return;
-    statusEl.textContent = `Status: ${q.status[0].toUpperCase()}${q.status.slice(1)}`;
-    acceptBtn.disabled = (q.status === 'completed');
+    const pick = read('q_main_pick_race');
+    if (!pick) return;
+    statusEl.textContent = `Status: ${cap(pick.status)}`;
+
+    const locked = !!getRace();
+    // If race already chosen, you can’t change it
+    acceptBtn.disabled = (pick.status === 'completed') || locked;
+    acceptBtn.textContent = chosen ? 'Confirm' : 'Accept';
     overlay.style.display = 'flex';
   }
-
   function hideQuest(){ overlay.style.display = 'none'; }
 
-  function completeQuest(){
-    if (!chosen) return;
-    const qlist = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
-    const q = qlist.find(x=>x.id==='q_main_pick_race');
-    if (q){
-      q.status='completed'; q.progress=100;
-      saveQuests(qlist);
+  // ---------- Active Quest panel (inside right card) ----------
+  const aqBox     = $('activeQuest');
+  const aqTitle   = $('aqTitle');
+  const aqDesc    = $('aqDesc');
+  const aqProgVal = $('aqProgVal');
+  const aqProgBar = $('aqProgBar');
+  const aqStatus  = $('aqStatus');
+  const aqOpen    = $('aqOpen');
+  const aqAbandon = $('aqAbandon');
+  const aqTravel  = $('aqTravel');
+
+  function renderActive(){
+    // Priority: travel quest if exists and not completed; else pick-race if active
+    const travel = read('q_main_travel');
+    const pick   = read('q_main_pick_race');
+    let q = null;
+
+    if (travel && travel.status !== 'completed') q = travel;
+    else if (pick && pick.status !== 'completed' && pick.status !== 'available') q = pick;
+
+    if (!q) { aqBox.style.display = 'none'; return; }
+
+    aqBox.style.display = 'flex';
+    aqTitle.textContent = q.title;
+    aqDesc.textContent  = q.desc;
+    aqProgVal.textContent = String(q.progress||0);
+    aqProgBar.style.width = (q.progress||0) + '%';
+    aqStatus.textContent = cap(q.status);
+
+    // Button modes
+    aqOpen.style.display   = (q.id === 'q_main_pick_race') ? '' : 'none';
+    aqTravel.style.display = (q.id === 'q_main_travel') ? '' : 'none';
+    if (q.id === 'q_main_travel') {
+      aqTravel.href = q.href || '#';
     }
-    // Persist race
-    localStorage.setItem(RACE_KEY, chosen);
-
-    // Optional: grant immediate rewards to your player cache if you store it in localStorage
-    // (If your /src/game.ts loads "me" from server, you can skip this and just log.)
-    setLog(`Quest Completed: Choose Your Race — You chose ${chosen}. +25 gold, +25 xp`, 'ok');
-
-    hideQuest();
   }
 
+  // Accept/Confirm in modal:
+  // - If no race chosen yet -> mark pick-race quest Active
+  // - If a race is chosen -> complete pick-race, set race, add travel quest
+  function acceptOrConfirm(){
+    const pick = read('q_main_pick_race');
+    if (!pick) return;
+
+    // Already picked once: do nothing
+    if (getRace()) { hideQuest(); return; }
+
+    if (!chosen) {
+      // move to Active so it shows in the right card
+      write('q_main_pick_race', prev => ({ ...prev, status:'active', progress:0 }));
+      renderActive();
+      setLog('Quest accepted: Choose Your Race', 'ok');
+      hideQuest();
+      return;
+    }
+
+    // Confirm race choice once → final (cannot be changed)
+    setRace(chosen);
+
+    // complete pick race
+    write('q_main_pick_race', prev => ({ ...prev, status:'completed', progress:100 }));
+    setLog(`Quest Completed: Choose Your Race — You chose ${RACES[chosen].name}. +25 gold, +25 xp`, 'ok');
+
+    // add/activate next quest (travel)
+    const list = getQ();
+    if (!read('q_main_travel')) {
+      list.push(makeTravelQuest(chosen));
+      setQ(list);
+    }
+
+    setHeroTitleFromRace(); // update left-card title
+    renderActive();
+    hideQuest();
+
+    // OPTIONAL: server reward call (uncomment + add backend route if you want real rewards)
+    /*
+    const apiBase = document.querySelector('meta[name="api-base"]')?.content || "";
+    const uid = JSON.parse(localStorage.getItem('mh_user')||'{}')?.id || "";
+    fetch(apiBase + "/api/game/quest/complete", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "x-user-id": uid },
+      body: JSON.stringify({ id:"q_main_pick_race" })
+    }).catch(()=>{});
+    */
+  }
+
+  // Abandon → only affects whichever is showing
+  function abandon(){
+    const travel = read('q_main_travel');
+    const pick   = read('q_main_pick_race');
+
+    if (travel && travel.status !== 'completed') {
+      write('q_main_travel', prev => ({ ...prev, status:'available', progress:0 }));
+      renderActive();
+      hideQuest();
+      return;
+    }
+    if (pick && pick.status !== 'completed') {
+      write('q_main_pick_race', prev => ({ ...prev, status:'available', progress:0 }));
+      renderActive();
+      hideQuest();
+    }
+  }
+
+  // Wire buttons
   openBtn?.addEventListener('click', (e)=>{ e.preventDefault(); showQuest(); });
+  $('aqOpen')?.addEventListener('click', (e)=>{ e.preventDefault(); showQuest(); });
   closeBtn?.addEventListener('click', hideQuest);
   laterBtn?.addEventListener('click', hideQuest);
-  acceptBtn?.addEventListener('click', completeQuest);
+  acceptBtn?.addEventListener('click', acceptOrConfirm);
+  aqAbandon?.addEventListener('click', abandon);
 
-  // Auto-open on first visit if not completed
-  const q = quests.find(x=>x.id==='q_main_pick_race');
-  const hasRace = !!localStorage.getItem(RACE_KEY);
-  if (q && q.status !== 'completed' && !hasRace) {
-    // small delay so page finishes painting
+  // Boot
+  ensureSeed();
+  setHeroTitleFromRace();  // paint “Hero” → race if already chosen
+  // First-time auto-open (only if no race & pick quest not completed)
+  const pick = read('q_main_pick_race');
+  if (pick && pick.status !== 'completed' && !getRace()) {
     setTimeout(()=> showQuest(), 250);
   }
+  renderActive();
 })();
 </script>
+
 
 
 <script type="module" src="/src/game.ts"></script>
