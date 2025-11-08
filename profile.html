@@ -412,31 +412,33 @@
     const toImgUrl = (p) => /^https?:\/\//i.test(p || '') ? p : fullUrl(p);
 
     async function loadGallery(uid){
-      if (!galleryGrid) return;
-      galleryGrid.innerHTML = `<div class="muted">Loading…</div>`;
-      try {
-        const r = await fetch(`${API_BASE}/api/users/${uid}/gallery`);
-        const data = r.ok ? await r.json() : [];
-        const photos = normalizePhotos(data);
+  if (!galleryGrid) return;
+  galleryGrid.innerHTML = `<div class="muted">Loading…</div>`;
+  try {
+    const r = await fetch(`${API_BASE}/api/users/${uid}/gallery`, {
+      headers: { "x-user-id": uid } // ✅ REQUIRED
+    });
+    const data = r.ok ? await r.json() : [];
+    const photos = normalizePhotos(data);
 
-        if (!photos.length) {
-          galleryGrid.innerHTML = `<div class="muted">No photos yet.</div>`;
-          LB.urls = []; return;
-        }
-
-        galleryGrid.innerHTML = ''; LB.urls = [];
-        photos.forEach((p, i) => {
-          const url = cacheBust(toImgUrl(p.url || p.path || '')); LB.urls.push(url);
-          const img = document.createElement('img');
-          img.loading = 'lazy'; img.alt = 'Gallery photo'; img.src = url; img.dataset.index = String(i);
-          img.onerror = () => { img.style.opacity = '0.3'; };
-          img.addEventListener('click', () => LB.open(i));
-          galleryGrid.appendChild(img);
-        });
-      } catch {
-        galleryGrid.innerHTML = `<div class="muted">Failed to load photos.</div>`; LB.urls = [];
-      }
+    if (!photos.length) {
+      galleryGrid.innerHTML = `<div class="muted">No photos yet.</div>`;
+      LB.urls = []; return;
     }
+
+    galleryGrid.innerHTML = ''; LB.urls = [];
+    photos.forEach((p, i) => {
+      const url = cacheBust(toImgUrl(p.url || p.path || '')); LB.urls.push(url);
+      const img = document.createElement('img');
+      img.loading = 'lazy'; img.alt = 'Gallery photo'; img.src = url; img.dataset.index = String(i);
+      img.onerror = () => { img.style.opacity = '0.3'; };
+      img.addEventListener('click', () => LB.open(i));
+      galleryGrid.appendChild(img);
+    });
+  } catch {
+    galleryGrid.innerHTML = `<div class="muted">Failed to load photos.</div>`; LB.urls = [];
+  }
+}
 
     // ---- refresh user from backend (keeps membership)
     async function loadUserFresh(u) {
