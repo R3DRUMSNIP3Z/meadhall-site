@@ -185,6 +185,11 @@ function saveUsersToDisk(arr) {
 // --- Email setup: Resend (preferred) + SMTP fallback ---
 const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
 const HAVE_RESEND = !!(process.env.RESEND_API_KEY && FROM_EMAIL && Resend);
+if (HAVE_RESEND && !String(FROM_EMAIL).includes("onboarding@resend.dev")) {
+  console.warn("⚠️ Resend ON but FROM_EMAIL is not onboarding@resend.dev — set FROM_EMAIL=Mead Hall <onboarding@resend.dev>");
+}
+
+
 const resendClient = HAVE_RESEND ? new Resend(process.env.RESEND_API_KEY) : null;
 
 let smtpTransport = null;
@@ -233,6 +238,12 @@ if (process.env.SMTP_HOST) {
 
 // unified email helper
 async function sendEmail({ to, subject, text, html, attachments }) {
+  console.log("📧 sendEmail ->", {
+    to,
+    subject,
+    using: (HAVE_RESEND ? "resend" : (smtpTransport ? "smtp" : "none")),
+    from: FROM_EMAIL
+  });
   if (resendClient) {
     try {
       const r = await resendClient.emails.send({ from: FROM_EMAIL, to, subject, text, html, attachments });
@@ -1009,14 +1020,17 @@ app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
    ============================== */
 async function sendContestEmail(entry, buyerEmail) {
   if (!CONTEST_INBOX) throw new Error("CONTEST_INBOX not set");
+
+  const fileUrl = `${SERVER_PUBLIC_URL}${entry.fileUrl}`;
   const text =
     `Skald contest submission\n\n` +
     `Title: ${entry.name}\n` +
     `User ID: ${entry.userId || "(anonymous)"}\n` +
     `Buyer Email: ${buyerEmail || "(unknown)"}\n` +
     `Uploaded: ${new Date(entry.uploadedAt).toISOString()}\n` +
-    `File: ${SERVER_PUBLIC_URL}${entry.fileUrl}\n`;
+    `File URL: ${fileUrl}\n`;
 
+  // We’ll send a simple message (no attachment) to avoid big-message blocks.
   await sendEmail({
     to: CONTEST_INBOX,
     subject: `[Skald Contest] ${entry.name} (${entry.id})`,
