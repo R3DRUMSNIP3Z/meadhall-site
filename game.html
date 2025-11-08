@@ -393,47 +393,10 @@
 
 
 
-<!-- === Quests Modal === -->
-<div id="questsOverlay" style="display:none">
-  <div id="questsModal" role="dialog" aria-modal="true" aria-labelledby="qmTitle">
-    <div class="qm-head">
-      <div id="qmTitle">Main Quest: Choose Your Race</div>
-      <button id="qmClose" class="qm-close" aria-label="Close">✖</button>
-    </div>
-    <div class="qm-body">
-      <p class="qm-sub">You must choose your lineage before you can step onto the path of glory.</p>
-
-      <div class="race-grid">
-        <button class="race-card" data-race="myriador">
-          <div class="race-name">Myriador</div>
-          <div class="race-desc">Human realm of cities and scholars. +1 Strength at level 5.</div>
-        </button>
-
-        <button class="race-card" data-race="dreadheim">
-          <div class="race-name">Dreadheim</div>
-          <div class="race-desc">Viking north—iron and frost. +1 Defense at level 5.</div>
-        </button>
-
-        <button class="race-card" data-race="wildwood">
-          <div class="race-name">Wildwood</div>
-          <div class="race-desc">Forest-born wanderers. +1 Speed at level 5.</div>
-        </button>
-      </div>
-
-      <div class="qm-actions">
-        <button id="qmAccept" class="game-btn" disabled>Accept</button>
-        <button id="qmAbandon" class="game-btn">Later</button>
-      </div>
-    </div>
-    <div class="qm-foot">
-      <span class="qm-reward">Reward: 25 gold · 25 xp</span>
-      <span id="qmStatus" class="qm-status">Status: Available</span>
-    </div>
-  </div>
-</div>
+<!-- === Quests Modal (UI already on the page) + Bridge for game.ts === -->
 <script>
 (() => {
-  // --- derive a per-user storage suffix (same logic your app uses) ---
+  // ---------- Per-user storage helpers ----------
   function getUserId() {
     try {
       const raw = localStorage.getItem('mh_user');
@@ -442,172 +405,138 @@
         return obj?.id || obj?._id || obj?.user?.id || null;
       }
     } catch {}
-    // allow ?user=<id> override for testing
     return new URLSearchParams(location.search).get('user');
   }
   const UID = getUserId() || 'guest';
-
-  // helper to namespace storage keys by user id
   const userKey = (base) => `${base}__${UID}`;
 
-  // OLD global keys (for migration)
-  const OLD_QUESTS = 'va_quests';
-  const OLD_RACE   = 'va_race';
-
-  // NEW per-user keys
+  // New per-user keys
   const STORAGE_KEY = userKey('va_quests');
   const RACE_KEY    = userKey('va_race');
 
-  // ---- one-time migration (optional): if new keys are empty but old exist, copy then ignore old
+  // One-time migration from old global keys
   try {
-    if (!localStorage.getItem(STORAGE_KEY) && localStorage.getItem(OLD_QUESTS)) {
-      localStorage.setItem(STORAGE_KEY, localStorage.getItem(OLD_QUESTS));
+    if (!localStorage.getItem(STORAGE_KEY) && localStorage.getItem('va_quests')) {
+      localStorage.setItem(STORAGE_KEY, localStorage.getItem('va_quests'));
     }
-    if (!localStorage.getItem(RACE_KEY) && localStorage.getItem(OLD_RACE)) {
-      localStorage.setItem(RACE_KEY, localStorage.getItem(OLD_RACE));
+    if (!localStorage.getItem(RACE_KEY) && localStorage.getItem('va_race')) {
+      const old = localStorage.getItem('va_race');
+      localStorage.setItem(RACE_KEY, old);
+      localStorage.removeItem('va_race'); // stop auto badge from old global key
     }
   } catch {}
 
-  // Seed/ensure the main quest exists (per user)
-  function loadQuests(){
-    let q; try { q = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch { q = []; }
-    const byId = Object.fromEntries(q.map(x=>[x.id,x]));
+  // ---------- Tiny Quest API that game.ts calls (VAQ) ----------
+  function readQuests() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+  }
+  function writeQuests(list) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list || []));
+  }
+  function ensureQuestState() {
+    const q = readQuests();
+    const byId = Object.fromEntries(q.map(x => [x.id, x]));
     if (!byId['q_main_pick_race']) {
       q.push({
-        id:'q_main_pick_race',
-        title:'Choose Your Race',
-        desc:'Pick your lineage to begin your saga.',
-        status:'available',
-        progress:0,
-        rewards:{gold:25,xp:25}
+        id: 'q_main_pick_race',
+        title: 'Choose Your Race',
+        desc: 'Pick your lineage to begin your saga.',
+        status: 'available',
+        progress: 0,
+        rewards: { gold: 25, xp: 25 }
       });
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(q));
-    return q;
+    writeQuests(q);
   }
-  function saveQuests(q){ localStorage.setItem(STORAGE_KEY, JSON.stringify(q)); }
+  window.VAQ = {
+    readQuests,
+    writeQuests,
+    ensureQuestState,
+    updateHeroTitle: () => renderRaceBadge2()
+  };
 
-  function setLog(msg, cls=''){
-    const log = document.getElementById('log'); if (!log) return;
-    const line = document.createElement('div');
-    if (cls) line.className = cls;
-    line.textContent = msg;
-    log.prepend(line);
-  }
+  // ---------- Modal wiring ----------
+  const openBtn   = document.getElementById('openQuests');
+  const overlay   = document.getElementById('questsOverlay');
+  const modal     = document.getElementById('questsModal');
+  const closeBtn  = document.getElementById('qmClose');
+  const laterBtn  = document.getElementById('qmAbandon');
+  const acceptBtn = document.getElementById('qmAccept');
+  const statusEl  = document.getElementById('qmStatus');
 
-  const quests = loadQuests();
-
-  // Elements
-  const openBtn  = document.getElementById('openQuests');
-  const overlay  = document.getElementById('questsOverlay');
-  const modal    = document.getElementById('questsModal');
-  const closeBtn = document.getElementById('qmClose');
-  const laterBtn = document.getElementById('qmAbandon');
-  const acceptBtn= document.getElementById('qmAccept');
-  const statusEl = document.getElementById('qmStatus');
-
-  // Selection handling
   let chosen = null;
-  modal?.querySelectorAll('.race-card').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      modal.querySelectorAll('.race-card').forEach(b=>b.classList.remove('selected'));
+  modal?.querySelectorAll('.race-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      modal.querySelectorAll('.race-card').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       chosen = btn.dataset.race || null;
       acceptBtn.disabled = !chosen;
     });
   });
 
-  function getQuest() {
-    try { 
-      const list = JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
-      return list.find(x=>x.id==='q_main_pick_race');
-    } catch { return null; }
-  }
+  function getMainQuest() { return readQuests().find(x => x.id === 'q_main_pick_race'); }
 
-  function showQuest(){
-    const q = getQuest();
-    if (!q) return;
+  function showQuest() {
+    ensureQuestState();
+    const q = getMainQuest(); if (!q) return;
     statusEl.textContent = `Status: ${q.status[0].toUpperCase()}${q.status.slice(1)}`;
     acceptBtn.disabled = (q.status === 'completed');
     overlay.style.display = 'flex';
   }
+  function hideQuest() { overlay.style.display = 'none'; }
 
-  function hideQuest(){ overlay.style.display = 'none'; }
+  // Complete the race quest → set race, add "travel" quest, notify game.ts
+  function completeQuest() {
+    if (!chosen) return;
 
-  function completeQuest(){
-  if (!chosen) return;
+    const list = readQuests();
+    const main = list.find(x => x.id === 'q_main_pick_race');
+    if (main) { main.status = 'completed'; main.progress = 100; }
 
-  // 1) Load quests
-  let list;
-  try { list = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
-  catch { list = []; }
+    const label =
+      chosen === 'myriador'  ? 'Myriador' :
+      chosen === 'dreadheim' ? 'Dreadheim' :
+                               'Wildwood';
 
-  // 2) Mark main quest completed
-  const main = list.find(x => x.id === 'q_main_pick_race');
-  if (main) { main.status = 'completed'; main.progress = 100; }
+    let travel = list.find(x => x.id === 'q_travel_home');
+    if (!travel) {
+      list.push({
+        id: 'q_travel_home',
+        title: 'Travel to your homeland',
+        desc: `Go to ${label}.`,
+        status: 'available',
+        progress: 0
+      });
+    } else {
+      travel.status = 'available';
+      travel.progress = 0;
+      travel.desc = `Go to ${label}.`;
+    }
 
-  // 3) Add / reset Travel quest
-  const label =
-    chosen === 'myriador'  ? 'Myriador' :
-    chosen === 'dreadheim' ? 'Dreadheim' :
-                             'Wildwood';
+    writeQuests(list);
+    localStorage.setItem(RACE_KEY, chosen);
 
-  let travel = list.find(x => x.id === 'q_travel_home');
-  if (!travel) {
-    travel = {
-      id: 'q_travel_home',
-      title: 'Travel to your homeland',
-      desc: `Go to ${label}.`,
-      status: 'available',
-      progress: 0
-    };
-    list.push(travel);
-  } else {
-    travel.status = 'available';
-    travel.progress = 0;
-    travel.desc = `Go to ${label}.`;
+    try { window.dispatchEvent(new CustomEvent('va-quest-updated')); } catch {}
+    try { renderRaceBadge2(); } catch {}
+    hideQuest();
   }
 
-  // 4) Save everything
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  localStorage.setItem(RACE_KEY, chosen);
-
-  // 5) Log completion
-  setLog(`Quest Completed: Choose Your Race — You chose ${label}. +25 gold, +25 xp`, 'ok');
-  hideQuest();
-
-  // 6) Update UI immediately
-  try { window.dispatchEvent(new CustomEvent('va-quest-updated')); } catch {}
-  try { renderActiveQuest?.(); } catch {}
-  // 6) Update UI immediately
-try { window.dispatchEvent(new CustomEvent('va-quest-updated')); } catch {}
-try { if (typeof renderActiveQuest === 'function') renderActiveQuest(); } catch {}
-try {
-  var VAQ = window.VAQ;
-  if (VAQ && typeof VAQ.updateHeroTitle === 'function') VAQ.updateHeroTitle();
-} catch {}
-try {
-  if (typeof window.renderRaceBadge === 'function') window.renderRaceBadge();
-} catch {}
-
-
-}
+  openBtn?.addEventListener('click', (e) => { e.preventDefault(); showQuest(); });
+  closeBtn?.addEventListener('click', hideQuest);
+  laterBtn?.addEventListener('click', hideQuest);
+  acceptBtn?.addEventListener('click', completeQuest);
 
   // Auto-open on first visit if not completed for THIS user
-  const q = quests.find(x=>x.id==='q_main_pick_race');
+  ensureQuestState();
+  const q = getMainQuest();
   const hasRace = !!localStorage.getItem(RACE_KEY);
   if (q && q.status !== 'completed' && !hasRace) {
-    setTimeout(()=> showQuest(), 250);
+    setTimeout(() => showQuest(), 250);
   }
-})();
-</script>
-<!-- === Race Badge + Title Update === -->
-<script>
-  const RACE_KEY = 'va_race';
 
+  // ---------- Race badge + title ----------
   function currentRace() { return localStorage.getItem(RACE_KEY); }
-
-  function renderRaceBadge() {
+  function renderRaceBadge2() {
     const badgeContainer = document.getElementById("heroBadge");
     const titleEl = document.getElementById("heroTitle");
     if (!badgeContainer || !titleEl) return;
@@ -619,7 +548,6 @@ try {
       titleEl.classList.remove('va-sparkle');
       return;
     }
-
     const srcMap = {
       myriador:  "/guildbook/badges/myriadorian.svg",
       dreadheim: "/guildbook/badges/dreadheimer.svg",
@@ -631,13 +559,13 @@ try {
 
     titleEl.textContent = label;
     titleEl.classList.add('va-sparkle');
-
     const src = srcMap[race];
     badgeContainer.innerHTML = src ? `<img src="${src}" alt="${label} badge" loading="eager">` : "";
   }
-
-  renderRaceBadge();
+  renderRaceBadge2();
+})();
 </script>
+
 
 
 <script type="module" src="/src/game.ts"></script>
