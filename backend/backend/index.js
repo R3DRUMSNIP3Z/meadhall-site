@@ -148,25 +148,6 @@ function appendRecord(rec) {
   }
 }
 
-// --- simple JSON "DB" for contest entries ---
-const CONTEST_FILE = path.join(DATA_DIR, "contest_entries.json");
-if (!fs.existsSync(CONTEST_FILE)) fs.writeFileSync(CONTEST_FILE, "[]");
-const readContestEntries = () => {
-  try { return JSON.parse(fs.readFileSync(CONTEST_FILE, "utf8")); }
-  catch { return []; }
-};
-const writeContestEntries = (arr) => {
-  fs.writeFileSync(CONTEST_FILE, JSON.stringify(arr, null, 2));
-};
-const saveContestEntry = (entry) => {
-  const arr = readContestEntries();
-  arr.push(entry);
-  writeContestEntries(arr);
-};
-const findContestEntry = (id) => {
-  const arr = readContestEntries();
-  return arr.find(e => String(e.id) === String(id)) || null;
-};
 
 /* ==============================
    simple JSON "DB" for users
@@ -286,22 +267,6 @@ async function sendEmail({ to, subject, text, html, attachments }) {
   throw new Error("No email provider configured or both failed" + (lastErr ? `: ${lastErr.message || lastErr}` : ""));
 }
 
-// --- Multer for contest PDF upload ---
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const safe = String(file.originalname || "entry.pdf").replace(/\s+/g, "_");
-    cb(null, `${Date.now()}-${safe}`);
-  },
-});
-const uploadPDF = multer({
-  storage,
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype === "application/pdf") cb(null, true);
-    else cb(new Error("Only PDF files allowed"));
-  },
-  limits: { fileSize: 12 * 1024 * 1024 },
-});
 
 // --- Stripe webhook BEFORE json middleware ---
 app.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
@@ -707,139 +672,6 @@ app.post("/api/game/checkout/brisingr/:tier", async (req, res) => {
 });
 
 
-/* ==============================
-   CONTEST: upload + $1 checkout
-   ============================== */
-
-// 1) Upload a PDF — returns { entryId, fileUrl }
-app.post("/api/contest/upload", uploadPDF.single("pdf"), (req, res) => {
-  try {
-    const name = String(req.body.name || "").trim();
-    const userId = String(req.body.userId || "").trim();
-    if (!req.file) return res.status(400).send("No file");
-    if (!name) return res.status(400).send("Missing name");
-
-    const entryId = `ce_${Date.now()}`;
-    const filePath = req.file.path;
-    const fileUrl = `/uploads/${path.basename(req.file.path)}`;
-
-    saveContestEntry({
-      id: entryId,
-      name,
-      userId: userId || null,
-      filePath,
-      fileUrl,
-      originalName: req.file.originalname || "story.pdf",
-      uploadedAt: Date.now(),
-      emailed: false,
-    });
-
-    res.json({ entryId, fileUrl });
-  } catch (e) {
-    console.error("upload error:", e.message);
-    res.status(500).send("Upload failed");
-  }
-});
-
-// 2) Create $1 payment session
-app.post("/api/contest/checkout", async (req, res) => {
-  try {
-    let entryId = req.body.entryId || null;
-
-    // Legacy text entry
-    if (!entryId && req.body.entry) {
-      entryId = `ce_${Date.now()}`;
-      const fauxPath = path.join(uploadsDir, `${entryId}.txt`);
-      fs.writeFileSync(fauxPath, String(req.body.entry.text || "No text"), "utf8");
-      saveContestEntry({
-        id: entryId,
-        name: req.body.entry.title || "Skald Entry",
-        userId: null,
-        filePath: fauxPath,
-        fileUrl: `/uploads/${path.basename(fauxPath)}`,
-        originalName: "entry.txt",
-        uploadedAt: Date.now(),
-        emailed: false,
-      });
-
-  
-
- 
-
-    }
-
-    if (!entryId) return res.status(400).send("Missing entryId");
-
-    const entry = findContestEntry(entryId);
-    if (!entry) return res.status(404).send("Entry not found");
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            unit_amount: 100,
-            product_data: { name: "Skald Contest Entry", description: entry.name || "Entry" },
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: `${CLIENT_URL}/#contest-success`,
-      cancel_url: `${CLIENT_URL}/#contest-canceled`,
-      metadata: {
-        entryId: entry.id,
-        userId: entry.userId || "",
-        fileBasename: path.basename(entry.filePath || ""),
-        entryName: entry.name || "",
-      },
-    });
-
-    res.json({ url: session.url });
-  } catch (e) {
-    console.error(e);
-    res.status(500).send("Contest checkout failed");
-  }
-});
-
-// Manual resend endpoint — returns messageId/accepted/response for debugging
-app.post("/api/contest/resend", async (req, res) => {
-  try {
-    const entryId = String(req.body.entryId || "");
-    if (!entryId) return res.status(400).json({ ok: false, error: "entryId required" });
-    const entry = findContestEntry(entryId);
-    if (!entry) return res.status(404).json({ ok: false, error: "Entry not found" });
-    const info = await sendEmail({ to: CONTEST_INBOX, subject: "[Skald Contest] Resend", text: "Resent entry attached." });
-    return res.json({ ok: true, resent: entryId, provider: info?.provider || null, id: info?.id || null });
-  } catch (e) {
-    console.error("resend error:", e.message);
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
-
-// Test route to verify email
-app.post("/api/test/send-email", async (_req, res) => {
-  try {
-    if (!CONTEST_INBOX) return res.status(400).json({ ok: false, error: "CONTEST_INBOX missing" });
-    const info = await sendEmail({
-      to: CONTEST_INBOX,
-      subject: "[Skald Contest] Mailer test",
-      text: "If you received this, email is configured correctly.",
-    });
-    res.json({ ok: true, provider: info.provider, id: info.id });
-  } catch (e) {
-    console.error("TEST SEND ERROR:", e.message);
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
-
-// Debug route to inspect an entry and confirm its file exists
-app.get("/api/contest/entry/:id", (req, res) => {
-  const entry = findContestEntry(req.params.id);
-  if (!entry) return res.status(404).json({ ok: false, error: "Entry not found" });
-  const exists = entry.filePath ? fs.existsSync(entry.filePath) : false;
-  res.json({ ok: true, entry, fileExists: exists });
-});
 
 // --- Avatar upload ---
 const avatarStorage = multer.diskStorage({

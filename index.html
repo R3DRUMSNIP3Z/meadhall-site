@@ -100,8 +100,7 @@
       <nav style="margin-left:auto; display:flex; align-items:center; gap:16px">
         <a href="#" aria-disabled="true" class="navlink sparkle locked" id="nav-meadhall">Mead Hall</a>
         <a href="#plans" class="navlink">Membership</a>
-        <a href="#contest" class="navlink">Skald Contest</a>
-        <a href="#lore" class="navlink">Lore</a>
+                <a href="#lore" class="navlink">Lore</a>
         <a href="#account" class="navlink" id="nav-account">Sign In</a>
       </nav>
     </div>
@@ -191,36 +190,6 @@
     </div>
   </section>
 
-  <!-- Skald Contest -->
-  <section id="contest" class="plans">
-    <div class="wrap">
-      <div class="card" style="max-width:960px; margin:0 auto">
-        <h3>Skald Contest</h3>
-        <p class="rune-sub" style="font-size:18px">
-          Offer your verse to the Allfather. $1 entry in test mode while we sharpen our axes.
-        </p>
-
-        <form id="contestForm" style="display:grid; gap:12px; margin-top:10px">
-          <div style="display:grid; gap:6px">
-            <label for="contestName"><strong>Your name</strong></label>
-            <input id="contestName" name="name" type="text" required placeholder="E.g., Lisa Marie" style="padding:.6rem;border-radius:8px;border:1px solid #3b3325;background:#0e0e0e;color:#e9e4d5"/>
-          </div>
-
-          <div style="display:grid; gap:6px">
-            <label for="contestPdf"><strong>Story (PDF)</strong></label>
-            <input id="contestPdf" name="pdf" type="file" accept="application/pdf" required
-                   style="padding:.6rem;border-radius:8px;border:1px solid #3b3325;background:#0e0e0e;color:#e9e4d5"/>
-            <small style="opacity:.8">Upload one .pdf up to ~10 MB.</small>
-          </div>
-
-          <div class="cta-row" style="display:flex; gap:10px; align-items:center">
-            <button type="submit" class="btn btn-viking" id="btn-contest">Submit Entry ($1)</button>
-            <span id="contestMsg" style="opacity:.85"></span>
-          </div>
-        </form>
-      </div>
-    </div>
-  </section>
 
   <!-- Lore -->
   <section id="lore" class="plans" style="background: linear-gradient(180deg, rgba(8,12,14,.75), rgba(6,9,11,.95))">

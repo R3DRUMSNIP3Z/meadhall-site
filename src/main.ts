@@ -1,5 +1,5 @@
 // ============================
-// Mead Hall main (Skald smooth-scroll + contest flow + strict lock w/ user-scoped sub-grace)
+// Mead Hall main (membership checkout + strict lock)
 // ============================
 console.log("[MH] Vite module loaded");
 
@@ -15,15 +15,23 @@ function pickApiBase(sources: any): string {
   if (sources.vite && (sources.vite as any).VITE_API_BASE) return (sources.vite as any).VITE_API_BASE;
   return "";
 }
-const metaContent = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content || "";
+const metaContent =
+  (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content || "";
 const API_BASE =
-  pickApiBase({ meta: metaContent, env: (window as any).ENV || {}, vite: (import.meta as any)?.env || {} }) || "";
+  pickApiBase({
+    meta: metaContent,
+    env: (window as any).ENV || {},
+    vite: (import.meta as any)?.env || {},
+  }) || "";
 
 // ---------------- Minimal client-side session ----------------
 const LS_KEY = "mh_user";
 const getUser = () => {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || "null"); }
-  catch { return null; }
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) || "null");
+  } catch {
+    return null;
+  }
 };
 const setUser = (u: any) => localStorage.setItem(LS_KEY, JSON.stringify(u));
 const getCurrentUserId = () => (getUser()?.id ? String(getUser()?.id) : "");
@@ -38,7 +46,9 @@ async function loadUserFresh(u: any) {
     const fresh = await r.json();
     setUser(fresh);
     return fresh;
-  } catch { return u; }
+  } catch {
+    return u;
+  }
 }
 
 // ---------------- Account UI + MeadHall lock refs ----------------
@@ -55,7 +65,8 @@ if (navMeadHall) {
 
 function refreshAccountUI() {
   const u = getUser();
-  if (navAccount) navAccount.textContent = u ? (u.name ? `${u.name} (Account)` : "Account") : "Sign In";
+  if (navAccount)
+    navAccount.textContent = u ? (u.name ? `${u.name} (Account)` : "Account") : "Sign In";
 }
 refreshAccountUI();
 
@@ -79,29 +90,54 @@ function computeMember(u: any): boolean {
 // ---------------- Signup modal helpers ----------------
 const modal = document.getElementById("signupModal") as HTMLDivElement | null;
 const closeBtn = document.getElementById("closeSignup") as HTMLButtonElement | null;
-function openSignup(){ if (modal) { modal.style.display = "flex"; modal.setAttribute("aria-hidden","false"); } }
-function closeSignup(){ if (modal) { modal.style.display = "none"; modal.setAttribute("aria-hidden","true"); } }
+function openSignup() {
+  if (modal) {
+    modal.style.display = "flex";
+    modal.setAttribute("aria-hidden", "false");
+  }
+}
+function closeSignup() {
+  if (modal) {
+    modal.style.display = "none";
+    modal.setAttribute("aria-hidden", "true");
+  }
+}
 closeBtn?.addEventListener("click", closeSignup);
 
 function goAccount() {
   const u = getUser();
-  if (!u) { openSignup(); return; }
+  if (!u) {
+    openSignup();
+    return;
+  }
   location.href = "/account.html";
 }
-navAccount?.addEventListener("click", (e)=>{ e.preventDefault(); goAccount(); });
+navAccount?.addEventListener("click", (e) => {
+  e.preventDefault();
+  goAccount();
+});
 
 // When locked, clicking Mead Hall opens signup (never navigates)
 navMeadHall?.addEventListener("click", (e) => {
   const el = e.currentTarget as HTMLAnchorElement;
-  if (el.classList.contains("locked")) { e.preventDefault(); openSignup(); }
+  if (el.classList.contains("locked")) {
+    e.preventDefault();
+    openSignup();
+  }
 });
 
 // ---------------- Membership checkout ----------------
 async function startCheckout(plan: string | null) {
   const base = (API_BASE || location.origin).replace(/\/+$/, ""); // trim trailing slashes
   const u = getUser();
-  if (!u) { openSignup(); return; }
-  if (!plan) { alert("Missing plan"); return; }
+  if (!u) {
+    openSignup();
+    return;
+  }
+  if (!plan) {
+    alert("Missing plan");
+    return;
+  }
 
   // Optional: disable the clicked button while we work
   const active = document.activeElement as HTMLButtonElement | null;
@@ -117,7 +153,11 @@ async function startCheckout(plan: string | null) {
     // Try to read JSON; if it fails, fall back to text
     let data: any = null;
     const text = await r.text();
-    try { data = text ? JSON.parse(text) : null; } catch { /* ignore */ }
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      /* ignore */
+    }
 
     if (!r.ok) {
       const msg = (data && (data.error || data.message)) || text || `HTTP ${r.status}`;
@@ -137,154 +177,20 @@ async function startCheckout(plan: string | null) {
   }
 }
 
-// ---------------- Skald Contest: upload PDF -> pay $1 ----------------
-async function submitContestUploadThenPay_Form() {
-  const base = API_BASE || location.origin;
-  const u = getUser();
-  const nameInput = document.getElementById("contestName") as HTMLInputElement | null;
-  const fileInput = document.getElementById("contestPdf") as HTMLInputElement | null;
-  const msg = document.getElementById("contestMsg");
-
-  if (!u) { openSignup(); return; }
-  if (!nameInput?.value) { alert("Please enter your name."); return; }
-  const file = fileInput?.files?.[0];
-  if (!file) { alert("Please choose a PDF file."); return; }
-  if (file.type !== "application/pdf") { alert("File must be a PDF."); return; }
-  if (file.size > 10 * 1024 * 1024) { alert("PDF is larger than 10 MB."); return; }
-
-  try {
-    if (msg) msg.textContent = "Uploading…";
-    const fd = new FormData();
-    fd.append("name", nameInput.value);
-    fd.append("userId", u.id || "");
-    fd.append("pdf", file);
-
-    const up = await fetch(`${base}/api/contest/upload`, { method: "POST", body: fd });
-    if (!up.ok) throw new Error(await up.text());
-    const { entryId } = await up.json();
-
-    if (msg) msg.textContent = "Starting checkout…";
-    const pay = await fetch(`${base}/api/contest/checkout`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entryId })
-    });
-    if (!pay.ok) throw new Error(await pay.text());
-    const d = await pay.json();
-    if (d.url) location.href = d.url;
-    else throw new Error("No checkout URL returned");
-  } catch (err: any) {
-    console.error(err);
-    if (msg) msg.textContent = "Error: " + (err?.message || "Upload/checkout failed");
-    alert("Contest error: " + (err?.message || "Upload/checkout failed"));
-  }
-}
-
-// Fallback contest flow
-async function submitContestUploadThenPay_Fallback() {
-  const base = API_BASE || location.origin;
-  const u = getUser();
-  if (!u) { openSignup(); return; }
-
-  const name = prompt("Your name for the Skald entry:");
-  if (!name) return;
-
-  const picker = document.createElement("input");
-  picker.type = "file";
-  picker.accept = "application/pdf";
-  picker.onchange = async () => {
-    const file = picker.files?.[0];
-    if (!file) return;
-    if (file.type !== "application/pdf") { alert("Please choose a PDF."); return; }
-    if (file.size > 10 * 1024 * 1024) { alert("PDF is larger than 10 MB."); return; }
-
-    try {
-      const fd = new FormData();
-      fd.append("name", name);
-      fd.append("userId", u.id || "");
-      fd.append("pdf", file);
-
-      const up = await fetch(`${base}/api/contest/upload`, { method: "POST", body: fd });
-      if (!up.ok) throw new Error(await up.text());
-      const { entryId } = await up.json();
-
-      const pay = await fetch(`${base}/api/contest/checkout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entryId })
-      });
-      if (!pay.ok) throw new Error(await pay.text());
-      const d = await pay.json();
-      if (d.url) location.href = d.url;
-      else throw new Error("No checkout URL returned");
-    } catch (e: any) {
-      console.error(e);
-      alert("Contest error: " + (e?.message || "Upload/checkout failed"));
-    }
-  };
-  picker.click();
-}
-
 // ---------------- Wire buttons/handlers ----------------
-document.querySelectorAll<HTMLButtonElement>(".plan").forEach(btn=>{
-  btn.addEventListener("click", (e)=> 
+document.querySelectorAll<HTMLButtonElement>(".plan").forEach((btn) => {
+  btn.addEventListener("click", (e) =>
     startCheckout((e.currentTarget as HTMLElement).getAttribute("data-plan"))
   );
 });
-document.getElementById("btn-member")?.addEventListener("click", ()=> openSignup());
+document.getElementById("btn-member")?.addEventListener("click", () => openSignup());
 document.getElementById("btn-read-sample")?.addEventListener("click", (e) => {
   e.preventDefault();
   window.location.href = "/book.html";
 });
-document.getElementById("contestForm")?.addEventListener("submit", (e) => {
-  e.preventDefault();
-  submitContestUploadThenPay_Form();
-});
-document.getElementById("btn-contest")?.addEventListener("click", (e)=>{
-  const form = document.getElementById("contestForm") as HTMLFormElement | null;
-  if (form) { e.preventDefault(); form.requestSubmit(); return; }
-  e.preventDefault();
-  submitContestUploadThenPay_Fallback();
-});
 
-// ---------------- Signup submit ----------------
-const signupForm = document.getElementById("signupForm") as HTMLFormElement | null;
-const signupMsg = document.getElementById("signupMsg") as HTMLParagraphElement | null;
-signupForm?.addEventListener("submit", async (e)=>{
-  e.preventDefault(); if (signupMsg) signupMsg.textContent = "Creating your account…";
-  const fd = new FormData(signupForm!);
-  const payload = Object.fromEntries(fd.entries());
-  try {
-    const r = await fetch(`${API_BASE || location.origin}/api/users`, {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(payload)
-    });
-    if (!r.ok) throw new Error(await r.text());
-    const user = await r.json();
-    setUser(user);
-
-    clearSubGrace();
-    clearGrace(CONTEST_GRACE_KEY);
-
-    refreshAccountUI();
-    await enforceNavLock();
-    if (signupMsg) signupMsg.textContent = "Account created. You can now pick a plan.";
-    setTimeout(()=> closeSignup(), 800);
-  } catch (err: any) {
-    console.error(err);
-    if (signupMsg) signupMsg.textContent = "Signup failed: " + (err?.message || "Unknown error");
-  }
-});
-
-// ===============================
-// LocalStorage flags
-// ===============================
-const SUB_GRACE_KEY = "mh_grace_sub_v1";          
-const CONTEST_GRACE_KEY = "mh_grace_contest_v1";  
-
-const SUB_GRACE_MIN = 60;
-const CONTEST_GRACE_MIN = 30;
+// ---------------- LocalStorage flags (sub-grace only) ----------------
+const SUB_GRACE_KEY = "mh_grace_sub_v1";
 
 function hasGrace(key: string): any | null {
   try {
@@ -293,13 +199,17 @@ function hasGrace(key: string): any | null {
     const obj = JSON.parse(raw);
     if (typeof obj?.exp !== "number" || Date.now() >= obj.exp) return null;
     return obj;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 function setGraceMinutes(key: string, mins: number, extra?: Record<string, any>) {
   const exp = Date.now() + mins * 60 * 1000;
   localStorage.setItem(key, JSON.stringify({ exp, ...(extra || {}) }));
 }
-function clearGrace(key: string) { localStorage.removeItem(key); }
+function clearGrace(key: string) {
+  localStorage.removeItem(key);
+}
 
 function hasSubGrace(): boolean {
   const g = hasGrace(SUB_GRACE_KEY);
@@ -309,18 +219,14 @@ function hasSubGrace(): boolean {
 function setSubGrace(plan?: string) {
   const uid = getCurrentUserId();
   if (!uid) return;
+  const SUB_GRACE_MIN = 60;
   setGraceMinutes(SUB_GRACE_KEY, SUB_GRACE_MIN, { plan: plan || null, userId: uid });
 }
-function clearSubGrace() { clearGrace(SUB_GRACE_KEY); }
-
-function setContestGrace(entryId?: string) {
-  const uid = getCurrentUserId();
-  setGraceMinutes(CONTEST_GRACE_KEY, CONTEST_GRACE_MIN, { entryId: entryId || null, userId: uid || null });
+function clearSubGrace() {
+  clearGrace(SUB_GRACE_KEY);
 }
 
-// ===============================
-// Mead Hall lock
-// ===============================
+// ---------------- Mead Hall lock ----------------
 function applyMeadLockUI(locked: boolean) {
   const el = navMeadHall;
   if (!el) return;
@@ -344,9 +250,10 @@ async function enforceNavLock() {
 
   if (serverMember && hasSubGrace()) clearSubGrace();
 
-  console.log("[MH] Lock:", { serverMember, subGrace: hasSubGrace(), contestFlag: !!hasGrace(CONTEST_GRACE_KEY) });
+  console.log("[MH] Lock:", { serverMember, subGrace: hasSubGrace() });
 }
 
+// Stamp grace on Stripe success (sub only)
 (function detectStripeSuccess() {
   const hash = location.hash || "";
   const qs = new URLSearchParams(location.search);
@@ -354,26 +261,22 @@ async function enforceNavLock() {
   const subSucceeded =
     hash === "#success" ||
     (!hash && (qs.get("success") === "true" || qs.get("redirect_status") === "succeeded"));
-  const contestSucceeded = hash === "#contest-success";
 
   if (subSucceeded) {
     const plan = qs.get("plan") || qs.get("price") || undefined;
     setSubGrace(plan);
     history.replaceState(null, "", location.pathname);
-  } else if (contestSucceeded) {
-    const entryId = qs.get("entryId") || undefined;
-    setContestGrace(entryId);
-    history.replaceState(null, "", location.pathname);
   }
 })();
 
+// Keep lock fresh
 window.addEventListener("load", enforceNavLock);
 window.addEventListener("pageshow", enforceNavLock);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") enforceNavLock();
 });
 window.addEventListener("storage", (e) => {
-  if ([SUB_GRACE_KEY, CONTEST_GRACE_KEY, LS_KEY].includes(e.key || "")) enforceNavLock();
+  if ([SUB_GRACE_KEY, LS_KEY].includes(e.key || "")) enforceNavLock();
 });
 
 enforceNavLock();
