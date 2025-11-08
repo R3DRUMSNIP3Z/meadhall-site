@@ -20,6 +20,8 @@ const inputs: Record<string, string> = {
   game:          html("game.html")!,        // ← ✅ add this line
   shop:          html("shop.html")!,   // ← add this line
   brisingrshop:  html("brisingrshop.html")!,  // ✅ Add this line
+    quests:        html("quests.html")!,        // ✅ add this line for Quests page
+
 
 
 };
