@@ -25,6 +25,7 @@ const galleryRoutes = require("./galleryRoutes"); // ⬅️ gallery API
 const notifications = require("./notifications");
 const gameRoutes = require("./gameRoutes");
 
+
 const app = express();
 
 // expose credit helper for webhook fulfillment
@@ -927,6 +928,8 @@ chatGlobal.install(app);
 notifications.install(app);
 app.locals.notify = notifications.createNotification; // ✅ expose notifier
 gameRoutes.install(app);
+// 👇 Add this right here
+galleryRoutes.install(app);
 
 
 // ⬇⬇⬇ ADD: Minimal “mark read” endpoints so the frontend stops 404'ing.
