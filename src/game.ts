@@ -98,6 +98,9 @@ const userId = getUserId();
 
 
 
+
+
+
 /* ---------- DOM helpers ---------- */
 function safeEl<T extends HTMLElement = HTMLElement>(id: string): T | null {
   return document.getElementById(id) as T | null;
@@ -354,19 +357,30 @@ function updateAvatar(m: Me) {
     saveAvatar(newSrc); // remember for next refresh
   }, 60);
 }
+// === Quest helpers (top-level) ===
+const QKEY = "va_quests";
 
-// === Active Quest widget wiring (Pick Race main quest) ===
 function readQuests(): any[] {
-  try { return JSON.parse(localStorage.getItem('va_quests') || '[]'); }
+  try { return JSON.parse(localStorage.getItem(QKEY) || "[]"); }
   catch { return []; }
 }
-function getMainQuest() {
-  return readQuests().find((q: any) => q.id === 'q_main_pick_race');
+
+function writeQuests(list: any[]) {
+  localStorage.setItem(QKEY, JSON.stringify(list));
 }
+
+function getMainQuest() {
+  return readQuests().find((q: any) => q.id === "q_main_pick_race");
+}
+
 
 function renderActiveQuest() {
   const slot = document.getElementById('activeQuest') as HTMLElement | null;
   if (!slot) return;
+
+  // Make sure seed quest exists and header is synced
+  if ((window as any).VAQ?.ensureQuestState) (window as any).VAQ.ensureQuestState();
+  if ((window as any).VAQ?.updateHeroTitle)  (window as any).VAQ.updateHeroTitle();
 
   const q = getMainQuest();
   if (!q || q.status === 'completed') {
@@ -374,21 +388,25 @@ function renderActiveQuest() {
     return;
   }
 
+  // show card
+  slot.style.display = 'flex';
+
   // Populate fields
-  const title = document.getElementById('aqTitle');
-  const desc  = document.getElementById('aqDesc');
-  const st    = document.getElementById('aqStatus');
-  const pv    = document.getElementById('aqProgVal');
+  const title = document.getElementById('aqTitle')   as HTMLElement | null;
+  const desc  = document.getElementById('aqDesc')    as HTMLElement | null;
+  const st    = document.getElementById('aqStatus')  as HTMLElement | null;
+  const pv    = document.getElementById('aqProgVal') as HTMLElement | null;
   const pb    = document.getElementById('aqProgBar') as HTMLElement | null;
 
-  title && (title.textContent = q.title || '—');
-  desc  && (desc.textContent  = q.desc  || '—');
-  st    && (st.textContent    = `Status: ${q.status[0].toUpperCase()}${q.status.slice(1)}`);
-  const prog = Math.max(0, Math.min(100, q.progress || 0));
-  pv && (pv.textContent = String(prog));
-  pb && (pb.style.width = prog + '%');
+  if (title) title.textContent = q.title || '—';
+  if (desc)  desc.textContent  = q.desc  || '—';
 
-  slot.style.display = 'flex';
+  const statusText = q.status ? (q.status.charAt(0).toUpperCase() + q.status.slice(1)) : 'Available';
+  if (st) st.textContent = `Status: ${statusText}`;
+
+  const prog = Math.max(0, Math.min(100, Number(q.progress || 0)));
+  if (pv) pv.textContent = String(prog);
+  if (pb) pb.style.width = prog + '%';
 
   // Buttons in the card
   const openBtn    = document.getElementById('aqOpen');
@@ -402,12 +420,15 @@ function renderActiveQuest() {
 
   // Abandon back to "available"
   abandonBtn?.addEventListener('click', () => {
-    const all = readQuests();
-    const mm = all.find((x: any) => x.id === 'q_main_pick_race');
-    if (mm) { mm.status = 'available'; mm.progress = 0; localStorage.setItem('va_quests', JSON.stringify(all)); }
+    const list = readQuests();
+    const main = list.find((x: any) => x.id === 'q_main_pick_race');
+    if (main) { main.status = 'available'; main.progress = 0; }
+    ((window as any).VAQ?.writeQuests || writeQuests)(list);
     renderActiveQuest();
   }, { once: true });
 }
+
+
 
 // Re-render the card whenever the modal script updates quests
 window.addEventListener('va-quest-updated', renderActiveQuest);
@@ -759,6 +780,8 @@ async function boot() {
     hookShopBuy();
     renderShop();
   }
+  
+
 
   // Initial arena render (safe if arena DOM exists)
   await renderArena();
