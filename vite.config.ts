@@ -21,6 +21,8 @@ const inputs: Record<string, string> = {
   shop:          html("shop.html")!,   // ← add this line
   brisingrshop:  html("brisingrshop.html")!,  // ✅ Add this line
     quests:        html("quests.html")!,        // ✅ add this line for Quests page
+      dreadheimmap:  html("dreadheimmap.html")!,
+
 
 
 
