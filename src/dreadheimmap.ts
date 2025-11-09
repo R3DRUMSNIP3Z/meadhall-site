@@ -8,7 +8,7 @@ const SPEED = 4;                 // horizontal speed (px/frame)
 const GRAVITY = 0.8;             // downward accel
 const JUMP_VELOCITY = -16;       // jump strength (negative = up)
 const PLAYER_W = 96;
-const PLAYER_H = 96;
+const PLAYER_H = 125;
 
 // ====== DPR / Resize ======
 function fitCanvas() {
