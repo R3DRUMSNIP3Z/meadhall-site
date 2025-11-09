@@ -14,6 +14,8 @@ type Battle = {
   turn: "player"|"enemy";
   log: string[];
 };
+import { Inventory } from "./inventory";
+Inventory.init();
 
 const bgUrl = "/guildbook/maps/dreadheimforestentrancebattle.png";
 const playerSpriteUrl = "/guildbook/avatars/dreadheim-warrior.png";

@@ -1,4 +1,7 @@
 // --- Dreadheim Forest Entrance (Overworld with slow-chasing boar + loot) ---
+import { Inventory } from "./inventory";
+Inventory.init();
+
 const canvas = document.getElementById("map") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
