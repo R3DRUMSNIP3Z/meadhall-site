@@ -7,12 +7,47 @@ const ctx = canvas.getContext("2d")!;
 
 // ====== CONFIG ======
 const ASSETS = {
-  bg: "/guildbook/maps/dreadheimforest.png",
+  bg:   "/guildbook/maps/dreadheimforest.png",
   hero: "/guildbook/avatars/dreadheim-warrior.png",
   boar: "/guildbook/avatars/enemies/diseasedboar.png",
-  meat: "/guildbook/loot/infectedboarmeat.png"   // place file here
+  meat: "/guildbook/loot/infectedboarmeat.png"
 };
 
+// --- Edge exits ---
+const LEFT_EXIT_URL  = "/game.html";
+const RIGHT_EXIT_URL = "/dreadheimperimeters.html";
+const EXIT_MARGIN = 4; // pixels from screen edge to trigger warp
+
+// --- Battle target ---
+const BATTLE_URL = "/dreadheimbattle.html";
+
+// --- Fade + warp (shared) ---
+function fadeTo(seconds = 0.25, after?: () => void) {
+  const f = document.createElement("div");
+  Object.assign(f.style, {
+    position: "fixed",
+    inset: "0",
+    background: "black",
+    opacity: "0",
+    transition: `opacity ${seconds}s ease`,
+    zIndex: "999999",
+  } as CSSStyleDeclaration);
+  document.body.appendChild(f);
+  requestAnimationFrame(() => (f.style.opacity = "1"));
+  setTimeout(() => after && after(), seconds * 1000);
+}
+
+let transitioning = false;
+function warpTo(url: string) {
+  if (transitioning) return;
+  transitioning = true;
+  fadeTo(0.25, () => (window.location.href = url));
+}
+function goToBattle() {
+  warpTo(BATTLE_URL);
+}
+
+// ====== WORLD CONSTS ======
 const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
 const GRAVITY = 0.8;
@@ -20,12 +55,10 @@ const JUMP_VELOCITY = -16;
 const HERO_W = 96, HERO_H = 96;
 const BOAR_W = 110, BOAR_H = 90;
 
-const ENGAGE_DIST = 120;              // start battle
-const ALERT_DIST = 320;               // start chasing
-const CHASE_SPEED = 1.2;              // “a little more slow”
+const ENGAGE_DIST = 120;  // auto-start battle
+const ALERT_DIST  = 320;  // start slow chase
+const CHASE_SPEED = 1.2;  // slower than player
 const PATROL_SPEED = 1.8;
-
-const BATTLE_URL = "/dreadheimbattle.html";
 
 // ====== DPR / Resize ======
 function fitCanvas() {
@@ -68,7 +101,7 @@ const hero = {
 };
 
 // State flags saved by battle
-const BOAR_DEAD = () => localStorage.getItem("va_bf_boar_defeated") === "1";
+const BOAR_DEAD  = () => localStorage.getItem("va_bf_boar_defeated") === "1";
 const LOOT_TAKEN = () => localStorage.getItem("va_loot_infectedboarmeat") === "1";
 
 const boar = {
@@ -89,7 +122,7 @@ const loot = {
   visible: BOAR_DEAD() && !LOOT_TAKEN(),
 };
 
-// recalc ground & patrol when viewport changes
+// Recalc ground & patrol when viewport changes
 function refreshBounds() {
   groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
 
@@ -123,8 +156,8 @@ canvas.addEventListener("click", (e) => {
   const my = e.clientY - rect.top;
 
   if (boar.alive) {
-    if (mx >= boar.x-10 && mx <= boar.x + boar.w + 10 &&
-        my >= boar.y-10 && my <= boar.y + boar.h + 10) {
+    if (mx >= boar.x - 10 && mx <= boar.x + boar.w + 10 &&
+        my >= boar.y - 10 && my <= boar.y + boar.h + 10) {
       goToBattle();
       return;
     }
@@ -132,6 +165,8 @@ canvas.addEventListener("click", (e) => {
   if (loot.visible) {
     if (mx >= loot.x && mx <= loot.x + loot.w &&
         my >= loot.y && my <= loot.y + loot.h) {
+      // Add to bag (stacks to 99)
+      Inventory.add("infectedboarmeat", "Infected Boar Meat", ASSETS.meat, 1);
       localStorage.setItem("va_loot_infectedboarmeat", "1");
       loot.visible = false;
       toast("You pick up: Infected Boar Meat");
@@ -139,25 +174,7 @@ canvas.addEventListener("click", (e) => {
   }
 });
 
-// ====== ENGAGE / TRANSITION ======
-let transitioning = false;
-function goToBattle() {
-  if (transitioning || !boar.alive) return;
-  transitioning = true;
-  fadeTo(0.25, () => window.location.href = BATTLE_URL);
-}
-
-function fadeTo(timeSec: number, onEnd: () => void) {
-  const fade = document.createElement("div");
-  Object.assign(fade.style, {
-    position: "fixed", inset: "0", background: "rgba(0,0,0,0)",
-    transition: `background ${timeSec}s ease`, zIndex: "999999",
-  } as CSSStyleDeclaration);
-  document.body.appendChild(fade);
-  requestAnimationFrame(() => (fade.style.background = "rgba(0,0,0,1)"));
-  setTimeout(onEnd, timeSec * 1000);
-}
-
+// ====== TOAST ======
 function toast(msg:string) {
   const t = document.createElement("div");
   t.textContent = msg;
@@ -175,9 +192,19 @@ function toast(msg:string) {
 function step() {
   // hero horizontal intent
   let vx = 0;
-  if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) vx -= SPEED;
+  if (keys.has("ArrowLeft")  || keys.has("a") || keys.has("A")) vx -= SPEED;
   if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) vx += SPEED;
   hero.vx = vx;
+
+  // --- Edge exits (before we move so pushing the wall warps) ---
+  if (hero.x <= EXIT_MARGIN) {
+    warpTo(LEFT_EXIT_URL);   // back to game hub
+    return;
+  }
+  if (hero.x + hero.w >= window.innerWidth - EXIT_MARGIN) {
+    warpTo(RIGHT_EXIT_URL);  // onward to Dreadheim Perimeters
+    return;
+  }
 
   // apply horizontal + clamp
   hero.x += hero.vx;
