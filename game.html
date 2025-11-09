@@ -633,6 +633,65 @@
     renderRaceBadge2();
   })();
   </script>
+  <script>
+/* --- Complete "Travel to your homeland" on Dreadheim map --- */
+(function () {
+  // Per-user keys (same scheme as arena)
+  function getUserId() {
+    try {
+      const raw = localStorage.getItem('mh_user');
+      if (raw) {
+        const o = JSON.parse(raw);
+        return o?.id || o?._id || o?.user?.id || null;
+      }
+    } catch {}
+    return new URLSearchParams(location.search).get('user');
+  }
+  const UID = getUserId() || 'guest';
+  const key = (b) => `${b}__${UID}`;
+  const STORAGE_KEY = key('va_quests');
+  const RACE_KEY    = key('va_race');
+
+  function readQuests() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch { return []; }
+  }
+  function writeQuests(list) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list || []));
+  }
+
+  // If you are Dreadheim and the travel quest exists, complete it here
+  const race = localStorage.getItem(RACE_KEY);
+  if (race === 'dreadheim') {
+    const list = readQuests();
+    const travel = list.find(q => q.id === 'q_travel_home');
+
+    if (travel && travel.status !== 'completed') {
+      travel.status = 'completed';
+      travel.progress = 100;
+      // (optional) you can add rewards here if you want:
+      // e.g., award via your backend or bump a local counter.
+      writeQuests(list);
+
+      // Let other pages listening for quest updates refresh their UI
+      try { window.dispatchEvent(new CustomEvent('va-quest-updated')); } catch {}
+
+      // Tiny on-page toast so the player sees it happened
+      const toast = document.createElement('div');
+      toast.textContent = '✅ Quest completed: Travel to your homeland — Dreadheim';
+      Object.assign(toast.style, {
+        position:'fixed', left:'50%', top:'16px', transform:'translateX(-50%)',
+        background:'rgba(20,20,20,.9)', color:'#e6d5a9', border:'1px solid #9b834d',
+        padding:'10px 14px', borderRadius:'10px', zIndex:'999999',
+        boxShadow:'0 6px 24px rgba(0,0,0,.45)', fontFamily:'Cinzel, serif'
+      });
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2400);
+    }
+  }
+})();
+</script>
+
 
   <script type="module" src="/src/game.ts"></script>
 </body>
