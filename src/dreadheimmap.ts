@@ -148,6 +148,18 @@ window.addEventListener("keydown", (e) => {
   }
 });
 window.addEventListener("keyup", (e) => keys.delete(e.key));
+// ===== DEV RESET (for testing) =====
+window.addEventListener("keydown", (e) => {
+  // hold CTRL + SHIFT + R to reset the boar fight and loot
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "r") {
+    localStorage.removeItem("va_bf_boar_defeated");
+    localStorage.removeItem("va_loot_infectedboarmeat");
+    boar.alive = true;
+    loot.visible = false;
+    toast("Dev Reset: Boar restored and loot cleared.");
+  }
+});
+
 
 // Click: engage boar or pick loot
 canvas.addEventListener("click", (e) => {
