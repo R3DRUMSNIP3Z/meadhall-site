@@ -433,7 +433,7 @@ function renderActiveQuest() {
     if (travelBtn) {
       travelBtn.style.display = 'inline-block';
       // example target – adjust to your real destination:
-      travelBtn.href = "/map.html"; 
+      travelBtn.href = "/dreadheimmap.html"; 
       travelBtn.textContent = "Travel";
     }
     // "Open" just shows a small hint for travel quests
