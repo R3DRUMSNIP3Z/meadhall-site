@@ -7,8 +7,8 @@ const WALKWAY_TOP_RATIO = 0.86; // % of screen height where the walkway top sits
 const SPEED = 4;                 // horizontal speed (px/frame)
 const GRAVITY = 0.8;             // downward accel
 const JUMP_VELOCITY = -16;       // jump strength (negative = up)
-const PLAYER_W = 64;
-const PLAYER_H = 64;
+const PLAYER_W = 96;
+const PLAYER_H = 96;
 
 // ====== DPR / Resize ======
 function fitCanvas() {
