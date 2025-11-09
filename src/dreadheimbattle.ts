@@ -4,8 +4,8 @@ type Unit = {
   hp: number; hpMax: number;
   atk: number; def: number; spd: number;
   rage: number; rageMax: number;
-  buffs: Record<string, number>;   // { buffName: turnsRemaining }
-  debuffs: Record<string, number>; // { debuffName: turnsRemaining }
+  buffs: Record<string, number>;
+  debuffs: Record<string, number>;
   alive: boolean;
 };
 
@@ -17,6 +17,8 @@ type Battle = {
 
 const bgUrl = "/guildbook/maps/dreadheimforestentrancebattle.png";
 const playerSpriteUrl = "/guildbook/avatars/dreadheim-warrior.png";
+const OVERWORLD_URL = "/dreadheimmap.html";
+const LOBBY_URL = "/game.html";
 
 // ===== Canvas & background render =====
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
@@ -61,13 +63,13 @@ const player: Unit = {
 };
 
 const enemy: Unit = {
-  name:"Forest Raider", hp: 150, hpMax: 150,
+  name:"Diseased Boar", hp: 150, hpMax: 150,
   atk: 22, def: 8, spd: 10,
   rage: 0, rageMax: 100,
   buffs:{}, debuffs:{}, alive:true
 };
 
-// ===== Skill data (first is unlocked) =====
+// ===== Skills =====
 const skills = {
   basic: { name:"Drengr Strike",  cost:0,  cd:0,  desc:"+10 Rage builder",  use: () => hit(player, enemy, 1.0, {addRage:10}) },
   aoe:   { name:"Storm of Blades",cost:30, cd:2,  desc:"AOE (single for now)", use: () => hit(player, enemy, 1.2) },
@@ -77,19 +79,18 @@ const skills = {
 const cooldowns: Record<keyof typeof skills, number> = { basic:0, aoe:0, buff:0, debuff:0 };
 const unlocked: Record<keyof typeof skills, boolean> = { basic:true, aoe:false, buff:false, debuff:false };
 
-// --- Impact + camera shake state ---
+// --- Impact + camera shake + lunge state ---
 let lastTs = 0;
-let shakeMs = 0;          // remaining shake time (ms)
-let shakeMag = 8;         // shake strength (px)
-let impactMs = 0;         // remaining impact tween (ms)
-let impactWho: "player" | "enemy" | null = null;
+let shakeMs = 0;
+let shakeMag = 8;
+let impactMs = 0;                 // timer for lunge (ms)
+let impactWho: "player"|"enemy"|null = null;
 
-// sprite sizes to reuse everywhere
 const SPRITE = { pW: 120, pH: 120, eW: 120, eH: 120 };
 
 function startImpact(who: "player" | "enemy") {
   impactWho = who;
-  impactMs = 220;
+  impactMs = 320;   // longer to clearly reach target and return
   shakeMs = 160;
 }
 function easeOutCubic(t: number) { return 1 - Math.pow(1 - t, 3); }
@@ -197,6 +198,19 @@ function endBattle(playerWon:boolean){
   battle.state = "end";
   overlay.classList.add("show");
   overlay.textContent = playerWon ? "VICTORY" : "DEFEAT";
+
+  if (playerWon) {
+    try {
+      localStorage.setItem("va_bf_boar_defeated", "1");
+      // you can also stamp a timestamp if needed
+    } catch {}
+    setTimeout(()=>{ window.location.href = OVERWORLD_URL; }, 900);
+  } else {
+    setTimeout(()=>{
+      alert("You were defeated… get stronger and come back!");
+      window.location.href = LOBBY_URL;
+    }, 900);
+  }
 }
 
 // ===== UI wiring =====
@@ -236,12 +250,15 @@ function updateHUD(){
   eHPBar.style.width = `${(enemy.hp/enemy.hpMax)*100}%`;
 }
 
-// ===== Rendering =====
+// ===== Loop & Render =====
+let enemyImg: HTMLImageElement|null = null;
+const enemyImgObj = new Image();
+enemyImgObj.src = "/guildbook/avatars/enemies/diseasedboar.png";
+enemyImg = enemyImgObj;
+
 function getDtMs(ts: number) {
   if (!lastTs) { lastTs = ts; return 0; }
-  const dt = ts - lastTs;
-  lastTs = ts;
-  return dt;
+  const dt = ts - lastTs; lastTs = ts; return dt;
 }
 
 function render(){
@@ -253,36 +270,48 @@ function render(){
   if (shakeMs > 0) {
     const t = shakeMs / 160;
     const m = shakeMag * t;
-    sx = (Math.random() * 2 - 1) * m;
-    sy = (Math.random() * 2 - 1) * m;
+    sx = (Math.random()*2-1) * m;
+    sy = (Math.random()*2-1) * m;
   }
   ctx.save();
   ctx.translate(sx, sy);
 
   const groundY = Math.round(window.innerHeight * 0.70);
   const { pW, pH, eW, eH } = SPRITE;
-  let pX = 80, pY = groundY - pH;
-  let eX = window.innerWidth - eW - 100, eY = groundY - eH;
 
-  // impact tween
+  // base positions
+  const pBaseX = 80, pBaseY = groundY - pH;
+  const eBaseX = window.innerWidth - eW - 100, eBaseY = groundY - eH;
+
+  // meeting point (mid-gap)
+  const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.5;
+
+  // lunge triangle 0..1..0
+  function triangle(t:number){ return t < 0.5 ? (t/0.5) : (1 - (t-0.5)/0.5); }
+
+  let pX = pBaseX, pY = pBaseY;
+  let eX = eBaseX, eY = eBaseY;
+
   if (impactMs > 0 && impactWho) {
-    const t = 1 - (impactMs / 220);
-    const f = easeOutCubic(t);
-    const dash = 28 * (t < 0.5 ? f : 1 - f);
-    const push = 18 * (t < 0.5 ? f : 1 - f);
+    const t = 1 - (impactMs / 320);
+    const f = easeOutCubic(triangle(t));
+    const pLunge = (meetX - pBaseX) * f;
+    const eLunge = (eBaseX - (meetX + 0)) * f; // positive
+
     if (impactWho === "player") {
-      pX += dash;
-      eX += push;
+      pX = pBaseX + pLunge;   // player runs in
+      eX = eBaseX + (-eLunge * 0.25); // enemy tiny push
     } else {
-      eX -= dash;
-      pX -= push;
+      eX = eBaseX - eLunge;   // enemy runs in (toward left)
+      pX = pBaseX - (pLunge * 0.25);  // player tiny push
     }
   }
 
+  // draw player
   if (playerImg) ctx.drawImage(playerImg, pX, pY, pW, pH);
   else { ctx.fillStyle="#111"; ctx.fillRect(pX, pY, pW, pH); }
 
-  // enemy draw flipped
+  // draw enemy (facing left)
   if (enemyImg && enemyImg.complete) {
     ctx.save();
     ctx.translate(eX + eW/2, eY + eH/2);
@@ -297,7 +326,6 @@ function render(){
   ctx.restore();
 }
 
-// ===== Game Loop =====
 function gameLoop(ts: number) {
   const dt = getDtMs(ts);
   if (shakeMs > 0) shakeMs = Math.max(0, shakeMs - dt);
@@ -308,9 +336,6 @@ function gameLoop(ts: number) {
 }
 
 // ===== Boot =====
-const enemyImg = new Image();
-enemyImg.src = "/guildbook/avatars/enemies/diseasedboar.png";
-
 Promise.all([loadImage(bgUrl), loadImage(playerSpriteUrl)])
   .then(([b, p])=>{ bg=b; playerImg=p; requestAnimationFrame(gameLoop); })
   .catch(()=>{ requestAnimationFrame(gameLoop); });
@@ -319,4 +344,5 @@ log("A hostile presence emerges from the forest...");
 updateHUD();
 paintSkillBar();
 decideTurnOrder();
+
 

@@ -1,4 +1,4 @@
-// --- Dreadheim Forest Entrance (Overworld with roaming boar + battle hook) ---
+// --- Dreadheim Forest Entrance (Overworld with slow-chasing boar + loot) ---
 const canvas = document.getElementById("map") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
@@ -7,16 +7,22 @@ const ASSETS = {
   bg: "/guildbook/maps/dreadheimforest.png",
   hero: "/guildbook/avatars/dreadheim-warrior.png",
   boar: "/guildbook/avatars/enemies/diseasedboar.png",
+  meat: "/guildbook/loot/infectedboarmeat.png"   // place file here
 };
-const WALKWAY_TOP_RATIO = 0.86;  // tweak to match top of the bricks
+
+const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
 const GRAVITY = 0.8;
 const JUMP_VELOCITY = -16;
 const HERO_W = 96, HERO_H = 96;
 const BOAR_W = 110, BOAR_H = 90;
-const ENGAGE_DIST = 120;          // auto-aggro radius
-const CLICK_HIT_PAD = 16;         // click tolerance around boar
-const BATTLE_URL = "/dreadheimbattle.html"; // make sure vite.config has this input!
+
+const ENGAGE_DIST = 120;              // start battle
+const ALERT_DIST = 320;               // start chasing
+const CHASE_SPEED = 1.2;              // “a little more slow”
+const PATROL_SPEED = 1.8;
+
+const BATTLE_URL = "/dreadheimbattle.html";
 
 // ====== DPR / Resize ======
 function fitCanvas() {
@@ -45,6 +51,7 @@ function load(src: string): Promise<HTMLImageElement> {
 let bg: HTMLImageElement | null = null;
 let heroImg: HTMLImageElement | null = null;
 let boarImg: HTMLImageElement | null = null;
+let meatImg: HTMLImageElement | null = null;
 
 // ====== WORLD / ENTITIES ======
 let groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
@@ -57,14 +64,26 @@ const hero = {
   onGround: true,
 };
 
+// State flags saved by battle
+const BOAR_DEAD = () => localStorage.getItem("va_bf_boar_defeated") === "1";
+const LOOT_TAKEN = () => localStorage.getItem("va_loot_infectedboarmeat") === "1";
+
 const boar = {
-  x: Math.min(window.innerWidth - BOAR_W - 160, hero.x + 240), // start somewhat to the right
+  x: Math.min(window.innerWidth - BOAR_W - 160, hero.x + 240),
   y: groundY - BOAR_H,
   w: BOAR_W, h: BOAR_H,
-  vx: 1.8,                    // patrol speed
-  dir: -1 as -1 | 1,          // -1 = left, 1 = right (we'll flip image when facing left)
-  minX: 80,                   // patrol bounds (we’ll update on resize)
+  vx: PATROL_SPEED,
+  dir: -1 as -1 | 1,
+  minX: 80,
   maxX: Math.max(380, window.innerWidth - 260),
+  alive: !BOAR_DEAD(),
+};
+
+const loot = {
+  x: Math.min(window.innerWidth - 120, Math.max(120, hero.x + 200)),
+  y: groundY - 48,
+  w: 42, h: 42,
+  visible: BOAR_DEAD() && !LOOT_TAKEN(),
 };
 
 // recalc ground & patrol when viewport changes
@@ -77,6 +96,8 @@ function refreshBounds() {
   boar.y = groundY - boar.h;
   boar.minX = 80;
   boar.maxX = Math.max(boar.minX + 300, window.innerWidth - 260);
+
+  loot.y = groundY - 48;
 }
 window.addEventListener("resize", refreshBounds);
 
@@ -92,35 +113,59 @@ window.addEventListener("keydown", (e) => {
 });
 window.addEventListener("keyup", (e) => keys.delete(e.key));
 
-// Click-to-engage
+// Click: engage boar or pick loot
 canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
-  // simple hit test on boar sprite
-  if (mx >= boar.x - CLICK_HIT_PAD && mx <= boar.x + boar.w + CLICK_HIT_PAD &&
-      my >= boar.y - CLICK_HIT_PAD && my <= boar.y + boar.h + CLICK_HIT_PAD) {
-    goToBattle();
+
+  if (boar.alive) {
+    if (mx >= boar.x-10 && mx <= boar.x + boar.w + 10 &&
+        my >= boar.y-10 && my <= boar.y + boar.h + 10) {
+      goToBattle();
+      return;
+    }
+  }
+  if (loot.visible) {
+    if (mx >= loot.x && mx <= loot.x + loot.w &&
+        my >= loot.y && my <= loot.y + loot.h) {
+      localStorage.setItem("va_loot_infectedboarmeat", "1");
+      loot.visible = false;
+      toast("You pick up: Infected Boar Meat");
+    }
   }
 });
 
 // ====== ENGAGE / TRANSITION ======
 let transitioning = false;
 function goToBattle() {
-  if (transitioning) return;
+  if (transitioning || !boar.alive) return;
   transitioning = true;
+  fadeTo(0.25, () => window.location.href = BATTLE_URL);
+}
 
-  // (Optional) small fade
+function fadeTo(timeSec: number, onEnd: () => void) {
   const fade = document.createElement("div");
   Object.assign(fade.style, {
     position: "fixed", inset: "0", background: "rgba(0,0,0,0)",
-    transition: "background .25s ease", zIndex: "999999",
+    transition: `background ${timeSec}s ease`, zIndex: "999999",
   } as CSSStyleDeclaration);
   document.body.appendChild(fade);
   requestAnimationFrame(() => (fade.style.background = "rgba(0,0,0,1)"));
-  setTimeout(() => {
-    window.location.href = BATTLE_URL;
-  }, 250);
+  setTimeout(onEnd, timeSec * 1000);
+}
+
+function toast(msg:string) {
+  const t = document.createElement("div");
+  t.textContent = msg;
+  Object.assign(t.style, {
+    position:'fixed', left:'50%', top:'16px', transform:'translateX(-50%)',
+    background:'rgba(20,20,20,.92)', color:'#e6d5a9', border:'1px solid #9b834d',
+    padding:'10px 14px', borderRadius:'10px', zIndex:'999999',
+    boxShadow:'0 6px 24px rgba(0,0,0,.45)', fontFamily:'Cinzel, serif'
+  } as CSSStyleDeclaration);
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2000);
 }
 
 // ====== UPDATE ======
@@ -149,20 +194,35 @@ function step() {
     hero.onGround = true;
   }
 
-  // Boar patrol
-  boar.x += boar.vx * boar.dir;
-  if (boar.x <= boar.minX) { boar.x = boar.minX; boar.dir = 1; }
-  if (boar.x >= boar.maxX) { boar.x = boar.maxX; boar.dir = -1; }
+  // If boar died in battle, hide and show loot
+  if (BOAR_DEAD() && boar.alive) {
+    boar.alive = false;
+    loot.visible = !LOOT_TAKEN();
+  }
 
-  // Auto-engage if near
-  const cxHero = hero.x + hero.w / 2;
-  const cyHero = hero.y + hero.h / 2;
-  const cxBoar = boar.x + boar.w / 2;
-  const cyBoar = boar.y + boar.h / 2;
-  const dx = cxBoar - cxHero;
-  const dy = cyBoar - cyHero;
-  const dist = Math.hypot(dx, dy);
-  if (dist <= ENGAGE_DIST) goToBattle();
+  // Boar AI
+  if (boar.alive) {
+    const cxHero = hero.x + hero.w / 2;
+    const cyHero = hero.y + hero.h / 2;
+    const cxBoar = boar.x + boar.w / 2;
+    const cyBoar = boar.y + boar.h / 2;
+    const dx = cxHero - cxBoar;
+    const dy = cyHero - cyBoar;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist <= ENGAGE_DIST) {
+      goToBattle();
+    } else if (dist <= ALERT_DIST) {
+      // slow chase toward hero
+      boar.dir = (dx > 0) ? 1 : -1;
+      boar.x += CHASE_SPEED * boar.dir;
+    } else {
+      // patrol
+      boar.x += PATROL_SPEED * boar.dir;
+      if (boar.x <= boar.minX) { boar.x = boar.minX; boar.dir = 1; }
+      if (boar.x >= boar.maxX) { boar.x = boar.maxX; boar.dir = -1; }
+    }
+  }
 }
 
 // ====== RENDER ======
@@ -171,45 +231,41 @@ function render() {
   if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
 
   // hero
-  if (heroImg) {
-    ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
-  } else {
-    ctx.fillStyle = "#333";
-    ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
-  }
+  if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
+  else { ctx.fillStyle = "#333"; ctx.fillRect(hero.x, hero.y, hero.w, hero.h); }
 
-  // boar (flip when moving left so it faces its direction)
-  const bx = boar.x, by = boar.y;
-  if (boarImg && boarImg.complete) {
-    ctx.save();
-    if (boar.dir < 0) {
-      // facing left: flip around its center
-      ctx.translate(bx + boar.w / 2, by + boar.h / 2);
-      ctx.scale(-1, 1);
-      ctx.drawImage(boarImg, -boar.w / 2, -boar.h / 2, boar.w, boar.h);
+  // boar (flip when moving left)
+  if (boar.alive) {
+    const bx = boar.x, by = boar.y;
+    if (boarImg && boarImg.complete) {
+      ctx.save();
+      if (boar.dir < 0) {
+        ctx.translate(bx + boar.w / 2, by + boar.h / 2);
+        ctx.scale(-1, 1);
+        ctx.drawImage(boarImg, -boar.w / 2, -boar.h / 2, boar.w, boar.h);
+      } else {
+        ctx.drawImage(boarImg, bx, by, boar.w, boar.h);
+      }
+      ctx.restore();
     } else {
-      // facing right: normal draw
-      ctx.translate(0, 0);
-      ctx.drawImage(boarImg, bx, by, boar.w, boar.h);
+      ctx.fillStyle = "rgba(10,10,10,.85)";
+      ctx.fillRect(bx, by, boar.w, boar.h);
     }
-    ctx.restore();
-  } else {
-    ctx.fillStyle = "rgba(10,10,10,.85)";
-    ctx.fillRect(bx, by, boar.w, boar.h);
   }
 
-  requestAnimationFrame(loop);
+  // loot drop
+  if (loot.visible && meatImg) {
+    ctx.drawImage(meatImg, loot.x, loot.y, loot.w, loot.h);
+  }
 }
 
-function loop() {
-  step();
-  render();
-}
+function loop() { step(); render(); requestAnimationFrame(loop); }
 
 // ====== BOOT ======
-Promise.all([load(ASSETS.bg), load(ASSETS.hero), load(ASSETS.boar)])
-  .then(([b, h, bo]) => { bg = b; heroImg = h; boarImg = bo; refreshBounds(); loop(); })
+Promise.all([load(ASSETS.bg), load(ASSETS.hero), load(ASSETS.boar), load(ASSETS.meat)])
+  .then(([b, h, bo, m]) => { bg = b; heroImg = h; boarImg = bo; meatImg = m; refreshBounds(); loop(); })
   .catch(() => { refreshBounds(); loop(); });
+
 
 
 
