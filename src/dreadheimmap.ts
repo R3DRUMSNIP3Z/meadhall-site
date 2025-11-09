@@ -1,8 +1,16 @@
-// --- Dreadheim • Forest Entrance (Vite TS) ---
-// Canvas + DPR-safe sizing
+// --- Dreadheim • Forest Entrance (platformer basics) ---
 const canvas = document.getElementById("map") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
+// ====== CONFIG ======
+const WALKWAY_TOP_RATIO = 0.86; // % of screen height where the walkway top sits (tweak!)
+const SPEED = 4;                 // horizontal speed (px/frame)
+const GRAVITY = 0.8;             // downward accel
+const JUMP_VELOCITY = -16;       // jump strength (negative = up)
+const PLAYER_W = 64;
+const PLAYER_H = 64;
+
+// ====== DPR / Resize ======
 function fitCanvas() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   const w = window.innerWidth;
@@ -14,9 +22,18 @@ function fitCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 fitCanvas();
-window.addEventListener("resize", fitCanvas);
+window.addEventListener("resize", () => {
+  fitCanvas();
+  // Re-clamp to ground when resizing
+  groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
+  if (player.y > groundY - PLAYER_H) {
+    player.y = groundY - PLAYER_H;
+    player.vy = 0;
+    player.onGround = true;
+  }
+});
 
-// Utility: load image with promise + error guard
+// ====== ASSETS ======
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -26,49 +43,80 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.src = src;
   });
 }
-
-// Static asset paths (served from /public)
 const BG_URL = "/guildbook/maps/dreadheimforest.png";
 const PLAYER_URL = "/guildbook/avatars/dreadheim-warrior.png";
-
-// Player state
-const player = {
-  x: window.innerWidth / 2 - 16,
-  y: window.innerHeight - 120,
-  w: 64,
-  h: 64,
-  speed: 3,
-};
 
 let bg: HTMLImageElement | null = null;
 let playerImg: HTMLImageElement | null = null;
 
-// Input (arrows + WASD)
+// ====== WORLD / PLAYER ======
+let groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
+
+const player = {
+  x: Math.max(0, Math.min(window.innerWidth - PLAYER_W, window.innerWidth / 2 - PLAYER_W / 2)),
+  y: groundY - PLAYER_H,
+  w: PLAYER_W,
+  h: PLAYER_H,
+  vx: 0,
+  vy: 0,
+  onGround: true,
+};
+
+// ====== INPUT ======
 const keys = new Set<string>();
-window.addEventListener("keydown", (e) => keys.add(e.key));
+window.addEventListener("keydown", (e) => {
+  keys.add(e.key);
+
+  // Jump on press (only if grounded)
+  if ((e.key === " " || e.key === "w" || e.key === "W" || e.key === "ArrowUp") && player.onGround) {
+    player.vy = JUMP_VELOCITY;
+    player.onGround = false;
+    e.preventDefault();
+  }
+});
 window.addEventListener("keyup", (e) => keys.delete(e.key));
 
+// ====== UPDATE / PHYSICS ======
 function step() {
-  // Horizontal
-  if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) player.x -= player.speed;
-  if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) player.x += player.speed;
-  // Vertical
-  if (keys.has("ArrowUp") || keys.has("w") || keys.has("W")) player.y -= player.speed;
-  if (keys.has("ArrowDown") || keys.has("s") || keys.has("S")) player.y += player.speed;
+  // Horizontal intent
+  let vx = 0;
+  if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) vx -= SPEED;
+  if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) vx += SPEED;
+  player.vx = vx;
 
-  // Clamp to screen
+  // Apply horizontal
+  player.x += player.vx;
+
+  // Clamp within screen
   const maxX = window.innerWidth - player.w;
-  const maxY = window.innerHeight - player.h;
   if (player.x < 0) player.x = 0;
-  if (player.y < 0) player.y = 0;
   if (player.x > maxX) player.x = maxX;
-  if (player.y > maxY) player.y = maxY;
+
+  // Gravity
+  player.vy += GRAVITY;
+  player.y += player.vy;
+
+  // Ground collision
+  const floor = groundY - player.h;
+  if (player.y >= floor) {
+    player.y = floor;
+    player.vy = 0;
+    player.onGround = true;
+  }
 }
 
+// ====== RENDER ======
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
   if (playerImg) ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
+
+  // // DEBUG: draw ground line (uncomment to fine-tune ratio)
+  // ctx.strokeStyle = "rgba(255,255,0,.6)";
+  // ctx.beginPath();
+  // ctx.moveTo(0, groundY);
+  // ctx.lineTo(window.innerWidth, groundY);
+  // ctx.stroke();
 }
 
 function loop() {
@@ -77,7 +125,7 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// Load assets, then start loop (even if one is missing)
+// ====== BOOT ======
 Promise.all([loadImage(BG_URL), loadImage(PLAYER_URL)])
   .then(([bgImg, pImg]) => {
     bg = bgImg;
@@ -86,16 +134,7 @@ Promise.all([loadImage(BG_URL), loadImage(PLAYER_URL)])
   })
   .catch((err) => {
     console.warn(err.message);
-    // Try to keep going with whatever loaded
-    Promise.allSettled([loadImage(BG_URL), loadImage(PLAYER_URL)]).then((res) => {
-      if (res[0].status === "fulfilled") bg = res[0].value;
-      if (res[1].status === "fulfilled") playerImg = res[1].value;
-      loop();
-    });
+    loop(); // still run; we’ll draw whatever loaded
   });
-
-// Optional: cache-bust during dev (uncomment if Vercel cache gets sticky)
-// const bust = "?v=" + Date.now();
-// BG_URL += bust; PLAYER_URL += bust;
 
 
