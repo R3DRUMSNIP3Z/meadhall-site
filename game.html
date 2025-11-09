@@ -291,6 +291,8 @@
               Brísingr Shop
             </a>
             <button id="openQuests" type="button" class="game-btn">📜 Quests</button>
+            <button id="openYgg" type="button" class="game-btn">🌿 Yggdrasil Paths</button>
+
           </div>
         </div>
 
@@ -370,6 +372,33 @@
       </div>
     </div>
   </div>
+  <!-- === Yggdrasil Paths (Skill Tree) === -->
+<div id="yggOverlay" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:100001; background:rgba(0,0,0,.6);">
+  <div id="yggModal" role="dialog" aria-modal="true" aria-labelledby="yggTitle"
+       style="width:min(760px,94vw); background:#12161a; border:1px solid #3b3325; border-radius:16px; padding:14px; color:#d4a94d; box-shadow:0 10px 40px rgba(0,0,0,.6);">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">
+      <div id="yggTitle" style="font-weight:900; font-size:1.2rem;">Yggdrasil Paths</div>
+      <button id="yggClose" class="game-btn" style="padding:6px 10px">✖</button>
+    </div>
+
+    <div style="border-top:1px solid #3b3325; border-bottom:1px solid #3b3325; padding:10px 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
+        <div class="qm-sub" style="opacity:.9">Spend skill points (1 per 10 levels) to unlock combat abilities.</div>
+        <div><b>Points:</b> <span id="yggPoints">0</span></div>
+      </div>
+
+      <div id="yggGrid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px;">
+        <!-- Cards are rendered by script -->
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:8px; padding-top:10px;">
+      <button id="yggReset" class="game-btn" title="Refund all points (dev/test)">Reset</button>
+      <button id="yggDone" class="game-btn">Done</button>
+    </div>
+  </div>
+</div>
+
 
   <!-- === Quests + Race Badge Logic === -->
   <script>
@@ -691,6 +720,136 @@
   }
 })();
 </script>
+<script>
+/* === Yggdrasil Paths — per-user skill tree === */
+(function(){
+  // ---- Per-user keys (same pattern as Quests) ----
+  function getUserId() {
+    try {
+      const raw = localStorage.getItem('mh_user');
+      if (raw) {
+        const obj = JSON.parse(raw);
+        return obj?.id || obj?._id || obj?.user?.id || null;
+      }
+    } catch {}
+    return new URLSearchParams(location.search).get('user');
+  }
+  const UID = getUserId() || 'guest';
+  const key = (b) => `${b}__${UID}`;
+  const YGG_UNLOCKS_KEY = key('va_ygg_unlocked');
+  const YGG_SPENT_KEY   = key('va_ygg_spent');
+  const LEVEL_EL        = document.getElementById('level');
+
+  // ---- Skill defs (Drengr Strike is always unlocked/innate) ----
+  const YGG_SKILLS = [
+    { id:'basic',  name:'Drengr Strike',  type:'Rage Builder', cost:0,  desc:'+10 Rage basic strike (innate)' , innate:true },
+    { id:'aoe',    name:'Storm of Blades',type:'AOE',          cost:1,  desc:'Damage all foes (multi-target later)' },
+    { id:'buff',   name:'Odin’s Blessing',type:'Buff',         cost:1,  desc:'+ATK +DEF for 3 turns' },
+    { id:'debuff', name:'Hel’s Curse',    type:'Debuff',       cost:1,  desc:'Enemy -DEF -SPD for 3 turns' },
+  ];
+
+  // ---- Storage helpers ----
+  function readUnlocks(){
+    try { return JSON.parse(localStorage.getItem(YGG_UNLOCKS_KEY) || '{}'); }
+    catch { return {}; }
+  }
+  function writeUnlocks(u){
+    localStorage.setItem(YGG_UNLOCKS_KEY, JSON.stringify(u || {}));
+    try { window.dispatchEvent(new CustomEvent('va-ygg-updated')); } catch {}
+  }
+  function readSpent(){ return parseInt(localStorage.getItem(YGG_SPENT_KEY) || '0', 10) || 0; }
+  function writeSpent(n){ localStorage.setItem(YGG_SPENT_KEY, String(n || 0)); }
+
+  function currentLevel(){
+    const v = parseInt((LEVEL_EL && LEVEL_EL.textContent) || '1', 10);
+    return isNaN(v) ? 1 : v;
+  }
+  function totalPointsForLevel(lv){
+    // 1 point per 10 levels: Lv 1-9 => 0, 10-19 => 1, 20-29 => 2, etc.
+    return Math.floor(lv / 10);
+  }
+  function calcAvailablePoints(){
+    const lv = currentLevel();
+    const total = totalPointsForLevel(lv);
+    const spent = readSpent();
+    return { total, spent, left: Math.max(0, total - spent) };
+  }
+
+  // ---- UI elements ----
+  const openBtn  = document.getElementById('openYgg');
+  const overlay  = document.getElementById('yggOverlay');
+  const closeBtn = document.getElementById('yggClose');
+  const doneBtn  = document.getElementById('yggDone');
+  const resetBtn = document.getElementById('yggReset');
+  const pointsEl = document.getElementById('yggPoints');
+  const gridEl   = document.getElementById('yggGrid');
+
+  function renderTree(){
+    const unlocks = readUnlocks();
+    const { left } = calcAvailablePoints();
+    if (pointsEl) pointsEl.textContent = String(left);
+
+    if (!gridEl) return;
+    gridEl.innerHTML = '';
+    YGG_SKILLS.forEach(s => {
+      const unlocked = !!(s.innate || unlocks[s.id]);
+      const canAfford = s.cost <= left || unlocked;
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#0f1215; border:1px solid #3b3325; border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px;';
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div style="font-weight:900">${s.name}</div>
+          <div class="muted" style="opacity:.9">${s.type}</div>
+        </div>
+        <div class="muted" style="opacity:.95">${s.desc}</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div>${s.innate ? '<span class="ok">Innate</span>' : ('Cost: ' + s.cost + ' pt')}</div>
+          <button class="game-btn" data-id="${s.id}" ${unlocked?'disabled':''} ${canAfford?'':'disabled'}>
+            ${unlocked ? 'Unlocked ✓' : 'Unlock'}
+          </button>
+        </div>
+      `;
+      if (!canAfford && !unlocked) { card.style.opacity = '.75'; }
+      gridEl.appendChild(card);
+    });
+
+    gridEl.querySelectorAll('button[data-id]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = btn.getAttribute('data-id');
+        if (!id) return;
+        const sk = YGG_SKILLS.find(x=>x.id===id);
+        if (!sk || sk.innate) return;
+
+        const u = readUnlocks();
+        if (u[id]) return; // already
+        const stats = calcAvailablePoints();
+        if (sk.cost > stats.left) return;
+
+        u[id] = true;
+        writeUnlocks(u);
+        writeSpent(readSpent() + sk.cost);
+        renderTree();
+      });
+    });
+  }
+
+  // Open/close
+  openBtn && openBtn.addEventListener('click', ()=>{ overlay.style.display = 'flex'; renderTree(); });
+  closeBtn && closeBtn.addEventListener('click', ()=> overlay.style.display = 'none');
+  doneBtn && doneBtn.addEventListener('click',  ()=> overlay.style.display = 'none');
+
+  // Dev/test reset (refund all)
+  resetBtn && resetBtn.addEventListener('click', ()=>{
+    writeUnlocks({});
+    writeSpent(0);
+    renderTree();
+  });
+
+  // On level changes from other scripts, refresh
+  window.addEventListener('va-level-updated', renderTree);
+})();
+</script>
+
 
 
   <script type="module" src="/src/game.ts"></script>

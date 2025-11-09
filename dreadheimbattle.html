@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Dreadheim — Forest Battle</title>
+  <style>
+    html,body{margin:0;height:100%;background:#000;overflow:hidden}
+    #stage{display:block;width:100vw;height:100vh}
+    /* Skill bar (only visible in battle) */
+    #skillbar{
+      position:fixed; left:0; right:0; bottom:0;
+      display:flex; gap:12px; justify-content:center; align-items:center;
+      padding:12px 16px; background:rgba(0,0,0,.55); backdrop-filter: blur(4px);
+      border-top:1px solid rgba(255,255,255,.08);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      user-select:none;
+    }
+    .skill{
+      width:74px; height:74px; border:2px solid rgba(212,169,77,.6);
+      border-radius:10px; display:flex; align-items:center; justify-content:center;
+      color:#ffd; background:rgba(255,255,255,.04); cursor:pointer;
+      box-shadow:0 6px 20px rgba(0,0,0,.35);
+    }
+    .skill.locked{filter:grayscale(1) opacity(.5); cursor:not-allowed}
+    .skill.oncd{outline:2px dashed rgba(255,255,255,.25)}
+    .skill .name{font-size:11px; text-align:center; line-height:1.1; padding:4px}
+    #hud{
+      position:fixed; top:10px; left:10px; right:10px; display:flex; gap:12px; justify-content:space-between;
+      color:#fff; font: 14px/1.2 ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;
+      text-shadow:0 2px 8px rgba(0,0,0,.7);
+    }
+    .bar{height:10px; background:#222; border:1px solid rgba(255,255,255,.15); border-radius:8px; overflow:hidden}
+    .bar > i{display:block; height:100%}
+    .hp > i{background:#a53b3b}
+    .rage > i{background:#d4a94d}
+    #log{
+      position:fixed; bottom:98px; left:0; right:0; max-height:22vh; overflow:auto;
+      color:#eee; font:12px ui-sans-serif,system-ui; text-align:center; pointer-events:none;
+      text-shadow:0 1px 6px rgba(0,0,0,.8);
+    }
+    #overlay{
+      position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+      background:rgba(0,0,0,.5); color:#fff; font:28px Cinzel,serif; text-shadow:0 2px 16px #000;
+    }
+    #overlay.show{display:flex}
+  </style>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="playerHUD" style="min-width:260px">
+      <div>YOU — HP <span id="pHP"></span> / <span id="pHPMax"></span> • Rage <span id="pRage"></span></div>
+      <div class="bar hp"><i id="pHPBar" style="width:100%"></i></div>
+      <div class="bar rage" style="margin-top:6px"><i id="pRageBar" style="width:0%"></i></div>
+    </div>
+    <div id="enemyHUD" style="min-width:260px; text-align:right">
+      <div>ENEMY — HP <span id="eHP"></span> / <span id="eHPMax"></span></div>
+      <div class="bar hp"><i id="eHPBar" style="width:100%"></i></div>
+    </div>
+  </div>
+
+  <!-- Battle Log -->
+  <div id="log"></div>
+
+  <!-- Skill Bar (appears in battle) -->
+  <div id="skillbar">
+    <div class="skill" data-skill="basic"><div class="name">Drengr<br/>Strike</div></div>
+    <div class="skill locked" data-skill="aoe"><div class="name">Storm of<br/>Blades</div></div>
+    <div class="skill locked" data-skill="buff"><div class="name">Odin’s<br/>Blessing</div></div>
+    <div class="skill locked" data-skill="debuff"><div class="name">Hel’s<br/>Curse</div></div>
+  </div>
+
+  <!-- Result overlay -->
+  <div id="overlay"></div>
+
+  <script type="module" src="/src/dreadheimbattle.ts"></script>
+</body>
+</html>
+

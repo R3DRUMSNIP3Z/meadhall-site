@@ -22,6 +22,8 @@ const inputs: Record<string, string> = {
   brisingrshop:  html("brisingrshop.html")!,  // ✅ Add this line
     quests:        html("quests.html")!,        // ✅ add this line for Quests page
       dreadheimmap:  html("dreadheimmap.html")!,
+        dreadheimbattle: html("dreadheimbattle.html")!,
+
 
 
 
