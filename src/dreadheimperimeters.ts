@@ -17,7 +17,7 @@ const RIGHT_EXIT_URL = "/dreadheimoutskirts.html";  // next area (rename later i
 const EXIT_MARGIN = 4;
 
 // Walkway / physics
-const WALKWAY_TOP_RATIO = 0.84;
+const WALKWAY_TOP_RATIO = 0.83;
 const SPEED = 4;
 const GRAVITY = 0.8;
 const JUMP_VELOCITY = -16;
