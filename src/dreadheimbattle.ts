@@ -327,7 +327,7 @@ const eBaseX = window.innerWidth - eW - 120, eBaseY = groundY - eH;
 
 
   /// meeting point (move slightly closer together)
-const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.56; // 0.50 = middle, 0.56 = closer
+const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.53; // 0.50 = middle, 0.56 = closer
 
 
   // lunge triangle 0..1..0
