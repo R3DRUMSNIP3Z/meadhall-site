@@ -10,6 +10,10 @@ const ASSETS = {
     : "/guildbook/avatars/dreadheim-warrior.png",
   boar: "/guildbook/avatars/enemies/diseasedboar.png",
   meat: "/guildbook/loot/infectedboarmeat.png",
+    bat1: "/guildbook/avatars/enemies/dreadheimbat.png",
+  bat2: "/guildbook/avatars/enemies/dreadheimbat2.png",
+  bat3: "/guildbook/avatars/enemies/dreadheimbat3.png",
+
 };
 
 // --- Edge exits ---
@@ -90,6 +94,20 @@ let bg: HTMLImageElement | null = null;
 let heroImg: HTMLImageElement | null = null;
 let boarImg: HTMLImageElement | null = null;
 let meatImg: HTMLImageElement | null = null;
+// === Bat (animated) ===
+let batFrames: HTMLImageElement[] = [];
+const bat = {
+  x: 80,
+  y: Math.round(window.innerHeight * 0.28),
+  w: 120,
+  h: 120,
+  vx: 1.2,                   // drift speed
+  dir: 1 as 1 | -1,          // 1 = right, -1 = left
+  frame: 0,
+  lastFrame: 0,
+  frameDelay: 110,           // ms per frame (tweak for faster/slower flap)
+};
+
 
 // ====== WORLD / ENTITIES ======
 let groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
@@ -144,6 +162,8 @@ function refreshBounds() {
   boar.maxX = Math.max(boar.minX + 300, window.innerWidth - 260);
 
   loot.y = groundY - 48;
+    bat.y = Math.round(window.innerHeight * 0.28);
+
 }
 window.addEventListener("resize", refreshBounds);
 
@@ -294,6 +314,24 @@ function step() {
       if (boar.x >= boar.maxX) {
         boar.x = boar.maxX;
         boar.dir = -1;
+          // --- Bat animation + motion ---
+  const now = performance.now();
+
+  // flap
+  if (now - bat.lastFrame > bat.frameDelay && batFrames.length === 3) {
+    bat.frame = (bat.frame + 1) % 3;
+    bat.lastFrame = now;
+  }
+
+  // gentle bob (hover feel)
+  const bob = Math.sin(now / 700) * 6;
+  bat.y = Math.round(window.innerHeight * 0.28 + bob);
+
+  // horizontal drift + wrap
+  bat.x += bat.vx * bat.dir;
+  if (bat.x > window.innerWidth - bat.w - 20) bat.dir = -1;
+  if (bat.x < 20) bat.dir = 1;
+
       }
     }
   }
@@ -330,6 +368,20 @@ function render() {
       ctx.fillRect(bx, by, boar.w, boar.h);
     }
   }
+    // bat (flip when flying left)
+  if (batFrames.length === 3) {
+    const img = batFrames[bat.frame];
+    ctx.save();
+    if (bat.dir < 0) {
+      ctx.translate(bat.x + bat.w / 2, bat.y + bat.h / 2);
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, -bat.w / 2, -bat.h / 2, bat.w, bat.h);
+    } else {
+      ctx.drawImage(img, bat.x, bat.y, bat.w, bat.h);
+    }
+    ctx.restore();
+  }
+
 
   // loot drop
   if (loot.visible && meatImg) {
@@ -343,13 +395,22 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// ====== BOOT ======
-Promise.all([load(ASSETS.bg), load(ASSETS.hero), load(ASSETS.boar), load(ASSETS.meat)])
-  .then(([b, h, bo, m]) => {
+/// ====== BOOT ======
+Promise.all([
+  load(ASSETS.bg),
+  load(ASSETS.hero),
+  load(ASSETS.boar),
+  load(ASSETS.meat),
+  load(ASSETS.bat1),
+  load(ASSETS.bat2),
+  load(ASSETS.bat3),
+])
+  .then(([b, h, bo, m, b1, b2, b3]) => {
     bg = b;
     heroImg = h;
     boarImg = bo;
     meatImg = m;
+    batFrames = [b1, b2, b3];
     refreshBounds();
     loop();
   })
