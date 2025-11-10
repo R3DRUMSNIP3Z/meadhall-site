@@ -298,6 +298,13 @@ function afterInventoryOpen() {
   document.head.appendChild(style);
 })();
 
+(() => {
+  const style = document.createElement("style");
+  style.textContent = `#log { bottom: 150px !important; }`;
+  document.head.appendChild(style);
+})();
+
+
 
 
 
