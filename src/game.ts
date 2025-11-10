@@ -291,36 +291,33 @@ function updateAvatar(m: Me) {
   const avatar = document.getElementById("avatar") as HTMLImageElement | null;
   if (!avatar) return;
 
-  // Base silhouette (from global helper), with fallback by gender
-  const pick = (window as any).getHeroSprite as (() => string) | undefined;
-  const baseSilhouette =
-    typeof pick === "function"
-      ? pick()
-      : (m.gender === "female"
-          ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
-          : "/guildbook/avatars/dreadheim-warrior.png");
+  // Card art (NOT silhouettes)
+  const baseSrc = m.gender === "female"
+    ? "/guildbook/girl.png"
+    : "/guildbook/boy.png";
 
-  // Prefer set-specific full art when a full set is equipped
-  let nextSrc = baseSilhouette;
+  // Full-set overrides for the card
+  let nextSrc = baseSrc;
   if (hasFullSet(m, "drengr")) {
     nextSrc = "/guildbook/boydrengr.png";
   } else if (hasFullSet(m, "skjaldmey")) {
     nextSrc = "/guildbook/girlskjaldmey.png";
   }
 
-  // No-op if already correct
-  if (avatar.src.endsWith(nextSrc)) return;
+  // No-op if already set
+  if (avatar.getAttribute("data-src") === nextSrc || avatar.src.endsWith(nextSrc)) return;
 
-  // Swap with a tiny fade; fall back to silhouette if image missing
+  // Swap with a tiny fade; if missing, fall back to base gender art
   avatar.style.opacity = "0";
   setTimeout(() => {
-    const onDone = () => { avatar.style.opacity = "1"; };
-    avatar.onload = onDone;
-    avatar.onerror = () => { avatar.src = baseSilhouette; onDone(); };
+    const done = () => { avatar.style.opacity = "1"; avatar.setAttribute("data-src", nextSrc); };
+    avatar.onload = done;
+    avatar.onerror = () => { avatar.src = baseSrc; done(); };
     avatar.src = nextSrc;
-    saveAvatar(nextSrc);
+    try { localStorage.setItem("va_avatar_src", nextSrc); } catch {}
   }, 60);
 }
+
 
 
 
