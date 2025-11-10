@@ -114,7 +114,7 @@ canvas.addEventListener("click", (ev) => {
   const x = ev.clientX - rect.left;
   const y = ev.clientY - rect.top;
 
-  /
+  
 
   // NPC click
   if (x >= npc.x && x <= npc.x + npc.w && y >= npc.y && y <= npc.y + npc.h) {
