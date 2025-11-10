@@ -23,7 +23,49 @@ document.body?.setAttribute("data-gender", localStorage.getItem("va_gender") || 
     : "/guildbook/avatars/dreadheim-warrior.png";
 };
 
-// --- Global, gender-aware skill icon resolver (used by all battles)
+/* =========================================================
+   GLOBAL SFX — Gender-aware hurt sounds
+   ========================================================= */
+// Preload once and reuse (no new Audio on every hit)
+const __vaSFX = {
+  femaleHurt: new Audio("/guildbook/sfx/femalehurt.mp3"),
+  maleHurt:   new Audio("/guildbook/sfx/malehurt.mp3"),
+};
+__vaSFX.femaleHurt.preload = "auto";
+__vaSFX.maleHurt.preload   = "auto";
+
+function __playFemaleHurt(): void {
+  const a = __vaSFX.femaleHurt; if (!a) return;
+  a.currentTime = 0;
+  a.volume = 0.9;
+  a.play().catch(() => {});
+}
+function __playMaleHurt(): void {
+  const a = __vaSFX.maleHurt; if (!a) return;
+  a.currentTime = 0;
+  a.volume = 0.9;
+  a.play().catch(() => {});
+}
+/** Gender-aware wrapper (pick by va_gender) */
+function __playHeroHurt(): void {
+  const g = localStorage.getItem("va_gender");
+  if (g === "female") __playFemaleHurt();
+  else __playMaleHurt();
+}
+// Expose to any page / script
+(window as any).playFemaleHurt = __playFemaleHurt;
+(window as any).playMaleHurt   = __playMaleHurt;
+(window as any).playHeroHurt   = __playHeroHurt;
+
+// Keep CSS data-gender in sync if gender changes at runtime
+window.addEventListener("va-gender-changed", (ev: any) => {
+  const g = (ev?.detail as string) || localStorage.getItem("va_gender") || "male";
+  document.body?.setAttribute("data-gender", g);
+});
+
+/* =========================================================
+   GLOBAL, GENDER-AWARE SKILL ICONS
+   ========================================================= */
 function currentSkillIconMap() {
   const g = localStorage.getItem("va_gender") || "male";
   const maleIcons: Record<string, string> = {
@@ -123,17 +165,24 @@ if (document.readyState === "loading") {
 
 function ensureBagButton() {
   if (document.getElementById("vaBagBtn")) return;
+
   const btn = document.createElement("button");
   btn.id = "vaBagBtn";
   btn.title = "Inventory";
+  btn.setAttribute("tabindex", "-1");       // no keyboard focus
+  btn.setAttribute("aria-hidden", "true");  // not keyboard-interactive
   btn.innerHTML = `
     <img src="/guildbook/ui/inventorybag.png" alt="Bag" onerror="this.style.display='none'">
     <span id="vaBagBadge"></span>
   `;
   document.body.appendChild(btn);
 
+  // Ignore any key events that might slip through on the button
+  btn.addEventListener("keydown", (e) => e.preventDefault());
+
+  // Only this click path is allowed to toggle the bag
   btn.addEventListener("click", () => {
-    try { Inventory.toggle(); } catch {}
+    try { (window as any).__va_openBagFromClick?.(); } catch {}
     clearUnseenBadge(); // also clear on click
   });
 }
@@ -257,25 +306,65 @@ function afterInventoryOpen() {
   clearUnseenBadge();
 }
 
-// Monkey-patch Inventory methods for global behavior
+/* =========================================================
+   INVENTORY MONKEY-PATCH — Only open via mouse click
+   ========================================================= */
 (() => {
   const invAny = Inventory as any;
   let isOpen = false;
 
-  const wrap = (name: string, onCall?: () => void) => {
-    if (typeof invAny?.[name] !== "function") return;
-    const orig = invAny[name].bind(Inventory);
-    invAny[name] = (...args: any[]) => {
-      const r = orig(...args);
-      onCall?.();
-      return r;
-    };
+  // === Gate: allow open/show/toggle ONLY when explicitly set by our bag button click
+  let __bagGate = false;
+  (window as any).__va_openBagFromClick = () => {
+    __bagGate = true;
+    try {
+      if (typeof invAny?.toggle === "function") invAny.toggle();
+      else if (typeof invAny?.open === "function") invAny.open();
+    } finally {
+      __bagGate = false; // always reset
+    }
   };
 
-  wrap("open",  () => { isOpen = true;  afterInventoryOpen(); });
-  wrap("show",  () => { isOpen = true;  afterInventoryOpen(); });
-  wrap("toggle",() => { isOpen = !isOpen; if (isOpen) afterInventoryOpen(); else clearUnseenBadge(); });
-  wrap("close", () => { isOpen = false; });
+  // Wrap helper
+  const wrap = (name: string, handler: (orig: Function, ...args: any[]) => any) => {
+    if (typeof invAny?.[name] !== "function") return;
+    const orig = invAny[name].bind(Inventory);
+    invAny[name] = (...args: any[]) => handler(orig, ...args);
+  };
+
+  // Block ALL non-click attempts to open/show/toggle
+  wrap("open", (orig, ...args) => {
+    if (!__bagGate) return; // ignore non-click opens
+    const r = orig(...args);
+    isOpen = true;
+    afterInventoryOpen();
+    return r;
+  });
+
+  wrap("show", (orig, ...args) => {
+    if (!__bagGate) return; // ignore non-click shows
+    const r = orig(...args);
+    isOpen = true;
+    afterInventoryOpen();
+    return r;
+  });
+
+  wrap("toggle", (orig, ...args) => {
+    if (!__bagGate) return; // ignore non-click toggles
+    const r = orig(...args);
+    // infer new state after orig toggle
+    isOpen = !isOpen;
+    if (isOpen) afterInventoryOpen();
+    else clearUnseenBadge();
+    return r;
+  });
+
+  // Allow CLOSE from anywhere (UI close button, your own ESC handler, etc.)
+  wrap("close", (orig, ...args) => {
+    const r = orig(...args);
+    isOpen = false;
+    return r;
+  });
 
   // When items get added and bag is closed, bump unseen badge counter
   if (typeof invAny?.add === "function") {
@@ -287,11 +376,29 @@ function afterInventoryOpen() {
     };
   }
 
-  // Also clear the badge if the floating bag button is clicked
+  // Also clear the badge if the floating bag button is clicked (redundant but safe)
   const bagBtn = document.querySelector<HTMLElement>("#vaBagBtn, .bag, .inventory-button");
   if (bagBtn) bagBtn.addEventListener("click", () => setTimeout(afterInventoryOpen, 0));
 })();
-// --- Reposition bag to bottom-right (battle HUD safe)
+
+/* =========================================================
+   OPTIONAL: Arrow keys should never affect the bag
+   ========================================================= */
+document.addEventListener("keydown", (e) => {
+  const t = e.target as HTMLElement | null;
+  const tag = (t?.tagName || "").toLowerCase();
+  const editable = t?.isContentEditable || false;
+  const inInput = tag === "input" || tag === "textarea" || tag === "select" || editable;
+
+  if (!inInput && (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+    // prevent any global keyboard logic from piggybacking on arrow keys
+    e.stopPropagation();
+  }
+}, { capture: true });
+
+/* =========================================================
+   SMALL TWEAKS: Button position & log spacing for battle HUD
+   ========================================================= */
 (() => {
   const style = document.createElement("style");
   style.textContent = `#vaBagBtn{ top:auto !important; bottom:16px !important; }`;
@@ -303,6 +410,7 @@ function afterInventoryOpen() {
   style.textContent = `#log { bottom: 150px !important; }`;
   document.head.appendChild(style);
 })();
+
 
 
 
