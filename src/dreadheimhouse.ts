@@ -275,3 +275,4 @@ Promise.all([load(ASSETS.bg), load(ASSETS.npc), load(ASSETS.hero)])
     loop();
   })
   .catch(() => { refreshBounds(); loop(); });
+
