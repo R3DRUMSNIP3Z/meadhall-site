@@ -77,7 +77,9 @@ const ctx = canvas.getContext("2d")!;
 // ====== CONFIG ======
 const ASSETS = {
   bg:   "/guildbook/maps/dreadheimforest.png",
-  hero: "/guildbook/avatars/dreadheim-warrior.png",
+  hero: localStorage.getItem("va_gender") === "female"
+  ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
+  : "/guildbook/avatars/dreadheim-warrior.png",
   boar: "/guildbook/avatars/enemies/diseasedboar.png",
   meat: "/guildbook/loot/infectedboarmeat.png"
 };
