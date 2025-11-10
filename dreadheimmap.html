@@ -187,40 +187,51 @@
       visible: BOAR_DEAD() && !LOOT_TAKEN()
     };
 
-    // ====== BAT FLOCK (all bats fixed at 30×30) ======
-    /** @typedef {{x:number,y:number,w:number,h:number,vx:number,dir:1|-1,frame:number,lastFrame:number,frameDelay:number,hoverY:number,hoverAmp:number,hoverSpeed:number}} Bat */
-    const bats = /** @type {Bat[]} */([]);
-    function rand(min, max) { return Math.random() * (max - min) + min; }
-    function randi(min, max) { return Math.floor(rand(min, max)); }
+    // ====== BAT FLOCK — free-roaming wanderers (30×30) ======
+/** @typedef {{
+  x:number,y:number,w:number,h:number,
+  vx:number,vy:number,
+  dir:1|-1,frame:number,lastFrame:number,frameDelay:number,
+  maxSpeed:number, wanderTheta:number, wanderJitter:number, wanderRadius:number,
+}} Bat */
 
-    function spawnBat(opts = {}) {
-      const W = window.innerWidth;
-      const H = window.innerHeight;
-      const size = 30;                     // << fixed size per your request
-      const yPct = opts.yPct ?? rand(0.20, 0.40);
-      const speed = opts.speed ?? rand(0.8, 1.6);
-      const dir = (opts.dir ?? (Math.random() < 0.5 ? -1 : 1));
+const bats = /** @type {Bat[]} */([]);
+function rand(min, max) { return Math.random() * (max - min) + min; }
+function randi(min, max) { return Math.floor(rand(min, max)); }
 
-      const b = {
-        x: opts.x ?? (dir > 0 ? rand(-200, -40) : rand(W + 40, W + 200)),
-        y: Math.round(H * yPct),
-        w: size,
-        h: size,
-        vx: speed,
-        dir,
-        frame: 0,
-        lastFrame: 0,
-        frameDelay: randi(90, 140),
-        hoverY: yPct,
-        hoverAmp: rand(4, 10),
-        hoverSpeed: rand(600, 900)
-      };
-      bats.push(b);
-    }
+function spawnBat(opts = {}) {
+  const W = window.innerWidth, H = window.innerHeight;
+  const size = 30; // fixed per your request
+  // Random position anywhere on screen with a margin
+  const margin = 40;
+  const x = opts.x ?? rand(margin, W - margin);
+  const y = opts.y ?? rand(margin, H - margin);
 
-    function spawnFlock(n = 5) {
-      for (let i = 0; i < n; i++) spawnBat();
-    }
+  // Random initial velocity in any direction
+  const angle = rand(0, Math.PI * 2);
+  const speed = opts.speed ?? rand(0.7, 1.6);
+  const vx = Math.cos(angle) * speed;
+  const vy = Math.sin(angle) * speed;
+
+  const b = {
+    x, y, w: size, h: size,
+    vx, vy,
+    dir: vx >= 0 ? 1 : -1,
+    frame: 0,
+    lastFrame: 0,
+    frameDelay: randi(90, 140),
+    maxSpeed: 2.0,                  // cap velocity
+    wanderTheta: rand(0, Math.PI*2),
+    wanderJitter: 0.12,             // how quickly heading drifts
+    wanderRadius: 0.28              // how strongly wander pulls
+  };
+  bats.push(b);
+}
+
+function spawnFlock(n = 7) {
+  for (let i = 0; i < n; i++) spawnBat();
+}
+
 
     // Recalc ground & patrol when viewport changes
     function refreshBounds() {
