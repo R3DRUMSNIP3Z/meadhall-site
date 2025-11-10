@@ -810,55 +810,96 @@ boot().catch(e => log(e.message, "bad"));
   }
 
   const dev = {
-    // --- Basic info ---
-    me: () => call("/api/dev/me"),
-    reset: () => call("/api/dev/reset"),
-    setKey: (k: string) => { localStorage.setItem("DEV_KEY", k); (dev as any)._key = k; return "✅ DEV_KEY set"; },
-    _key: DEV_KEY,
+  // --- Basic info ---
+  me: () => call("/api/dev/me"),
+  reset: () => call("/api/dev/reset"),
+  setKey: (k: string) => {
+    localStorage.setItem("DEV_KEY", k);
+    (dev as any)._key = k;
+    return "✅ DEV_KEY set";
+  },
+  _key: DEV_KEY,
 
-    // --- Core Stats ---
-    level: (n: number) => call("/api/dev/level", { level: n }),
-    gold: (nOrOpts: number | { add?: number; set?: number }) =>
-      typeof nOrOpts === "number"
-        ? call("/api/dev/gold", { add: nOrOpts })
-        : call("/api/dev/gold", nOrOpts),
-    xp: (add: number) => call("/api/dev/xp", { add }),
-    points: (add: number) => call("/api/dev/points", { add }),
+  // --- Core Stats ---
+  level: (n: number) => call("/api/dev/level", { level: n }),
+  gold: (nOrOpts: number | { add?: number; set?: number }) =>
+    typeof nOrOpts === "number"
+      ? call("/api/dev/gold", { add: nOrOpts })
+      : call("/api/dev/gold", nOrOpts),
+  xp: (add: number) => call("/api/dev/xp", { add }),
+  points: (add: number) => call("/api/dev/points", { add }),
 
-    // --- Brísingr (diamonds) ---
-    brisingr: (nOrOpts: number | { add?: number; set?: number }) =>
-      typeof nOrOpts === "number"
-        ? call("/api/dev/brisingr", { add: nOrOpts })
-        : call("/api/dev/brisingr", nOrOpts),
+  // --- Brísingr (diamonds) ---
+  brisingr: (nOrOpts: number | { add?: number; set?: number }) =>
+    typeof nOrOpts === "number"
+      ? call("/api/dev/brisingr", { add: nOrOpts })
+      : call("/api/dev/brisingr", nOrOpts),
 
-    // --- Inventory / Items ---
-    item: (id: string) => call("/api/dev/item", { itemId: id }),
-    slots: (slots: Record<string, string>) => call("/api/dev/slots", { slots }),
-    equipSet: (setId: string) => call("/api/dev/equip-set", { setId }),
-    drengr: () => call("/api/dev/drengr"),
+  // --- Inventory / Items ---
+  item: (id: string) => call("/api/dev/item", { itemId: id }),
+  slots: (slots: Record<string, string>) => call("/api/dev/slots", { slots }),
+  equipSet: (setId: string) => call("/api/dev/equip-set", { setId }),
+  drengr: () => call("/api/dev/drengr"),
 
-    // --- Quick combos ---
-    maxOut: async () => {
-      await dev.level(30);
-      await dev.gold({ set: 9999 });
-      await dev.points(300);
-      await dev.brisingr({ set: 9999 });
-      return dev.me();
-    },
-    rich: () => dev.gold({ add: 10000 }),
-    bless: () => dev.points(100),
-    ascend: () => dev.level(50),
+  // --- Quick combos ---
+  maxOut: async () => {
+    await dev.level(30);
+    await dev.gold({ set: 9999 });
+    await dev.points(300);
+    await dev.brisingr({ set: 9999 });
+    return dev.me();
+  },
+  rich: () => dev.gold({ add: 10000 }),
+  bless: () => dev.points(100),
+  ascend: () => dev.level(50),
 
-    // --- Quick equip shortcuts ---
-    helm: (id = "drengr-helm") => dev.item(id),
-    chest: (id = "drengr-chest") => dev.item(id),
-    weapon: (id = "drengr-weapon") => dev.item(id),
-  };
+  // --- Quick equip shortcuts ---
+  helm: (id = "drengr-helm") => dev.item(id),
+  chest: (id = "drengr-chest") => dev.item(id),
+  weapon: (id = "drengr-weapon") => dev.item(id),
 
-  (window as any).dev = dev;
+  // --- Bag / Inventory management ---
+  nukeBag: () => {
+    const uid = (getUserId && getUserId()) || "guest";
+    const prefixes = [
+      `va_bag__${uid}`,
+      `va_inventory__${uid}`,
+      `va_inv__${uid}`,
+    ];
 
-  console.log("%cwindow.dev ready!", "color:#39ff14");
-  console.log(`
+    // remove exact known keys
+    for (const key of prefixes) {
+      try { localStorage.removeItem(key); } catch {}
+    }
+
+    // sweep matching
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && prefixes.some(p => k.startsWith(p))) {
+        localStorage.removeItem(k);
+      }
+    }
+    return "🧹 Bag inventory cleared.";
+  },
+
+  bagList: () => {
+    const uid = (getUserId && getUserId()) || "guest";
+    const out: Record<string, any> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.includes(`__${uid}`) && (k.includes("va_bag") || k.includes("va_inv")))) {
+        try { out[k] = JSON.parse(localStorage.getItem(k) || ""); }
+        catch { out[k] = localStorage.getItem(k); }
+      }
+    }
+    return out;
+  },
+};
+
+(window as any).dev = dev;
+
+console.log("%cwindow.dev ready!", "color:#39ff14");
+console.log(`
 🛠️ Dev Console Commands:
 - dev.me() → see your stats
 - dev.level(25), dev.gold(1000), dev.points(50)
@@ -867,8 +908,11 @@ boot().catch(e => log(e.message, "bad"));
 - dev.equipSet("skjaldmey") → full set
 - dev.maxOut() → god mode
 - dev.reset() → wipe state
-  `);
+- dev.nukeBag() → clear bag inventory
+- dev.bagList() → inspect stored bag keys
+`);
 })();
+
 
 
 
