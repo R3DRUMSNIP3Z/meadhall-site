@@ -370,49 +370,84 @@ function renderActiveQuest() {
     if (pv) pv.textContent = String(prog);
     if (pb) pb.style.width = prog + "%";
 
-    // buttons
-    const openBtn    = document.getElementById("aqOpen") as HTMLButtonElement | null;
-    const travelBtn  = document.getElementById("aqTravel") as HTMLAnchorElement | null;
-    const abandonBtn = document.getElementById("aqAbandon") as HTMLButtonElement | null;
+// --- Buttons (reset old handlers) ---
 
-    if (travelBtn) travelBtn.style.display = "none";
+// Helper: replace-with-clone to drop any old handlers
+function resetEl(id: string): HTMLElement | null {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const clone = el.cloneNode(true) as HTMLElement;
+  el.replaceWith(clone);
+  return document.getElementById(id) as HTMLElement | null;
+}
 
-    if (q.id === "q_main_pick_race") {
-      openBtn && openBtn.replaceWith(openBtn.cloneNode(true));
-      const freshOpen = document.getElementById("aqOpen") as HTMLButtonElement | null;
-      freshOpen?.addEventListener("click", () => {
-        const el = document.getElementById("questsOverlay") as HTMLElement | null;
-        if (el) el.style.display = "flex";
-      }, { once: true });
-    } else {
-      if (travelBtn) {
-        travelBtn.style.display = "inline-block";
-        travelBtn.href = "/dreadheimmap.html";
-        travelBtn.textContent = "Travel";
-      }
-      if (openBtn) {
-        openBtn.textContent = "Details";
-        openBtn.onclick = () => alert(q.desc || "Travel to your homeland.");
-      }
-    }
+const openBtn    = resetEl('aqOpen')    as HTMLButtonElement | null;
+const travelBtn  = resetEl('aqTravel')  as (HTMLAnchorElement | HTMLButtonElement | null);
+const abandonBtn = resetEl('aqAbandon') as HTMLButtonElement | null;
 
-    if (abandonBtn) {
-      abandonBtn.replaceWith(abandonBtn.cloneNode(true));
-      const freshAbandon = document.getElementById("aqAbandon") as HTMLButtonElement | null;
-      freshAbandon?.addEventListener("click", () => {
-        const list = read();
-        const curr = list.find((x: any) => x.id === q.id);
-        if (curr) { curr.status = "available"; curr.progress = 0; }
-        (((window as any).VAQ?.writeQuests as ((l: any[]) => void))
-          || ((l: any[]) => localStorage.setItem(QKEY, JSON.stringify(l))))(list);
-        window.dispatchEvent(new CustomEvent("va-quest-updated"));
-        renderActiveQuest();
-      }, { once: true });
-    }
+// Hide Travel by default; we'll show it for the travel quest only
+if (travelBtn) (travelBtn as HTMLElement).style.display = 'none';
+
+if (q.id === "q_main_pick_race") {
+  // OPEN → show the race modal
+  openBtn?.addEventListener('click', () => {
+    const el = document.getElementById('questsOverlay') as HTMLElement | null;
+    if (el) el.style.display = 'flex';
+  });
+} else if (q.id === "q_travel_home") {
+  // TRAVEL → go to the correct map for the chosen race
+  if (travelBtn) {
+    const race = (localStorage.getItem("va_race") || "").toLowerCase();
+    const dest =
+      race === "dreadheim" ? "/dreadheimmap.html" :
+      race === "myriador"  ? "/myriadormap.html"  :
+      race === "wildwood"  ? "/wildwoodmap.html"  :
+      "/dreadheimmap.html";
+
+    (travelBtn as HTMLElement).style.display = 'inline-block';
+    (travelBtn as HTMLElement).textContent = "Travel";
+
+    // If it's an anchor, set href too (nice for right-click)
+    if (travelBtn instanceof HTMLAnchorElement) travelBtn.href = dest;
+
+    // Always handle click (works for <a> or <button>)
+    travelBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      window.location.href = dest;
+    });
+  }
+
+  // OPEN → simple details
+  if (openBtn) {
+    openBtn.textContent = "Details";
+    openBtn.onclick = () => alert(q.desc || "Travel to your homeland.");
+  }
+}
+
+// ABANDON
+if (abandonBtn) {
+  abandonBtn.replaceWith(abandonBtn.cloneNode(true));
+  const freshAbandon = document.getElementById("aqAbandon") as HTMLButtonElement | null;
+  freshAbandon?.addEventListener("click", () => {
+    const read = ((window as any).VAQ?.readQuests) || readQuests;
+    const write = ((window as any).VAQ?.writeQuests as ((l: any[]) => void))
+               || ((l: any[]) => localStorage.setItem(QKEY, JSON.stringify(l)));
+
+    const list = read() || [];
+    const curr = list.find((x: any) => x.id === q.id);
+    if (curr) { curr.status = "available"; curr.progress = 0; }
+    write(list);
+    window.dispatchEvent(new CustomEvent("va-quest-updated"));
+    renderActiveQuest();
+  });
+}
   } finally {
     _aqRendering = false;
   }
-}
+} // ← end of renderActiveQuest()
+
+
+
 
 // Re-render the card whenever the modal script updates quests
 window.addEventListener("va-quest-updated", renderActiveQuest);
