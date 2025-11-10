@@ -721,54 +721,82 @@
 })();
 </script>
 <script>
-/* === Yggdrasil Paths — per-user skill tree === */
-(function(){
+/* === Yggdrasil Paths — per-user skill tree (gender-aware) === */
+(function () {
   // ---- Per-user keys (same pattern as Quests) ----
   function getUserId() {
     try {
-      const raw = localStorage.getItem('mh_user');
+      const raw = localStorage.getItem("mh_user");
       if (raw) {
         const obj = JSON.parse(raw);
-        return obj?.id || obj?._id || obj?.user?.id || null;
+        return obj && (obj.id || obj._id || (obj.user && obj.user.id)) || null;
       }
     } catch {}
-    return new URLSearchParams(location.search).get('user');
+    return new URLSearchParams(location.search).get("user");
   }
-  const UID = getUserId() || 'guest';
+  const UID = getUserId() || "guest";
   const key = (b) => `${b}__${UID}`;
-  const YGG_UNLOCKS_KEY = key('va_ygg_unlocked');
-  const YGG_SPENT_KEY   = key('va_ygg_spent');
-  const LEVEL_EL        = document.getElementById('level');
 
-  // ---- Skill defs (Drengr Strike is always unlocked/innate) ----
-  const YGG_SKILLS = [
-    { id:'basic',  name:'Drengr Strike',  type:'Rage Builder', cost:0,  desc:'+10 Rage basic strike (innate)' , innate:true },
-    { id:'aoe',    name:'Storm of Blades',type:'AOE',          cost:1,  desc:'Damage all foes (multi-target later)' },
-    { id:'buff',   name:'Odin’s Blessing',type:'Buff',         cost:1,  desc:'+ATK +DEF for 3 turns' },
-    { id:'debuff', name:'Hel’s Curse',    type:'Debuff',       cost:1,  desc:'Enemy -DEF -SPD for 3 turns' },
+  // ---- Gender helpers (default male if missing) ----
+  function getGender() {
+    // preferred per-user key, fallback to a global if you had one earlier
+    const g = localStorage.getItem(key("va_gender")) || localStorage.getItem("va_gender");
+    return (g === "female" || g === "male") ? g : "male";
+  }
+
+  // These keys are gender-scoped so each gender keeps its own unlocks/spend
+  function yggUnlocksKey() { return key(`va_ygg_unlocked__${getGender()}`); }
+  function yggSpentKey()   { return key(`va_ygg_spent__${getGender()}`); }
+
+  const LEVEL_EL = document.getElementById("level");
+
+  // ---- Skill defs ----
+  // Drengr (generic/male) set
+  const DRENGR = [
+    { id:"basic",  name:"Drengr Strike",   type:"Rage Builder", cost:0, desc:"+10 Rage basic strike (innate)", innate:true },
+    { id:"aoe",    name:"Storm of Blades", type:"AOE",          cost:1, desc:"Damage all foes (multi-target later)" },
+    { id:"buff",   name:"Odin’s Blessing", type:"Buff",         cost:1, desc:"+ATK +DEF for 3 turns" },
+    { id:"debuff", name:"Hel’s Curse",     type:"Debuff",       cost:1, desc:"Enemy -DEF -SPD for 3 turns" },
   ];
 
+  // Shieldmaiden (female) set
+  const SHIELDMAIDEN = [
+    { id:"basic",  name:"Valkyrie Slash",   type:"Rage Builder", cost:0, desc:"+10 Rage basic strike (innate)", innate:true },
+    { id:"aegis",  name:"Aegis of Freyja",  type:"Buff",         cost:1, desc:"Raise DEF and minor heal over 3 turns" },
+    { id:"whirl",  name:"Whirlwind Dance",  type:"AOE",          cost:1, desc:"Spinning strike that hits multiple foes" },
+    { id:"break",  name:"Cursebreaker",     type:"Cleanse",      cost:1, desc:"Remove debuffs and gain brief resistance" },
+  ];
+
+  function currentCatalog() {
+    return getGender() === "female" ? SHIELDMAIDEN : DRENGR;
+  }
+
   // ---- Storage helpers ----
-  function readUnlocks(){
-    try { return JSON.parse(localStorage.getItem(YGG_UNLOCKS_KEY) || '{}'); }
+  function readUnlocks() {
+    try { return JSON.parse(localStorage.getItem(yggUnlocksKey()) || "{}"); }
     catch { return {}; }
   }
-  function writeUnlocks(u){
-    localStorage.setItem(YGG_UNLOCKS_KEY, JSON.stringify(u || {}));
-    try { window.dispatchEvent(new CustomEvent('va-ygg-updated')); } catch {}
+  function writeUnlocks(u) {
+    localStorage.setItem(yggUnlocksKey(), JSON.stringify(u || {}));
+    try { window.dispatchEvent(new CustomEvent("va-ygg-updated")); } catch {}
   }
-  function readSpent(){ return parseInt(localStorage.getItem(YGG_SPENT_KEY) || '0', 10) || 0; }
-  function writeSpent(n){ localStorage.setItem(YGG_SPENT_KEY, String(n || 0)); }
+  function readSpent() {
+    return parseInt(localStorage.getItem(yggSpentKey()) || "0", 10) || 0;
+  }
+  function writeSpent(n) {
+    localStorage.setItem(yggSpentKey(), String(n || 0));
+  }
 
-  function currentLevel(){
-    const v = parseInt((LEVEL_EL && LEVEL_EL.textContent) || '1', 10);
+  function currentLevel() {
+    const v = parseInt((LEVEL_EL && LEVEL_EL.textContent) || "1", 10);
     return isNaN(v) ? 1 : v;
+    // NOTE: If you maintain level elsewhere, you can replace this with your source
   }
-  function totalPointsForLevel(lv){
-    // 1 point per 10 levels: Lv 1-9 => 0, 10-19 => 1, 20-29 => 2, etc.
+  function totalPointsForLevel(lv) {
+    // 1 point per 10 levels: Lv 1–9 => 0, 10–19 => 1, 20–29 => 2, etc.
     return Math.floor(lv / 10);
   }
-  function calcAvailablePoints(){
+  function calcAvailablePoints() {
     const lv = currentLevel();
     const total = totalPointsForLevel(lv);
     const spent = readSpent();
@@ -776,52 +804,60 @@
   }
 
   // ---- UI elements ----
-  const openBtn  = document.getElementById('openYgg');
-  const overlay  = document.getElementById('yggOverlay');
-  const closeBtn = document.getElementById('yggClose');
-  const doneBtn  = document.getElementById('yggDone');
-  const resetBtn = document.getElementById('yggReset');
-  const pointsEl = document.getElementById('yggPoints');
-  const gridEl   = document.getElementById('yggGrid');
+  const openBtn  = document.getElementById("openYgg");
+  const overlay  = document.getElementById("yggOverlay");
+  const closeBtn = document.getElementById("yggClose");
+  const doneBtn  = document.getElementById("yggDone");
+  const resetBtn = document.getElementById("yggReset");
+  const pointsEl = document.getElementById("yggPoints");
+  const gridEl   = document.getElementById("yggGrid");
 
-  function renderTree(){
+  function renderTree() {
     const unlocks = readUnlocks();
     const { left } = calcAvailablePoints();
     if (pointsEl) pointsEl.textContent = String(left);
 
     if (!gridEl) return;
-    gridEl.innerHTML = '';
-    YGG_SKILLS.forEach(s => {
+    gridEl.innerHTML = "";
+
+    const SKILLS = currentCatalog();
+    SKILLS.forEach((s) => {
       const unlocked = !!(s.innate || unlocks[s.id]);
       const canAfford = s.cost <= left || unlocked;
-      const card = document.createElement('div');
-      card.style.cssText = 'background:#0f1215; border:1px solid #3b3325; border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px;';
+
+      const card = document.createElement("div");
+      card.style.cssText =
+        "background:#0f1215;border:1px solid #3b3325;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;";
+
       card.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
           <div style="font-weight:900">${s.name}</div>
           <div class="muted" style="opacity:.9">${s.type}</div>
         </div>
         <div class="muted" style="opacity:.95">${s.desc}</div>
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
           <div>${s.innate ? '<span class="ok">Innate</span>' : ('Cost: ' + s.cost + ' pt')}</div>
-          <button class="game-btn" data-id="${s.id}" ${unlocked?'disabled':''} ${canAfford?'':'disabled'}>
-            ${unlocked ? 'Unlocked ✓' : 'Unlock'}
+          <button class="game-btn" data-id="${s.id}" ${unlocked ? "disabled" : ""} ${canAfford ? "" : "disabled"}>
+            ${unlocked ? "Unlocked ✓" : "Unlock"}
           </button>
         </div>
       `;
-      if (!canAfford && !unlocked) { card.style.opacity = '.75'; }
+      if (!canAfford && !unlocked) card.style.opacity = ".75";
       gridEl.appendChild(card);
     });
 
-    gridEl.querySelectorAll('button[data-id]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const id = btn.getAttribute('data-id');
+    gridEl.querySelectorAll("button[data-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
         if (!id) return;
-        const sk = YGG_SKILLS.find(x=>x.id===id);
+
+        const SKILLS = currentCatalog();
+        const sk = SKILLS.find((x) => x.id === id);
         if (!sk || sk.innate) return;
 
         const u = readUnlocks();
-        if (u[id]) return; // already
+        if (u[id]) return; // already unlocked
+
         const stats = calcAvailablePoints();
         if (sk.cost > stats.left) return;
 
@@ -834,24 +870,40 @@
   }
 
   // Open/close
-  openBtn && openBtn.addEventListener('click', ()=>{ overlay.style.display = 'flex'; renderTree(); });
-  closeBtn && closeBtn.addEventListener('click', ()=> overlay.style.display = 'none');
-  doneBtn && doneBtn.addEventListener('click',  ()=> overlay.style.display = 'none');
+  if (openBtn) openBtn.addEventListener("click", () => { overlay.style.display = "flex"; renderTree(); });
+  if (closeBtn) closeBtn.addEventListener("click", () => overlay.style.display = "none");
+  if (doneBtn)  doneBtn.addEventListener("click",  () => overlay.style.display = "none");
 
-  // Dev/test reset (refund all)
-  resetBtn && resetBtn.addEventListener('click', ()=>{
+  // Dev/test reset (refund all — respects current gender scope)
+  if (resetBtn) resetBtn.addEventListener("click", () => {
     writeUnlocks({});
     writeSpent(0);
     renderTree();
   });
 
-  // On level changes from other scripts, refresh
-  window.addEventListener('va-level-updated', renderTree);
+  // Refresh on level or gender changes
+  window.addEventListener("va-level-updated", renderTree);
+  window.addEventListener("va-gender-changed", renderTree);
+
+  // ---- Optional tiny bridge for battle UI to query current skills/icons ----
+  // (Plain JS — no TS syntax)
+  window.VA_YGG = {
+    catalog: () => currentCatalog().slice(),             // returns current gender's skills array
+    getActiveSkills: () => {                             // { id: skill }
+      const list = currentCatalog();
+      const m = {};
+      list.forEach((s) => { m[s.id] = s; });
+      return m;
+    },
+    getUnlocked: () => {                                 // quick boolean map by id
+      const u = readUnlocks();
+      const out = {};
+      currentCatalog().forEach((s) => { out[s.id] = !!(s.innate || u[s.id]); });
+      return out;
+    }
+  };
 })();
-</script>
-
-
-
-  <script type="module" src="/src/game.ts"></script>
-</body>
+</script> 
+<script type="module" src="/src/game.ts"></script> 
+</body> 
 </html>
