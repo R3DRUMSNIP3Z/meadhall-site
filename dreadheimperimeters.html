@@ -5,46 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Dreadheim — Perimeters</title>
   <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
-    canvas {
-      display: block;
-      width: 100vw;
-      height: 100vh;
-      image-rendering: pixelated;
-    }
-    /* === Inventory visual fixes === */
-.va-item, .inv-cell { position: relative; }           /* the tile */
-.va-name, .inv-name {                                  /* item label bar */
-  position:absolute; left:6px; right:6px; bottom:6px;
-  z-index:2;
-}
+    html, body { margin:0; height:100%; overflow:hidden; background:#000; }
+    canvas { display:block; width:100vw; height:100vh; image-rendering:pixelated; }
 
-/* stack counter bubble → top-right (works with several class names) */
-.va-qty, .inv-qty, .item-qty, .va-stack, .stack {
-  position:absolute !important;
-  top:6px !important; right:6px !important;
-  left:auto !important; bottom:auto !important;
-  z-index:4 !important;
-  min-width:18px; padding:2px 6px;
-  border-radius:999px;
-  background:#7a1d1d; color:#fff;
-  font:12px/1 ui-sans-serif,system-ui;
-  text-align:center;
-  box-shadow:0 2px 8px rgba(0,0,0,.35);
-}
-
+    /* Inventory visual fixes (safe to duplicate) */
+    .va-item, .inv-cell { position: relative; }
+    .va-name, .inv-name {
+      position:absolute; left:6px; right:6px; bottom:6px; z-index:2;
+    }
+    .va-qty, .inv-qty, .item-qty, .va-stack, .stack {
+      position:absolute !important; top:6px !important; right:6px !important;
+      left:auto !important; bottom:auto !important; z-index:4 !important;
+      min-width:18px; padding:2px 6px; border-radius:999px;
+      background:#7a1d1d; color:#fff; font:12px/1 ui-sans-serif,system-ui; text-align:center;
+      box-shadow:0 2px 8px rgba(0,0,0,.35);
+    }
   </style>
 </head>
 <body>
   <canvas id="map"></canvas>
-  <!-- Vite will compile this .ts file -->
-  <script type="module" src="/src/dreadheimperimeters.ts"></script>
-  <script type="module" src="/src/global-game-setup.ts"></script>
 
+  <!-- IMPORTANT: load global setup FIRST so getHeroSprite() exists -->
+  <script type="module" src="/src/global-game-setup.ts"></script>
+  <script type="module" src="/src/dreadheimperimeters.ts"></script>
 </body>
 </html>

@@ -1,15 +1,13 @@
 // --- Dreadheim • Perimeters (overworld transition) ---
-// NOTE: global-game-setup.ts must be included on the page BEFORE this script.
-// It provides: window.getHeroSprite(), floating bag button, badge logic,
-// inventory keyboard lockout, quantity layer fixes, etc.
+// Requires: /src/global-game-setup.ts to be loaded BEFORE this script.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement;
+if (!canvas) throw new Error("#map canvas not found");
 const ctx = canvas.getContext("2d")!;
 
 // ===== CONFIG =====
 const ASSETS = {
   bg: "/guildbook/maps/dreadheimperimeters.png",
-  // Hero sprite comes from global helper; fallback to gender key if missing
   hero: (() => {
     const pick = (window as any).getHeroSprite as undefined | (() => string);
     if (typeof pick === "function") return pick();
@@ -22,7 +20,7 @@ const ASSETS = {
 
 // Edge exits
 const LEFT_EXIT_URL  = "/dreadheimmap.html";       // back to Forest Entrance
-const RIGHT_EXIT_URL = "/dreadheimoutskirts.html"; // next area (rename later if needed)
+const RIGHT_EXIT_URL = "/dreadheimoutskirts.html"; // next area
 const EXIT_MARGIN = 4;
 
 // Walkway / physics
@@ -84,7 +82,7 @@ window.addEventListener("keydown", (e) => {
   if ((e.key === " " || e.key === "w" || e.key === "W" || e.key === "ArrowUp") && hero.onGround) {
     hero.vy = JUMP_VELOCITY;
     hero.onGround = false;
-    e.preventDefault(); // keep space/up from scrolling the page
+    e.preventDefault();
   }
 });
 window.addEventListener("keyup", (e) => keys.delete(e.key));
@@ -118,14 +116,8 @@ function step() {
   hero.vx = vx;
 
   // Edge exits (pressing into the wall)
-  if (hero.x <= EXIT_MARGIN && vx < 0) {
-    warpTo(LEFT_EXIT_URL);
-    return;
-  }
-  if (hero.x + hero.w >= window.innerWidth - EXIT_MARGIN && vx > 0) {
-    warpTo(RIGHT_EXIT_URL);
-    return;
-  }
+  if (hero.x <= EXIT_MARGIN && vx < 0) { warpTo(LEFT_EXIT_URL); return; }
+  if (hero.x + hero.w >= window.innerWidth - EXIT_MARGIN && vx > 0) { warpTo(RIGHT_EXIT_URL); return; }
 
   // Apply horizontal + clamp
   hero.x += hero.vx;
@@ -137,18 +129,13 @@ function step() {
   hero.vy += GRAVITY;
   hero.y += hero.vy;
   const floor = groundY - hero.h;
-  if (hero.y >= floor) {
-    hero.y = floor;
-    hero.vy = 0;
-    hero.onGround = true;
-  }
+  if (hero.y >= floor) { hero.y = floor; hero.vy = 0; hero.onGround = true; }
 }
 
 // ===== Render =====
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
-
   if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
   else { ctx.fillStyle = "#333"; ctx.fillRect(hero.x, hero.y, hero.w, hero.h); }
 }
@@ -175,4 +162,5 @@ window.addEventListener("va-gender-changed", () => {
 Promise.all([load(ASSETS.bg), load(ASSETS.hero)])
   .then(([b, h]) => { bg = b; heroImg = h; refreshBounds(); loop(); })
   .catch(() => { refreshBounds(); loop(); });
+
 
