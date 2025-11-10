@@ -36,32 +36,47 @@ __vaSFX.maleHurt.preload   = "auto";
 
 function __playFemaleHurt(): void {
   const a = __vaSFX.femaleHurt; if (!a) return;
-  a.currentTime = 0;
-  a.volume = 0.9;
+  a.currentTime = 0; a.volume = 0.9;
   a.play().catch(() => {});
 }
 function __playMaleHurt(): void {
   const a = __vaSFX.maleHurt; if (!a) return;
-  a.currentTime = 0;
-  a.volume = 0.9;
+  a.currentTime = 0; a.volume = 0.9;
   a.play().catch(() => {});
 }
 /** Gender-aware wrapper (pick by va_gender) */
 function __playHeroHurt(): void {
   const g = localStorage.getItem("va_gender");
-  if (g === "female") __playFemaleHurt();
-  else __playMaleHurt();
+  if (g === "female") __playFemaleHurt(); else __playMaleHurt();
 }
 // Expose to any page / script
 (window as any).playFemaleHurt = __playFemaleHurt;
 (window as any).playMaleHurt   = __playMaleHurt;
 (window as any).playHeroHurt   = __playHeroHurt;
 
-// Keep CSS data-gender in sync if gender changes at runtime
-window.addEventListener("va-gender-changed", (ev: any) => {
-  const g = (ev?.detail as string) || localStorage.getItem("va_gender") || "male";
-  document.body?.setAttribute("data-gender", g);
-});
+/* =========================================================
+   GLOBAL SFX — Battle End Sounds (Victory / Defeat)
+   ========================================================= */
+const __vaBattleSFX = {
+  victory: new Audio("/guildbook/sfx/battlevictory.mp3"),
+  fail:    new Audio("/guildbook/sfx/fightfail.mp3"),
+};
+__vaBattleSFX.victory.preload = "auto";
+__vaBattleSFX.fail.preload    = "auto";
+
+function __playVictory(): void {
+  const a = __vaBattleSFX.victory;
+  a.currentTime = 0; a.volume = 0.9;
+  a.play().catch(() => {});
+}
+function __playDefeat(): void {
+  const a = __vaBattleSFX.fail;
+  a.currentTime = 0; a.volume = 0.9;
+  a.play().catch(() => {});
+}
+// expose globally
+(window as any).playVictory = __playVictory;
+(window as any).playDefeat  = __playDefeat;
 
 /* =========================================================
    GLOBAL, GENDER-AWARE SKILL ICONS
@@ -107,14 +122,13 @@ function ensureSkillIconsOnPage() {
       img.alt = key;
       img.loading = "lazy";
       img.onerror = () => (img!.style.display = "none");
-      // Insert before text label if present
       const label = div.querySelector(":scope > .name");
       if (label) div.insertBefore(img, label);
       else div.prepend(img);
     }
 
     if (img.src !== location.origin + want && img.src !== want) {
-      img.style.display = ""; // ensure visible if it was hidden by onerror
+      img.style.display = "";
       img.src = want;
     }
   });
@@ -169,8 +183,8 @@ function ensureBagButton() {
   const btn = document.createElement("button");
   btn.id = "vaBagBtn";
   btn.title = "Inventory";
-  btn.setAttribute("tabindex", "-1");       // no keyboard focus
-  btn.setAttribute("aria-hidden", "true");  // not keyboard-interactive
+  btn.setAttribute("tabindex", "-1");
+  btn.setAttribute("aria-hidden", "true");
   btn.innerHTML = `
     <img src="/guildbook/ui/inventorybag.png" alt="Bag" onerror="this.style.display='none'">
     <span id="vaBagBadge"></span>
@@ -183,7 +197,7 @@ function ensureBagButton() {
   // Only this click path is allowed to toggle the bag
   btn.addEventListener("click", () => {
     try { (window as any).__va_openBagFromClick?.(); } catch {}
-    clearUnseenBadge(); // also clear on click
+    clearUnseenBadge();
   });
 }
 ensureBagButton();
@@ -352,8 +366,7 @@ function afterInventoryOpen() {
   wrap("toggle", (orig, ...args) => {
     if (!__bagGate) return; // ignore non-click toggles
     const r = orig(...args);
-    // infer new state after orig toggle
-    isOpen = !isOpen;
+    isOpen = !isOpen; // infer new state
     if (isOpen) afterInventoryOpen();
     else clearUnseenBadge();
     return r;
@@ -391,7 +404,6 @@ document.addEventListener("keydown", (e) => {
   const inInput = tag === "input" || tag === "textarea" || tag === "select" || editable;
 
   if (!inInput && (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
-    // prevent any global keyboard logic from piggybacking on arrow keys
     e.stopPropagation();
   }
 }, { capture: true });
@@ -410,6 +422,7 @@ document.addEventListener("keydown", (e) => {
   style.textContent = `#log { bottom: 150px !important; }`;
   document.head.appendChild(style);
 })();
+
 
 
 

@@ -243,23 +243,31 @@ function enemyAct(){
   battle.turn = "player"; battle.state = "player";
 }
 
-function endBattle(playerWon:boolean){
+function endBattle(playerWon: boolean) {
   battle.state = "end";
   overlay.classList.add("show");
   overlay.textContent = playerWon ? "VICTORY" : "DEFEAT";
 
+  // --- Play end-of-battle sound
+  try {
+    if (playerWon) (window as any).playVictory?.();
+    else (window as any).playDefeat?.();
+  } catch {}
+
+  // (optional) lock skill buttons while ending
+  try { skillEls.forEach(d => d.style.pointerEvents = "none"); } catch {}
+
   if (playerWon) {
-    try {
-      localStorage.setItem("va_bf_boar_defeated", "1");
-    } catch {}
-    setTimeout(()=>{ window.location.href = OVERWORLD_URL; }, 900);
+    try { localStorage.setItem("va_bf_boar_defeated", "1"); } catch {}
+    setTimeout(() => { window.location.href = OVERWORLD_URL; }, 900);
   } else {
-    setTimeout(()=>{
+    setTimeout(() => {
       alert("You were defeated… get stronger and come back!");
       window.location.href = LOBBY_URL;
     }, 900);
   }
 }
+
 
 // ===== UI wiring =====
 const skillEls = Array.from(document.querySelectorAll<HTMLDivElement>("#skillbar .skill"));
