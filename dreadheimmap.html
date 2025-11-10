@@ -55,12 +55,43 @@
 .va-qty, .inv-qty, .item-qty, .va-stack, .stack {
   z-index: 999 !important;      /* was 4 */
 }
+/* Hide badge when it's empty, across all variants */
+#vaBagBadge:empty,
+.bag-badge:empty,
+.inventory-badge:empty {
+  display: none !important;
+}
+
 
 
   </style>
 </head>
 <body>
   <canvas id="map"></canvas>
+  <script>
+(function () {
+  // mark as read across pages
+  try { localStorage.setItem("va_bag_unread", "0"); } catch (e) {}
+
+  function nukeBadge() {
+    var sel = "#vaBagBadge, .bag-badge, .inventory-badge";
+    document.querySelectorAll(sel).forEach(function (el) {
+      el.textContent = "";
+      el.style.display = "none";
+      el.removeAttribute("data-count");
+    });
+  }
+
+  // run now and on common lifecycle events
+  nukeBadge();
+  window.addEventListener("pageshow", nukeBadge);     // bfcache restores
+  window.addEventListener("focus", nukeBadge);        // tab focus
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) nukeBadge();
+  });
+})();
+</script>
+
   <!-- Vite will compile this .ts file -->
   <script type="module" src="/src/dreadheimmap.ts"></script>
 </body>
