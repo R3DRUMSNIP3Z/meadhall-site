@@ -1,6 +1,53 @@
 // --- Dreadheim Forest Entrance (Overworld with slow-chasing boar + loot) ---
 import { Inventory } from "./inventory";
 Inventory.init();
+// --- Fix stack number layering (meat count stays behind label) ---
+function fixQtyLayers() {
+  document.querySelectorAll(".inv-name .inv-qty, .va-name .inv-qty, .inv-name .stack, .va-name .stack, .inv-name .va-qty, .va-name .va-qty")
+    .forEach((el) => {
+      const bubble = el as HTMLElement;
+      const cell = bubble.closest(".inv-cell, .va-item") as HTMLElement | null;
+      if (cell) cell.appendChild(bubble);
+    });
+
+  document.querySelectorAll(".inv-qty, .va-qty, .item-qty, .va-stack, .stack").forEach((el) => {
+    const b = el as HTMLElement;
+    b.classList.add("inv-qty");
+    Object.assign(b.style, {
+      position: "absolute",
+      top: "6px",
+      right: "6px",
+      left: "auto",
+      bottom: "auto",
+      zIndex: "999",
+    });
+  });
+}
+
+// Hook into bag open/toggle/click so we fix after render
+(() => {
+  const invAny = Inventory as any;
+
+  const afterOpen = () => {
+    setTimeout(fixQtyLayers, 0);
+    const root = document.querySelector("#inventory, .inventory, .inventory-panel, #bag, .bag-panel") || document.body;
+    try {
+      const mo = new MutationObserver(() => fixQtyLayers());
+      mo.observe(root, { childList: true, subtree: true });
+    } catch {}
+  };
+
+  ["open", "toggle", "show"].forEach(fn => {
+    if (typeof invAny?.[fn] === "function") {
+      const orig = invAny[fn].bind(Inventory);
+      invAny[fn] = (...args: any[]) => { const r = orig(...args); afterOpen(); return r; };
+    }
+  });
+
+  const bagBtn = document.querySelector<HTMLElement>("#vaBagBtn, .bag, .inventory-button");
+  if (bagBtn) bagBtn.addEventListener("click", () => setTimeout(afterOpen, 0));
+})();
+
 
 // Clear the red bag badge whenever the bag opens (open/toggle/click)
 (() => {
