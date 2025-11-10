@@ -254,19 +254,43 @@ function endBattle(playerWon: boolean) {
     else (window as any).playDefeat?.();
   } catch {}
 
-  // (optional) lock skill buttons while ending
+  // Disable further skill input
   try { skillEls.forEach(d => d.style.pointerEvents = "none"); } catch {}
 
   if (playerWon) {
     try { localStorage.setItem("va_bf_boar_defeated", "1"); } catch {}
-    setTimeout(() => { window.location.href = OVERWORLD_URL; }, 900);
-  } else {
-    setTimeout(() => {
-      alert("You were defeated… get stronger and come back!");
-      window.location.href = LOBBY_URL;
-    }, 900);
   }
+
+  // --- Add a "Leave Battle" button for BOTH outcomes
+  const btn = document.createElement("button");
+  btn.textContent = "Leave Battle";
+  Object.assign(btn.style, {
+    position: "fixed",
+    bottom: "40px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    background: "linear-gradient(180deg,#222,#111)",
+    color: "#d4a94d",
+    border: "1px solid rgba(212,169,77,.4)",
+    borderRadius: "10px",
+    padding: "12px 28px",
+    fontFamily: "'Cinzel', serif",
+    fontSize: "18px",
+    cursor: "pointer",
+    boxShadow: "0 0 10px rgba(0,0,0,.6)",
+    zIndex: "10000"
+  } as CSSStyleDeclaration);
+
+  btn.addEventListener("click", () => {
+    btn.disabled = true;
+    btn.textContent = "Leaving...";
+    const target = playerWon ? OVERWORLD_URL : LOBBY_URL; // win -> forest map, fail -> game.html
+    window.location.href = target;
+  });
+
+  document.body.appendChild(btn);
 }
+
 
 
 // ===== UI wiring =====
