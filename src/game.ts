@@ -291,26 +291,38 @@ function updateAvatar(m: Me) {
   const avatar = document.getElementById("avatar") as HTMLImageElement | null;
   if (!avatar) return;
 
-  const drengrFull = hasFullSet(m, "drengr");
-  const skjaldFull = hasFullSet(m, "skjaldmey");
+  // Base silhouette (from global helper), with fallback by gender
+  const pick = (window as any).getHeroSprite as (() => string) | undefined;
+  const baseSilhouette =
+    typeof pick === "function"
+      ? pick()
+      : (m.gender === "female"
+          ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
+          : "/guildbook/avatars/dreadheim-warrior.png");
 
-  let newSrc = "";
-  if (m.gender === "male") {
-    newSrc = drengrFull ? "/guildbook/boydrengr.png" : "/guildbook/boy.png";
-  } else {
-    newSrc = skjaldFull ? "/guildbook/girlskjaldmey.png" : "/guildbook/girl.png";
+  // Prefer set-specific full art when a full set is equipped
+  let nextSrc = baseSilhouette;
+  if (hasFullSet(m, "drengr")) {
+    nextSrc = "/guildbook/boydrengr.png";
+  } else if (hasFullSet(m, "skjaldmey")) {
+    nextSrc = "/guildbook/girlskjaldmey.png";
   }
 
-  if (avatar.src.endsWith(newSrc)) return;
+  // No-op if already correct
+  if (avatar.src.endsWith(nextSrc)) return;
 
+  // Swap with a tiny fade; fall back to silhouette if image missing
   avatar.style.opacity = "0";
   setTimeout(() => {
-    avatar.onload = () => { avatar.style.opacity = "1"; };
-    avatar.onerror = () => { avatar.style.opacity = "1"; };
-    avatar.src = newSrc;
-    saveAvatar(newSrc);
+    const onDone = () => { avatar.style.opacity = "1"; };
+    avatar.onload = onDone;
+    avatar.onerror = () => { avatar.src = baseSilhouette; onDone(); };
+    avatar.src = nextSrc;
+    saveAvatar(nextSrc);
   }, 60);
 }
+
+
 
 /* === Quest helpers (fallback if arena modal bridge unavailable) === */
 const QKEY = "va_quests";
@@ -685,6 +697,8 @@ async function boot() {
   // Get me
   const meRes = await api<ApiMe>("/api/game/me");
   state.me = meRes.me;
+  try { if (state.me?.gender) localStorage.setItem("va_gender", state.me.gender); } catch {}
+
   await preloadItemIndex(); // build item index so slots render in one pass
 
   // Gender prompt (arena page)
@@ -762,14 +776,28 @@ async function boot() {
 
 async function setGender(g: Gender) {
   try {
-    const res = await api<ApiMe>("/api/game/gender", { method: "POST", body: JSON.stringify({ gender: g }) });
+    const res = await api<ApiMe>("/api/game/gender", {
+      method: "POST",
+      body: JSON.stringify({ gender: g }),
+    });
     state.me = res.me;
-    const genderPick = safeEl("genderPick"); if (genderPick) genderPick.style.display = "none";
+
+    // 🔗 keep global pages in sync:
+    try {
+      localStorage.setItem("va_gender", g);               // <— key used by global-game-setup.ts
+      (window as any).dispatchEvent?.(new CustomEvent("va-gender-changed", { detail: g }));
+    } catch {}
+
+    const genderPick = safeEl("genderPick");
+    if (genderPick) genderPick.style.display = "none";
+
     await renderArena();
-    if (onShopPage()) renderShop(); // refresh gender locks
-    try { window.dispatchEvent(new CustomEvent("va-gender-changed")); } catch {}
-  } catch (e: any) { log(e.message, "bad"); }
+    if (onShopPage()) renderShop();
+  } catch (e: any) {
+    log(e.message, "bad");
+  }
 }
+
 
 /* ---------- training ---------- */
 const cooldowns: Record<"power"|"defense"|"speed", number> = { power: 0, defense: 0, speed: 0 };
