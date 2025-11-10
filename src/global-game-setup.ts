@@ -22,9 +22,14 @@ document.body?.setAttribute("data-gender", localStorage.getItem("va_gender") || 
     ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
     : "/guildbook/avatars/dreadheim-warrior.png";
 };
-// === Global Quest Helpers (HUD + storage) ===
+
+/* =========================================================
+   Global Quest Helpers (HUD + storage)
+   ========================================================= */
 const VAQ_KEY = "va_quests";
-type QStatus = "available" | "active" | "completed";
+const RACE_KEY = "va_race"; // ← new: used to gate wizard quest
+
+type QStatus = "available" | "active" | "completed" | "locked";
 type Quest = { id: string; title: string; desc: string; status: QStatus; progress?: number };
 
 function qRead(): Quest[] {
@@ -35,27 +40,69 @@ function qWrite(list: Quest[]) {
   window.dispatchEvent(new CustomEvent("va-quest-updated"));
 }
 
-// Boot defaults + auto-chain “find wizard” after travel
+// Boot defaults + race/travel-gated wizard quest
 function qEnsure() {
   const list = qRead();
   const byId: Record<string, Quest> = Object.fromEntries(list.map(q => [q.id, q]));
+  const race = (localStorage.getItem(RACE_KEY) || "").toLowerCase();
 
-  // Seed main + travel if empty
-  if (!list.length) {
-    list.push(
-      { id: "q_main_pick_race", title: "Choose Your Path", desc: "Pick your homeland.", status: "available" },
-      { id: "q_travel_home",    title: "Travel to Dreadheim", desc: "Return to your homeland.", status: "available" }
-    );
+  // Seed main + travel if missing
+  if (!byId["q_main_pick_race"]) {
+    list.push({
+      id: "q_main_pick_race",
+      title: "Choose Your Path",
+      desc: "Pick your homeland.",
+      status: "available",
+      progress: 0,
+    });
+  }
+  if (!byId["q_travel_home"]) {
+    list.push({
+      id: "q_travel_home",
+      title: "Travel to Dreadheim",
+      desc: "Return to your homeland.",
+      status: "available",
+      progress: 0,
+    });
   }
 
-  // If travel is completed and wizard quest not created, add it
-  if (byId["q_travel_home"]?.status === "completed" && !byId["q_find_dreadheim_wizard"]) {
-    list.push({
+  // Rebuild map after any pushes
+  const map: Record<string, Quest> = Object.fromEntries(list.map(q => [q.id, q]));
+  const qMain   = map["q_main_pick_race"];
+  const qTravel = map["q_travel_home"];
+
+  // If race is chosen, mark main as completed; if not, keep it available
+  if (race && (qMain.status !== "completed" || (qMain.progress ?? 0) !== 100)) {
+    qMain.status = "completed"; qMain.progress = 100;
+  }
+
+  // Travel should only be actionable after race is chosen
+  if (!race && qTravel.status !== "available") {
+    qTravel.status = "available";
+  }
+
+  // Wizard quest exists but starts LOCKED
+  let qWiz = map["q_find_dreadheim_wizard"];
+  if (!qWiz) {
+    qWiz = {
       id: "q_find_dreadheim_wizard",
       title: "Find the Dreadheim Wizard",
       desc: "They say he waits in a lamplit hall.",
-      status: "active",
-    });
+      status: "locked",
+      progress: 0,
+    };
+    list.push(qWiz);
+  }
+
+  // Gate: ONLY when race === dreadheim AND travel is completed → unlock (available)
+  const travelDone = qTravel.status === "completed";
+  if (race === "dreadheim" && travelDone) {
+    if (qWiz.status === "locked") qWiz.status = "available"; // don't auto-activate
+  } else {
+    if (qWiz.status !== "completed" && qWiz.status !== "locked") {
+      qWiz.status = "locked";
+      qWiz.progress = 0;
+    }
   }
 
   qWrite(list);
@@ -63,13 +110,21 @@ function qEnsure() {
 
 // Utilities
 function qSetActive(id: string) {
+  // make "active" exclusive
   const list = qRead();
-  for (const q of list) if (q.id === id) q.status = "active";
-  qWrite(list);
+  let changed = false;
+  for (const q of list) {
+    if (q.id === id) {
+      if (q.status !== "active") { q.status = "active"; changed = true; }
+    } else if (q.status === "active") {
+      q.status = "available"; changed = true;
+    }
+  }
+  if (changed) qWrite(list);
 }
 function qComplete(id: string) {
   const list = qRead();
-  for (const q of list) if (q.id === id) q.status = "completed";
+  for (const q of list) if (q.id === id) { q.status = "completed"; q.progress = 100; }
   qWrite(list);
 }
 function qActive(): Quest | null {
@@ -77,7 +132,7 @@ function qActive(): Quest | null {
   return list.find(q => q.status === "active") || null;
 }
 
-// === HUD (bottom-left) ===
+// HUD (bottom-left)
 let hud: HTMLDivElement | null = null;
 function qHudEnsure() {
   if (hud) return;
@@ -125,8 +180,6 @@ window.addEventListener("va-quest-updated", qHudRender);
 // Initialize on every page
 qEnsure();
 qHudRender();
-
-
 
 /* =========================================================
    GLOBAL SFX — Gender-aware hurt sounds
@@ -418,7 +471,7 @@ function afterInventoryOpen() {
         fixQtyLayers();
         disableInventoryKeyboard();
       });
-      mo.observe(root, { childList: true, subtree: true });
+      mo.observe(root as Node, { childList: true, subtree: true });
     } catch {}
   }, 0);
 
@@ -525,6 +578,8 @@ document.addEventListener("keydown", (e) => {
   style.textContent = `#log { bottom: 150px !important; }`;
   document.head.appendChild(style);
 })();
+
+
 
 
 
