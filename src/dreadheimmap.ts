@@ -455,6 +455,24 @@ Promise.all([
     meatImg = m;
     batFrames = [b1, b2, b3];
     spawnFlock(FLOCK_COUNT);   // populate the forest with bats
+    // --- Quest HUD hookup (show bottom-left card) ---
+try {
+  const VAQ = (window as any).VAQ;
+  VAQ?.ensureQuestState?.();
+
+  // If you're Dreadheim and travel is done, focus the Wizard quest here too
+  const race = (localStorage.getItem("va_race") || "").toLowerCase();
+  const qs = VAQ?.readQuests?.() || [];
+  const qTravel = qs.find((q: any) => q.id === "q_travel_home");
+  const qWiz = qs.find((q: any) => q.id === "q_find_dreadheim_wizard");
+
+  if (race === "dreadheim" && qTravel?.status === "completed" && qWiz && qWiz.status !== "completed") {
+    VAQ?.setActive?.("q_find_dreadheim_wizard");
+  }
+
+  VAQ?.renderHUD?.();
+} catch {}
+
     refreshBounds();
     loop();
   })
