@@ -455,23 +455,33 @@ Promise.all([
     meatImg = m;
     batFrames = [b1, b2, b3];
     spawnFlock(FLOCK_COUNT);   // populate the forest with bats
-    // --- Quest HUD hookup (show bottom-left card) ---
+   // --- Quest HUD hookup (force travel complete here; then focus Wizard) ---
 try {
   const VAQ = (window as any).VAQ;
   VAQ?.ensureQuestState?.();
 
-  // If you're Dreadheim and travel is done, focus the Wizard quest here too
   const race = (localStorage.getItem("va_race") || "").toLowerCase();
-  const qs = VAQ?.readQuests?.() || [];
-  const qTravel = qs.find((q: any) => q.id === "q_travel_home");
-  const qWiz = qs.find((q: any) => q.id === "q_find_dreadheim_wizard");
+  if (race === "dreadheim") {
+    const qs = (VAQ?.readQuests?.() as any[]) || [];
+    const qTravel = qs.find((q: any) => q.id === "q_travel_home");
+    const qWiz = qs.find((q: any) => q.id === "q_find_dreadheim_wizard");
 
-  if (race === "dreadheim" && qTravel?.status === "completed" && qWiz && qWiz.status !== "completed") {
-    VAQ?.setActive?.("q_find_dreadheim_wizard");
+    // If travel isn't completed yet, mark it complete so the chain can advance
+    if (qTravel && qTravel.status !== "completed") {
+      VAQ?.complete?.("q_travel_home");
+    }
+
+    // If Wizard quest exists and isn’t done, make it active for the HUD
+    if (qWiz && qWiz.status !== "completed") {
+      VAQ?.setActive?.("q_find_dreadheim_wizard");
+    }
   }
 
+  // Render the bottom-left HUD
   VAQ?.renderHUD?.();
-} catch {}
+} catch (e) {
+      console.warn("Quest HUD hook failed:", e);
+    }
 
     refreshBounds();
     loop();
@@ -480,6 +490,8 @@ try {
     refreshBounds();
     loop();
   });
+
+
 
 
 
