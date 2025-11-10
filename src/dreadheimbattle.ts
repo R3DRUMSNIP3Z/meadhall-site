@@ -97,7 +97,7 @@ let shakeMag = 8;
 let impactMs = 0;                 // timer for lunge (ms)
 let impactWho: "player"|"enemy"|null = null;
 
-const SPRITE = { pW: 120, pH: 120, eW: 120, eH: 120 };
+const SPRITE = { pW: 180, pH: 180, eW: 180, eH: 180 };
 
 function startImpact(who: "player" | "enemy") {
   impactWho = who;
@@ -317,12 +317,14 @@ function render(){
   ctx.save();
   ctx.translate(sx, sy);
 
-  const groundY = Math.round(window.innerHeight * 0.70);
-  const { pW, pH, eW, eH } = SPRITE;
+  // sit just above the skillbar (~110px tall) so feet touch the stones
+const skillbarReserve = 110;
+const groundY = Math.round(window.innerHeight - skillbarReserve);
 
-  // base positions
-  const pBaseX = 80, pBaseY = groundY - pH;
-  const eBaseX = window.innerWidth - eW - 100, eBaseY = groundY - eH;
+const { pW, pH, eW, eH } = SPRITE;
+const pBaseX = 120,                      pBaseY = groundY - pH;
+const eBaseX = window.innerWidth - eW - 120, eBaseY = groundY - eH;
+
 
   // meeting point (mid-gap)
   const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.5;

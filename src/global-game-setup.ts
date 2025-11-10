@@ -291,6 +291,13 @@ function afterInventoryOpen() {
   const bagBtn = document.querySelector<HTMLElement>("#vaBagBtn, .bag, .inventory-button");
   if (bagBtn) bagBtn.addEventListener("click", () => setTimeout(afterInventoryOpen, 0));
 })();
+// --- Reposition bag to bottom-right (battle HUD safe)
+(() => {
+  const style = document.createElement("style");
+  style.textContent = `#vaBagBtn{ top:auto !important; bottom:16px !important; }`;
+  document.head.appendChild(style);
+})();
+
 
 
 
