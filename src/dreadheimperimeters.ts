@@ -1,33 +1,28 @@
 // --- Dreadheim • Perimeters (overworld transition) ---
-import { Inventory } from "./inventory";
-Inventory.init();
-// Auto-clear the bag badge after opening inventory
-(() => {
-  const invAny = Inventory as any;
-  const origOpen = invAny.open?.bind(Inventory);
-  if (origOpen) {
-    invAny.open = (...args: any[]) => {
-      const r = origOpen(...args);
-      const badge = document.querySelector<HTMLElement>("#vaBagBadge, .bag-badge, .inventory-badge");
-      if (badge) { badge.textContent = ""; badge.style.display = "none"; }
-      return r;
-    };
-  }
-})();
-
+// NOTE: global-game-setup.ts must be included on the page BEFORE this script.
+// It provides: window.getHeroSprite(), floating bag button, badge logic,
+// inventory keyboard lockout, quantity layer fixes, etc.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
 // ===== CONFIG =====
 const ASSETS = {
-  bg:   "/guildbook/maps/dreadheimperimeters.png", // <-- put the PNG here
-  hero: "/guildbook/avatars/dreadheim-warrior.png",
+  bg: "/guildbook/maps/dreadheimperimeters.png",
+  // Hero sprite comes from global helper; fallback to gender key if missing
+  hero: (() => {
+    const pick = (window as any).getHeroSprite as undefined | (() => string);
+    if (typeof pick === "function") return pick();
+    const g = localStorage.getItem("va_gender");
+    return g === "female"
+      ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
+      : "/guildbook/avatars/dreadheim-warrior.png";
+  })(),
 };
 
 // Edge exits
-const LEFT_EXIT_URL  = "/dreadheimmap.html";        // back to Forest Entrance
-const RIGHT_EXIT_URL = "/dreadheimoutskirts.html";  // next area (rename later if needed)
+const LEFT_EXIT_URL  = "/dreadheimmap.html";       // back to Forest Entrance
+const RIGHT_EXIT_URL = "/dreadheimoutskirts.html"; // next area (rename later if needed)
 const EXIT_MARGIN = 4;
 
 // Walkway / physics
@@ -89,7 +84,7 @@ window.addEventListener("keydown", (e) => {
   if ((e.key === " " || e.key === "w" || e.key === "W" || e.key === "ArrowUp") && hero.onGround) {
     hero.vy = JUMP_VELOCITY;
     hero.onGround = false;
-    e.preventDefault();
+    e.preventDefault(); // keep space/up from scrolling the page
   }
 });
 window.addEventListener("keyup", (e) => keys.delete(e.key));
@@ -160,7 +155,24 @@ function render() {
 
 function loop() { step(); render(); requestAnimationFrame(loop); }
 
+// ===== Live hero sprite updates when gender changes =====
+window.addEventListener("va-gender-changed", () => {
+  try {
+    const pick = (window as any).getHeroSprite as undefined | (() => string);
+    const next = (typeof pick === "function")
+      ? pick()
+      : (localStorage.getItem("va_gender") === "female"
+         ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
+         : "/guildbook/avatars/dreadheim-warrior.png");
+
+    const img = new Image();
+    img.onload = () => { heroImg = img; };
+    img.src = next;
+  } catch {}
+});
+
 // ===== Boot =====
 Promise.all([load(ASSETS.bg), load(ASSETS.hero)])
   .then(([b, h]) => { bg = b; heroImg = h; refreshBounds(); loop(); })
   .catch(() => { refreshBounds(); loop(); });
+

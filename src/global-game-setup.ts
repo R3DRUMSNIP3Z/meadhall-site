@@ -3,6 +3,10 @@
 
 import { Inventory } from "./inventory";
 
+// Make Inventory accessible to plain <script> pages
+// (so code can call (window as any).Inventory?.add?.(...))
+(window as any).Inventory = Inventory;
+
 // ---------- Gender fallback + sprite helper ----------
 if (!localStorage.getItem("va_gender")) {
   localStorage.setItem("va_gender", "male");
@@ -57,7 +61,7 @@ function ensureBagButton() {
 
   btn.addEventListener("click", () => {
     try { Inventory.toggle(); } catch {}
-    clearUnseenBadge();
+    clearUnseenBadge(); // also clear on click
   });
 }
 ensureBagButton();
@@ -104,10 +108,80 @@ window.addEventListener("pageshow", renderBadge);
 window.addEventListener("focus", renderBadge);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) renderBadge(); });
 
-// ---------- Inventory init + hooks so badge increments when loot is added ----------
+// ---------- Inventory init ----------
 try { Inventory.init(); } catch { /* already inited is fine */ }
 
-// Monkey-patch open/toggle so we know when bag is open and clear the red dot
+// ======= FROM MAP (CENTRALIZED HERE) =======
+// 1) Fix stack number layering (qty bubbles should sit on top)
+function fixQtyLayers() {
+  document
+    .querySelectorAll(
+      ".inv-name .inv-qty, .va-name .inv-qty, .inv-name .stack, .va-name .stack, .inv-name .va-qty, .va-name .va-qty, .va-stack, .item-qty"
+    )
+    .forEach((el) => {
+      const bubble = el as HTMLElement;
+      const cell = bubble.closest(".inv-cell, .va-item") as HTMLElement | null;
+      if (cell) cell.appendChild(bubble);
+    });
+
+  document.querySelectorAll(".inv-qty, .va-qty, .item-qty, .va-stack, .stack").forEach((el) => {
+    const b = el as HTMLElement;
+    b.classList.add("inv-qty");
+    Object.assign(b.style, {
+      position: "absolute",
+      top: "6px",
+      right: "6px",
+      left: "auto",
+      bottom: "auto",
+      zIndex: "999",
+    } as CSSStyleDeclaration);
+  });
+}
+
+// 2) Mouse-only inventory: disable keyboard focus inside the bag
+function disableInventoryKeyboard() {
+  const root =
+    (document.querySelector("#inventory, .inventory, .inventory-panel, #bag, .bag-panel") as HTMLElement | null)
+    || null;
+  if (!root) return;
+
+  // All focusable controls inside the bag become mouse-only
+  const focusables = root.querySelectorAll<HTMLElement>(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  );
+  focusables.forEach((el) => {
+    el.setAttribute("tabindex", "-1");
+    el.setAttribute("aria-disabled", "true");
+  });
+
+  // If something inside had focus, drop it so arrows don't move selection
+  if (root.contains(document.activeElement)) {
+    (document.activeElement as HTMLElement).blur?.();
+  }
+}
+
+// 3) After-open hook: fix layers, observe changes, clear badge, and disable keyboard
+function afterInventoryOpen() {
+  setTimeout(() => {
+    fixQtyLayers();
+    disableInventoryKeyboard();
+
+    // Observe dynamic changes in the bag and re-apply fixes
+    const root =
+      document.querySelector("#inventory, .inventory, .inventory-panel, #bag, .bag-panel") || document.body;
+    try {
+      const mo = new MutationObserver(() => {
+        fixQtyLayers();
+        disableInventoryKeyboard();
+      });
+      mo.observe(root, { childList: true, subtree: true });
+    } catch {}
+  }, 0);
+
+  clearUnseenBadge();
+}
+
+// Monkey-patch Inventory methods for global behavior
 (() => {
   const invAny = Inventory as any;
   let isOpen = false;
@@ -122,12 +196,12 @@ try { Inventory.init(); } catch { /* already inited is fine */ }
     };
   };
 
-  wrap("open",  () => { isOpen = true;  clearUnseenBadge(); });
-  wrap("show",  () => { isOpen = true;  clearUnseenBadge(); });
-  wrap("toggle",() => { isOpen = !isOpen; if (isOpen) clearUnseenBadge(); });
+  wrap("open",  () => { isOpen = true;  afterInventoryOpen(); });
+  wrap("show",  () => { isOpen = true;  afterInventoryOpen(); });
+  wrap("toggle",() => { isOpen = !isOpen; if (isOpen) afterInventoryOpen(); else clearUnseenBadge(); });
   wrap("close", () => { isOpen = false; });
 
-  // Patch add/remove so unseen counter updates when player picks up items and bag is closed
+  // When items get added and bag is closed, bump unseen badge counter
   if (typeof invAny?.add === "function") {
     const origAdd = invAny.add.bind(Inventory);
     invAny.add = (...args: any[]) => {
@@ -136,5 +210,10 @@ try { Inventory.init(); } catch { /* already inited is fine */ }
       return r;
     };
   }
+
+  // Also clear the badge if the floating bag button is clicked
+  const bagBtn = document.querySelector<HTMLElement>("#vaBagBtn, .bag, .inventory-button");
+  if (bagBtn) bagBtn.addEventListener("click", () => setTimeout(afterInventoryOpen, 0));
 })();
+
 

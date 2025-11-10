@@ -1,91 +1,19 @@
 // --- Dreadheim Forest Entrance (Overworld with slow-chasing boar + loot) ---
-import { Inventory } from "./inventory";
-Inventory.init();
-// --- Fix stack number layering (meat count stays behind label) ---
-function fixQtyLayers() {
-  document.querySelectorAll(".inv-name .inv-qty, .va-name .inv-qty, .inv-name .stack, .va-name .stack, .inv-name .va-qty, .va-name .va-qty")
-    .forEach((el) => {
-      const bubble = el as HTMLElement;
-      const cell = bubble.closest(".inv-cell, .va-item") as HTMLElement | null;
-      if (cell) cell.appendChild(bubble);
-    });
-
-  document.querySelectorAll(".inv-qty, .va-qty, .item-qty, .va-stack, .stack").forEach((el) => {
-    const b = el as HTMLElement;
-    b.classList.add("inv-qty");
-    Object.assign(b.style, {
-      position: "absolute",
-      top: "6px",
-      right: "6px",
-      left: "auto",
-      bottom: "auto",
-      zIndex: "999",
-    });
-  });
-}
-
-// Hook into bag open/toggle/click so we fix after render
-(() => {
-  const invAny = Inventory as any;
-
-  const afterOpen = () => {
-    setTimeout(fixQtyLayers, 0);
-    const root = document.querySelector("#inventory, .inventory, .inventory-panel, #bag, .bag-panel") || document.body;
-    try {
-      const mo = new MutationObserver(() => fixQtyLayers());
-      mo.observe(root, { childList: true, subtree: true });
-    } catch {}
-  };
-
-  ["open", "toggle", "show"].forEach(fn => {
-    if (typeof invAny?.[fn] === "function") {
-      const orig = invAny[fn].bind(Inventory);
-      invAny[fn] = (...args: any[]) => { const r = orig(...args); afterOpen(); return r; };
-    }
-  });
-
-  const bagBtn = document.querySelector<HTMLElement>("#vaBagBtn, .bag, .inventory-button");
-  if (bagBtn) bagBtn.addEventListener("click", () => setTimeout(afterOpen, 0));
-})();
-
-
-// Clear the red bag badge whenever the bag opens (open/toggle/click)
-(() => {
-  const invAny = Inventory as any;
-
-  const clearBadge = () => {
-    const badge = document.querySelector<HTMLElement>("#vaBagBadge, .bag-badge, .inventory-badge");
-    if (badge) { badge.textContent = ""; badge.style.display = "none"; }
-  };
-
-  ["open", "toggle", "show"].forEach(fn => {
-    if (typeof invAny[fn] === "function") {
-      const orig = invAny[fn].bind(Inventory);
-      invAny[fn] = (...args: any[]) => { const r = orig(...args); clearBadge(); return r; };
-    }
-  });
-
-  const bagBtn = document.querySelector<HTMLElement>("#vaBagBtn, .bag, .inventory-button");
-  if (bagBtn) bagBtn.addEventListener("click", clearBadge);
-})();
-
-
-
 const canvas = document.getElementById("map") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
 // ====== CONFIG ======
 const ASSETS = {
-  bg:   "/guildbook/maps/dreadheimforest.png",
-  hero: localStorage.getItem("va_gender") === "female"
-  ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
-  : "/guildbook/avatars/dreadheim-warrior.png",
+  bg: "/guildbook/maps/dreadheimforest.png",
+  hero: (window as any).getHeroSprite
+    ? (window as any).getHeroSprite()
+    : "/guildbook/avatars/dreadheim-warrior.png",
   boar: "/guildbook/avatars/enemies/diseasedboar.png",
-  meat: "/guildbook/loot/infectedboarmeat.png"
+  meat: "/guildbook/loot/infectedboarmeat.png",
 };
 
 // --- Edge exits ---
-const LEFT_EXIT_URL  = "/game.html";
+const LEFT_EXIT_URL = "/game.html";
 const RIGHT_EXIT_URL = "/dreadheimperimeters.html";
 const EXIT_MARGIN = 4; // pixels from screen edge to trigger warp
 
@@ -123,18 +51,21 @@ const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
 const GRAVITY = 0.8;
 const JUMP_VELOCITY = -16;
-const HERO_W = 96, HERO_H = 96;
-const BOAR_W = 110, BOAR_H = 90;
+const HERO_W = 96,
+  HERO_H = 96;
+const BOAR_W = 110,
+  BOAR_H = 90;
 
-const ENGAGE_DIST = 120;  // auto-start battle
-const ALERT_DIST  = 320;  // start slow chase
-const CHASE_SPEED = 1.2;  // slower than player
+const ENGAGE_DIST = 120; // auto-start battle
+const ALERT_DIST = 320; // start slow chase
+const CHASE_SPEED = 1.2; // slower than player
 const PATROL_SPEED = 1.8;
 
 // ====== DPR / Resize ======
 function fitCanvas() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const w = window.innerWidth, h = window.innerHeight;
+  const w = window.innerWidth,
+    h = window.innerHeight;
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
   canvas.style.width = w + "px";
@@ -166,19 +97,22 @@ let groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
 const hero = {
   x: Math.max(0, Math.min(window.innerWidth - HERO_W, window.innerWidth / 2 - HERO_W / 2)),
   y: groundY - HERO_H,
-  w: HERO_W, h: HERO_H,
-  vx: 0, vy: 0,
+  w: HERO_W,
+  h: HERO_H,
+  vx: 0,
+  vy: 0,
   onGround: true,
 };
 
 // State flags saved by battle
-const BOAR_DEAD  = () => localStorage.getItem("va_bf_boar_defeated") === "1";
+const BOAR_DEAD = () => localStorage.getItem("va_bf_boar_defeated") === "1";
 const LOOT_TAKEN = () => localStorage.getItem("va_loot_infectedboarmeat") === "1";
 
 const boar = {
   x: Math.min(window.innerWidth - BOAR_W - 160, hero.x + 240),
   y: groundY - BOAR_H,
-  w: BOAR_W, h: BOAR_H,
+  w: BOAR_W,
+  h: BOAR_H,
   vx: PATROL_SPEED,
   dir: -1 as -1 | 1,
   minX: 80,
@@ -189,7 +123,8 @@ const boar = {
 const loot = {
   x: Math.min(window.innerWidth - 120, Math.max(120, hero.x + 200)),
   y: groundY - 48,
-  w: 42, h: 42,
+  w: 42,
+  h: 42,
   visible: BOAR_DEAD() && !LOOT_TAKEN(),
 };
 
@@ -198,7 +133,11 @@ function refreshBounds() {
   groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
 
   hero.y = Math.min(hero.y, groundY - hero.h);
-  if (hero.y >= groundY - hero.h) { hero.y = groundY - hero.h; hero.vy = 0; hero.onGround = true; }
+  if (hero.y >= groundY - hero.h) {
+    hero.y = groundY - hero.h;
+    hero.vy = 0;
+    hero.onGround = true;
+  }
 
   boar.y = groundY - boar.h;
   boar.minX = 80;
@@ -219,6 +158,7 @@ window.addEventListener("keydown", (e) => {
   }
 });
 window.addEventListener("keyup", (e) => keys.delete(e.key));
+
 // ===== DEV RESET (for testing) =====
 window.addEventListener("keydown", (e) => {
   // hold CTRL + SHIFT + R to reset the boar fight and loot
@@ -231,7 +171,6 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-
 // Click: engage boar or pick loot
 canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
@@ -239,17 +178,25 @@ canvas.addEventListener("click", (e) => {
   const my = e.clientY - rect.top;
 
   if (boar.alive) {
-    if (mx >= boar.x - 10 && mx <= boar.x + boar.w + 10 &&
-        my >= boar.y - 10 && my <= boar.y + boar.h + 10) {
+    if (
+      mx >= boar.x - 10 &&
+      mx <= boar.x + boar.w + 10 &&
+      my >= boar.y - 10 &&
+      my <= boar.y + boar.h + 10
+    ) {
       goToBattle();
       return;
     }
   }
   if (loot.visible) {
-    if (mx >= loot.x && mx <= loot.x + loot.w &&
-        my >= loot.y && my <= loot.y + loot.h) {
+    if (mx >= loot.x && mx <= loot.x + loot.w && my >= loot.y && my <= loot.y + loot.h) {
       // Add to bag (stacks to 99)
-      Inventory.add("infectedboarmeat", "Infected Boar Meat", ASSETS.meat, 1);
+      (window as any).Inventory?.add?.(
+        "infectedboarmeat",
+        "Infected Boar Meat",
+        ASSETS.meat,
+        1
+      );
       localStorage.setItem("va_loot_infectedboarmeat", "1");
       loot.visible = false;
       toast("You pick up: Infected Boar Meat");
@@ -258,34 +205,42 @@ canvas.addEventListener("click", (e) => {
 });
 
 // ====== TOAST ======
-function toast(msg:string) {
+function toast(msg: string) {
   const t = document.createElement("div");
   t.textContent = msg;
   Object.assign(t.style, {
-    position:'fixed', left:'50%', top:'16px', transform:'translateX(-50%)',
-    background:'rgba(20,20,20,.92)', color:'#e6d5a9', border:'1px solid #9b834d',
-    padding:'10px 14px', borderRadius:'10px', zIndex:'999999',
-    boxShadow:'0 6px 24px rgba(0,0,0,.45)', fontFamily:'Cinzel, serif'
+    position: "fixed",
+    left: "50%",
+    top: "16px",
+    transform: "translateX(-50%)",
+    background: "rgba(20,20,20,.92)",
+    color: "#e6d5a9",
+    border: "1px solid #9b834d",
+    padding: "10px 14px",
+    borderRadius: "10px",
+    zIndex: "999999",
+    boxShadow: "0 6px 24px rgba(0,0,0,.45)",
+    fontFamily: "Cinzel, serif",
   } as CSSStyleDeclaration);
   document.body.appendChild(t);
-  setTimeout(()=>t.remove(), 2000);
+  setTimeout(() => t.remove(), 2000);
 }
 
 // ====== UPDATE ======
 function step() {
   // hero horizontal intent
   let vx = 0;
-  if (keys.has("ArrowLeft")  || keys.has("a") || keys.has("A")) vx -= SPEED;
+  if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) vx -= SPEED;
   if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) vx += SPEED;
   hero.vx = vx;
 
   // --- Edge exits (before we move so pushing the wall warps) ---
   if (hero.x <= EXIT_MARGIN) {
-    warpTo(LEFT_EXIT_URL);   // back to game hub
+    warpTo(LEFT_EXIT_URL); // back to game hub
     return;
   }
   if (hero.x + hero.w >= window.innerWidth - EXIT_MARGIN) {
-    warpTo(RIGHT_EXIT_URL);  // onward to Dreadheim Perimeters
+    warpTo(RIGHT_EXIT_URL); // onward to Dreadheim Perimeters
     return;
   }
 
@@ -327,13 +282,19 @@ function step() {
       goToBattle();
     } else if (dist <= ALERT_DIST) {
       // slow chase toward hero
-      boar.dir = (dx > 0) ? 1 : -1;
+      boar.dir = dx > 0 ? 1 : -1;
       boar.x += CHASE_SPEED * boar.dir;
     } else {
       // patrol
       boar.x += PATROL_SPEED * boar.dir;
-      if (boar.x <= boar.minX) { boar.x = boar.minX; boar.dir = 1; }
-      if (boar.x >= boar.maxX) { boar.x = boar.maxX; boar.dir = -1; }
+      if (boar.x <= boar.minX) {
+        boar.x = boar.minX;
+        boar.dir = 1;
+      }
+      if (boar.x >= boar.maxX) {
+        boar.x = boar.maxX;
+        boar.dir = -1;
+      }
     }
   }
 }
@@ -345,11 +306,15 @@ function render() {
 
   // hero
   if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
-  else { ctx.fillStyle = "#333"; ctx.fillRect(hero.x, hero.y, hero.w, hero.h); }
+  else {
+    ctx.fillStyle = "#333";
+    ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
+  }
 
   // boar (flip when moving left)
   if (boar.alive) {
-    const bx = boar.x, by = boar.y;
+    const bx = boar.x,
+      by = boar.y;
     if (boarImg && boarImg.complete) {
       ctx.save();
       if (boar.dir < 0) {
@@ -372,12 +337,27 @@ function render() {
   }
 }
 
-function loop() { step(); render(); requestAnimationFrame(loop); }
+function loop() {
+  step();
+  render();
+  requestAnimationFrame(loop);
+}
 
 // ====== BOOT ======
 Promise.all([load(ASSETS.bg), load(ASSETS.hero), load(ASSETS.boar), load(ASSETS.meat)])
-  .then(([b, h, bo, m]) => { bg = b; heroImg = h; boarImg = bo; meatImg = m; refreshBounds(); loop(); })
-  .catch(() => { refreshBounds(); loop(); });
+  .then(([b, h, bo, m]) => {
+    bg = b;
+    heroImg = h;
+    boarImg = bo;
+    meatImg = m;
+    refreshBounds();
+    loop();
+  })
+  .catch(() => {
+    refreshBounds();
+    loop();
+  });
+
 
 
 

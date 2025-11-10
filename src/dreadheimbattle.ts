@@ -1,4 +1,6 @@
 // --- Turn-based Battle: Dreadheim Forest Entrance ---
+// NOTE: Include global-game-setup.ts BEFORE this file on the page.
+
 type Unit = {
   name: string;
   hp: number; hpMax: number;
@@ -14,25 +16,19 @@ type Battle = {
   turn: "player"|"enemy";
   log: string[];
 };
-import { Inventory } from "./inventory";
-Inventory.init();
-// Auto-clear the bag badge after opening inventory
-(() => {
-  const invAny = Inventory as any;
-  const origOpen = invAny.open?.bind(Inventory);
-  if (origOpen) {
-    invAny.open = (...args: any[]) => {
-      const r = origOpen(...args);
-      const badge = document.querySelector<HTMLElement>("#vaBagBadge, .bag-badge, .inventory-badge");
-      if (badge) { badge.textContent = ""; badge.style.display = "none"; }
-      return r;
-    };
-  }
-})();
 
-
+// Map + sprites
 const bgUrl = "/guildbook/maps/dreadheimforestentrancebattle.png";
-const playerSpriteUrl = "/guildbook/avatars/dreadheim-warrior.png";
+function pickHeroSprite(): string {
+  const pick = (window as any).getHeroSprite as undefined | (() => string);
+  if (typeof pick === "function") return pick();
+  const g = localStorage.getItem("va_gender");
+  return g === "female"
+    ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
+    : "/guildbook/avatars/dreadheim-warrior.png";
+}
+let playerSpriteUrl = pickHeroSprite();
+
 const OVERWORLD_URL = "/dreadheimmap.html";
 const LOBBY_URL = "/game.html";
 
@@ -96,7 +92,6 @@ const cooldowns: Record<keyof typeof skills, number> = { basic:0, aoe:0, buff:0,
 const unlocked: Record<keyof typeof skills, boolean> = { basic:true, aoe:false, buff:false, debuff:false };
 
 // --- Impact + camera shake + lunge state ---
-let lastTs = 0;
 let shakeMs = 0;
 let shakeMag = 8;
 let impactMs = 0;                 // timer for lunge (ms)
@@ -218,7 +213,6 @@ function endBattle(playerWon:boolean){
   if (playerWon) {
     try {
       localStorage.setItem("va_bf_boar_defeated", "1");
-      // you can also stamp a timestamp if needed
     } catch {}
     setTimeout(()=>{ window.location.href = OVERWORLD_URL; }, 900);
   } else {
@@ -272,6 +266,7 @@ const enemyImgObj = new Image();
 enemyImgObj.src = "/guildbook/avatars/enemies/diseasedboar.png";
 enemyImg = enemyImgObj;
 
+let lastTs = 0;
 function getDtMs(ts: number) {
   if (!lastTs) { lastTs = ts; return 0; }
   const dt = ts - lastTs; lastTs = ts; return dt;
@@ -351,6 +346,16 @@ function gameLoop(ts: number) {
   requestAnimationFrame(gameLoop);
 }
 
+// ===== Live hero sprite updates when gender changes =====
+window.addEventListener("va-gender-changed", () => {
+  try {
+    playerSpriteUrl = pickHeroSprite();
+    const next = new Image();
+    next.onload = () => { playerImg = next; };
+    next.src = playerSpriteUrl;
+  } catch {}
+});
+
 // ===== Boot =====
 Promise.all([loadImage(bgUrl), loadImage(playerSpriteUrl)])
   .then(([b, p])=>{ bg=b; playerImg=p; requestAnimationFrame(gameLoop); })
@@ -360,5 +365,6 @@ log("A hostile presence emerges from the forest...");
 updateHUD();
 paintSkillBar();
 decideTurnOrder();
+
 
 

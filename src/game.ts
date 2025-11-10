@@ -75,10 +75,10 @@ function getUserId(): string | null {
 const userId = getUserId();
 
 /* ---------- avatar cache helpers ---------- */
-const AVATAR_KEY = "va_avatar_src";
-function saveAvatar(src: string) {
-  try { localStorage.setItem(AVATAR_KEY, src); } catch {}
-}
+//const AVATAR_KEY = "va_avatar_src";
+//function saveAvatar(src: string) {
+//  try { localStorage.setItem(AVATAR_KEY, src); } catch {}
+//}
 
 /* ---------- DOM helpers ---------- */
 function safeEl<T extends HTMLElement = HTMLElement>(id: string): T | null {
