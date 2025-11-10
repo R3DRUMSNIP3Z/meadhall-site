@@ -4,13 +4,18 @@
 import { Inventory } from "./inventory";
 
 // Make Inventory accessible to plain <script> pages
-// (so code can call (window as any).Inventory?.add?.(...))
 (window as any).Inventory = Inventory;
 
-// ---------- Gender fallback + sprite helper ----------
+/* =========================================================
+   GENDER + GLOBAL SPRITES
+   ========================================================= */
 if (!localStorage.getItem("va_gender")) {
   localStorage.setItem("va_gender", "male");
 }
+// reflect gender on <body> for optional CSS theming
+document.body?.setAttribute("data-gender", localStorage.getItem("va_gender") || "male");
+
+// Universal hero sprite (used by arena/game.ts and maps if needed)
 (window as any).getHeroSprite = function (): string {
   const g = localStorage.getItem("va_gender");
   return g === "female"
@@ -18,7 +23,78 @@ if (!localStorage.getItem("va_gender")) {
     : "/guildbook/avatars/dreadheim-warrior.png";
 };
 
-// ---------- Inject minimal styles (bag button + badge) ----------
+// --- Global, gender-aware skill icon resolver (used by all battles)
+function currentSkillIconMap() {
+  const g = localStorage.getItem("va_gender") || "male";
+  const maleIcons: Record<string, string> = {
+    basic:  "/guildbook/skillicons/drengrstrike.png",
+    aoe:    "/guildbook/skillicons/whirlwinddance.png",
+    buff:   "/guildbook/skillicons/odinsblessing.png",
+    debuff: "/guildbook/skillicons/helsgrasp.png",
+  };
+  const femaleIcons: Record<string, string> = {
+    basic:  "/guildbook/skillicons/valkyrieslash.png",
+    aoe:    "/guildbook/skillicons/ragnarokshowl.png",
+    buff:   "/guildbook/skillicons/aegisoffreyja.png",
+    debuff: "/guildbook/skillicons/cursebreaker.png",
+  };
+  return g === "female" ? femaleIcons : maleIcons;
+}
+
+(window as any).getSkillIcon = function (key: string): string {
+  const map = currentSkillIconMap();
+  return map[key] || "";
+};
+
+// Inject skill icons into any page that has #skillbar .skill
+function ensureSkillIconsOnPage() {
+  const skillEls = Array.from(document.querySelectorAll<HTMLDivElement>("#skillbar .skill"));
+  if (!skillEls.length) return;
+  const map = currentSkillIconMap();
+
+  skillEls.forEach(div => {
+    const key = (div.dataset.skill || "").toLowerCase();
+    if (!key) return;
+
+    let img = div.querySelector<HTMLImageElement>("img.icon");
+    const want = map[key] || "";
+
+    if (!img) {
+      img = document.createElement("img");
+      img.className = "icon";
+      img.alt = key;
+      img.loading = "lazy";
+      img.onerror = () => (img!.style.display = "none");
+      // Insert before text label if present
+      const label = div.querySelector(":scope > .name");
+      if (label) div.insertBefore(img, label);
+      else div.prepend(img);
+    }
+
+    if (img.src !== location.origin + want && img.src !== want) {
+      img.style.display = ""; // ensure visible if it was hidden by onerror
+      img.src = want;
+    }
+  });
+}
+
+// Re-run icon injection when gender changes
+window.addEventListener("va-gender-changed", (ev: any) => {
+  const g = (ev?.detail as string) || localStorage.getItem("va_gender") || "male";
+  document.body?.setAttribute("data-gender", g);
+  ensureSkillIconsOnPage();
+});
+
+// Also try once on load (in case battle pages loaded first)
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", ensureSkillIconsOnPage, { once: true });
+} else {
+  ensureSkillIconsOnPage();
+}
+
+/* =========================================================
+   BAG BUTTON + BADGE (minimal styles)
+   ========================================================= */
 (function injectStyles() {
   if (document.getElementById("vaGlobalStyle")) return;
   const css = `
@@ -38,18 +114,15 @@ if (!localStorage.getItem("va_gender")) {
     padding: 0 6px;
     background: #b02a2a; color: #fff; font: 12px/20px ui-sans-serif,system-ui;
     text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.35); display: none;
-  }
-  `;
+  }`;
   const s = document.createElement("style");
   s.id = "vaGlobalStyle";
   s.textContent = css;
   document.head.appendChild(s);
 })();
 
-// ---------- Build the floating Bag button once ----------
 function ensureBagButton() {
   if (document.getElementById("vaBagBtn")) return;
-
   const btn = document.createElement("button");
   btn.id = "vaBagBtn";
   btn.title = "Inventory";
@@ -66,7 +139,9 @@ function ensureBagButton() {
 }
 ensureBagButton();
 
-// ---------- Badge storage (persists across pages) ----------
+/* =========================================================
+   BADGE STORAGE (per-user)
+   ========================================================= */
 const UID_KEY = "mh_user";
 function currentUserId(): string {
   try {
@@ -103,15 +178,19 @@ function renderBadge() {
 }
 function clearUnseenBadge() { setUnseen(0); }
 
-// Show correct badge on page load/return
 window.addEventListener("pageshow", renderBadge);
 window.addEventListener("focus", renderBadge);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) renderBadge(); });
 
-// ---------- Inventory init ----------
+/* =========================================================
+   INVENTORY INIT
+   ========================================================= */
 try { Inventory.init(); } catch { /* already inited is fine */ }
 
-// ======= FROM MAP (CENTRALIZED HERE) =======
+/* =========================================================
+   SHARED MAP/BAG UTILITIES
+   ========================================================= */
+
 // 1) Fix stack number layering (qty bubbles should sit on top)
 function fixQtyLayers() {
   document
@@ -145,7 +224,6 @@ function disableInventoryKeyboard() {
     || null;
   if (!root) return;
 
-  // All focusable controls inside the bag become mouse-only
   const focusables = root.querySelectorAll<HTMLElement>(
     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
   );
@@ -154,7 +232,6 @@ function disableInventoryKeyboard() {
     el.setAttribute("aria-disabled", "true");
   });
 
-  // If something inside had focus, drop it so arrows don't move selection
   if (root.contains(document.activeElement)) {
     (document.activeElement as HTMLElement).blur?.();
   }
@@ -166,7 +243,6 @@ function afterInventoryOpen() {
     fixQtyLayers();
     disableInventoryKeyboard();
 
-    // Observe dynamic changes in the bag and re-apply fixes
     const root =
       document.querySelector("#inventory, .inventory, .inventory-panel, #bag, .bag-panel") || document.body;
     try {
@@ -215,5 +291,6 @@ function afterInventoryOpen() {
   const bagBtn = document.querySelector<HTMLElement>("#vaBagBtn, .bag, .inventory-button");
   if (bagBtn) bagBtn.addEventListener("click", () => setTimeout(afterInventoryOpen, 0));
 })();
+
 
 
