@@ -23,14 +23,19 @@ const ASSETS = {
 const EXIT_URL = "/dreadheimperimeters.html";
 
 // ===== WORLD CONFIG =====
+// Only the floor is walkable: allow a thin vertical band near the floor
+const WALK_BAND_PX = 48;  // how much vertical movement above the floor
+
 const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
 const HERO_W = 96, HERO_H = 96;
 
-// NPC (center-back between pillars)
+// NPC (center-back between pillars, slightly farther back toward wall)
 const NPC_W = 144, NPC_H = 252;
 const NPC_X_RATIO = 0.5;
+const NPC_BACK_OFFSET_RATIO = 0.06; // push up/back by ~6% of viewport height
 const TALK_DISTANCE = 110;
+
 
 // Back-wall exit (center door)
 const DOOR_CENTER_X_RATIO = 0.5;
@@ -81,9 +86,10 @@ function layoutHouse() {
   const vw = window.innerWidth, vh = window.innerHeight;
   groundY = Math.round(vh * WALKWAY_TOP_RATIO);
 
-  // NPC centered
-  npc.x = Math.round(vw * NPC_X_RATIO) - npc.w / 2;
-  npc.y = groundY - npc.h;
+  // NPC centered, pushed back toward the wall a bit
+npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
+npc.y = Math.round(groundY - npc.h - vh * NPC_BACK_OFFSET_RATIO);
+
 
   // Exit door region
   const doorW = Math.round(vw * DOOR_W_RATIO);
@@ -108,11 +114,7 @@ canvas.addEventListener("click", (ev) => {
   const x = ev.clientX - rect.left;
   const y = ev.clientY - rect.top;
 
-  // Door click
-  if (x >= doorRect.x && x <= doorRect.x + doorRect.w && y >= doorRect.y && y <= doorRect.y + doorRect.h) {
-    warpTo(EXIT_URL);
-    return;
-  }
+  /
 
   // NPC click
   if (x >= npc.x && x <= npc.x + npc.w && y >= npc.y && y <= npc.y + npc.h) {
@@ -162,15 +164,20 @@ function showDialogue(lines: string[]) {
   document.body.appendChild(dlg);
 }
 
-// ===== UPDATE =====
 function step() {
-  // 4-direction movement
+  // 4-direction movement (WASD/Arrows)
   let dx = 0, dy = 0;
-  if (keys.has("ArrowLeft")  || keys.has("a") || keys.has("A")) dx -= 1;
-  if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) dx += 1;
-  if (keys.has("ArrowUp")    || keys.has("w") || keys.has("W")) dy -= 1;
-  if (keys.has("ArrowDown")  || keys.has("s") || keys.has("S")) dy += 1;
+  const left  = keys.has("ArrowLeft")  || keys.has("a") || keys.has("A");
+  const right = keys.has("ArrowRight") || keys.has("d") || keys.has("D");
+  const up    = keys.has("ArrowUp")    || keys.has("w") || keys.has("W");
+  const down  = keys.has("ArrowDown")  || keys.has("s") || keys.has("S");
 
+  if (left)  dx -= 1;
+  if (right) dx += 1;
+  if (up)    dy -= 1;
+  if (down)  dy += 1;
+
+  // Normalize diagonal
   if (dx !== 0 || dy !== 0) {
     const len = Math.hypot(dx, dy);
     dx = (dx / len) * SPEED;
@@ -181,30 +188,29 @@ function step() {
   hero.y += dy;
 
   // Room bounds
-  const left = 0;
-  const right = window.innerWidth - hero.w;
-  const ceiling = Math.round(window.innerHeight * 0.45);
-  const floor = groundY - hero.h;
-  if (hero.x < left) hero.x = left;
-  if (hero.x > right) hero.x = right;
-  if (hero.y < ceiling) hero.y = ceiling;
-  if (hero.y > floor) hero.y = floor;
+  const leftBound = 0;
+  const rightBound = window.innerWidth - hero.w;
+  const floorTop = groundY - hero.h;                   // hero's top at floor
+  const ceiling = Math.max(0, floorTop - WALK_BAND_PX); // only floor strip
 
-  // Interactions
-  const heroRect = { x: hero.x, y: hero.y, w: hero.w, h: hero.h };
-  const atDoor =
-    heroRect.x < doorRect.x + doorRect.w &&
-    heroRect.x + heroRect.w > doorRect.x &&
-    heroRect.y < doorRect.y + doorRect.h &&
-    heroRect.y + heroRect.h > doorRect.y;
+  if (hero.x < leftBound)  hero.x = leftBound;
+  if (hero.x > rightBound) hero.x = rightBound;
+  if (hero.y < ceiling)    hero.y = ceiling;
+  if (hero.y > floorTop)   hero.y = floorTop;
 
-  if (atDoor && (keys.has("e") || keys.has("E"))) { warpTo(EXIT_URL); return; }
+  // --- Bottom-edge walk-out: if pushing down at the floor, exit ---
+  if (down && hero.y >= floorTop - 0.5) {
+    warpTo(EXIT_URL);
+    return;
+  }
 
+  // Interactions (talk to NPC when close)
   const heroCenterX = hero.x + hero.w / 2;
-  const npcCenterX = npc.x + npc.w / 2;
+  const npcCenterX  = npc.x + npc.w / 2;
   const dxCenter = Math.abs(heroCenterX - npcCenterX);
-  const touchingNPC = dxCenter < TALK_DISTANCE &&
-                      Math.abs((hero.y + hero.h) - (npc.y + npc.h)) < 80;
+  const touchingNPC =
+    dxCenter < TALK_DISTANCE &&
+    Math.abs((hero.y + hero.h) - (npc.y + npc.h)) < 80;
 
   if (touchingNPC && (keys.has("e") || keys.has("E"))) {
     showDialogue([
@@ -213,6 +219,7 @@ function step() {
     ]);
   }
 }
+
 
 // ===== RENDER =====
 function render() {
