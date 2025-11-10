@@ -4,6 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Dreadheim — Forest Entrance</title>
+
   <style>
     html, body {
       margin: 0;
@@ -11,112 +12,84 @@
       overflow: hidden;
       background: #000;
     }
+
     canvas {
       display: block;
       width: 100vw;
       height: 100vh;
       image-rendering: pixelated;
     }
- 
 
-/* stack counter bubble → top-right (works with several class names) */
-.va-qty, .inv-qty, .item-qty, .va-stack, .stack {
-  position: absolute !important;
-  top: auto !important;       /* ⬅️ no longer top */
-  right: 6px !important;
-  bottom: 6px !important;     /* ⬅️ move to bottom-right */
-  left: auto !important;
-  z-index: 999 !important;
-  min-width: 18px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: #7a1d1d;
-  color: #fff;
-  font: 12px/1 ui-sans-serif, system-ui;
-  text-align: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,.35);
-}
+    /* ===== Inventory & Badge Styles ===== */
+    .va-qty, .inv-qty, .item-qty, .va-stack, .stack {
+      position: absolute !important;
+      right: 6px !important;
+      bottom: 6px !important;
+      z-index: 999 !important;
+      min-width: 18px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #7a1d1d;
+      color: #fff;
+      font: 12px/1 ui-sans-serif, system-ui;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,.35);
+    }
 
-/* keep qty above the name bar, even with stacking contexts */
-.va-item, .inv-cell {
-  position: relative;
-  isolation: isolate;          /* new: prevent parent stacking weirdness */
-}
+    .va-item, .inv-cell {
+      position: relative;
+      isolation: isolate;
+    }
 
-.va-name, .inv-name {
-  position:absolute; left:6px; right:6px; bottom:6px;
-  z-index:2;
-  pointer-events:none;
-  overflow:visible;
-}
+    .va-name, .inv-name {
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      bottom: 6px;
+      z-index: 2;
+      pointer-events: none;
+      overflow: visible;
+    }
 
-
-/* stronger z-index so qty wins over label */
-.va-qty, .inv-qty, .item-qty, .va-stack, .stack {
-  z-index: 999 !important;      /* was 4 */
-}
-/* Hide badge when it's empty, across all variants */
-#vaBagBadge:empty,
-.bag-badge:empty,
-.inventory-badge:empty {
-  display: none !important;
-}
-
-@keyframes flap {
-  0%   { content: url('/guildbook/enemies/dreadheimbat.png'); }
-  33%  { content: url('/guildbook/enemies/dreadheimbat2.png'); }
-  66%  { content: url('/guildbook/enemies/dreadheimbat3.png'); }
-  100% { content: url('/guildbook/enemies/dreadheimbat.png'); }
-}
-
-#bat {
-  position: absolute;
-  width: 120px;
-  height: auto;
-  left: 50%;
-  top: 40%;
-  transform: translate(-50%, -50%);
-  animation: flap 0.6s steps(1) infinite;
-}
-</style>
-
-<img id="bat" src="/guildbook/enemies/dreadheimbat.png" alt="Dreadheim Bat"/>
-
-
-
+    #vaBagBadge:empty,
+    .bag-badge:empty,
+    .inventory-badge:empty {
+      display: none !important;
+    }
   </style>
 </head>
+
 <body>
   <canvas id="map"></canvas>
+
   <script>
-(function () {
-  // mark as read across pages
-  try { localStorage.setItem("va_bag_unread", "0"); } catch (e) {}
+    (function () {
+      // Clear unread bag notifications
+      try { localStorage.setItem("va_bag_unread", "0"); } catch (e) {}
 
-  function nukeBadge() {
-    var sel = "#vaBagBadge, .bag-badge, .inventory-badge";
-    document.querySelectorAll(sel).forEach(function (el) {
-      el.textContent = "";
-      el.style.display = "none";
-      el.removeAttribute("data-count");
-    });
-  }
+      function nukeBadge() {
+        var sel = "#vaBagBadge, .bag-badge, .inventory-badge";
+        document.querySelectorAll(sel).forEach(function (el) {
+          el.textContent = "";
+          el.style.display = "none";
+          el.removeAttribute("data-count");
+        });
+      }
 
-  // run now and on common lifecycle events
-  nukeBadge();
-  window.addEventListener("pageshow", nukeBadge);     // bfcache restores
-  window.addEventListener("focus", nukeBadge);        // tab focus
-  document.addEventListener("visibilitychange", function () {
-    if (!document.hidden) nukeBadge();
-  });
-})();
-</script>
+      nukeBadge();
+      window.addEventListener("pageshow", nukeBadge);
+      window.addEventListener("focus", nukeBadge);
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) nukeBadge();
+      });
+    })();
+  </script>
 
-  <!-- Vite will compile this .ts file -->
+  <!-- Vite Compiled Scripts -->
   <script type="module" src="/src/dreadheimmap.ts"></script>
   <script type="module" src="/src/global-game-setup.ts"></script>
-
 </body>
 </html>
+
 
 
