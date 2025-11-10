@@ -322,12 +322,13 @@ const skillbarReserve = 110;
 const groundY = Math.round(window.innerHeight - skillbarReserve);
 
 const { pW, pH, eW, eH } = SPRITE;
-const pBaseX = 120,                      pBaseY = groundY - pH;
+const pBaseX = 120,                      pBaseY = groundY - pH - 60;
 const eBaseX = window.innerWidth - eW - 120, eBaseY = groundY - eH;
 
 
-  // meeting point (mid-gap)
-  const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.5;
+  /// meeting point (move slightly closer together)
+const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.56; // 0.50 = middle, 0.56 = closer
+
 
   // lunge triangle 0..1..0
   function triangle(t:number){ return t < 0.5 ? (t/0.5) : (1 - (t-0.5)/0.5); }
