@@ -16,6 +16,20 @@ type Battle = {
 };
 import { Inventory } from "./inventory";
 Inventory.init();
+// Auto-clear the bag badge after opening inventory
+(() => {
+  const invAny = Inventory as any;
+  const origOpen = invAny.open?.bind(Inventory);
+  if (origOpen) {
+    invAny.open = (...args: any[]) => {
+      const r = origOpen(...args);
+      const badge = document.querySelector<HTMLElement>("#vaBagBadge, .bag-badge, .inventory-badge");
+      if (badge) { badge.textContent = ""; badge.style.display = "none"; }
+      return r;
+    };
+  }
+})();
+
 
 const bgUrl = "/guildbook/maps/dreadheimforestentrancebattle.png";
 const playerSpriteUrl = "/guildbook/avatars/dreadheim-warrior.png";

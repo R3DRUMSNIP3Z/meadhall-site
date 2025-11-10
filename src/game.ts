@@ -9,8 +9,6 @@ type Slot =
   | "helm" | "shoulders" | "chest" | "gloves" | "boots"
   | "ring" | "wings" | "pet" | "sylph";
 
-
-
 type Me = {
   id?: string;
   name?: string;
@@ -63,7 +61,6 @@ const apiBase =
 
 /* ---------- user id helpers ---------- */
 const LS_KEY = "mh_user";
-
 function getUserId(): string | null {
   try {
     const raw = localStorage.getItem(LS_KEY);
@@ -75,35 +72,21 @@ function getUserId(): string | null {
   // allow URL override for testing: ?user=<id>
   return new URLSearchParams(location.search).get("user");
 }
+const userId = getUserId();
 
 /* ---------- avatar cache helpers ---------- */
 const AVATAR_KEY = "va_avatar_src";
-
-//function getSavedAvatar(): string | null {
- // try {
-  //  return localStorage.getItem(AVATAR_KEY);
- // } catch {
-  //  return null;
- // }
-//}
-
 function saveAvatar(src: string) {
-  try {
-    localStorage.setItem(AVATAR_KEY, src);
-  } catch {}
+  try { localStorage.setItem(AVATAR_KEY, src); } catch {}
 }
-
-const userId = getUserId();
-
-
-
-
-
-
 
 /* ---------- DOM helpers ---------- */
 function safeEl<T extends HTMLElement = HTMLElement>(id: string): T | null {
   return document.getElementById(id) as T | null;
+}
+function safeSetText(id: string, text: string) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
 }
 function log(msg: string, cls?: string) {
   const logBox = safeEl<HTMLDivElement>("log");
@@ -163,19 +146,16 @@ const state = {
 const itemCache = new Map<string, ShopItem>();
 // --- Item index built once to avoid per-slot fetch jitter ---
 let itemIndex: Record<string, ShopItem> = Object.create(null);
-
 async function preloadItemIndex() {
   try {
     const r = await api<ApiShop>("/api/game/shop");
     const list = r.items || [];
     itemIndex = Object.fromEntries(list.map(it => [it.id, it]));
-    // hydrate cache too
     for (const it of list) itemCache.set(it.id, it);
   } catch {
     itemIndex = Object.create(null);
   }
 }
-
 
 // rarity frames (add diamond)
 const rarityFrame: Record<string, string> = {
@@ -202,17 +182,6 @@ async function api<T = any>(path: string, opts: RequestInit = {}) {
   }
   return r.json() as Promise<T>;
 }
-
-/* ---------- server item lookup (for equipped slots) ---------- */
-//async function getItem(id: string): Promise<ShopItem | undefined> {
- // if (!id) return;
- // if (itemCache.has(id)) return itemCache.get(id)!;
- // try {
-   // const info = await api<ShopItem>("/api/game/item/" + encodeURIComponent(id));
-   // itemCache.set(id, info);
-  //  return info;
-  //} catch { return undefined; }
-//}
 
 /* ---------- unlocks ---------- */
 const SLOT_UNLOCK: Record<Slot, number> = {
@@ -250,14 +219,6 @@ async function renderArena() {
   safeSetText("xpVal", `${m.xp} / ${need}`);
   const xpBar = safeEl<HTMLSpanElement>("xpBar");
   if (xpBar) xpBar.style.width = Math.min(100, Math.floor((m.xp / need) * 100)) + "%";
-
-  // Avatar
- // const avatar = safeEl<HTMLImageElement>("avatar");
-  //if (avatar) {
-    //avatar.src = m.gender === "male"
-      //? resolveImg("/guildbook/boy.png")
-      //: resolveImg("/guildbook/girl.png");
-  //}
 
   // Equipment slots grid
   const slotBoxes = Array.from(document.querySelectorAll<HTMLDivElement>(".slot"));
@@ -318,12 +279,6 @@ async function renderArena() {
   updateAvatar(m);
 }
 
-
-function safeSetText(id: string, text: string) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = text;
-}
-
 // ---- helper: check if a full set is equipped (all 10 slots)
 function hasFullSet(me: Me, setId: "drengr" | "skjaldmey") {
   const need: Slot[] = ["weapon","helm","shoulders","chest","gloves","boots","ring","wings","pet","sylph"];
@@ -346,7 +301,6 @@ function updateAvatar(m: Me) {
     newSrc = skjaldFull ? "/guildbook/girlskjaldmey.png" : "/guildbook/girl.png";
   }
 
-  // if it’s already correct, skip
   if (avatar.src.endsWith(newSrc)) return;
 
   avatar.style.opacity = "0";
@@ -354,19 +308,16 @@ function updateAvatar(m: Me) {
     avatar.onload = () => { avatar.style.opacity = "1"; };
     avatar.onerror = () => { avatar.style.opacity = "1"; };
     avatar.src = newSrc;
-    saveAvatar(newSrc); // remember for next refresh
+    saveAvatar(newSrc);
   }, 60);
 }
-// === Quest helpers (top-level) ===
-const QKEY = "va_quests";
 
+/* === Quest helpers (fallback if arena modal bridge unavailable) === */
+const QKEY = "va_quests";
 function readQuests(): any[] {
   try { return JSON.parse(localStorage.getItem(QKEY) || "[]"); }
   catch { return []; }
 }
-
-
-
 
 function renderActiveQuest() {
   const slot = document.getElementById('activeQuest') as HTMLElement | null;
@@ -387,10 +338,7 @@ function renderActiveQuest() {
     quests.find((x: any) => x.id === "q_main_pick_race" && x.status !== "completed") ||
     quests.find((x: any) => x.id === "q_travel_home" && x.status !== "completed");
 
-  if (!q) {
-    slot.style.display = 'none';
-    return;
-  }
+  if (!q) { slot.style.display = 'none'; return; }
 
   // show card
   slot.style.display = 'flex';
@@ -420,7 +368,6 @@ function renderActiveQuest() {
   // reset defaults
   if (travelBtn) travelBtn.style.display = 'none';
 
-  // If it's the main quest, Open should re-open the modal
   if (q.id === "q_main_pick_race") {
     openBtn && openBtn.replaceWith(openBtn.cloneNode(true));
     const freshOpen = document.getElementById('aqOpen') as HTMLButtonElement | null;
@@ -429,21 +376,17 @@ function renderActiveQuest() {
       if (el) el.style.display = 'flex';
     }, { once: true });
   } else {
-    // Travel quest: show Travel button (you can wire the href to your map page)
     if (travelBtn) {
       travelBtn.style.display = 'inline-block';
-      // example target – adjust to your real destination:
-      travelBtn.href = "/dreadheimmap.html"; 
+      travelBtn.href = "/dreadheimmap.html";
       travelBtn.textContent = "Travel";
     }
-    // "Open" just shows a small hint for travel quests
     if (openBtn) {
       openBtn.textContent = "Details";
       openBtn.onclick = () => alert(q.desc || "Travel to your homeland.");
     }
   }
 
-  // Abandon button → set quest back to available
   if (abandonBtn) {
     abandonBtn.replaceWith(abandonBtn.cloneNode(true));
     const freshAbandon = document.getElementById('aqAbandon') as HTMLButtonElement | null;
@@ -451,22 +394,16 @@ function renderActiveQuest() {
       const list = read();
       const curr = list.find((x: any) => x.id === q.id);
       if (curr) { curr.status = 'available'; curr.progress = 0; }
-(((window as any).VAQ?.writeQuests as ((l: any[]) => void)) 
-  || ((l: any[]) => localStorage.setItem('va_quests', JSON.stringify(l))))(list);
+      (((window as any).VAQ?.writeQuests as ((l: any[]) => void))
+        || ((l: any[]) => localStorage.setItem('va_quests', JSON.stringify(l))))(list);
       window.dispatchEvent(new CustomEvent('va-quest-updated'));
       renderActiveQuest();
     }, { once: true });
   }
 }
 
-
-
-
 // Re-render the card whenever the modal script updates quests
 window.addEventListener('va-quest-updated', renderActiveQuest);
-
-
-
 
 /* ---------- Allocation UI ---------- */
 let allocInput: HTMLInputElement | null = null;
@@ -563,7 +500,6 @@ const brCount = document.getElementById("brCount");
 brIcon?.addEventListener("error", () => { (brIcon as HTMLImageElement).src = "/guildbook/Currency/Brisingr.png"; });
 
 function onShopPage(): boolean {
-  // We consider it a shop page if #shop container exists
   return !!shopBox;
 }
 
@@ -619,7 +555,6 @@ function renderShop() {
     const reason = gMismatch ? "Gender-locked" : (locked ? "Locked" : "Buy");
 
     const rarity = (item.rarity || "normal").toLowerCase();
-    // For diamond tab, we still use a regular frame file but add an animation class.
     const frameUrl = resolveImg(rarityFrame[rarity] || rarityFrame.normal);
 
     const line = document.createElement("div");
@@ -678,8 +613,8 @@ async function refreshShopLists() {
   try {
     const meRes = await api<ApiMe>("/api/game/me"); state.me = meRes.me;
     console.log("[ME on load]", JSON.stringify({
-  slots: state.me?.slots, level: state.me?.level, gold: state.me?.gold
-}, null, 2));
+      slots: state.me?.slots, level: state.me?.level, gold: state.me?.gold
+    }, null, 2));
 
     const shopRes = await api<ApiShop>("/api/game/shop"); state.goldItems = shopRes.items || [];
     try {
@@ -752,13 +687,12 @@ async function boot() {
   state.me = meRes.me;
   await preloadItemIndex(); // build item index so slots render in one pass
 
-
   // Gender prompt (arena page)
   const genderPick = safeEl("genderPick");
   if (genderPick && !state.me.gender) {
     genderPick.style.display = "block";
     safeEl<HTMLButtonElement>("pickFemale")?.addEventListener("click", () => setGender("female"));
-    safeEl<HTMLButtonElement>("pickMale")?.addEventListener("click", () => setGender("male"));
+    safeEl<HTMLButtonElement>("pickMale")?.addEventListener("click",   () => setGender("male"));
   }
 
   // Arena-only bindings (bind if present)
@@ -793,10 +727,8 @@ async function boot() {
 
   // Shop page bootstrap (only if shop DOM exists)
   if (onShopPage()) {
-    // balances
     updateBalancesUI();
 
-    // load both lists
     try {
       const shopRes = await api<ApiShop>("/api/game/shop");
       state.goldItems = shopRes.items || [];
@@ -807,27 +739,23 @@ async function boot() {
       state.brisingrItems = br.items || [];
     } catch { state.brisingrItems = []; }
 
-    // tabs + buy
     hookShopTabs();
     hookShopBuy();
     renderShop();
   }
-  
 
-
-  // Initial arena render (safe if arena DOM exists)
+  // Initial arena render
   await renderArena();
   renderActiveQuest();
 
-
-  // Passive idle tick every 10s (arena stats keep moving, works on both pages)
+  // Passive idle tick every 10s
   setInterval(async () => {
     try {
       const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
       state.me = r.me;
       updateBalancesUI();
       await renderArena();
-      if (onShopPage()) renderShop(); // keep locks & equipped hiding fresh
+      if (onShopPage()) renderShop();
     } catch {}
   }, 10000);
 }
@@ -839,6 +767,7 @@ async function setGender(g: Gender) {
     const genderPick = safeEl("genderPick"); if (genderPick) genderPick.style.display = "none";
     await renderArena();
     if (onShopPage()) renderShop(); // refresh gender locks
+    try { window.dispatchEvent(new CustomEvent("va-gender-changed")); } catch {}
   } catch (e: any) { log(e.message, "bad"); }
 }
 
