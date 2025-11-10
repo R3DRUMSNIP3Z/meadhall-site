@@ -36,7 +36,7 @@ const LOBBY_URL = "/game.html";
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 function fit() {
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const dpr = Math.max(1, (window as any).devicePixelRatio || 1);
   const w = window.innerWidth, h = window.innerHeight;
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
@@ -105,6 +105,7 @@ function startImpact(who: "player" | "enemy") {
   shakeMs = 160;
 }
 function easeOutCubic(t: number) { return 1 - Math.pow(1 - t, 3); }
+
 // === SFX helpers ===
 function playBoarHurt(): void {
   const el = document.getElementById("boarHurt") as HTMLAudioElement | null;
@@ -113,7 +114,20 @@ function playBoarHurt(): void {
   el.volume = 0.85;
   el.play().catch(() => {}); // ignore autoplay promise errors
 }
-
+function playFemaleHurt(): void {
+  const el = document.getElementById("femaleHurt") as HTMLAudioElement | null;
+  if (!el) return;
+  el.currentTime = 0;
+  el.volume = 0.9;
+  el.play().catch(() => {});
+}
+function playMaleHurt(): void {
+  const el = document.getElementById("maleHurt") as HTMLAudioElement | null;
+  if (!el) return;
+  el.currentTime = 0;
+  el.volume = 0.9;
+  el.play().catch(() => {});
+}
 
 // ===== Battle Core =====
 const battle: Battle = { state:"intro", turn:"player", log:[] };
@@ -165,15 +179,27 @@ function tickAuras(u:Unit){
   }
 }
 
-function hit(from:Unit, to:Unit, scale=1.0, opts:{addRage?:number} = {}){
-  const dmg = damage(from,to,scale);
+function hit(from: Unit, to: Unit, scale = 1.0, opts: { addRage?: number } = {}) {
+  const dmg = damage(from, to, scale);
   to.hp = clamp(to.hp - dmg, 0, to.hpMax);
-// if the target is the enemy boar, play the hurt grunt
-if (to === enemy) playBoarHurt();
+
+  // === Play hurt sounds based on who was hit ===
+  if (to === enemy) {
+    // Boar is the target
+    playBoarHurt();
+  } else if (to === player) {
+    // Player is the target — choose male/female
+    const gender = localStorage.getItem("va_gender");
+    if (gender === "female") playFemaleHurt();
+    else playMaleHurt();
+  }
 
   if (opts.addRage) from.rage = clamp(from.rage + opts.addRage, 0, from.rageMax);
   from.rage = clamp(from.rage + 5, 0, from.rageMax);
-  enemy.alive = enemy.hp > 0; player.alive = player.hp > 0;
+
+  enemy.alive = enemy.hp > 0;
+  player.alive = player.hp > 0;
+
   log(`${from.name} hits ${to.name} for ${dmg}.`);
   startImpact(from === player ? "player" : "enemy");
 }
@@ -330,17 +356,15 @@ function render(){
   ctx.translate(sx, sy);
 
   // sit just above the skillbar (~110px tall) so feet touch the stones
-const skillbarReserve = 110;
-const groundY = Math.round(window.innerHeight - skillbarReserve);
+  const skillbarReserve = 110;
+  const groundY = Math.round(window.innerHeight - skillbarReserve);
 
-const { pW, pH, eW, eH } = SPRITE;
-const pBaseX = 120,                      pBaseY = groundY - pH - 30;
-const eBaseX = window.innerWidth - eW - 120, eBaseY = groundY - eH;
-
+  const { pW, pH, eW, eH } = SPRITE;
+  const pBaseX = 120,                      pBaseY = groundY - pH - 30;
+  const eBaseX = window.innerWidth - eW - 120, eBaseY = groundY - eH;
 
   /// meeting point (move slightly closer together)
-const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.53; // 0.50 = middle, 0.56 = closer
-
+  const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.53; // 0.50 = middle, 0.56 = closer
 
   // lunge triangle 0..1..0
   function triangle(t:number){ return t < 0.5 ? (t/0.5) : (1 - (t-0.5)/0.5); }
@@ -355,11 +379,11 @@ const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.53; // 0.50 = middle, 0.56 = c
     const eLunge = (eBaseX - (meetX + 0)) * f; // positive
 
     if (impactWho === "player") {
-      pX = pBaseX + pLunge;   // player runs in
-      eX = eBaseX + (-eLunge * 0.25); // enemy tiny push
+      pX = pBaseX + pLunge;              // player runs in
+      eX = eBaseX + (-eLunge * 0.25);    // enemy tiny push
     } else {
-      eX = eBaseX - eLunge;   // enemy runs in (toward left)
-      pX = pBaseX - (pLunge * 0.25);  // player tiny push
+      eX = eBaseX - eLunge;              // enemy runs in (toward left)
+      pX = pBaseX - (pLunge * 0.25);     // player tiny push
     }
   }
 
@@ -410,6 +434,7 @@ log("A hostile presence emerges from the forest...");
 updateHUD();
 paintSkillBar();
 decideTurnOrder();
+
 
 
 
