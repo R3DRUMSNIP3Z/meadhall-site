@@ -208,17 +208,22 @@ window.addEventListener("va-gender-changed", () => {
     img.src = next;
   } catch {}
 });
+Promise.all([load(ASSETS.bg), load(ASSETS.hero)])
+.then(([b, h]) => {
+  bg = b; heroImg = h;
+  refreshBounds();
 
-// ===== Boot =====
-Promise.all([load(ASSETS.bg), load(ASSETS.house), load(ASSETS.hero)])
-  .then(([b, ho, h]) => {
-    bg = b;
-    houseImg = ho;
-    heroImg = h;
-    refreshBounds();
-    layoutHouse();
-    loop();
-  })
+  // Quest chaining: Travel complete → start Find Wizard
+  try {
+    (window as any).VAQ?.ensureQuestState?.();
+    (window as any).VAQ?.complete?.("q_travel_home");
+    (window as any).VAQ?.setActive?.("q_find_dreadheim_wizard");
+    (window as any).VAQ?.renderHUD?.();
+  } catch {}
+
+  loop();
+})
+
   .catch(() => {
     refreshBounds();
     layoutHouse();

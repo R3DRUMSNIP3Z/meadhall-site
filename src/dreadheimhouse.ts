@@ -24,7 +24,7 @@ const EXIT_URL = "/dreadheimperimeters.html";
 
 // ===== WORLD CONFIG =====
 // Only the floor is walkable: allow a thin vertical band near the floor
-const WALK_BAND_PX = 48;  // how much vertical movement above the floor
+const WALK_BAND_PX = 48; // how much vertical movement above the floor
 
 const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
@@ -35,12 +35,6 @@ const NPC_W = 144, NPC_H = 252;
 const NPC_X_RATIO = 0.5;
 const NPC_BACK_OFFSET_RATIO = 0.06; // push up/back by ~6% of viewport height
 const TALK_DISTANCE = 110;
-
-
-// Back-wall exit (center door)
-const DOOR_CENTER_X_RATIO = 0.5;
-const DOOR_W_RATIO = 0.15;
-const DOOR_H_RATIO = 0.25;
 
 // ===== DPR & RESIZE =====
 function fitCanvas() {
@@ -80,25 +74,14 @@ const hero = {
 };
 
 const npc = { x: 0, y: 0, w: NPC_W, h: NPC_H };
-const doorRect = { x: 0, y: 0, w: 0, h: 0 };
 
 function layoutHouse() {
   const vw = window.innerWidth, vh = window.innerHeight;
   groundY = Math.round(vh * WALKWAY_TOP_RATIO);
 
   // NPC centered, pushed back toward the wall a bit
-npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
-npc.y = Math.round(groundY - npc.h - vh * NPC_BACK_OFFSET_RATIO);
-
-
-  // Exit door region
-  const doorW = Math.round(vw * DOOR_W_RATIO);
-  const doorH = Math.round(vh * DOOR_H_RATIO);
-  const cx = Math.round(vw * DOOR_CENTER_X_RATIO);
-  doorRect.w = doorW;
-  doorRect.h = doorH;
-  doorRect.x = cx - doorW / 2;
-  doorRect.y = Math.round(vh * 0.45);
+  npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
+  npc.y = Math.round(groundY - npc.h - vh * NPC_BACK_OFFSET_RATIO);
 }
 function refreshBounds() { layoutHouse(); }
 window.addEventListener("resize", refreshBounds);
@@ -107,23 +90,6 @@ window.addEventListener("resize", refreshBounds);
 const keys = new Set<string>();
 window.addEventListener("keydown", (e) => keys.add(e.key));
 window.addEventListener("keyup", (e) => keys.delete(e.key));
-
-// ===== CLICK INTERACTIONS =====
-canvas.addEventListener("click", (ev) => {
-  const rect = canvas.getBoundingClientRect();
-  const x = ev.clientX - rect.left;
-  const y = ev.clientY - rect.top;
-
-  
-
-  // NPC click
-  if (x >= npc.x && x <= npc.x + npc.w && y >= npc.y && y <= npc.y + npc.h) {
-    showDialogue([
-      "Old Seer: \"You found warmth, but answers grow cold in the wind.\"",
-      "Old Seer: \"Return when your pack is heavier than your doubts.\"",
-    ]);
-  }
-});
 
 // ===== FADE + WARP =====
 let transitioning = false;
@@ -143,9 +109,9 @@ function warpTo(url: string) {
   fadeTo(0.25, () => (window.location.href = url));
 }
 
-// ===== DIALOGUE BUBBLE =====
+// ===== DIALOGUE BUBBLE (multi-line) =====
 let dlg: HTMLDivElement | null = null;
-function showDialogue(lines: string[]) {
+function showDialogue(lines: string[], ms = 0) {
   if (dlg) dlg.remove();
   dlg = document.createElement("div");
   Object.assign(dlg.style, {
@@ -157,15 +123,141 @@ function showDialogue(lines: string[]) {
     borderRadius: "12px", color: "#fff",
     font: "14px/1.4 ui-sans-serif,system-ui",
     backdropFilter: "blur(4px)", cursor: "pointer",
-  });
+  } as CSSStyleDeclaration);
   dlg.innerHTML = lines.map(l => `<div>${l}</div>`).join("");
   dlg.title = "Click to close";
   dlg.addEventListener("click", () => dlg?.remove());
   document.body.appendChild(dlg);
+  if (ms > 0) setTimeout(() => dlg?.remove(), ms);
 }
 
+// ===== CLICK INTERACTIONS (also triggers dialogue) =====
+canvas.addEventListener("click", (ev) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = ev.clientX - rect.left;
+  const y = ev.clientY - rect.top;
+
+  if (x >= npc.x && x <= npc.x + npc.w && y >= npc.y && y <= npc.y + npc.h) {
+    startWizardDialogue();
+  }
+});
+
+// ===== PLAYER NAME HELPER =====
+function getPlayerName(): string {
+  try {
+    const n = localStorage.getItem("va_name");
+    if (n) return n;
+    const raw = localStorage.getItem("mh_user");
+    if (raw) {
+      const o = JSON.parse(raw);
+      return o?.name || o?.user?.name || "traveler";
+    }
+  } catch {}
+  return "traveler";
+}
+
+// ===== INTERACTIVE WIZARD FLOW =====
+let wizardLocked = false; // debounce so we don't stack interactions
+
+function startWizardDialogue() {
+  if (wizardLocked) return;
+  wizardLocked = true;
+
+  const playerName = getPlayerName();
+  const lines = [
+    `Old Seer: "Ah... greetings, ${playerName}. I see you've been marked as a Dreadheimer."`,
+    `Old Seer: "*tsk tsk tsk* ... a grim fate indeed. I feel sorry for you—why one would *choose* such a path baffles even me."`,
+    `Old Seer: "Still, the winds whisper of your weakness. You look pale, worn from travel."`,
+    `Old Seer: "Very well. I will help you, because you seem... *pathetic enough* to need it."`,
+    `Old Seer: "Go now, to the Dreadheim Outskirts. There, you shall find the witch named Skarthra the Pale."`,
+    `Old Seer: "She will grant you your path—if she doesn’t turn you into ash first."`,
+  ];
+
+  showDialogue(lines, 7500);
+
+  // After dialogue ends, spawn parchment signature
+  setTimeout(() => showParchmentSignature(), 7600);
+}
+
+function showParchmentSignature() {
+  const paper = document.createElement("div");
+  paper.style.cssText = `
+    position:fixed; inset:0; background:rgba(0,0,0,.7);
+    display:flex; align-items:center; justify-content:center;
+    z-index:999999;
+  `;
+  paper.innerHTML = `
+    <div style="
+      background:url('/guildbook/ui/parchment.png') center/contain no-repeat;
+      width:600px; height:400px; position:relative; color:#222;
+      display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+      font-family:'Cinzel',serif; font-size:18px;
+    ">
+      <div id="signZone" style="
+        width:320px; height:64px; margin-bottom:70px;
+        border-bottom:2px solid #000; cursor:pointer;
+        text-align:center; font-size:20px; color:#444; line-height:64px;
+        background:rgba(255,255,255,.05);
+      ">Click to sign your name</div>
+    </div>
+  `;
+
+  document.body.appendChild(paper);
+  const signZone = paper.querySelector("#signZone") as HTMLElement;
+
+  signZone.addEventListener("click", () => {
+    signZone.textContent = getPlayerName();
+    setTimeout(() => {
+      paper.remove();
+      finishWizardQuest();
+    }, 1200);
+  }, { once: true });
+}
+
+function finishWizardQuest() {
+  try {
+    const VAQ = (window as any).VAQ;
+    // Complete current
+    VAQ?.complete?.("q_find_dreadheim_wizard");
+    // Start next: find witch in Outskirts
+    VAQ?.startNext?.("q_find_dreadheim_wizard", {
+      id: "q_find_dreadheim_witch",
+      title: "Find Skarthra the Pale",
+      desc: "Travel to the Dreadheim Outskirts and seek the witch named Skarthra the Pale.",
+      status: "active",
+      progress: 0,
+    });
+    VAQ?.renderHUD?.();
+  } catch (err) {
+    console.warn("Quest system not found:", err);
+  }
+
+  showDialogue([
+    'Old Seer: "Your mark is sealed, and your path begins anew."',
+    'Old Seer: "Now go — before the witch grows impatient."',
+  ], 4500);
+
+  // small unlock after flow ends
+  setTimeout(() => { wizardLocked = false; }, 6000);
+}
+
+// Small bottom hint
+function showExitHint() {
+  const h = document.createElement("div");
+  h.style.cssText = `
+    position:fixed; left:50%; bottom:8px; transform:translateX(-50%);
+    color:#fff; opacity:.85; font:12px ui-sans-serif,system-ui;
+    background:rgba(0,0,0,.45); padding:6px 10px; border-radius:8px;
+    border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(4px); pointer-events:none;
+    z-index:9999;
+  `;
+  h.textContent = "Walk ↓ to leave the house";
+  document.body.appendChild(h);
+  setTimeout(()=>h.remove(), 4000);
+}
+
+// ===== STEP (MOVEMENT) =====
 function step() {
-  // 4-direction movement (WASD/Arrows)
   let dx = 0, dy = 0;
   const left  = keys.has("ArrowLeft")  || keys.has("a") || keys.has("A");
   const right = keys.has("ArrowRight") || keys.has("d") || keys.has("D");
@@ -177,7 +269,6 @@ function step() {
   if (up)    dy -= 1;
   if (down)  dy += 1;
 
-  // Normalize diagonal
   if (dx !== 0 || dy !== 0) {
     const len = Math.hypot(dx, dy);
     dx = (dx / len) * SPEED;
@@ -187,11 +278,11 @@ function step() {
   hero.x += dx;
   hero.y += dy;
 
-  // Room bounds
+  // Bounds
   const leftBound = 0;
   const rightBound = window.innerWidth - hero.w;
-  const floorTop = groundY - hero.h;                   // hero's top at floor
-  const ceiling = Math.max(0, floorTop - WALK_BAND_PX); // only floor strip
+  const floorTop = groundY - hero.h;
+  const ceiling = Math.max(0, floorTop - WALK_BAND_PX);
 
   if (hero.x < leftBound)  hero.x = leftBound;
   if (hero.x > rightBound) hero.x = rightBound;
@@ -204,7 +295,7 @@ function step() {
     return;
   }
 
-  // Interactions (talk to NPC when close)
+  // E near NPC → interactive dialogue
   const heroCenterX = hero.x + hero.w / 2;
   const npcCenterX  = npc.x + npc.w / 2;
   const dxCenter = Math.abs(heroCenterX - npcCenterX);
@@ -213,23 +304,31 @@ function step() {
     Math.abs((hero.y + hero.h) - (npc.y + npc.h)) < 80;
 
   if (touchingNPC && (keys.has("e") || keys.has("E"))) {
-    showDialogue([
-      "Old Seer: \"Even empty rooms hold echoes.\"",
-      "Old Seer: \"Seek the bat-shadow by the trees; it fears neither steel nor sun.\"",
-    ]);
+    startWizardDialogue();
   }
 }
-
 
 // ===== RENDER =====
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
-  if (npcImg) ctx.drawImage(npcImg, npc.x, npc.y, npc.w, npc.h);
-  if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
-  else { ctx.fillStyle = "#333"; ctx.fillRect(hero.x, hero.y, hero.w, hero.h); }
+
+  // simple depth: draw whichever "feet" are lower last
+  const heroFeet = hero.y + hero.h;
+  const npcFeet  = npc.y + npc.h;
+  if (heroFeet < npcFeet) {
+    if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
+    if (npcImg)  ctx.drawImage(npcImg,  npc.x,  npc.y,  npc.w,  npc.h);
+  } else {
+    if (npcImg)  ctx.drawImage(npcImg,  npc.x,  npc.y,  npc.w,  npc.h);
+    if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
+  }
+
+  if (!heroImg) { ctx.fillStyle = "#333"; ctx.fillRect(hero.x, hero.y, hero.w, hero.h); }
 }
 
+// ===== LOOP =====
 function loop() { step(); render(); requestAnimationFrame(loop); }
 
 // Live hero sprite updates
@@ -252,6 +351,7 @@ Promise.all([load(ASSETS.bg), load(ASSETS.npc), load(ASSETS.hero)])
   .then(([b, n, h]) => {
     bg = b; npcImg = n; heroImg = h;
     refreshBounds();
+    showExitHint();
     loop();
   })
   .catch(() => { refreshBounds(); loop(); });

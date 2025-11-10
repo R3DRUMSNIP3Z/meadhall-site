@@ -22,6 +22,111 @@ document.body?.setAttribute("data-gender", localStorage.getItem("va_gender") || 
     ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
     : "/guildbook/avatars/dreadheim-warrior.png";
 };
+// === Global Quest Helpers (HUD + storage) ===
+const VAQ_KEY = "va_quests";
+type QStatus = "available" | "active" | "completed";
+type Quest = { id: string; title: string; desc: string; status: QStatus; progress?: number };
+
+function qRead(): Quest[] {
+  try { return JSON.parse(localStorage.getItem(VAQ_KEY) || "[]"); } catch { return []; }
+}
+function qWrite(list: Quest[]) {
+  try { localStorage.setItem(VAQ_KEY, JSON.stringify(list)); } catch {}
+  window.dispatchEvent(new CustomEvent("va-quest-updated"));
+}
+
+// Boot defaults + auto-chain “find wizard” after travel
+function qEnsure() {
+  const list = qRead();
+  const byId: Record<string, Quest> = Object.fromEntries(list.map(q => [q.id, q]));
+
+  // Seed main + travel if empty
+  if (!list.length) {
+    list.push(
+      { id: "q_main_pick_race", title: "Choose Your Path", desc: "Pick your homeland.", status: "available" },
+      { id: "q_travel_home",    title: "Travel to Dreadheim", desc: "Return to your homeland.", status: "available" }
+    );
+  }
+
+  // If travel is completed and wizard quest not created, add it
+  if (byId["q_travel_home"]?.status === "completed" && !byId["q_find_dreadheim_wizard"]) {
+    list.push({
+      id: "q_find_dreadheim_wizard",
+      title: "Find the Dreadheim Wizard",
+      desc: "They say he waits in a lamplit hall.",
+      status: "active",
+    });
+  }
+
+  qWrite(list);
+}
+
+// Utilities
+function qSetActive(id: string) {
+  const list = qRead();
+  for (const q of list) if (q.id === id) q.status = "active";
+  qWrite(list);
+}
+function qComplete(id: string) {
+  const list = qRead();
+  for (const q of list) if (q.id === id) q.status = "completed";
+  qWrite(list);
+}
+function qActive(): Quest | null {
+  const list = qRead();
+  return list.find(q => q.status === "active") || null;
+}
+
+// === HUD (bottom-left) ===
+let hud: HTMLDivElement | null = null;
+function qHudEnsure() {
+  if (hud) return;
+  hud = document.createElement("div");
+  hud.id = "vaQuestHUD";
+  hud.style.cssText = `
+    position:fixed; left:16px; bottom:16px; z-index:99998;
+    max-width: 360px; padding:10px 12px; border-radius:12px;
+    background: rgba(0,0,0,.55); color:#fff;
+    border:1px solid rgba(255,255,255,.15); backdrop-filter: blur(4px);
+    font: 13px/1.35 ui-sans-serif,system-ui;
+    box-shadow:0 8px 24px rgba(0,0,0,.35);
+    pointer-events:none;
+  `;
+  document.body.appendChild(hud);
+}
+function qHudRender() {
+  qHudEnsure();
+  const q = qActive();
+  if (!hud) return;
+  if (!q) { hud.style.display = "none"; return; }
+  hud.style.display = "block";
+  hud.innerHTML = `
+    <div style="opacity:.85; font-weight:700; margin-bottom:2px;">Active Quest</div>
+    <div style="font-weight:700;">${q.title}</div>
+    <div style="opacity:.9;">${q.desc}</div>
+    <div style="opacity:.6; font-size:12px; margin-top:4px;">Tip: Press <b>E</b> when prompted</div>
+  `;
+}
+
+// Public global bridge
+(window as any).VAQ = {
+  ensureQuestState: qEnsure,
+  readQuests: qRead,
+  writeQuests: qWrite,
+  setActive: qSetActive,
+  complete: qComplete,
+  active: qActive,
+  renderHUD: qHudRender,
+};
+
+// keep HUD fresh
+window.addEventListener("va-quest-updated", qHudRender);
+
+// Initialize on every page
+qEnsure();
+qHudRender();
+
+
 
 /* =========================================================
    GLOBAL SFX — Gender-aware hurt sounds
