@@ -7,7 +7,7 @@ const ctx = canvas.getContext("2d")!;
 
 // ===== ASSETS =====
 const ASSETS = {
-  bg: "/guildbook/maps/dreadheimhouse.png",
+  bg: "/guildbook/props/dreadheimhouse.png",
   npc: "/guildbook/npcs/dreadheim-wizard.png",
   hero: (() => {
     const pick = (window as any).getHeroSprite as undefined | (() => string);
