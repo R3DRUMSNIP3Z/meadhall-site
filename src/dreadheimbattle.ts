@@ -225,19 +225,49 @@ function endBattle(playerWon:boolean){
 
 // ===== UI wiring =====
 const skillEls = Array.from(document.querySelectorAll<HTMLDivElement>("#skillbar .skill"));
-skillEls.forEach(div=>{
-  div.addEventListener("click", ()=>{
+
+// Map each skill to its icon (served from /public/guildbook/skillicons)
+const SKILL_ICON: Record<keyof typeof skills, string> = {
+  basic:  "/guildbook/skillicons/drengrstrike.png",   // Drengr Strike
+  aoe:    "/guildbook/skillicons/whirlwinddance.png", // Storm of Blades
+  buff:   "/guildbook/skillicons/odinsblessing.png",  // Odin’s Blessing
+  debuff: "/guildbook/skillicons/helsgrasp.png",      // Hel’s Curse
+};
+
+// Inject icons once so the buttons show images
+function ensureSkillIcons() {
+  skillEls.forEach(div => {
+    if (div.querySelector("img.icon")) return; // already injected
+    const key = div.dataset.skill as keyof typeof skills;
+    if (!key) return;
+    const img = document.createElement("img");
+    img.className = "icon";
+    img.alt = skills[key]?.name || key;
+    img.src = SKILL_ICON[key] || "";
+    img.loading = "lazy";
+    img.onerror = () => { img.style.display = "none"; }; // hide if missing
+    div.insertBefore(img, div.firstChild);
+  });
+}
+ensureSkillIcons();
+
+// Click handlers
+skillEls.forEach(div => {
+  div.addEventListener("click", () => {
     if (battle.state !== "player") return;
     const key = div.dataset.skill as keyof typeof skills;
     useSkill(key);
     paintSkillBar();
   });
 });
-function paintSkillBar(){
-  skillEls.forEach(div=>{
+
+function paintSkillBar() {
+  skillEls.forEach(div => {
     const key = div.dataset.skill as keyof typeof skills;
     div.classList.toggle("locked", !unlocked[key]);
     div.classList.toggle("oncd", cooldowns[key] > 0);
+
+    // subtle dim while on cooldown
     if (cooldowns[key] > 0) {
       div.style.opacity = "0.7";
       div.title = `${skills[key].name} — CD ${cooldowns[key]} turn(s)`;
