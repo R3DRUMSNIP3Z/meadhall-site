@@ -148,6 +148,22 @@
 
   <!-- Result overlay -->
   <div id="overlay"></div>
+  <!-- === Sound Effects === -->
+<audio id="boarHurt" src="/guildbook/sfx/diseasedboar.mp3" preload="auto"></audio>
+
+<script>
+function playBoarHurt() {
+  const sound = document.getElementById("boarHurt");
+  if (sound) {
+    sound.currentTime = 0; // restart if already playing
+    sound.volume = 0.8;
+    sound.play().catch(() => {}); // prevents autoplay errors
+  }
+}
+</script>
+
+<!-- === SFX: Diseased Boar Hurt === -->
+<audio id="boarHurt" src="/guildbook/sfx/diseasedboar.mp3" preload="auto"></audio>
 
   <script type="module" src="/src/dreadheimbattle.ts"></script>
   <script type="module" src="/src/global-game-setup.ts"></script>

@@ -105,6 +105,15 @@ function startImpact(who: "player" | "enemy") {
   shakeMs = 160;
 }
 function easeOutCubic(t: number) { return 1 - Math.pow(1 - t, 3); }
+// === SFX helpers ===
+function playBoarHurt(): void {
+  const el = document.getElementById("boarHurt") as HTMLAudioElement | null;
+  if (!el) return;
+  el.currentTime = 0;   // restart if already playing
+  el.volume = 0.85;
+  el.play().catch(() => {}); // ignore autoplay promise errors
+}
+
 
 // ===== Battle Core =====
 const battle: Battle = { state:"intro", turn:"player", log:[] };
@@ -159,6 +168,9 @@ function tickAuras(u:Unit){
 function hit(from:Unit, to:Unit, scale=1.0, opts:{addRage?:number} = {}){
   const dmg = damage(from,to,scale);
   to.hp = clamp(to.hp - dmg, 0, to.hpMax);
+// if the target is the enemy boar, play the hurt grunt
+if (to === enemy) playBoarHurt();
+
   if (opts.addRage) from.rage = clamp(from.rage + opts.addRage, 0, from.rageMax);
   from.rage = clamp(from.rage + 5, 0, from.rageMax);
   enemy.alive = enemy.hp > 0; player.alive = player.hp > 0;
