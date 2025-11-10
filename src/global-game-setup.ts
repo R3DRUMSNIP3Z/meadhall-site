@@ -50,7 +50,7 @@ function ensureBagButton() {
   btn.id = "vaBagBtn";
   btn.title = "Inventory";
   btn.innerHTML = `
-    <img src="/guildbook/loot/bag.png" alt="Bag" onerror="this.style.display='none'">
+    <img src="/guildbook/ui/inventorybag.png" alt="Bag" onerror="this.style.display='none'">
     <span id="vaBagBadge"></span>
   `;
   document.body.appendChild(btn);
