@@ -323,96 +323,100 @@ function updateAvatar(m: Me) {
 
 /* === Quest helpers (fallback if arena modal bridge unavailable) === */
 const QKEY = "va_quests";
+
 function readQuests(): any[] {
   try { return JSON.parse(localStorage.getItem(QKEY) || "[]"); }
   catch { return []; }
 }
 
+let _aqRendering = false;
 function renderActiveQuest() {
-  const slot = document.getElementById('activeQuest') as HTMLElement | null;
-  if (!slot) return;
+  if (_aqRendering) return;
+  _aqRendering = true;
+  try {
+    const slot = document.getElementById("activeQuest") as HTMLElement | null;
+    if (!slot) return;
 
-  // Seed/sync if bridge exists
-  (window as any).VAQ?.ensureQuestState?.();
-  (window as any).VAQ?.updateHeroTitle?.();
+    // helpers (no ensure/update calls here!)
+    const read = ((window as any).VAQ?.readQuests) || readQuests;
+    const quests = read() || [];
 
-  // helpers
-  const read = ((window as any).VAQ?.readQuests) || readQuests;
-  const quests = read() || [];
+    // pick which quest to show:
+    // 1) main quest if not completed
+    // 2) else travel quest if present and not completed
+    let q: any =
+      quests.find((x: any) => x.id === "q_main_pick_race" && x.status !== "completed") ||
+      quests.find((x: any) => x.id === "q_travel_home" && x.status !== "completed");
 
-  // pick which quest to show:
-  // 1) main quest if not completed
-  // 2) else travel quest if present and not completed
-  let q: any =
-    quests.find((x: any) => x.id === "q_main_pick_race" && x.status !== "completed") ||
-    quests.find((x: any) => x.id === "q_travel_home" && x.status !== "completed");
+    if (!q) { slot.style.display = "none"; return; }
 
-  if (!q) { slot.style.display = 'none'; return; }
+    // show card
+    slot.style.display = "flex";
 
-  // show card
-  slot.style.display = 'flex';
+    // fields
+    const title = document.getElementById("aqTitle")   as HTMLElement | null;
+    const desc  = document.getElementById("aqDesc")    as HTMLElement | null;
+    const st    = document.getElementById("aqStatus")  as HTMLElement | null;
+    const pv    = document.getElementById("aqProgVal") as HTMLElement | null;
+    const pb    = document.getElementById("aqProgBar") as HTMLElement | null;
 
-  // fields
-  const title = document.getElementById('aqTitle')   as HTMLElement | null;
-  const desc  = document.getElementById('aqDesc')    as HTMLElement | null;
-  const st    = document.getElementById('aqStatus')  as HTMLElement | null;
-  const pv    = document.getElementById('aqProgVal') as HTMLElement | null;
-  const pb    = document.getElementById('aqProgBar') as HTMLElement | null;
+    if (title) title.textContent = q.title || "—";
+    if (desc)  desc.textContent  = q.desc  || "—";
 
-  if (title) title.textContent = q.title || '—';
-  if (desc)  desc.textContent  = q.desc  || '—';
+    const statusText = q.status ? (q.status.charAt(0).toUpperCase() + q.status.slice(1)) : "Available";
+    if (st) st.textContent = `Status: ${statusText}`;
 
-  const statusText = q.status ? (q.status.charAt(0).toUpperCase() + q.status.slice(1)) : 'Available';
-  if (st) st.textContent = `Status: ${statusText}`;
+    const prog = Math.max(0, Math.min(100, Number(q.progress || 0)));
+    if (pv) pv.textContent = String(prog);
+    if (pb) pb.style.width = prog + "%";
 
-  const prog = Math.max(0, Math.min(100, Number(q.progress || 0)));
-  if (pv) pv.textContent = String(prog);
-  if (pb) pb.style.width = prog + '%';
+    // buttons
+    const openBtn    = document.getElementById("aqOpen") as HTMLButtonElement | null;
+    const travelBtn  = document.getElementById("aqTravel") as HTMLAnchorElement | null;
+    const abandonBtn = document.getElementById("aqAbandon") as HTMLButtonElement | null;
 
-  // buttons
-  const openBtn    = document.getElementById('aqOpen') as HTMLButtonElement | null;
-  const travelBtn  = document.getElementById('aqTravel') as HTMLAnchorElement | null;
-  const abandonBtn = document.getElementById('aqAbandon') as HTMLButtonElement | null;
+    if (travelBtn) travelBtn.style.display = "none";
 
-  // reset defaults
-  if (travelBtn) travelBtn.style.display = 'none';
-
-  if (q.id === "q_main_pick_race") {
-    openBtn && openBtn.replaceWith(openBtn.cloneNode(true));
-    const freshOpen = document.getElementById('aqOpen') as HTMLButtonElement | null;
-    freshOpen?.addEventListener('click', () => {
-      const el = document.getElementById('questsOverlay') as HTMLElement | null;
-      if (el) el.style.display = 'flex';
-    }, { once: true });
-  } else {
-    if (travelBtn) {
-      travelBtn.style.display = 'inline-block';
-      travelBtn.href = "/dreadheimmap.html";
-      travelBtn.textContent = "Travel";
+    if (q.id === "q_main_pick_race") {
+      openBtn && openBtn.replaceWith(openBtn.cloneNode(true));
+      const freshOpen = document.getElementById("aqOpen") as HTMLButtonElement | null;
+      freshOpen?.addEventListener("click", () => {
+        const el = document.getElementById("questsOverlay") as HTMLElement | null;
+        if (el) el.style.display = "flex";
+      }, { once: true });
+    } else {
+      if (travelBtn) {
+        travelBtn.style.display = "inline-block";
+        travelBtn.href = "/dreadheimmap.html";
+        travelBtn.textContent = "Travel";
+      }
+      if (openBtn) {
+        openBtn.textContent = "Details";
+        openBtn.onclick = () => alert(q.desc || "Travel to your homeland.");
+      }
     }
-    if (openBtn) {
-      openBtn.textContent = "Details";
-      openBtn.onclick = () => alert(q.desc || "Travel to your homeland.");
-    }
-  }
 
-  if (abandonBtn) {
-    abandonBtn.replaceWith(abandonBtn.cloneNode(true));
-    const freshAbandon = document.getElementById('aqAbandon') as HTMLButtonElement | null;
-    freshAbandon?.addEventListener('click', () => {
-      const list = read();
-      const curr = list.find((x: any) => x.id === q.id);
-      if (curr) { curr.status = 'available'; curr.progress = 0; }
-      (((window as any).VAQ?.writeQuests as ((l: any[]) => void))
-        || ((l: any[]) => localStorage.setItem('va_quests', JSON.stringify(l))))(list);
-      window.dispatchEvent(new CustomEvent('va-quest-updated'));
-      renderActiveQuest();
-    }, { once: true });
+    if (abandonBtn) {
+      abandonBtn.replaceWith(abandonBtn.cloneNode(true));
+      const freshAbandon = document.getElementById("aqAbandon") as HTMLButtonElement | null;
+      freshAbandon?.addEventListener("click", () => {
+        const list = read();
+        const curr = list.find((x: any) => x.id === q.id);
+        if (curr) { curr.status = "available"; curr.progress = 0; }
+        (((window as any).VAQ?.writeQuests as ((l: any[]) => void))
+          || ((l: any[]) => localStorage.setItem(QKEY, JSON.stringify(l))))(list);
+        window.dispatchEvent(new CustomEvent("va-quest-updated"));
+        renderActiveQuest();
+      }, { once: true });
+    }
+  } finally {
+    _aqRendering = false;
   }
 }
 
 // Re-render the card whenever the modal script updates quests
-window.addEventListener('va-quest-updated', renderActiveQuest);
+window.addEventListener("va-quest-updated", renderActiveQuest);
+
 
 /* ---------- Allocation UI ---------- */
 let allocInput: HTMLInputElement | null = null;
