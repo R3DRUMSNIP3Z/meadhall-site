@@ -1,6 +1,6 @@
 /* ===============================
    Valhalla Ascending — src/game.ts
-   (Unified Arena + Shop logic)
+   (Arena + Quests HUD + Shop)
    =============================== */
 
 type Gender = "female" | "male";
@@ -15,7 +15,7 @@ type Me = {
   level: number;
   xp: number;
   gold: number;
-  power: number;     // UI label "Strength"
+  power: number;
   defense: number;
   speed: number;
   points?: number;
@@ -23,7 +23,6 @@ type Me = {
   slots?: Partial<Record<Slot, string>>;
   gearPower?: number;
   battleRating?: number;
-  // optional diamond balance names (support both)
   brisingr?: number;
   diamonds?: number;
 };
@@ -33,9 +32,9 @@ type ShopItem = {
   name: string;
   stat: "power" | "defense" | "speed";
   boost: number;
-  cost: number;              // gold or diamond fallback
-  costDiamonds?: number;     // preferred key for diamond shop
-  costDiamond?: number;      // alt spelling safety
+  cost: number;
+  costDiamonds?: number;
+  costDiamond?: number;
   slot?: Slot;
   levelReq?: number;
   rarity?: "normal" | "epic" | "legendary";
@@ -69,16 +68,9 @@ function getUserId(): string | null {
       return obj?.id || obj?._id || obj?.user?.id || null;
     }
   } catch {}
-  // allow URL override for testing: ?user=<id>
   return new URLSearchParams(location.search).get("user");
 }
 const userId = getUserId();
-
-/* ---------- avatar cache helpers ---------- */
-//const AVATAR_KEY = "va_avatar_src";
-//function saveAvatar(src: string) {
-//  try { localStorage.setItem(AVATAR_KEY, src); } catch {}
-//}
 
 /* ---------- DOM helpers ---------- */
 function safeEl<T extends HTMLElement = HTMLElement>(id: string): T | null {
@@ -136,15 +128,12 @@ function stripHtml(s: string) {
 /* ---------- global state ---------- */
 const state = {
   me: null as Me | null,
-
-  // shop page state (only populated on shop page)
   goldItems: [] as ShopItem[],
   brisingrItems: [] as ShopItem[],
   activeTab: "all" as "all" | Slot | "brisingr",
 };
 
 const itemCache = new Map<string, ShopItem>();
-// --- Item index built once to avoid per-slot fetch jitter ---
 let itemIndex: Record<string, ShopItem> = Object.create(null);
 async function preloadItemIndex() {
   try {
@@ -157,12 +146,12 @@ async function preloadItemIndex() {
   }
 }
 
-// rarity frames (add diamond)
+/* rarity frames */
 const rarityFrame: Record<string, string> = {
   normal: "/guildbook/frames/normal-frame.svg",
   epic: "/guildbook/frames/epic-frame.svg",
   legendary: "/guildbook/frames/legendary-frame.svg",
-  diamond: "/guildbook/frames/diamond-frame.svg", // ensure this file exists
+  diamond: "/guildbook/frames/diamond-frame.svg",
 };
 
 /* ---------- fetch wrapper ---------- */
@@ -203,31 +192,25 @@ async function renderArena() {
   const m = state.me;
   if (!m) return;
 
-  // Basics
   safeSetText("heroName", m.name || "Unknown");
   safeSetText("level", String(m.level));
   safeSetText("gold", String(m.gold));
-
-  // Stats
   safeSetText("strength", String(m.power));
   safeSetText("defense", String(m.defense));
   safeSetText("speed", String(m.speed));
   safeSetText("points", String(m.points ?? 0));
 
-  // XP bar
   const need = m.level * 100;
   safeSetText("xpVal", `${m.xp} / ${need}`);
   const xpBar = safeEl<HTMLSpanElement>("xpBar");
   if (xpBar) xpBar.style.width = Math.min(100, Math.floor((m.xp / need) * 100)) + "%";
 
-  // Equipment slots grid
   const slotBoxes = Array.from(document.querySelectorAll<HTMLDivElement>(".slot"));
   for (const box of slotBoxes) {
     const slot = box.dataset.slot as Slot;
     const needed = SLOT_UNLOCK[slot];
     const eqId = m.slots?.[slot];
 
-    // label (sticky)
     const label = (box.getAttribute("data-name") || slot || "").toUpperCase();
     box.setAttribute("data-name", label);
 
@@ -241,20 +224,18 @@ async function renderArena() {
       box.removeAttribute("data-req");
     }
 
-    box.innerHTML = '<span class="slot-box" aria-hidden="true"></span>'; // spacer always
+    box.innerHTML = '<span class="slot-box" aria-hidden="true"></span>';
     if (!eqId) continue;
 
     const it = itemIndex[eqId] || itemCache.get(eqId);
     if (!it) continue;
 
-    // icon
     const img = document.createElement("img");
     img.className = "slot-img";
     img.src = resolveImg(it.imageUrl);
     img.alt = it.name || slot;
     box.appendChild(img);
 
-    // frame
     const rarity = (it.rarity || "normal").toLowerCase();
     const frameUrl = resolveImg(rarityFrame[rarity] || rarityFrame.normal);
     const frame = document.createElement("img");
@@ -264,50 +245,37 @@ async function renderArena() {
     box.appendChild(frame);
   }
 
-  // BR
   safeSetText("battleRating", `BATTLE RATING ${clientBattleRating(m)}`);
 
-  // PvP gating
   const fightBtn = safeEl<HTMLButtonElement>("fightRandom");
   if (fightBtn) fightBtn.disabled = m.level < PVP_UNLOCK;
 
-  // Allocate buttons (enable if has points)
   const hasPts = (m.points ?? 0) > 0;
   allocButtonsEnabled(hasPts);
 
-  // Update avatar appearance based on equipped set
   updateAvatar(m);
 }
 
-// ---- helper: check if a full set is equipped (all 10 slots)
 function hasFullSet(me: Me, setId: "drengr" | "skjaldmey") {
   const need: Slot[] = ["weapon","helm","shoulders","chest","gloves","boots","ring","wings","pet","sylph"];
   const slots = me.slots || {};
   return need.every(s => (slots[s] || "").startsWith(setId + "-"));
 }
 
-// ---- Avatar — gender + full-set-aware (no hyphens in filenames)
 function updateAvatar(m: Me) {
   const avatar = document.getElementById("avatar") as HTMLImageElement | null;
   if (!avatar) return;
 
-  // Card art (NOT silhouettes)
   const baseSrc = m.gender === "female"
     ? "/guildbook/girl.png"
     : "/guildbook/boy.png";
 
-  // Full-set overrides for the card
   let nextSrc = baseSrc;
-  if (hasFullSet(m, "drengr")) {
-    nextSrc = "/guildbook/boydrengr.png";
-  } else if (hasFullSet(m, "skjaldmey")) {
-    nextSrc = "/guildbook/girlskjaldmey.png";
-  }
+  if (hasFullSet(m, "drengr")) nextSrc = "/guildbook/boydrengr.png";
+  else if (hasFullSet(m, "skjaldmey")) nextSrc = "/guildbook/girlskjaldmey.png";
 
-  // No-op if already set
   if (avatar.getAttribute("data-src") === nextSrc || avatar.src.endsWith(nextSrc)) return;
 
-  // Swap with a tiny fade; if missing, fall back to base gender art
   avatar.style.opacity = "0";
   setTimeout(() => {
     const done = () => { avatar.style.opacity = "1"; avatar.setAttribute("data-src", nextSrc); };
@@ -318,12 +286,8 @@ function updateAvatar(m: Me) {
   }, 60);
 }
 
-
-
-
 /* === Quest helpers (fallback if arena modal bridge unavailable) === */
 const QKEY = "va_quests";
-
 function readQuests(): any[] {
   try { return JSON.parse(localStorage.getItem(QKEY) || "[]"); }
   catch { return []; }
@@ -337,23 +301,16 @@ function renderActiveQuest() {
     const slot = document.getElementById("activeQuest") as HTMLElement | null;
     if (!slot) return;
 
-    // helpers (no ensure/update calls here!)
     const read = ((window as any).VAQ?.readQuests) || readQuests;
     const quests = read() || [];
 
-    // pick which quest to show:
-    // 1) main quest if not completed
-    // 2) else travel quest if present and not completed
     let q: any =
       quests.find((x: any) => x.id === "q_main_pick_race" && x.status !== "completed") ||
       quests.find((x: any) => x.id === "q_travel_home" && x.status !== "completed");
 
     if (!q) { slot.style.display = "none"; return; }
-
-    // show card
     slot.style.display = "flex";
 
-    // fields
     const title = document.getElementById("aqTitle")   as HTMLElement | null;
     const desc  = document.getElementById("aqDesc")    as HTMLElement | null;
     const st    = document.getElementById("aqStatus")  as HTMLElement | null;
@@ -362,96 +319,94 @@ function renderActiveQuest() {
 
     if (title) title.textContent = q.title || "—";
     if (desc)  desc.textContent  = q.desc  || "—";
-
     const statusText = q.status ? (q.status.charAt(0).toUpperCase() + q.status.slice(1)) : "Available";
     if (st) st.textContent = `Status: ${statusText}`;
-
     const prog = Math.max(0, Math.min(100, Number(q.progress || 0)));
     if (pv) pv.textContent = String(prog);
     if (pb) pb.style.width = prog + "%";
 
-// --- Buttons (reset old handlers) ---
+    // --- Buttons (fresh bindings) ---
+    function getUID(): string | null {
+      try {
+        const raw = localStorage.getItem("mh_user");
+        if (raw) {
+          const o = JSON.parse(raw);
+          return o?.id || o?._id || o?.user?.id || null;
+        }
+      } catch {}
+      return new URLSearchParams(location.search).get("user");
+    }
+    function readRace(): string {
+      const uid = getUID() || "guest";
+      const perUser = localStorage.getItem(`va_race__${uid}`);
+      const global  = localStorage.getItem("va_race");
+      return (perUser || global || "").toLowerCase();
+    }
 
-// Helper: replace-with-clone to drop any old handlers
-function resetEl(id: string): HTMLElement | null {
-  const el = document.getElementById(id);
-  if (!el) return null;
-  const clone = el.cloneNode(true) as HTMLElement;
-  el.replaceWith(clone);
-  return document.getElementById(id) as HTMLElement | null;
-}
+    const openBtn    = document.getElementById("aqOpen")    as HTMLButtonElement | null;
+    const travelBtn  = document.getElementById("aqTravel")  as HTMLAnchorElement | HTMLButtonElement | null;
+    const abandonBtn = document.getElementById("aqAbandon") as HTMLButtonElement | null;
 
-const openBtn    = resetEl('aqOpen')    as HTMLButtonElement | null;
-const travelBtn  = resetEl('aqTravel')  as (HTMLAnchorElement | HTMLButtonElement | null);
-const abandonBtn = resetEl('aqAbandon') as HTMLButtonElement | null;
+    if (travelBtn) (travelBtn as HTMLElement).style.display = "none";
 
-// Hide Travel by default; we'll show it for the travel quest only
-if (travelBtn) (travelBtn as HTMLElement).style.display = 'none';
+    if (q.id === "q_main_pick_race") {
+      if (openBtn) {
+        openBtn.onclick = null;
+        openBtn.addEventListener("click", () => {
+          const el = document.getElementById("questsOverlay") as HTMLElement | null;
+          if (el) el.style.display = "flex";
+        });
+      }
+    }
 
-if (q.id === "q_main_pick_race") {
-  // OPEN → show the race modal
-  openBtn?.addEventListener('click', () => {
-    const el = document.getElementById('questsOverlay') as HTMLElement | null;
-    if (el) el.style.display = 'flex';
-  });
-} else if (q.id === "q_travel_home") {
-  // TRAVEL → go to the correct map for the chosen race
-  if (travelBtn) {
-    const race = (localStorage.getItem("va_race") || "").toLowerCase();
-    const dest =
-      race === "dreadheim" ? "/dreadheimmap.html" :
-      race === "myriador"  ? "/myriadormap.html"  :
-      race === "wildwood"  ? "/wildwoodmap.html"  :
-      "/dreadheimmap.html";
+    if (q.id === "q_travel_home" && travelBtn) {
+      const race = readRace();
+      const dest =
+        race === "dreadheim" ? "/dreadheimmap.html" :
+        race === "myriador"  ? "/myriadormap.html"  :
+        race === "wildwood"  ? "/wildwoodmap.html"  :
+        "/dreadheimmap.html";
 
-    (travelBtn as HTMLElement).style.display = 'inline-block';
-    (travelBtn as HTMLElement).textContent = "Travel";
+      const el = travelBtn as HTMLElement;
+      el.style.display = "inline-block";
 
-    // If it's an anchor, set href too (nice for right-click)
-    if (travelBtn instanceof HTMLAnchorElement) travelBtn.href = dest;
+      if (travelBtn instanceof HTMLAnchorElement) {
+        travelBtn.setAttribute("href", dest);
+        travelBtn.onclick = null;
+        travelBtn.addEventListener("click", () => {
+          setTimeout(() => { window.location.href = dest; }, 0);
+        });
+      } else {
+        (travelBtn as HTMLButtonElement).onclick = () => { window.location.href = dest; };
+      }
 
-    // Always handle click (works for <a> or <button>)
-    travelBtn.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      window.location.href = dest;
-    });
-  }
+      if (openBtn) {
+        openBtn.textContent = "Details";
+        openBtn.onclick = () => alert(q.desc || "Travel to your homeland.");
+      }
+    }
 
-  // OPEN → simple details
-  if (openBtn) {
-    openBtn.textContent = "Details";
-    openBtn.onclick = () => alert(q.desc || "Travel to your homeland.");
-  }
-}
-
-// ABANDON
-if (abandonBtn) {
-  abandonBtn.replaceWith(abandonBtn.cloneNode(true));
-  const freshAbandon = document.getElementById("aqAbandon") as HTMLButtonElement | null;
-  freshAbandon?.addEventListener("click", () => {
-    const read = ((window as any).VAQ?.readQuests) || readQuests;
-    const write = ((window as any).VAQ?.writeQuests as ((l: any[]) => void))
+    if (abandonBtn) {
+      abandonBtn.onclick = null;
+      abandonBtn.addEventListener("click", () => {
+        const r  = ((window as any).VAQ?.readQuests) || readQuests;
+        const w = ((window as any).VAQ?.writeQuests as ((l: any[]) => void))
                || ((l: any[]) => localStorage.setItem(QKEY, JSON.stringify(l)));
 
-    const list = read() || [];
-    const curr = list.find((x: any) => x.id === q.id);
-    if (curr) { curr.status = "available"; curr.progress = 0; }
-    write(list);
-    window.dispatchEvent(new CustomEvent("va-quest-updated"));
-    renderActiveQuest();
-  });
-}
+        const list = r() || [];
+        const curr = list.find((x: any) => x.id === q.id);
+        if (curr) { curr.status = "available"; curr.progress = 0; }
+        w(list);
+        window.dispatchEvent(new CustomEvent("va-quest-updated"));
+        renderActiveQuest();
+      });
+    }
+
+    window.addEventListener("va-quest-updated", renderActiveQuest);
   } finally {
     _aqRendering = false;
   }
-} // ← end of renderActiveQuest()
-
-
-
-
-// Re-render the card whenever the modal script updates quests
-window.addEventListener("va-quest-updated", renderActiveQuest);
-
+}
 
 /* ---------- Allocation UI ---------- */
 let allocInput: HTMLInputElement | null = null;
@@ -491,13 +446,11 @@ function ensureAllocUI() {
   btnAllocDef.onclick = () => allocate("defense");
   btnAllocSpd.onclick = () => allocate("speed");
 }
-
 function allocButtonsEnabled(enabled: boolean) {
   btnAllocPow && (btnAllocPow.disabled = !enabled);
   btnAllocDef && (btnAllocDef.disabled = !enabled);
   btnAllocSpd && (btnAllocSpd.disabled = !enabled);
 }
-
 async function allocate(stat: "power"|"defense"|"speed") {
   if (!allocInput) return;
   const amt = Math.max(1, Math.floor(Number(allocInput.value || "1")));
@@ -534,23 +487,17 @@ function hookRename() {
 }
 
 /* =========================================================
-   SHOP: tabs + render + buys (only if shop DOM is present)
+   SHOP: tabs + render + buys
    ========================================================= */
 
-// Shop DOM handles (null on arena page)
 const shopBox = document.getElementById("shop");
 const goldEl  = document.getElementById("gold");
 const brWrap  = document.getElementById("brBalance");
 const brIcon  = document.getElementById("brIcon") as HTMLImageElement | null;
 const brCount = document.getElementById("brCount");
-
-// accénted filename fallback
 brIcon?.addEventListener("error", () => { (brIcon as HTMLImageElement).src = "/guildbook/Currency/Brisingr.png"; });
 
-function onShopPage(): boolean {
-  return !!shopBox;
-}
-
+function onShopPage(): boolean { return !!shopBox; }
 function genderMismatch(me: Me, item: ShopItem): boolean {
   if (item.set === "drengr")   return me.gender === "female";
   if (item.set === "skjaldmey") return me.gender === "male";
@@ -562,13 +509,11 @@ function genderLabelFor(setId?: string): string {
   if (setId === "skjaldmey") return " (Female-only)";
   return "";
 }
-
 function currentItems(): ShopItem[] {
   if (state.activeTab === "brisingr") return state.brisingrItems;
   if (state.activeTab === "all")      return state.goldItems;
   return state.goldItems.filter(i => i.slot === state.activeTab);
 }
-
 function tooltipHTML(item: ShopItem) {
   const rarity = (item.rarity || "normal");
   const stat = `+${item.boost} ${item.stat}`;
@@ -580,17 +525,12 @@ function tooltipHTML(item: ShopItem) {
     <div style="display:flex;justify-content:space-between"><span>Stats</span><span style="opacity:.85">${stat}</span></div>
   `;
 }
-
 function renderShop() {
   if (!onShopPage()) return;
-
   const me = state.me!;
   const items = currentItems();
   const equipped = new Set(Object.values(me?.slots || {}));
-
   (shopBox as HTMLElement).innerHTML = "";
-
-  // show diamond balance only on Brísingr tab
   const onBr = state.activeTab === "brisingr";
   brWrap && brWrap.classList.toggle("show", onBr);
 
@@ -642,7 +582,6 @@ function renderShop() {
     (shopBox as HTMLElement).appendChild(line);
   }
 }
-
 function hookShopTabs() {
   if (!onShopPage()) return;
   const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>(".tab-btn"));
@@ -656,17 +595,11 @@ function hookShopTabs() {
     });
   });
 }
-
 async function refreshShopLists() {
   try {
     const meRes = await api<ApiMe>("/api/game/me"); state.me = meRes.me;
-    console.log("[ME on load]", JSON.stringify({
-      slots: state.me?.slots, level: state.me?.level, gold: state.me?.gold
-    }, null, 2));
-
     const shopRes = await api<ApiShop>("/api/game/shop"); state.goldItems = shopRes.items || [];
     try {
-      // brísingr shop is optional
       const r = await api<ApiShop>("/api/game/brisingr-shop");
       state.brisingrItems = r.items || [];
     } catch {
@@ -675,8 +608,6 @@ async function refreshShopLists() {
   } catch {}
   renderShop();
 }
-
-/* delegated click handler — works for both tabs */
 function hookShopBuy() {
   if (!onShopPage() || !shopBox) return;
   shopBox.addEventListener("click", async (ev) => {
@@ -693,7 +624,7 @@ function hookShopBuy() {
           body: JSON.stringify({ itemId: id }),
         });
         state.me = res.me || state.me;
-        updateBalancesUI();  // update diamond header
+        updateBalancesUI();
         await refreshShopLists();
       } else {
         const res = await api<ApiMe>("/api/game/shop/buy", {
@@ -711,7 +642,6 @@ function hookShopBuy() {
     }
   }, { passive: true });
 }
-
 function updateBalancesUI() {
   if (!onShopPage()) return;
   const m = state.me!;
@@ -723,21 +653,18 @@ function updateBalancesUI() {
 /* =========================================================
    BOOTSTRAP
    ========================================================= */
-
 async function boot() {
   if (!userId) {
     log("No user found. Open profile/login first or add ?user=<id> to the URL.", "bad");
     return;
   }
 
-  // Get me
   const meRes = await api<ApiMe>("/api/game/me");
   state.me = meRes.me;
   try { if (state.me?.gender) localStorage.setItem("va_gender", state.me.gender); } catch {}
 
-  await preloadItemIndex(); // build item index so slots render in one pass
+  await preloadItemIndex();
 
-  // Gender prompt (arena page)
   const genderPick = safeEl("genderPick");
   if (genderPick && !state.me.gender) {
     genderPick.style.display = "block";
@@ -745,7 +672,6 @@ async function boot() {
     safeEl<HTMLButtonElement>("pickMale")?.addEventListener("click",   () => setGender("male"));
   }
 
-  // Arena-only bindings (bind if present)
   ensureAllocUI();
   hookRename();
 
@@ -775,30 +701,24 @@ async function boot() {
     } catch (err: any) { log("Fight error: " + err.message, "bad"); }
   });
 
-  // Shop page bootstrap (only if shop DOM exists)
   if (onShopPage()) {
     updateBalancesUI();
-
     try {
       const shopRes = await api<ApiShop>("/api/game/shop");
       state.goldItems = shopRes.items || [];
     } catch { state.goldItems = []; }
-
     try {
       const br = await api<ApiShop>("/api/game/brisingr-shop");
       state.brisingrItems = br.items || [];
     } catch { state.brisingrItems = []; }
-
     hookShopTabs();
     hookShopBuy();
     renderShop();
   }
 
-  // Initial arena render
   await renderArena();
   renderActiveQuest();
 
-  // Passive idle tick every 10s
   setInterval(async () => {
     try {
       const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
@@ -818,9 +738,8 @@ async function setGender(g: Gender) {
     });
     state.me = res.me;
 
-    // 🔗 keep global pages in sync:
     try {
-      localStorage.setItem("va_gender", g);               // <— key used by global-game-setup.ts
+      localStorage.setItem("va_gender", g);
       (window as any).dispatchEvent?.(new CustomEvent("va-gender-changed", { detail: g }));
     } catch {}
 
@@ -833,7 +752,6 @@ async function setGender(g: Gender) {
     log(e.message, "bad");
   }
 }
-
 
 /* ---------- training ---------- */
 const cooldowns: Record<"power"|"defense"|"speed", number> = { power: 0, defense: 0, speed: 0 };
@@ -851,7 +769,7 @@ async function train(stat: "power"|"defense"|"speed") {
 boot().catch(e => log(e.message, "bad"));
 
 /* =========================================================
-   Dev console helpers (expanded)
+   Dev console helpers
    ========================================================= */
 (() => {
   const DEV_KEY = localStorage.getItem("DEV_KEY") || "valhalla-dev";
@@ -874,96 +792,66 @@ boot().catch(e => log(e.message, "bad"));
   }
 
   const dev = {
-  // --- Basic info ---
-  me: () => call("/api/dev/me"),
-  reset: () => call("/api/dev/reset"),
-  setKey: (k: string) => {
-    localStorage.setItem("DEV_KEY", k);
-    (dev as any)._key = k;
-    return "✅ DEV_KEY set";
-  },
-  _key: DEV_KEY,
+    me: () => call("/api/dev/me"),
+    reset: () => call("/api/dev/reset"),
+    setKey: (k: string) => { localStorage.setItem("DEV_KEY", k); (dev as any)._key = k; return "✅ DEV_KEY set"; },
+    _key: DEV_KEY,
 
-  // --- Core Stats ---
-  level: (n: number) => call("/api/dev/level", { level: n }),
-  gold: (nOrOpts: number | { add?: number; set?: number }) =>
-    typeof nOrOpts === "number"
-      ? call("/api/dev/gold", { add: nOrOpts })
-      : call("/api/dev/gold", nOrOpts),
-  xp: (add: number) => call("/api/dev/xp", { add }),
-  points: (add: number) => call("/api/dev/points", { add }),
+    level: (n: number) => call("/api/dev/level", { level: n }),
+    gold: (nOrOpts: number | { add?: number; set?: number }) =>
+      typeof nOrOpts === "number"
+        ? call("/api/dev/gold", { add: nOrOpts })
+        : call("/api/dev/gold", nOrOpts),
+    xp: (add: number) => call("/api/dev/xp", { add }),
+    points: (add: number) => call("/api/dev/points", { add }),
 
-  // --- Brísingr (diamonds) ---
-  brisingr: (nOrOpts: number | { add?: number; set?: number }) =>
-    typeof nOrOpts === "number"
-      ? call("/api/dev/brisingr", { add: nOrOpts })
-      : call("/api/dev/brisingr", nOrOpts),
+    brisingr: (nOrOpts: number | { add?: number; set?: number }) =>
+      typeof nOrOpts === "number"
+        ? call("/api/dev/brisingr", { add: nOrOpts })
+        : call("/api/dev/brisingr", nOrOpts),
 
-  // --- Inventory / Items ---
-  item: (id: string) => call("/api/dev/item", { itemId: id }),
-  slots: (slots: Record<string, string>) => call("/api/dev/slots", { slots }),
-  equipSet: (setId: string) => call("/api/dev/equip-set", { setId }),
-  drengr: () => call("/api/dev/drengr"),
+    item: (id: string) => call("/api/dev/item", { itemId: id }),
+    slots: (slots: Record<string, string>) => call("/api/dev/slots", { slots }),
+    equipSet: (setId: string) => call("/api/dev/equip-set", { setId }),
+    drengr: () => call("/api/dev/drengr"),
 
-  // --- Quick combos ---
-  maxOut: async () => {
-    await dev.level(30);
-    await dev.gold({ set: 9999 });
-    await dev.points(300);
-    await dev.brisingr({ set: 9999 });
-    return dev.me();
-  },
-  rich: () => dev.gold({ add: 10000 }),
-  bless: () => dev.points(100),
-  ascend: () => dev.level(50),
+    maxOut: async () => { await dev.level(30); await dev.gold({ set: 9999 }); await dev.points(300); await dev.brisingr({ set: 9999 }); return dev.me(); },
+    rich: () => dev.gold({ add: 10000 }),
+    bless: () => dev.points(100),
+    ascend: () => dev.level(50),
 
-  // --- Quick equip shortcuts ---
-  helm: (id = "drengr-helm") => dev.item(id),
-  chest: (id = "drengr-chest") => dev.item(id),
-  weapon: (id = "drengr-weapon") => dev.item(id),
+    helm: (id = "drengr-helm") => dev.item(id),
+    chest: (id = "drengr-chest") => dev.item(id),
+    weapon: (id = "drengr-weapon") => dev.item(id),
 
-  // --- Bag / Inventory management ---
-  nukeBag: () => {
-    const uid = (getUserId && getUserId()) || "guest";
-    const prefixes = [
-      `va_bag__${uid}`,
-      `va_inventory__${uid}`,
-      `va_inv__${uid}`,
-    ];
-
-    // remove exact known keys
-    for (const key of prefixes) {
-      try { localStorage.removeItem(key); } catch {}
-    }
-
-    // sweep matching
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const k = localStorage.key(i);
-      if (k && prefixes.some(p => k.startsWith(p))) {
-        localStorage.removeItem(k);
+    nukeBag: () => {
+      const uid = (getUserId && getUserId()) || "guest";
+      const prefixes = [`va_bag__${uid}`, `va_inventory__${uid}`, `va_inv__${uid}`];
+      for (const key of prefixes) { try { localStorage.removeItem(key); } catch {} }
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && prefixes.some(p => k.startsWith(p))) { localStorage.removeItem(k); }
       }
-    }
-    return "🧹 Bag inventory cleared.";
-  },
-
-  bagList: () => {
-    const uid = (getUserId && getUserId()) || "guest";
-    const out: Record<string, any> = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && (k.includes(`__${uid}`) && (k.includes("va_bag") || k.includes("va_inv")))) {
-        try { out[k] = JSON.parse(localStorage.getItem(k) || ""); }
-        catch { out[k] = localStorage.getItem(k); }
+      return "🧹 Bag inventory cleared.";
+    },
+    bagList: () => {
+      const uid = (getUserId && getUserId()) || "guest";
+      const out: Record<string, any> = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.includes(`__${uid}`) && (k.includes("va_bag") || k.includes("va_inv")))) {
+          try { out[k] = JSON.parse(localStorage.getItem(k) || ""); }
+          catch { out[k] = localStorage.getItem(k); }
+        }
       }
-    }
-    return out;
-  },
-};
+      return out;
+    },
+  };
 
-(window as any).dev = dev;
+  (window as any).dev = dev;
 
-console.log("%cwindow.dev ready!", "color:#39ff14");
-console.log(`
+  console.log("%cwindow.dev ready!", "color:#39ff14");
+  console.log(`
 🛠️ Dev Console Commands:
 - dev.me() → see your stats
 - dev.level(25), dev.gold(1000), dev.points(50)
@@ -976,6 +864,7 @@ console.log(`
 - dev.bagList() → inspect stored bag keys
 `);
 })();
+
 
 
 
