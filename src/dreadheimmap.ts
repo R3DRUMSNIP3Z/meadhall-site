@@ -1,5 +1,9 @@
-// --- Dreadheim Forest Entrance (Overworld with slow-chasing boar + loot) ---
+// /src/dreadheimmap.ts
+// --- Dreadheim Forest Entrance (Overworld with slow-chasing boar + loot + free-roaming bat flock) ---
+
+// ====== CANVAS ======
 const canvas = document.getElementById("map") as HTMLCanvasElement;
+if (!canvas) throw new Error("#map canvas not found");
 const ctx = canvas.getContext("2d")!;
 
 // ====== CONFIG ======
@@ -10,10 +14,9 @@ const ASSETS = {
     : "/guildbook/avatars/dreadheim-warrior.png",
   boar: "/guildbook/avatars/enemies/diseasedboar.png",
   meat: "/guildbook/loot/infectedboarmeat.png",
-    bat1: "/guildbook/avatars/enemies/dreadheimbat.png",
+  bat1: "/guildbook/avatars/enemies/dreadheimbat.png",
   bat2: "/guildbook/avatars/enemies/dreadheimbat2.png",
   bat3: "/guildbook/avatars/enemies/dreadheimbat3.png",
-
 };
 
 // --- Edge exits ---
@@ -55,21 +58,18 @@ const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
 const GRAVITY = 0.8;
 const JUMP_VELOCITY = -16;
-const HERO_W = 96,
-  HERO_H = 96;
-const BOAR_W = 110,
-  BOAR_H = 90;
+const HERO_W = 96, HERO_H = 96;
+const BOAR_W = 110, BOAR_H = 90;
 
-const ENGAGE_DIST = 120; // auto-start battle
-const ALERT_DIST = 320; // start slow chase
-const CHASE_SPEED = 1.2; // slower than player
+const ENGAGE_DIST = 120;  // auto-start battle
+const ALERT_DIST = 320;   // start slow chase
+const CHASE_SPEED = 1.2;  // slower than player
 const PATROL_SPEED = 1.8;
 
 // ====== DPR / Resize ======
 function fitCanvas() {
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const w = window.innerWidth,
-    h = window.innerHeight;
+  const dpr = Math.max(1, (window.devicePixelRatio || 1));
+  const w = window.innerWidth, h = window.innerHeight;
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
   canvas.style.width = w + "px";
@@ -94,20 +94,47 @@ let bg: HTMLImageElement | null = null;
 let heroImg: HTMLImageElement | null = null;
 let boarImg: HTMLImageElement | null = null;
 let meatImg: HTMLImageElement | null = null;
-// === Bat (animated) ===
+
+// === Bats (animated flock) ===
 let batFrames: HTMLImageElement[] = [];
-const bat = {
-  x: 80,
-  y: Math.round(window.innerHeight * 0.28),
-  w: 120,
-  h: 120,
-  vx: 1.2,                   // drift speed
-  dir: 1 as 1 | -1,          // 1 = right, -1 = left
-  frame: 0,
-  lastFrame: 0,
-  frameDelay: 110,           // ms per frame (tweak for faster/slower flap)
+
+type Dir = 1 | -1;
+type Bat = {
+  x: number; y: number; w: number; h: number;
+  vx: number; vy: number; dir: Dir;
+  frame: number; lastFrame: number; frameDelay: number;
+  maxSpeed: number; wanderTheta: number; wanderJitter: number; wanderRadius: number;
 };
 
+const BAT_SIZE = 30;       // 30x30 per your request
+const FLOCK_COUNT = 9;     // how many bats to spawn
+const bats: Bat[] = [];
+
+function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
+function randi(min: number, max: number) { return Math.floor(rand(min, max)); }
+
+function spawnBat() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const margin = 40;
+  const x = rand(margin, W - margin);
+  const y = rand(margin, H - margin);
+  const angle = rand(0, Math.PI * 2);
+  const speed = rand(0.7, 1.6);
+  const vx = Math.cos(angle) * speed;
+  const vy = Math.sin(angle) * speed;
+
+  bats.push({
+    x, y, w: BAT_SIZE, h: BAT_SIZE,
+    vx, vy,
+    dir: vx >= 0 ? 1 : -1,
+    frame: 0, lastFrame: 0, frameDelay: randi(90, 140),
+    maxSpeed: 2.0,
+    wanderTheta: rand(0, Math.PI * 2),
+    wanderJitter: 0.12,
+    wanderRadius: 0.28
+  });
+}
+function spawnFlock(n = FLOCK_COUNT) { for (let i = 0; i < n; i++) spawnBat(); }
 
 // ====== WORLD / ENTITIES ======
 let groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
@@ -115,10 +142,8 @@ let groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
 const hero = {
   x: Math.max(0, Math.min(window.innerWidth - HERO_W, window.innerWidth / 2 - HERO_W / 2)),
   y: groundY - HERO_H,
-  w: HERO_W,
-  h: HERO_H,
-  vx: 0,
-  vy: 0,
+  w: HERO_W, h: HERO_H,
+  vx: 0, vy: 0,
   onGround: true,
 };
 
@@ -129,8 +154,7 @@ const LOOT_TAKEN = () => localStorage.getItem("va_loot_infectedboarmeat") === "1
 const boar = {
   x: Math.min(window.innerWidth - BOAR_W - 160, hero.x + 240),
   y: groundY - BOAR_H,
-  w: BOAR_W,
-  h: BOAR_H,
+  w: BOAR_W, h: BOAR_H,
   vx: PATROL_SPEED,
   dir: -1 as -1 | 1,
   minX: 80,
@@ -141,8 +165,7 @@ const boar = {
 const loot = {
   x: Math.min(window.innerWidth - 120, Math.max(120, hero.x + 200)),
   y: groundY - 48,
-  w: 42,
-  h: 42,
+  w: 42, h: 42,
   visible: BOAR_DEAD() && !LOOT_TAKEN(),
 };
 
@@ -162,8 +185,6 @@ function refreshBounds() {
   boar.maxX = Math.max(boar.minX + 300, window.innerWidth - 260);
 
   loot.y = groundY - 48;
-    bat.y = Math.round(window.innerHeight * 0.28);
-
 }
 window.addEventListener("resize", refreshBounds);
 
@@ -211,12 +232,7 @@ canvas.addEventListener("click", (e) => {
   if (loot.visible) {
     if (mx >= loot.x && mx <= loot.x + loot.w && my >= loot.y && my <= loot.y + loot.h) {
       // Add to bag (stacks to 99)
-      (window as any).Inventory?.add?.(
-        "infectedboarmeat",
-        "Infected Boar Meat",
-        ASSETS.meat,
-        1
-      );
+      (window as any).Inventory?.add?.("infectedboarmeat", "Infected Boar Meat", ASSETS.meat, 1);
       localStorage.setItem("va_loot_infectedboarmeat", "1");
       loot.visible = false;
       toast("You pick up: Infected Boar Meat");
@@ -255,14 +271,8 @@ function step() {
   hero.vx = vx;
 
   // --- Edge exits (before we move so pushing the wall warps) ---
-  if (hero.x <= EXIT_MARGIN) {
-    warpTo(LEFT_EXIT_URL); // back to game hub
-    return;
-  }
-  if (hero.x + hero.w >= window.innerWidth - EXIT_MARGIN) {
-    warpTo(RIGHT_EXIT_URL); // onward to Dreadheim Perimeters
-    return;
-  }
+  if (hero.x <= EXIT_MARGIN) { warpTo(LEFT_EXIT_URL); return; }
+  if (hero.x + hero.w >= window.innerWidth - EXIT_MARGIN) { warpTo(RIGHT_EXIT_URL); return; }
 
   // apply horizontal + clamp
   hero.x += hero.vx;
@@ -291,12 +301,9 @@ function step() {
   // Boar AI
   if (boar.alive) {
     const cxHero = hero.x + hero.w / 2;
-    const cyHero = hero.y + hero.h / 2;
     const cxBoar = boar.x + boar.w / 2;
-    const cyBoar = boar.y + boar.h / 2;
     const dx = cxHero - cxBoar;
-    const dy = cyHero - cyBoar;
-    const dist = Math.hypot(dx, dy);
+    const dist = Math.abs(dx);
 
     if (dist <= ENGAGE_DIST) {
       goToBattle();
@@ -307,33 +314,68 @@ function step() {
     } else {
       // patrol
       boar.x += PATROL_SPEED * boar.dir;
-      if (boar.x <= boar.minX) {
-        boar.x = boar.minX;
-        boar.dir = 1;
-      }
-      if (boar.x >= boar.maxX) {
-        boar.x = boar.maxX;
-        boar.dir = -1;
-          // --- Bat animation + motion ---
-  const now = performance.now();
-
-  // flap
-  if (now - bat.lastFrame > bat.frameDelay && batFrames.length === 3) {
-    bat.frame = (bat.frame + 1) % 3;
-    bat.lastFrame = now;
+      if (boar.x <= boar.minX) { boar.x = boar.minX; boar.dir = 1; }
+      if (boar.x >= boar.maxX) { boar.x = boar.maxX; boar.dir = -1; }
+    }
   }
 
-  // gentle bob (hover feel)
-  const bob = Math.sin(now / 700) * 6;
-  bat.y = Math.round(window.innerHeight * 0.28 + bob);
+  // --- Bat flock: wander, separate, wrap ---
+  const now = performance.now();
+  const SEP_RADIUS = 80;   // personal space between bats
+  const SEP_FORCE  = 0.04; // separation strength
 
-  // horizontal drift + wrap
-  bat.x += bat.vx * bat.dir;
-  if (bat.x > window.innerWidth - bat.w - 20) bat.dir = -1;
-  if (bat.x < 20) bat.dir = 1;
+  for (let i = 0; i < bats.length; i++) {
+    const b = bats[i];
 
+    // flap frames
+    if (batFrames.length === 3 && now - b.lastFrame > b.frameDelay) {
+      b.frame = (b.frame + 1) % 3;
+      b.lastFrame = now;
+    }
+
+    // wander steering (gentle random heading)
+    b.wanderTheta += rand(-b.wanderJitter, b.wanderJitter);
+    const steerX = Math.cos(b.wanderTheta) * b.wanderRadius;
+    const steerY = Math.sin(b.wanderTheta) * b.wanderRadius;
+    b.vx += steerX * 0.02;
+    b.vy += steerY * 0.02;
+
+    // separation from neighbors
+    let sepX = 0, sepY = 0;
+    for (let j = 0; j < bats.length; j++) {
+      if (i === j) continue;
+      const o = bats[j];
+      const dx = b.x - o.x;
+      const dy = b.y - o.y;
+      const d2 = dx*dx + dy*dy;
+      if (d2 > 0 && d2 < SEP_RADIUS*SEP_RADIUS) {
+        const d = Math.sqrt(d2);
+        sepX += dx / d;
+        sepY += dy / d;
       }
     }
+    b.vx += sepX * SEP_FORCE;
+    b.vy += sepY * SEP_FORCE;
+
+    // cap speed
+    const sp = Math.hypot(b.vx, b.vy);
+    if (sp > b.maxSpeed) {
+      b.vx = (b.vx / sp) * b.maxSpeed;
+      b.vy = (b.vy / sp) * b.maxSpeed;
+    }
+
+    // move + face
+    b.x += b.vx;
+    b.y += b.vy;
+    b.dir = b.vx >= 0 ? 1 : -1;
+
+    // wrap screen
+    const pad = 40;
+    const W = window.innerWidth, H = window.innerHeight;
+    if (b.x > W + pad) b.x = -pad;
+    if (b.x < -pad)    b.x = W + pad;
+    if (b.y > H + pad) b.y = -pad;
+    if (b.y < -pad)    b.y = H + pad;
   }
 }
 
@@ -341,6 +383,22 @@ function step() {
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
+
+  // bats (ambient layer; draw first to appear behind hero/boar)
+  if (batFrames.length === 3) {
+    for (const b of bats) {
+      const img = batFrames[b.frame];
+      ctx.save();
+      if (b.dir < 0) {
+        ctx.translate(b.x + b.w / 2, b.y + b.h / 2);
+        ctx.scale(-1, 1);
+        ctx.drawImage(img, -b.w / 2, -b.h / 2, b.w, b.h);
+      } else {
+        ctx.drawImage(img, b.x, b.y, b.w, b.h);
+      }
+      ctx.restore();
+    }
+  }
 
   // hero
   if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
@@ -351,8 +409,7 @@ function render() {
 
   // boar (flip when moving left)
   if (boar.alive) {
-    const bx = boar.x,
-      by = boar.y;
+    const bx = boar.x, by = boar.y;
     if (boarImg && boarImg.complete) {
       ctx.save();
       if (boar.dir < 0) {
@@ -368,20 +425,6 @@ function render() {
       ctx.fillRect(bx, by, boar.w, boar.h);
     }
   }
-    // bat (flip when flying left)
-  if (batFrames.length === 3) {
-    const img = batFrames[bat.frame];
-    ctx.save();
-    if (bat.dir < 0) {
-      ctx.translate(bat.x + bat.w / 2, bat.y + bat.h / 2);
-      ctx.scale(-1, 1);
-      ctx.drawImage(img, -bat.w / 2, -bat.h / 2, bat.w, bat.h);
-    } else {
-      ctx.drawImage(img, bat.x, bat.y, bat.w, bat.h);
-    }
-    ctx.restore();
-  }
-
 
   // loot drop
   if (loot.visible && meatImg) {
@@ -395,7 +438,7 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-/// ====== BOOT ======
+// ====== BOOT ======
 Promise.all([
   load(ASSETS.bg),
   load(ASSETS.hero),
@@ -411,6 +454,7 @@ Promise.all([
     boarImg = bo;
     meatImg = m;
     batFrames = [b1, b2, b3];
+    spawnFlock(FLOCK_COUNT);   // populate the forest with bats
     refreshBounds();
     loop();
   })
@@ -418,6 +462,7 @@ Promise.all([
     refreshBounds();
     loop();
   });
+
 
 
 
