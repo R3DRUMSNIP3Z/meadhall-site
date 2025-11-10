@@ -322,7 +322,7 @@ const skillbarReserve = 110;
 const groundY = Math.round(window.innerHeight - skillbarReserve);
 
 const { pW, pH, eW, eH } = SPRITE;
-const pBaseX = 120,                      pBaseY = groundY - pH - 40;
+const pBaseX = 120,                      pBaseY = groundY - pH - 30;
 const eBaseX = window.innerWidth - eW - 120, eBaseY = groundY - eH;
 
 
