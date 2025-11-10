@@ -395,18 +395,16 @@ function afterInventoryOpen() {
 })();
 
 /* =========================================================
-   OPTIONAL: Arrow keys should never affect the bag
+   Arrow keys: only suppress inside inventory UI (do NOT block the game)
    ========================================================= */
 document.addEventListener("keydown", (e) => {
-  const t = e.target as HTMLElement | null;
-  const tag = (t?.tagName || "").toLowerCase();
-  const editable = t?.isContentEditable || false;
-  const inInput = tag === "input" || tag === "textarea" || tag === "select" || editable;
-
-  if (!inInput && (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+  const target = e.target as HTMLElement | null;
+  const inInventory = !!target?.closest("#inventory, .inventory, .inventory-panel, #bag, .bag-panel");
+  if (inInventory && (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
     e.stopPropagation();
+    e.preventDefault();
   }
-}, { capture: true });
+}); // note: no {capture:true}
 
 /* =========================================================
    SMALL TWEAKS: Button position & log spacing for battle HUD
