@@ -313,9 +313,15 @@ function renderActiveQuest() {
     const read = ((window as any).VAQ?.readQuests) || readQuests;
     const quests = read() || [];
 
-    let q: any =
-      quests.find((x: any) => x.id === "q_main_pick_race" && x.status !== "completed") ||
-      quests.find((x: any) => x.id === "q_travel_home" && x.status !== "completed");
+    // Prefer the true active quest from VAQ (e.g., Wizard), then fall back by priority.
+const VAQ = (window as any).VAQ;
+const activeQ = VAQ?.active?.() || null;
+
+let q: any =
+  activeQ ||
+  quests.find((x: any) => x.id === "q_find_dreadheim_wizard" && x.status !== "completed") ||
+  quests.find((x: any) => x.id === "q_travel_home" && x.status !== "completed") ||
+  quests.find((x: any) => x.id === "q_main_pick_race" && x.status !== "completed");
 
     if (!q) { slot.style.display = "none"; return; }
     slot.style.display = "flex";
