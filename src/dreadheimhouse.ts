@@ -258,13 +258,26 @@ function renderCatNode(q: CatalogQuest, nodeId: string, onDone?: () => void) {
   // Handle action before rendering choices
   if (node.action === "completeQuest") {
     // Rewards (items via Inventory if available)
-    try {
-      const inv: any = (window as any).Inventory;
-      for (const it of (q.rewards?.items || [])) {
-        const qty = Math.max(1, it?.qty || 1);
-        inv?.add?.({ id: it.id, name: it.name || it.id, image: it.image || "", qty });
-      }
-    } catch {}
+// Rewards (items via Inventory if available)
+try {
+  const inv: any = (window as any).Inventory;
+  for (const it of (q.rewards?.items || [])) {
+    const qty = Math.max(1, Number(it?.qty ?? 1));
+    const name = it?.name || it?.id || "item";
+    // Explicitly handle both image/icon safely for TS
+    const icon = (it as any).icon || (it as any).image || "";
+
+    if (typeof inv?.add === "function" && it?.id) {
+      inv.add(it.id, name, icon, qty); // correct positional call
+    } else {
+      console.warn("Inventory.add unavailable or bad item:", it);
+    }
+  }
+} catch (e) {
+  console.warn("Failed to grant rewards:", e);
+}
+
+
     // (Optional) gold/brisingr logging — wire up to your economy if you have helpers
     if (q.rewards?.gold)  console.log(`+${q.rewards.gold} gold (reward)`);
     if (q.rewards?.brisingr) console.log(`+${q.rewards.brisingr} brisingr (reward)`);
