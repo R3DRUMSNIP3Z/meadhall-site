@@ -183,16 +183,35 @@ function showDialogue(lines: string[], ms = 0) {
 }
 
 /* =========================================================
-   CLICK → NPC DIALOGUE
+   CLICK / HOVER → NPC DIALOGUE (DPR-safe, generous hitbox)
    ========================================================= */
-canvas.addEventListener("click", (ev) => {
+function cssPointFromEvent(ev: MouseEvent) {
   const rect = canvas.getBoundingClientRect();
   const x = ev.clientX - rect.left;
   const y = ev.clientY - rect.top;
+  return { x, y };
+}
 
-  if (x >= npc.x && x <= npc.x + npc.w && y >= npc.y && y <= npc.y + npc.h) {
-    startWizardDialogue();
-  }
+// Generous click zone so it's easy to hit (a bit wider/taller than sprite)
+function isOverNPC(x: number, y: number): boolean {
+  const padX = 24; // widen hitbox
+  const padY = 16; // taller hitbox
+  return (
+    x >= npc.x - padX &&
+    x <= npc.x + npc.w + padX &&
+    y >= npc.y - padY &&
+    y <= npc.y + npc.h + padY
+  );
+}
+
+canvas.addEventListener("pointermove", (ev) => {
+  const { x, y } = cssPointFromEvent(ev);
+  canvas.style.cursor = isOverNPC(x, y) ? "pointer" : "default";
+});
+
+canvas.addEventListener("pointerdown", (ev) => {
+  const { x, y } = cssPointFromEvent(ev);
+  if (isOverNPC(x, y)) startWizardDialogue();
 });
 
 /* =========================================================
@@ -257,7 +276,7 @@ async function startWizardDialogue() {
 }
 
 /* =========================================================
-   PARCHMENT SIGNATURE → COMPLETE QUEST
+   PARCHMENT SIGNATURE → COMPLETE QUEST (with fail-safe close)
    ========================================================= */
 function showParchmentSignature() {
   const paper = document.createElement("div");
@@ -273,6 +292,11 @@ function showParchmentSignature() {
       display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
       font-family:'Cinzel',serif; font-size:18px;
     ">
+      <button id="closeParchment" style="
+        position:absolute; top:10px; right:12px; border:none; border-radius:8px;
+        padding:6px 10px; font:12px ui-sans-serif,system-ui; cursor:pointer;
+        background:rgba(0,0,0,.5); color:#fff;
+      ">×</button>
       <div id="signZone" style="
         width:320px; height:64px; margin-bottom:70px;
         border-bottom:2px solid #000; cursor:pointer;
@@ -284,6 +308,7 @@ function showParchmentSignature() {
 
   document.body.appendChild(paper);
   const signZone = paper.querySelector("#signZone") as HTMLElement;
+  const closeBtn = paper.querySelector("#closeParchment") as HTMLButtonElement;
 
   const name = getPlayerName();
   signZone.addEventListener("click", () => {
@@ -293,6 +318,12 @@ function showParchmentSignature() {
       finishWizardQuest();
     }, 1200);
   }, { once: true });
+
+  closeBtn.addEventListener("click", () => {
+    paper.remove();
+    // fail-safe: allow retry
+    setTimeout(() => { wizardLocked = false; }, 200);
+  });
 }
 
 function finishWizardQuest() {
@@ -334,7 +365,7 @@ function showExitHint() {
 }
 
 /* =========================================================
-   STEP (MOVEMENT)
+   STEP (MOVEMENT) — with proximity E-hint
    ========================================================= */
 function step() {
   let dx = 0, dy = 0;
@@ -368,19 +399,37 @@ function step() {
   if (hero.y < ceiling)    hero.y = ceiling;
   if (hero.y > floorTop)   hero.y = floorTop;
 
-  // --- Bottom-edge walk-out: if pushing down at the floor, exit ---
+  // Bottom-edge exit
   if (down && hero.y >= floorTop - 0.5) {
     warpTo(EXIT_URL);
     return;
   }
 
-  // E near NPC → interactive dialogue
+  // Proximity check for E
   const heroCenterX = hero.x + hero.w / 2;
   const npcCenterX  = npc.x + npc.w / 2;
   const dxCenter = Math.abs(heroCenterX - npcCenterX);
   const touchingNPC =
     dxCenter < TALK_DISTANCE &&
     Math.abs((hero.y + hero.h) - (npc.y + npc.h)) < 80;
+
+  // Show small floating hint when close enough
+  if (touchingNPC) {
+    if (!document.getElementById("eHint")) {
+      const h = document.createElement("div");
+      h.id = "eHint";
+      h.style.cssText = `
+        position:fixed; left:50%; bottom:36px; transform:translateX(-50%);
+        color:#fff; opacity:.95; font:13px ui-sans-serif,system-ui;
+        background:rgba(0,0,0,.55); padding:6px 10px; border-radius:8px;
+        border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(4px);
+        z-index:9999; pointer-events:none;
+      `;
+      h.textContent = "Press E to talk to the Wizard";
+      document.body.appendChild(h);
+      setTimeout(() => h.remove(), 1500);
+    }
+  }
 
   if (touchingNPC && (keys.has("e") || keys.has("E"))) {
     startWizardDialogue();
@@ -432,6 +481,23 @@ window.addEventListener("va-gender-changed", () => {
 });
 
 /* =========================================================
+   Debug/Reset Helper (optional)
+   ========================================================= */
+(window as any).VAQdebug = {
+  resetWizard() {
+    try {
+      const VAQ = (window as any).VAQ;
+      VAQ?.reset?.("q_find_dreadheim_wizard");
+      VAQ?.setActive?.("q_find_dreadheim_wizard");
+      VAQ?.renderHUD?.();
+      console.log("✅ Wizard quest reset + set active");
+    } catch (e) {
+      console.warn("VAQ reset unavailable:", e);
+    }
+  }
+};
+
+/* =========================================================
    BOOT
    ========================================================= */
 Promise.all([load(ASSETS.bg), load(ASSETS.npc), load(ASSETS.hero)])
@@ -442,6 +508,7 @@ Promise.all([load(ASSETS.bg), load(ASSETS.npc), load(ASSETS.hero)])
     loop();
   })
   .catch(() => { refreshBounds(); loop(); });
+
 
 
 
