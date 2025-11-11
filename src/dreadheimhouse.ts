@@ -1,6 +1,19 @@
 // --- Dreadheim • House Interior (free 4-direction movement + NPC + exit) ---
 // Requires /src/global-game-setup.ts to be loaded BEFORE this script.
 
+type DialogueLine =
+  | { type: "line"; text: string }
+  | { type: "choice"; prompt: string; choices: { text: string; next?: string }[] };
+
+type DialogueTree = Record<string, DialogueLine[]>;
+
+declare global {
+  interface Window {
+    VAQ?: any;
+    getHeroSprite?: () => string;
+  }
+}
+
 const canvas = document.getElementById("map") as HTMLCanvasElement;
 if (!canvas) throw new Error("#map canvas not found");
 const ctx = canvas.getContext("2d")!;
@@ -10,7 +23,7 @@ const ASSETS = {
   bg: "/guildbook/props/dreadheimhouseinside.png",
   npc: "/guildbook/npcs/dreadheim-wizard.png",
   hero: (() => {
-    const pick = (window as any).getHeroSprite as undefined | (() => string);
+    const pick = window.getHeroSprite as undefined | (() => string);
     if (typeof pick === "function") return pick();
     const g = localStorage.getItem("va_gender");
     return g === "female"
@@ -37,7 +50,7 @@ const NPC_BACK_OFFSET_RATIO = 0.06; // push up/back by ~6% of viewport height
 const TALK_DISTANCE = 110;
 
 // ===== DPR & RESIZE =====
-function fitCanvas() {
+function fitCanvas(): void {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   const w = window.innerWidth, h = window.innerHeight;
   canvas.width = Math.floor(w * dpr);
@@ -75,15 +88,13 @@ const hero = {
 
 const npc = { x: 0, y: 0, w: NPC_W, h: NPC_H };
 
-function layoutHouse() {
+function layoutHouse(): void {
   const vw = window.innerWidth, vh = window.innerHeight;
   groundY = Math.round(vh * WALKWAY_TOP_RATIO);
-
-  // NPC centered, pushed back toward the wall a bit
   npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
   npc.y = Math.round(groundY - npc.h - vh * NPC_BACK_OFFSET_RATIO);
 }
-function refreshBounds() { layoutHouse(); }
+function refreshBounds(): void { layoutHouse(); }
 window.addEventListener("resize", refreshBounds);
 
 // ===== INPUT =====
@@ -93,54 +104,23 @@ window.addEventListener("keyup", (e) => keys.delete(e.key));
 
 // ===== FADE + WARP =====
 let transitioning = false;
-function fadeTo(seconds = 0.25, after?: () => void) {
+function fadeTo(seconds = 0.25, after?: () => void): void {
   const f = document.createElement("div");
-  Object.assign(f.style, {
-    position: "fixed", inset: "0", background: "black", opacity: "0",
-    transition: `opacity ${seconds}s ease`, zIndex: "999999",
-  } as CSSStyleDeclaration);
+  f.style.position = "fixed";
+  f.style.inset = "0";
+  f.style.background = "black";
+  f.style.opacity = "0";
+  f.style.transition = `opacity ${seconds}s ease`;
+  f.style.zIndex = "999999";
   document.body.appendChild(f);
   requestAnimationFrame(() => (f.style.opacity = "1"));
-  setTimeout(() => after && after(), seconds * 1000);
+  window.setTimeout(() => { if (after) after(); }, seconds * 1000);
 }
-function warpTo(url: string) {
+function warpTo(url: string): void {
   if (transitioning) return;
   transitioning = true;
   fadeTo(0.25, () => (window.location.href = url));
 }
-
-// ===== DIALOGUE BUBBLE (multi-line) =====
-let dlg: HTMLDivElement | null = null;
-function showDialogue(lines: string[], ms = 0) {
-  if (dlg) dlg.remove();
-  dlg = document.createElement("div");
-  Object.assign(dlg.style, {
-    position: "fixed",
-    left: "50%", bottom: "10%", transform: "translateX(-50%)",
-    maxWidth: "70ch", padding: "12px 16px",
-    background: "rgba(0,0,0,.6)",
-    border: "1px solid rgba(255,255,255,.15)",
-    borderRadius: "12px", color: "#fff",
-    font: "14px/1.4 ui-sans-serif,system-ui",
-    backdropFilter: "blur(4px)", cursor: "pointer",
-  } as CSSStyleDeclaration);
-  dlg.innerHTML = lines.map(l => `<div>${l}</div>`).join("");
-  dlg.title = "Click to close";
-  dlg.addEventListener("click", () => dlg?.remove());
-  document.body.appendChild(dlg);
-  if (ms > 0) setTimeout(() => dlg?.remove(), ms);
-}
-
-// ===== CLICK INTERACTIONS (also triggers dialogue) =====
-canvas.addEventListener("click", (ev) => {
-  const rect = canvas.getBoundingClientRect();
-  const x = ev.clientX - rect.left;
-  const y = ev.clientY - rect.top;
-
-  if (x >= npc.x && x <= npc.x + npc.w && y >= npc.y && y <= npc.y + npc.h) {
-    startWizardDialogue();
-  }
-});
 
 // ===== PLAYER NAME HELPER =====
 function getPlayerName(): string {
@@ -156,108 +136,332 @@ function getPlayerName(): string {
   return "traveler";
 }
 
-// ===== INTERACTIVE WIZARD FLOW =====
-let wizardLocked = false; // debounce so we don't stack interactions
+// ===== SIMPLE DIALOGUE UI (click-to-advance) =====
+class Dialogue {
+  private overlay: HTMLDivElement | null;
+  private box: HTMLDivElement | null;
+  private lines: DialogueLine[];
+  private ptr: number;
+  private onDone?: () => void;
+  private title: string;
 
-function startWizardDialogue() {
+  constructor(lines: DialogueLine[], onDone?: () => void, title = "Old Seer") {
+    this.overlay = null;
+    this.box = null;
+    this.lines = lines || [];
+    this.ptr = 0;
+    this.onDone = onDone;
+    this.title = title;
+  }
+
+  open(): void {
+    if (this.overlay) return;
+    const ov = document.createElement("div");
+    ov.style.position = "fixed";
+    ov.style.inset = "0";
+    ov.style.background = "rgba(0,0,0,.55)";
+    ov.style.backdropFilter = "blur(2px)";
+    ov.style.display = "flex";
+    ov.style.alignItems = "flex-end";
+    ov.style.justifyContent = "center";
+    ov.style.padding = "24px";
+    ov.style.zIndex = "999998";
+
+    const box = document.createElement("div");
+    box.style.maxWidth = "900px";
+    box.style.width = "100%";
+    box.style.background = "rgba(10,12,15,.9)";
+    box.style.border = "1px solid rgba(212,169,77,.35)";
+    box.style.borderRadius = "14px";
+    box.style.padding = "16px 18px";
+    box.style.color = "#e8d9ae";
+    box.style.fontFamily = "Cinzel, serif";
+    box.style.boxShadow = "0 12px 40px rgba(0,0,0,.45)";
+
+    const head = document.createElement("div");
+    head.textContent = this.title;
+    head.style.fontWeight = "900";
+    head.style.letterSpacing = ".02em";
+    head.style.marginBottom = "6px";
+
+    const content = document.createElement("div");
+    content.id = "dlg-content";
+    content.style.minHeight = "64px";
+
+    const actions = document.createElement("div");
+    actions.style.display = "flex";
+    actions.style.gap = "10px";
+    actions.style.justifyContent = "flex-end";
+    actions.style.marginTop = "10px";
+
+    box.appendChild(head);
+    box.appendChild(content);
+    box.appendChild(actions);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+
+    this.overlay = ov;
+    this.box = box;
+    this.renderCurrent();
+  }
+
+  private renderCurrent(): void {
+    if (!this.overlay || !this.box) return;
+    const content = this.box.querySelector("#dlg-content") as HTMLDivElement;
+    const actions = this.box.querySelector("div:last-child") as HTMLDivElement;
+
+    content.innerHTML = "";
+    actions.innerHTML = "";
+
+    const node = this.lines[this.ptr];
+
+    // Nothing left → close
+    if (!node) {
+      this.close();
+      return;
+    }
+
+    if (node.type === "choice") {
+      const p = document.createElement("div");
+      p.textContent = node.prompt;
+      p.style.marginBottom = "6px";
+      content.appendChild(p);
+
+      node.choices.forEach((c) => {
+        const b = document.createElement("button");
+        b.textContent = c.text;
+        b.style.padding = "8px 14px";
+        b.style.borderRadius = "10px";
+        b.style.border = "1px solid rgba(212,169,77,.35)";
+        b.style.background = "linear-gradient(180deg,#191c20,#0e1114)";
+        b.style.color = "#d4a94d";
+        b.addEventListener("click", () => {
+          if (c.next) this.jumpTo(c.next);
+          else this.next();
+        });
+        actions.appendChild(b);
+      });
+      return;
+    }
+
+    // Normal line
+    const t = document.createElement("div");
+    t.textContent = node.text;
+    content.appendChild(t);
+
+    const nextBtn = document.createElement("button");
+    nextBtn.textContent = this.ptr < this.lines.length - 1 ? "Continue" : "Finish";
+    nextBtn.style.padding = "8px 14px";
+    nextBtn.style.borderRadius = "10px";
+    nextBtn.style.border = "1px solid rgba(212,169,77,.35)";
+    nextBtn.style.background = "linear-gradient(180deg,#191c20,#0e1114)";
+    nextBtn.style.color = "#d4a94d";
+    nextBtn.addEventListener("click", () => this.next());
+    actions.appendChild(nextBtn);
+  }
+
+  private next(): void {
+    this.ptr++;
+    if (this.ptr >= this.lines.length) {
+      this.close();
+      return;
+    }
+    this.renderCurrent();
+  }
+
+  private jumpTo(anchor: string): void {
+    // simple anchor = "id:index" (optional), else advance
+    const parts = anchor.split(":");
+    if (parts.length === 2) {
+      const idx = parseInt(parts[1], 10);
+      if (!isNaN(idx)) {
+        this.ptr = Math.max(0, Math.min(this.lines.length - 1, idx));
+        this.renderCurrent();
+        return;
+      }
+    }
+    this.next();
+  }
+
+  private close(): void {
+    if (this.overlay) this.overlay.remove();
+    this.overlay = null;
+    this.box = null;
+    if (this.onDone) this.onDone();
+  }
+}
+
+// ===== CLICK INTERACTIONS (open dialogue) =====
+canvas.addEventListener("click", (ev) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = ev.clientX - rect.left;
+  const y = ev.clientY - rect.top;
+
+  if (x >= npc.x && x <= npc.x + npc.w && y >= npc.y && y <= npc.y + npc.h) {
+    startWizardDialogue();
+  }
+});
+
+// ===== DIALOGUE CONTENT (catalog + fallback) =====
+let catalog: DialogueTree | null = null;
+const QUESTS_CATALOG_PATH = "/guildbook/catalogquests.json";
+
+function loadCatalog(): void {
+  // No top-level await; fire and forget, assign when ready
+  fetch(QUESTS_CATALOG_PATH)
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .then((j) => (catalog = j as DialogueTree))
+    .catch(() => (catalog = null));
+}
+loadCatalog();
+
+function wizardLines(): DialogueLine[] {
+  // Try catalog first
+  const player = getPlayerName();
+  const key = "dreadheim_wizard_intro"; // recommended node id in your JSON
+  if (catalog && catalog[key] && Array.isArray(catalog[key])) {
+    // Allow {{name}} token replacement
+    return (catalog[key] as DialogueLine[]).map((ln) => {
+      if (ln.type === "line") {
+        return { type: "line", text: String(ln.text || "").replace(/\{\{name\}\}/g, player) };
+      }
+      if (ln.type === "choice") {
+        return {
+          type: "choice",
+          prompt: String(ln.prompt || "").replace(/\{\{name\}\}/g, player),
+          choices: (ln.choices || []).map((c) => ({
+            text: String(c.text || "").replace(/\{\{name\}\}/g, player),
+            next: c.next,
+          })),
+        };
+      }
+      return ln;
+    });
+  }
+
+  // Fallback script
+  return [
+    { type: "line", text: `Old Seer: "Ah... greetings, ${player}. I see you've been marked a Dreadheimer."` },
+    { type: "line", text: `Old Seer: "*tsk tsk tsk* ... a grim fate. Why one would choose it baffles even me."` },
+    { type: "line", text: `Old Seer: "Still, the winds whisper of your weakness. You look pale from travel."` },
+    { type: "line", text: `Old Seer: "Very well. I will help you—because you look pathetic enough to need it."` },
+    { type: "line", text: `Old Seer: "Go now, to the Dreadheim Outskirts. Seek the witch called Skarthra the Pale."` },
+    { type: "line", text: `Old Seer: "She may grant you a path—if she doesn't turn you to ash first."` },
+  ];
+}
+
+// ===== INTERACTIVE WIZARD FLOW =====
+let wizardLocked = false; // debounce
+
+function startWizardDialogue(): void {
   if (wizardLocked) return;
   wizardLocked = true;
 
-  const playerName = getPlayerName();
-  const lines = [
-    `Old Seer: "Ah... greetings, ${playerName}. I see you've been marked as a Dreadheimer."`,
-    `Old Seer: "*tsk tsk tsk* ... a grim fate indeed. I feel sorry for you—why one would *choose* such a path baffles even me."`,
-    `Old Seer: "Still, the winds whisper of your weakness. You look pale, worn from travel."`,
-    `Old Seer: "Very well. I will help you, because you seem... *pathetic enough* to need it."`,
-    `Old Seer: "Go now, to the Dreadheim Outskirts. There, you shall find the witch named Skarthra the Pale."`,
-    `Old Seer: "She will grant you your path—if she doesn’t turn you into ash first."`,
-  ];
+  const dlg = new Dialogue(wizardLines(), () => {
+    try {
+      const VAQ = window.VAQ;
+      // Complete current quest
+      VAQ?.complete?.("q_find_dreadheim_wizard");
 
-  showDialogue(lines, 7500);
+      // Start next quest (create/activate if needed)
+      if (typeof VAQ?.startNext === "function") {
+        VAQ.startNext("q_find_dreadheim_wizard", {
+          id: "q_find_dreadheim_witch",
+          title: "Find Skarthra the Pale",
+          desc: "Travel to the Dreadheim Outskirts and seek the witch named Skarthra the Pale.",
+          status: "active",
+          progress: 0,
+        });
+      } else {
+        // Manual add/activate if your global helper doesn't exist
+        const read = (VAQ?.readQuests || (() => {
+          try { return JSON.parse(localStorage.getItem("va_quests") || "[]"); } catch { return []; }
+        })) as () => any[];
 
-  // After dialogue ends, spawn parchment signature
-  setTimeout(() => showParchmentSignature(), 7600);
-}
+        const write = (VAQ?.writeQuests || ((l: any[]) => {
+          try { localStorage.setItem("va_quests", JSON.stringify(l)); } catch {}
+          window.dispatchEvent(new CustomEvent("va-quest-updated"));
+        })) as (l: any[]) => void;
 
-function showParchmentSignature() {
-  const paper = document.createElement("div");
-  paper.style.cssText = `
-    position:fixed; inset:0; background:rgba(0,0,0,.7);
-    display:flex; align-items:center; justify-content:center;
-    z-index:999999;
-  `;
-  paper.innerHTML = `
-    <div style="
-      background:url('/guildbook/ui/parchment.png') center/contain no-repeat;
-      width:600px; height:400px; position:relative; color:#222;
-      display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
-      font-family:'Cinzel',serif; font-size:18px;
-    ">
-      <div id="signZone" style="
-        width:320px; height:64px; margin-bottom:70px;
-        border-bottom:2px solid #000; cursor:pointer;
-        text-align:center; font-size:20px; color:#444; line-height:64px;
-        background:rgba(255,255,255,.05);
-      ">Click to sign your name</div>
-    </div>
-  `;
+        const list = read();
+        const byId: Record<string, any> = Object.fromEntries(list.map((q) => [q.id, q]));
+        if (!byId["q_find_dreadheim_witch"]) {
+          list.push({
+            id: "q_find_dreadheim_witch",
+            title: "Find Skarthra the Pale",
+            desc: "Travel to the Dreadheim Outskirts and seek the witch named Skarthra the Pale.",
+            status: "active",
+            progress: 0,
+          });
+        } else {
+          byId["q_find_dreadheim_witch"].status = "active";
+        }
+        write(list);
+      }
 
-  document.body.appendChild(paper);
-  const signZone = paper.querySelector("#signZone") as HTMLElement;
+      VAQ?.renderHUD?.();
+    } catch (err) {
+      console.warn("Quest system not found:", err);
+    }
 
-  signZone.addEventListener("click", () => {
-    signZone.textContent = getPlayerName();
-    setTimeout(() => {
-      paper.remove();
-      finishWizardQuest();
-    }, 1200);
-  }, { once: true });
-}
+    // A little send-off bubble (non-blocking)
+    showBubble([
+      'Old Seer: "Your mark is sealed. Now go—before the witch grows impatient."',
+    ], 3800);
 
-function finishWizardQuest() {
-  try {
-    const VAQ = (window as any).VAQ;
-    // Complete current
-    VAQ?.complete?.("q_find_dreadheim_wizard");
-    // Start next: find witch in Outskirts
-    VAQ?.startNext?.("q_find_dreadheim_wizard", {
-      id: "q_find_dreadheim_witch",
-      title: "Find Skarthra the Pale",
-      desc: "Travel to the Dreadheim Outskirts and seek the witch named Skarthra the Pale.",
-      status: "active",
-      progress: 0,
-    });
-    VAQ?.renderHUD?.();
-  } catch (err) {
-    console.warn("Quest system not found:", err);
-  }
-
-  showDialogue([
-    'Old Seer: "Your mark is sealed, and your path begins anew."',
-    'Old Seer: "Now go — before the witch grows impatient."',
-  ], 4500);
-
-  // small unlock after flow ends
-  setTimeout(() => { wizardLocked = false; }, 6000);
+    window.setTimeout(() => { wizardLocked = false; }, 600);
+  }, "Old Seer");
+  dlg.open();
 }
 
 // Small bottom hint
-function showExitHint() {
+function showExitHint(): void {
   const h = document.createElement("div");
-  h.style.cssText = `
-    position:fixed; left:50%; bottom:8px; transform:translateX(-50%);
-    color:#fff; opacity:.85; font:12px ui-sans-serif,system-ui;
-    background:rgba(0,0,0,.45); padding:6px 10px; border-radius:8px;
-    border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(4px); pointer-events:none;
-    z-index:9999;
-  `;
-  h.textContent = "Walk ↓ to leave the house";
+  h.style.position = "fixed";
+  h.style.left = "50%";
+  h.style.bottom = "8px";
+  h.style.transform = "translateX(-50%)";
+  h.style.color = "#fff";
+  h.style.opacity = ".85";
+  h.style.font = "12px ui-sans-serif,system-ui";
+  h.style.background = "rgba(0,0,0,.45)";
+  h.style.padding = "6px 10px";
+  h.style.borderRadius = "8px";
+  h.style.border = "1px solid rgba(255,255,255,.15)";
+  h.style.backdropFilter = "blur(4px)";
+  h.style.pointerEvents = "none";
+  h.style.zIndex = "9999";
+  h.textContent = "Walk ↓ to leave the house • Press E near the wizard to talk";
   document.body.appendChild(h);
-  setTimeout(()=>h.remove(), 4000);
+  window.setTimeout(() => h.remove(), 4500);
+}
+
+// Quick one-off bubble (used after finish)
+function showBubble(lines: string[], ms: number): void {
+  const dlg = document.createElement("div");
+  dlg.style.position = "fixed";
+  dlg.style.left = "50%";
+  dlg.style.bottom = "10%";
+  dlg.style.transform = "translateX(-50%)";
+  dlg.style.maxWidth = "70ch";
+  dlg.style.padding = "12px 16px";
+  dlg.style.background = "rgba(0,0,0,.6)";
+  dlg.style.border = "1px solid rgba(255,255,255,.15)";
+  dlg.style.borderRadius = "12px";
+  dlg.style.color = "#fff";
+  dlg.style.font = "14px/1.4 ui-sans-serif,system-ui";
+  dlg.style.backdropFilter = "blur(4px)";
+  dlg.style.cursor = "pointer";
+  dlg.style.zIndex = "999997";
+  dlg.innerHTML = lines.map((l) => `<div>${l}</div>`).join("");
+  dlg.title = "Click to close";
+  dlg.addEventListener("click", () => dlg.remove());
+  document.body.appendChild(dlg);
+  if (ms > 0) window.setTimeout(() => dlg.remove(), ms);
 }
 
 // ===== STEP (MOVEMENT) =====
-function step() {
+function step(): void {
   let dx = 0, dy = 0;
   const left  = keys.has("ArrowLeft")  || keys.has("a") || keys.has("A");
   const right = keys.has("ArrowRight") || keys.has("d") || keys.has("D");
@@ -309,7 +513,7 @@ function step() {
 }
 
 // ===== RENDER =====
-function render() {
+function render(): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
@@ -329,12 +533,12 @@ function render() {
 }
 
 // ===== LOOP =====
-function loop() { step(); render(); requestAnimationFrame(loop); }
+function loop(): void { step(); render(); requestAnimationFrame(loop); }
 
 // Live hero sprite updates
 window.addEventListener("va-gender-changed", () => {
   try {
-    const pick = (window as any).getHeroSprite as undefined | (() => string);
+    const pick = window.getHeroSprite as undefined | (() => string);
     const next = (typeof pick === "function")
       ? pick()
       : (localStorage.getItem("va_gender") === "female"
@@ -355,5 +559,7 @@ Promise.all([load(ASSETS.bg), load(ASSETS.npc), load(ASSETS.hero)])
     loop();
   })
   .catch(() => { refreshBounds(); loop(); });
+
+
 
 

@@ -4,67 +4,129 @@
       "id": "q_main_pick_race",
       "title": "Choose Your Path",
       "desc": "Pick your homeland.",
-      "chain": { "nextId": "q_travel_home" },
       "dialogue": [
         {
           "id": "start",
           "speaker": "Elder",
-          "text": "(Placeholder) You must choose your homeland, traveler.",
+          "text": "You stand at the fork of fates. Choose your homeland."
+        },
+        {
+          "id": "dreadheimAsk",
+          "speaker": "Elder",
+          "text": "Dreadheim? Cold iron and darker oaths. Is that your path?",
           "choices": [
-            { "text": "I will go to Dreadheim.", "next": "end" },
-            { "text": "Tell me more.", "next": "explain" }
+            { "text": "Yes—Dreadheim.", "next": "dreadheimChosen" },
+            { "text": "Tell me more first.", "next": "explain" }
           ]
         },
         {
           "id": "explain",
           "speaker": "Elder",
-          "text": "(Placeholder) Each homeland holds different dangers and destiny.",
-          "next": "start"
+          "text": "Each homeland shapes you. Dreadheim hardens the will; others test the heart.",
+          "choices": [
+            { "text": "I choose Dreadheim.", "next": "dreadheimChosen" },
+            { "text": "I'll decide later.", "next": "end" }
+          ]
         },
-        { "id": "end", "text": "(Placeholder) Your path is set. Go forth!" }
+        {
+          "id": "dreadheimChosen",
+          "speaker": "Elder",
+          "text": "So be it. Return to your homeland and prove yourself.",
+          "action": "none",
+          "next": "end"
+        },
+        {
+          "id": "end",
+          "text": "Your choice echoes in the halls of memory."
+        }
       ]
     },
+
     {
       "id": "q_travel_home",
       "title": "Travel to Dreadheim",
       "desc": "Return to your homeland.",
-      "chain": { "nextId": "q_find_dreadheim_wizard" },
       "dialogue": [
         {
           "id": "start",
           "speaker": "Guard Captain",
-          "text": "(Placeholder) Are you ready to travel to Dreadheim?",
+          "text": "Ready to depart for Dreadheim?",
           "choices": [
-            { "text": "Yes, let's go.", "next": "confirm" },
+            { "text": "I'm ready.", "next": "confirm" },
             { "text": "Not yet.", "next": "end" }
           ]
         },
-        { "id": "confirm", "text": "(Placeholder) Then may your blade stay sharp.", "next": "end" },
-        { "id": "end", "text": "(Placeholder) Safe travels, hero." }
+        {
+          "id": "confirm",
+          "speaker": "Guard Captain",
+          "text": "Then go with a sharp blade and a steady hand.",
+          "next": "end"
+        },
+        {
+          "id": "end",
+          "text": "The road waits. (Use the Travel button to depart.)"
+        }
       ]
     },
+
     {
       "id": "q_find_dreadheim_wizard",
       "title": "Find the Dreadheim Wizard",
       "desc": "They say he waits in a lamplit hall.",
       "rewards": {
         "gold": 100,
-        "brisingr": 5,
-        "items": [{ "id": "wizardscroll", "name": "Lamplit Clue", "image": "/guildbook/loot/questscroll.png", "qty": 1 }]
+        "brisingr": 1,
+        "items": [
+          { "id": "wizardscroll", "name": "Lamplit Clue", "image": "/guildbook/loot/questscroll.png", "qty": 1 }
+        ]
       },
       "dialogue": [
         {
           "id": "start",
           "speaker": "Wizard",
-          "text": "(Placeholder) So you found me at last, child of Dreadheim.",
+          "text": "So you found me at last, child of Dreadheim.",
           "choices": [
-            { "text": "Who are you?", "next": "intro" },
-            { "text": "What do you want?", "next": "warn" }
+            { "text": "Who are you?", "next": "intro1" },
+            { "text": "What do you want?", "next": "warn1" }
           ]
         },
-        { "id": "intro", "speaker": "Wizard", "text": "(Placeholder) I am your teacher—or your doom.", "next": "end" },
-        { "id": "warn", "speaker": "Wizard", "text": "(Placeholder) Shadows stir in the north. You must be ready.", "next": "end" },
-        { "id": "end", "text": "(Placeholder) The wizard vanishes into the dark." }
+        {
+          "id": "intro1",
+          "speaker": "Wizard",
+          "text": "I am the seer in the smoke, the hand that points at storms.",
+          "choices": [
+            { "text": "Then guide me.", "next": "guide" },
+            { "text": "Why should I trust you?", "next": "warn1" }
+          ]
+        },
+        {
+          "id": "warn1",
+          "speaker": "Wizard",
+          "text": "Shadows stir in the north; wolves wear men’s faces.",
+          "choices": [
+            { "text": "What must I do?", "next": "guide" },
+            { "text": "I fear nothing.", "next": "taunt" }
+          ]
+        },
+        {
+          "id": "taunt",
+          "speaker": "Wizard",
+          "text": "Fear is a mask. Remove it and face the truth—or die with it on.",
+          "next": "guide"
+        },
+        {
+          "id": "guide",
+          "speaker": "Wizard",
+          "text": "Go to the Dreadheim Outskirts. Seek Skarthra the Pale. She will test your worth.",
+          "choices": [
+            { "text": "I'll find her.", "next": "complete" }
+          ]
+        },
+        {
+          "id": "complete",
+          "text": "The wizard’s eyes fade to embers. A parchment sigil burns in your hand.",
+          "action": "completeQuest"
+        }
       ]
     }
   ]
