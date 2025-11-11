@@ -27,7 +27,7 @@ document.body?.setAttribute("data-gender", localStorage.getItem("va_gender") || 
    Global Quest Helpers (HUD + storage)
    ========================================================= */
 const VAQ_KEY = "va_quests";
-const RACE_KEY = "va_race"; // ← new: used to gate wizard quest
+const RACE_KEY = "va_race"; // used to gate wizard quest
 
 type QStatus = "available" | "active" | "completed" | "locked";
 type Quest = { id: string; title: string; desc: string; status: QStatus; progress?: number };
@@ -71,14 +71,9 @@ function qEnsure() {
   const qMain   = map["q_main_pick_race"];
   const qTravel = map["q_travel_home"];
 
-  // If race is chosen, mark main as completed; if not, keep it available
+  // If race is chosen, mark main as completed
   if (race && (qMain.status !== "completed" || (qMain.progress ?? 0) !== 100)) {
     qMain.status = "completed"; qMain.progress = 100;
-  }
-
-  // Travel should only be actionable after race is chosen
-  if (!race && qTravel.status !== "available") {
-    qTravel.status = "available";
   }
 
   // Wizard quest exists but starts LOCKED
@@ -180,6 +175,225 @@ window.addEventListener("va-quest-updated", qHudRender);
 // Initialize on every page
 qEnsure();
 qHudRender();
+
+/* =========================================================
+   GLOBAL QUEST DIALOGUE (placeholder system)
+   ========================================================= */
+(function setupDialogueSystem() {
+  const DIALOG_ID = "vaDialogue";
+
+  type DialogueChoice = {
+    text: string;
+    next?: string;
+    reward?: { gold?: number; xp?: number; itemId?: string };
+    onPick?: () => void;
+    close?: boolean;
+  };
+  type DialogueNode = {
+    id: string;
+    title?: string;
+    portrait?: string;
+    lines: string[];
+    choices?: DialogueChoice[];
+    onStart?: () => void;
+    onEnd?: () => void;
+  };
+
+  // --- minimal DOM shell ---
+  function ensureDom(): HTMLElement {
+    let el = document.getElementById(DIALOG_ID) as HTMLElement | null;
+    if (!el) {
+      el = document.createElement("div");
+      el.id = DIALOG_ID;
+      el.style.cssText = `
+        position: fixed; inset: 0; z-index: 100000;
+        display: none; align-items: center; justify-content: center;
+        background: rgba(0,0,0,.6); backdrop-filter: blur(2px);
+      `;
+      el.innerHTML = `
+        <div id="vaDialogueCard" style="
+          width: min(720px, calc(100vw - 32px)); max-height: min(80vh, 640px);
+          background: #0f1318; color: #e7d7ab; border:1px solid rgba(212,169,77,.35);
+          border-radius: 16px; box-shadow: 0 30px 60px rgba(0,0,0,.55); overflow: hidden;
+          display: grid; grid-template-columns: 140px 1fr; grid-template-rows: auto 1fr auto;
+        ">
+          <div id="vaDialoguePortrait" style="
+            grid-row: 1 / span 3; background:#0b0f13; display:grid; place-items:center; border-right:1px solid rgba(212,169,77,.25);
+          "></div>
+          <div id="vaDialogueHeader" style="padding:12px 14px; font-weight:900; border-bottom:1px solid rgba(212,169,77,.25)">Dialogue</div>
+          <div id="vaDialogueBody" style="padding:12px 14px; overflow:auto; line-height:1.45"></div>
+          <div id="vaDialogueChoices" style="padding:10px 12px; display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid rgba(212,169,77,.25)"></div>
+        </div>
+      `;
+      document.body.appendChild(el);
+    }
+    return el!;
+  }
+
+  function setPortrait(url?: string) {
+    const box = document.getElementById("vaDialoguePortrait") as HTMLElement | null;
+    if (!box) return;
+    if (!url) { box.innerHTML = ""; return; }
+    box.innerHTML = `<img src="${url}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">`;
+  }
+  function setHeader(title?: string) {
+    const h = document.getElementById("vaDialogueHeader"); if (h) h.textContent = title || "Dialogue";
+  }
+  function setLines(lines: string[]) {
+    const body = document.getElementById("vaDialogueBody"); if (!body) return;
+    body.innerHTML = lines.map(l => `<p style="margin:.4em 0">${l}</p>`).join("");
+    body.scrollTop = 0;
+  }
+  function setChoices(choices: DialogueChoice[] = [], nextLoader: (id?: string) => void, endCb?: () => void) {
+    const bar = document.getElementById("vaDialogueChoices") as HTMLElement | null;
+    if (!bar) return;
+    bar.innerHTML = "";
+    const mk = (label: string, click: () => void) => {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.style.cssText = `
+        padding:8px 12px;border-radius:10px;border:1px solid rgba(212,169,77,.35);
+        background:#12161a;color:#e7d7ab;cursor:pointer;
+      `;
+      b.onclick = click;
+      bar.appendChild(b);
+    };
+
+    if (!choices.length) {
+      mk("Continue", () => { endCb?.(); close(); });
+      return;
+    }
+
+    for (const ch of choices) {
+      mk(ch.text, () => {
+        try { ch.onPick?.(); } catch {}
+        if (ch.reward) {
+          // Hook for backend later; for now you can process on the map or via window.dev helpers
+          // Example: (window as any).dev.gold({ add: ch.reward.gold || 0 })
+        }
+        if (ch.close) { close(); return; }
+        nextLoader(ch.next);
+      });
+    }
+  }
+
+  function open() {
+    ensureDom();
+    const el = document.getElementById(DIALOG_ID) as HTMLElement;
+    el.style.display = "flex";
+  }
+  function close() {
+    const el = document.getElementById(DIALOG_ID) as HTMLElement | null;
+    if (el) el.style.display = "none";
+  }
+
+  // --- registry for quick quest→dialog mapping (you can expand freely) ---
+  const NODES: Record<string, DialogueNode> = {
+    // Placeholder wizard dialogue
+    "q_find_dreadheim_wizard:intro": {
+      id: "q_find_dreadheim_wizard:intro",
+      title: "Mysterious Wizard",
+      portrait: "/guildbook/avatars/npcs/dreadheim-wizard.png",
+      lines: [
+        "[placeholder] You found the lamplit hall.",
+        "[placeholder] The wizard studies you in silence.",
+        "[placeholder] 'We have much to discuss…'",
+      ],
+      choices: [
+        { text: "Who are you?", next: "q_find_dreadheim_wizard:who" },
+        { text: "I'm ready for a task.", next: "q_find_dreadheim_wizard:task" },
+        { text: "Leave", close: true }
+      ],
+    },
+    "q_find_dreadheim_wizard:who": {
+      id: "q_find_dreadheim_wizard:who",
+      title: "Mysterious Wizard",
+      portrait: "/guildbook/avatars/npcs/dreadheim-wizard.png",
+      lines: [
+        "[placeholder] 'Names carry power. Mine is not for common speech.'",
+        "[placeholder] 'But you may call me… Wizard.'",
+      ],
+      choices: [
+        { text: "Back", next: "q_find_dreadheim_wizard:intro" },
+        { text: "Got a job for me?", next: "q_find_dreadheim_wizard:task" },
+        { text: "Done", close: true }
+      ],
+    },
+    "q_find_dreadheim_wizard:task": {
+      id: "q_find_dreadheim_wizard:task",
+      title: "Mysterious Wizard",
+      portrait: "/guildbook/avatars/npcs/dreadheim-wizard.png",
+      lines: [
+        "[placeholder] 'Bring me three wolf pelts from the Outskirts.'",
+        "[placeholder] 'Prove you can survive the dark that hunts here.'",
+      ],
+      choices: [
+        {
+          text: "Accept",
+          onPick: () => {
+            // Example: activate a follow-up quest here when you add it
+            // (window as any).VAQ?.setActive?.("q_hunt_wolves");
+          },
+          close: true
+        },
+        { text: "Maybe later", close: true }
+      ],
+      onEnd: () => { /* optional */ },
+    },
+  };
+
+  function showDialogueNode(id?: string) {
+    if (!id) { close(); return; }
+    const node = NODES[id];
+    if (!node) { close(); return; }
+    ensureDom();
+    open();
+    try { node.onStart?.(); } catch {}
+    setPortrait(node.portrait);
+    setHeader(node.title || "Dialogue");
+    setLines(node.lines || []);
+    setChoices(node.choices || [], showDialogueNode, () => { try { node.onEnd?.(); } catch {} });
+  }
+
+  // Public API
+  (window as any).VADialogue = {
+    openNode: showDialogueNode,
+    close,
+    register(id: string, node: DialogueNode) { NODES[id] = node; },
+  };
+
+  // Convenience alias for quick calls
+  (window as any).showQuestDialogue = showDialogueNode;
+})();
+
+/* =========================================================
+   TRAVEL HANDOFF → complete Travel, activate Wizard (once)
+   ========================================================= */
+(() => {
+  try {
+    const pending = localStorage.getItem("va_pending_travel") === "1";
+    if (!pending) return;
+
+    // consume the flag
+    localStorage.removeItem("va_pending_travel");
+
+    // make sure quests exist
+    (window as any).VAQ?.ensureQuestState?.();
+
+    // complete Travel
+    (window as any).VAQ?.complete?.("q_travel_home");
+
+    // if Dreadheim, set Wizard as the active quest
+    const race = (localStorage.getItem("va_race") || "").toLowerCase();
+    if (race === "dreadheim") {
+      (window as any).VAQ?.setActive?.("q_find_dreadheim_wizard");
+    }
+
+    // refresh HUD + notify listeners
+    (window as any).VAQ?.renderHUD?.();
+    window.dispatchEvent(new CustomEvent("va-quest-updated"));
+  } catch {}
+})();
 
 /* =========================================================
    GLOBAL SFX — Gender-aware hurt sounds
@@ -285,7 +499,8 @@ function ensureSkillIconsOnPage() {
       else div.prepend(img);
     }
 
-    if (img.src !== location.origin + want && img.src !== want) {
+    // Don't double-prefix; allow absolute or root-relative
+    if (img.src !== want && !img.src.endsWith(want)) {
       img.style.display = "";
       img.src = want;
     }
@@ -578,6 +793,7 @@ document.addEventListener("keydown", (e) => {
   style.textContent = `#log { bottom: 150px !important; }`;
   document.head.appendChild(style);
 })();
+
 
 
 

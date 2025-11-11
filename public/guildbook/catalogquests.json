@@ -1,0 +1,73 @@
+{
+  "quests": [
+    {
+      "id": "q_main_pick_race",
+      "title": "Choose Your Path",
+      "desc": "Pick your homeland.",
+      "chain": { "nextId": "q_travel_home" },
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "Elder",
+          "text": "(Placeholder) You must choose your homeland, traveler.",
+          "choices": [
+            { "text": "I will go to Dreadheim.", "next": "end" },
+            { "text": "Tell me more.", "next": "explain" }
+          ]
+        },
+        {
+          "id": "explain",
+          "speaker": "Elder",
+          "text": "(Placeholder) Each homeland holds different dangers and destiny.",
+          "next": "start"
+        },
+        { "id": "end", "text": "(Placeholder) Your path is set. Go forth!" }
+      ]
+    },
+    {
+      "id": "q_travel_home",
+      "title": "Travel to Dreadheim",
+      "desc": "Return to your homeland.",
+      "chain": { "nextId": "q_find_dreadheim_wizard" },
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "Guard Captain",
+          "text": "(Placeholder) Are you ready to travel to Dreadheim?",
+          "choices": [
+            { "text": "Yes, let's go.", "next": "confirm" },
+            { "text": "Not yet.", "next": "end" }
+          ]
+        },
+        { "id": "confirm", "text": "(Placeholder) Then may your blade stay sharp.", "next": "end" },
+        { "id": "end", "text": "(Placeholder) Safe travels, hero." }
+      ]
+    },
+    {
+      "id": "q_find_dreadheim_wizard",
+      "title": "Find the Dreadheim Wizard",
+      "desc": "They say he waits in a lamplit hall.",
+      "rewards": {
+        "gold": 100,
+        "brisingr": 5,
+        "items": [{ "id": "wizardscroll", "name": "Lamplit Clue", "image": "/guildbook/loot/questscroll.png", "qty": 1 }]
+      },
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "Wizard",
+          "text": "(Placeholder) So you found me at last, child of Dreadheim.",
+          "choices": [
+            { "text": "Who are you?", "next": "intro" },
+            { "text": "What do you want?", "next": "warn" }
+          ]
+        },
+        { "id": "intro", "speaker": "Wizard", "text": "(Placeholder) I am your teacher—or your doom.", "next": "end" },
+        { "id": "warn", "speaker": "Wizard", "text": "(Placeholder) Shadows stir in the north. You must be ready.", "next": "end" },
+        { "id": "end", "text": "(Placeholder) The wizard vanishes into the dark." }
+      ]
+    }
+  ]
+}
+
+
