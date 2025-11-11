@@ -89,6 +89,15 @@ function log(msg: string, cls?: string) {
   logBox.prepend(p);
 }
 
+/* Reset an element by cloning (drops old listeners) */
+function resetEl<T extends HTMLElement = HTMLElement>(id: string): T | null {
+  const el = document.getElementById(id) as T | null;
+  if (!el) return null;
+  const clone = el.cloneNode(true) as T;
+  el.replaceWith(clone);
+  return document.getElementById(id) as T | null;
+}
+
 /* ---------- tooltip (used by shop; harmless on arena) ---------- */
 let tipEl = document.getElementById("vaTooltip") as HTMLDivElement | null;
 if (!tipEl) {
@@ -325,7 +334,12 @@ function renderActiveQuest() {
     if (pv) pv.textContent = String(prog);
     if (pb) pb.style.width = prog + "%";
 
-    // --- Buttons (fresh bindings) ---
+    // Fresh buttons (clone to nuke old listeners)
+    const openBtn    = resetEl<HTMLButtonElement>("aqOpen");
+    const travelBtn  = resetEl<HTMLAnchorElement | HTMLButtonElement>("aqTravel");
+    const abandonBtn = resetEl<HTMLButtonElement>("aqAbandon");
+
+    // helpers to read race with per-user preference
     function getUID(): string | null {
       try {
         const raw = localStorage.getItem("mh_user");
@@ -338,25 +352,19 @@ function renderActiveQuest() {
     }
     function readRace(): string {
       const uid = getUID() || "guest";
-      const perUser = localStorage.getItem(`va_race__${uid}`);
-      const global  = localStorage.getItem("va_race");
-      return (perUser || global || "").toLowerCase();
+      const per = localStorage.getItem(`va_race__${uid}`);
+      const glob = localStorage.getItem("va_race");
+      return (per || glob || "").toLowerCase();
     }
 
-    const openBtn    = document.getElementById("aqOpen")    as HTMLButtonElement | null;
-    const travelBtn  = document.getElementById("aqTravel")  as HTMLAnchorElement | HTMLButtonElement | null;
-    const abandonBtn = document.getElementById("aqAbandon") as HTMLButtonElement | null;
-
+    // Hide travel by default; show for travel quest
     if (travelBtn) (travelBtn as HTMLElement).style.display = "none";
 
     if (q.id === "q_main_pick_race") {
-      if (openBtn) {
-        openBtn.onclick = null;
-        openBtn.addEventListener("click", () => {
-          const el = document.getElementById("questsOverlay") as HTMLElement | null;
-          if (el) el.style.display = "flex";
-        });
-      }
+      openBtn?.addEventListener("click", () => {
+        const el = document.getElementById("questsOverlay") as HTMLElement | null;
+        if (el) el.style.display = "flex";
+      });
     }
 
     if (q.id === "q_travel_home" && travelBtn) {
@@ -367,18 +375,27 @@ function renderActiveQuest() {
         race === "wildwood"  ? "/wildwoodmap.html"  :
         "/dreadheimmap.html";
 
+      // Show and bind
       const el = travelBtn as HTMLElement;
       el.style.display = "inline-block";
 
+      // Always give the anchor a proper href for middle-click/open in new tab
       if (travelBtn instanceof HTMLAnchorElement) {
         travelBtn.setAttribute("href", dest);
-        travelBtn.onclick = null;
-        travelBtn.addEventListener("click", () => {
-          setTimeout(() => { window.location.href = dest; }, 0);
-        });
-      } else {
-        (travelBtn as HTMLButtonElement).onclick = () => { window.location.href = dest; };
       }
+
+      // Capture-phase safety click: force navigation even if something calls preventDefault later
+      travelBtn.addEventListener(
+        "click",
+        (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          (ev as any).stopImmediatePropagation?.();
+          try { localStorage.setItem("va_pending_travel", "1"); } catch {}
+          window.location.assign(dest);
+        },
+        { capture: true }
+      );
 
       if (openBtn) {
         openBtn.textContent = "Details";
@@ -387,7 +404,6 @@ function renderActiveQuest() {
     }
 
     if (abandonBtn) {
-      abandonBtn.onclick = null;
       abandonBtn.addEventListener("click", () => {
         const r  = ((window as any).VAQ?.readQuests) || readQuests;
         const w = ((window as any).VAQ?.writeQuests as ((l: any[]) => void))
@@ -575,9 +591,13 @@ function renderShop() {
       </div>
     `;
 
-    line.addEventListener("mouseenter", (ev)=> tipShow(ev.clientX, ev.clientY, tooltipHTML(item)));
-    line.addEventListener("mousemove",  (ev)=> tipMove(ev));
-    line.addEventListener("mouseleave", tipHide);
+    // ✅ TS-safe listeners: accept generic Event and cast when needed
+    line.addEventListener("mouseenter", (ev) => {
+      const me = ev as MouseEvent;
+      tipShow(me.clientX, me.clientY, tooltipHTML(item));
+    });
+    line.addEventListener("mousemove",  (ev) => tipMove(ev as MouseEvent));
+    line.addEventListener("mouseleave", () => tipHide());
 
     (shopBox as HTMLElement).appendChild(line);
   }
@@ -765,6 +785,86 @@ async function train(stat: "power"|"defense"|"speed") {
   } catch (err: any) { log("Train error: " + err.message, "bad"); }
 }
 
+/* ==== Active Quest "Travel" Safety Net (extra) ==== */
+(function () {
+  function getUserIdLocal(): string | null {
+    try {
+      const raw = localStorage.getItem("mh_user");
+      if (raw) {
+        const o = JSON.parse(raw);
+        return o?.id || o?._id || o?.user?.id || null;
+      }
+    } catch {}
+    return new URLSearchParams(location.search).get("user");
+  }
+
+  const UID = getUserIdLocal() || "guest";
+  const key = (b: string) => `${b}__${UID}`;
+
+  function currentRace(): string {
+    const perUser = localStorage.getItem(key("va_race"));
+    if (perUser) return perUser.toLowerCase();
+    const globalRace = localStorage.getItem("va_race");
+    if (globalRace) return globalRace.toLowerCase();
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i) || "";
+      if (k.startsWith("va_race__")) {
+        const v = localStorage.getItem(k);
+        if (v) return v.toLowerCase();
+      }
+    }
+    return "";
+  }
+
+  function raceDest(): string {
+    const r = currentRace();
+    if (r === "myriador") return "/myriadormap.html";
+    if (r === "wildwood") return "/wildwoodmap.html";
+    return "/dreadheimmap.html";
+  }
+
+  function bindActiveQuestTravel() {
+    const travelEl = document.getElementById("aqTravel") as HTMLAnchorElement | HTMLButtonElement | null;
+    if (!travelEl) return;
+
+    (travelEl as HTMLElement).style.display = "inline-block";
+    const dest = raceDest();
+
+    if (travelEl instanceof HTMLAnchorElement) {
+      travelEl.href = dest;
+    }
+
+    (travelEl as any).onclick = null;
+    travelEl.addEventListener(
+      "click",
+      (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        (ev as any).stopImmediatePropagation?.();
+        try { localStorage.setItem("va_pending_travel", "1"); } catch {}
+        window.location.assign(dest);
+      },
+      { capture: true }
+    );
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindActiveQuestTravel);
+  } else {
+    bindActiveQuestTravel();
+  }
+
+  window.addEventListener("va-quest-updated", bindActiveQuestTravel);
+
+  const aq = document.getElementById("activeQuest");
+  if (aq) {
+    new MutationObserver(() => bindActiveQuestTravel()).observe(aq, {
+      childList: true,
+      subtree: true,
+    });
+  }
+})();
+
 /* ---------- start ---------- */
 boot().catch(e => log(e.message, "bad"));
 
@@ -864,6 +964,8 @@ boot().catch(e => log(e.message, "bad"));
 - dev.bagList() → inspect stored bag keys
 `);
 })();
+
+
 
 
 
