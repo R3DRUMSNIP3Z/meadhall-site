@@ -1,4 +1,42 @@
 {
+  "version": 1,
+  "variables": {
+    "race": null,
+    "wizard_signed": false,
+    "witch_met": false
+  },
+
+  "rules": [
+    {
+      "id": "q_main_pick_race",
+      "unlockIf": "true",
+      "autoActivateIf": "!race",
+      "completeIf": "!!race"
+    },
+    {
+      "id": "q_travel_home",
+      "unlockIf": "!!race",
+      "autoActivateIf": "!!race && !wizard_signed",
+      "completeIf": "false",
+      "next": "q_find_dreadheim_wizard"
+    },
+    {
+      "id": "q_find_dreadheim_wizard",
+      "unlockIf": "race == 'dreadheim'",
+      "autoActivateIf": "race == 'dreadheim' && !wizard_signed",
+      "completeIf": "wizard_signed",
+      "next": "q_find_dreadheim_witch"
+    },
+    {
+      "id": "q_find_dreadheim_witch",
+      "title": "Find Skarthra the Pale",
+      "desc": "She haunts the Dreadheim Outskirts.",
+      "unlockIf": "wizard_signed",
+      "autoActivateIf": "wizard_signed && !witch_met",
+      "completeIf": "witch_met"
+    }
+  ],
+
   "quests": [
     {
       "id": "q_main_pick_race",
@@ -8,7 +46,11 @@
         {
           "id": "start",
           "speaker": "Elder",
-          "text": "You stand at the fork of fates. Choose your homeland."
+          "text": "You stand at the fork of fates. Choose your homeland.",
+          "choices": [
+            { "text": "Dreadheim.", "next": "dreadheimAsk" },
+            { "text": "I'll decide later.", "next": "end" }
+          ]
         },
         {
           "id": "dreadheimAsk",
@@ -32,7 +74,10 @@
           "id": "dreadheimChosen",
           "speaker": "Elder",
           "text": "So be it. Return to your homeland and prove yourself.",
-          "action": "none",
+          "action": {
+            "type": "setVars",
+            "set": { "race": "dreadheim" }
+          },
           "next": "end"
         },
         {
@@ -125,11 +170,29 @@
         {
           "id": "complete",
           "text": "The wizard’s eyes fade to embers. A parchment sigil burns in your hand.",
-          "action": "completeQuest"
+          "action": {
+            "type": "completeQuest",
+            "showParchmentSignature": true,
+            "setVars": { "wizard_signed": true }
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "q_find_dreadheim_witch",
+      "title": "Find Skarthra the Pale",
+      "desc": "She haunts the Dreadheim Outskirts.",
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "Skarthra",
+          "text": "So the wizard sent you. Let's see if your courage isn't borrowed."
         }
       ]
     }
   ]
 }
+
 
 

@@ -93,6 +93,17 @@ function qEnsure() {
     list.push(qWiz);
   }
 
+  // Ensure the follow-up quest exists (locked by default)
+  if (!map["q_find_witch_dreadheim"]) {
+    list.push({
+      id: "q_find_witch_dreadheim",
+      title: "Find the Witch",
+      desc: "Seek Skarthra the Pale in the Outskirts.",
+      status: "locked",
+      progress: 0,
+    });
+  }
+
   const travelDone = qTravel.status === "completed";
   if (race === "dreadheim" && travelDone) {
     if (qWiz.status === "locked") qWiz.status = "available";
@@ -200,19 +211,6 @@ qHudRender();
 /* =========================================================
    ACTIVE QUEST WIDGETS (auto-bind across all pages)
    ========================================================= */
-/*
-Expected markup (optional):
-  <div class="vaq-box" id="activeQuestBox">
-    <div class="vaq-title"></div>
-    <div class="vaq-desc"></div>
-    <div class="vaq-status"></div>
-    <div class="vaq-progress">
-      <div class="vaq-progress-bar"></div>
-      <span class="vaq-progress-val"></span>
-    </div>
-    <a class="vaq-travel" href="#" style="display:none">Travel</a>
-  </div>
-*/
 function __vaq_findBoxes(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>(".vaq-box, #activeQuest, #activeQuestBox"));
 }
@@ -226,7 +224,6 @@ function __vaq_renderBoxes() {
   const boxes = __vaq_findBoxes();
   if (!boxes.length) return;
 
-  // IMPORTANT: do NOT call qEnsure() here; it fires qWrite() -> event -> this function.
   const active = (window as any).VAQ?.active?.() || null;
 
   for (const box of boxes) {
@@ -464,6 +461,193 @@ if (document.readyState === "loading") {
   };
   (window as any).showQuestDialogue = showDialogueNode;
 })();
+
+/* =========================================================
+   CATALOG + RULE ENGINE (JSON-driven)
+   ========================================================= */
+type DialogueAction =
+  | { type: "setVars"; set: Record<string, unknown> }
+  | { type: "completeQuest"; id?: string }
+  | { type: "startQuest"; id: string }
+  | { type: "openNode"; id: string };
+
+type CatalogChoice = { text: string; next?: string; };
+type CatalogNode = {
+  id: string;
+  speaker?: string;
+  text?: string;
+  choices?: CatalogChoice[];
+  action?: DialogueAction;
+};
+type CatalogQuest = {
+  id: string;
+  title: string;
+  desc: string;
+  dialogue?: CatalogNode[];
+  rewards?: {
+    gold?: number;
+    brisingr?: number;
+    items?: { id: string; name: string; image: string; qty?: number }[];
+  };
+};
+type Catalog = { quests: CatalogQuest[] };
+
+const VARS_KEY = "va_catalog_vars";
+function readVars(): Record<string, unknown> {
+  try { return JSON.parse(localStorage.getItem(VARS_KEY) || "{}"); } catch { return {}; }
+}
+function writeVars(v: Record<string, unknown>) {
+  localStorage.setItem(VARS_KEY, JSON.stringify(v));
+}
+
+let CATALOG: Catalog | null = null;
+async function loadCatalog(): Promise<Catalog> {
+  if (CATALOG) return CATALOG;
+  const res = await fetch("/guildbook/quest_catalog.json", { cache: "no-cache" });
+  const json = (await res.json()) as Catalog;
+  CATALOG = json;
+  return json;
+}
+function getQuestFromCatalog(id: string): CatalogQuest | null {
+  if (!CATALOG) return null;
+  return CATALOG.quests.find(q => q.id === id) || null;
+}
+
+// Render catalog dialogue using the global VADialogue shell
+function runCatalogDialogue(q: CatalogQuest, onDone?: () => void) {
+  const nodesById = Object.create(null) as Record<string, CatalogNode>;
+  (q.dialogue || []).forEach(n => (nodesById[n.id] = n));
+
+  function open(id?: string) {
+    if (!id) { (window as any).VADialogue?.close?.(); onDone?.(); return; }
+
+    const node = nodesById[id];
+    if (!node) { (window as any).VADialogue?.close?.(); onDone?.(); return; }
+
+    // Apply node action (if any) immediately
+    if (node.action) applyAction(node.action);
+
+    // If an action completed the quest, close
+    if (node.action && (node.action as any).type === "completeQuest") {
+      (window as any).VADialogue?.close?.();
+      onDone?.();
+      return;
+    }
+
+    // Build UI lines/choices from catalog node
+    const lines: string[] = [];
+    if (node.speaker) lines.push(`<b>${node.speaker}</b>`);
+    if (node.text) lines.push(node.text);
+
+    // Mount into the existing shell
+    const cardHeader = document.getElementById("vaDialogueHeader");
+    const cardPortrait = document.getElementById("vaDialoguePortrait");
+    if (cardHeader) cardHeader.textContent = q.title || "Dialogue";
+    if (cardPortrait) cardPortrait.innerHTML = ""; // catalog doesn't carry portraits yet
+
+    const body = document.getElementById("vaDialogueBody");
+    if (body) {
+      body.innerHTML = lines.map(l => `<p style="margin:.4em 0">${l}</p>`).join("");
+    }
+
+    const choicesBar = document.getElementById("vaDialogueChoices");
+    if (choicesBar) {
+      choicesBar.innerHTML = "";
+      const choices = node.choices && node.choices.length ? node.choices : [{ text: "Continue", next: undefined }];
+      for (const ch of choices) {
+        const b = document.createElement("button");
+        b.textContent = ch.text;
+        b.style.cssText = `
+          padding:8px 12px;border-radius:10px;border:1px solid rgba(212,169,77,.35);
+          background:#12161a;color:#e7d7ab;cursor:pointer;
+        `;
+        b.onclick = () => open(ch.next);
+        choicesBar.appendChild(b);
+      }
+    }
+
+    (window as any).VADialogue?.openNode?.(""); // ensures overlay is open
+    // (Above call simply opens; content already injected)
+  }
+
+  open("start");
+}
+
+// Simple rules pass driven by local vars + quest statuses
+function applyRulesOnce() {
+  (window as any).VAQ?.ensureQuestState?.();
+  const qs = (window as any).VAQ?.readQuests?.() as Quest[];
+  const map: Record<string, Quest> = Object.fromEntries(qs.map(q => [q.id, q]));
+
+  // Wizard completed -> start Find Witch (Skarthra the Pale)
+  if (map["q_find_dreadheim_wizard"]?.status === "completed") {
+    const next: Quest = {
+      id: "q_find_witch_dreadheim",
+      title: "Find the Witch",
+      desc: "Seek Skarthra the Pale in the Outskirts.",
+      status: "active",
+      progress: 0,
+    };
+    (window as any).VAQ?.startNext?.("q_find_dreadheim_wizard", next);
+  }
+  (window as any).VAQ?.renderHUD?.();
+  __vaq_renderBoxes();
+}
+
+// ---- Fixed, strongly-typed action handler ----
+function applyAction(a?: DialogueAction): void {
+  if (!a) return;
+
+  switch (a.type) {
+    case "setVars": {
+      const vars = readVars();
+      Object.assign(vars, a.set || {});
+      writeVars(vars);
+      applyRulesOnce();
+      return;
+    }
+    case "completeQuest": {
+      const id = a.id || (window as any).__CURRENT_QUEST_ID__ || "q_find_dreadheim_wizard";
+      (window as any).VAQ?.complete?.(id);
+
+      // Optional: reward scroll parchment UI if present
+      try { (window as any).showParchmentSignature?.("wizardscroll"); } catch {}
+
+      applyRulesOnce();
+      return;
+    }
+    case "startQuest": {
+      (window as any).VAQ?.setActive?.(a.id);
+      (window as any).VAQ?.renderHUD?.();
+      __vaq_renderBoxes();
+      return;
+    }
+    case "openNode": {
+      (window as any).VADialogue?.openNode?.(a.id);
+      return;
+    }
+  }
+}
+
+// Expose a tiny runner so map pages / NPC scripts can invoke catalog dialogue:
+(window as any).VAQ2 = {
+  async openQuestDialogue(id: string) {
+    await loadCatalog();
+    const q = getQuestFromCatalog(id);
+    if (!q || !q.dialogue || !q.dialogue.length) return false;
+
+    // Mark current quest for actions that omit id
+    (window as any).__CURRENT_QUEST_ID__ = id;
+
+    runCatalogDialogue(q, () => {
+      try { (window as any).VAQ?.renderHUD?.(); } catch {}
+      applyRulesOnce();
+      setTimeout(() => { (window as any).__CURRENT_QUEST_ID__ = undefined; }, 0);
+    });
+    return true;
+  },
+  applyRulesOnce,
+};
 
 /* =========================================================
    TRAVEL HANDOFF → complete Travel, activate Wizard (once)
@@ -706,8 +890,6 @@ function showQuestScrollOverlay() {
   document.body.appendChild(overlay);
 }
 
-
-
 /* =========================================================
    SHARED MAP/BAG UTILITIES
    ========================================================= */
@@ -865,14 +1047,11 @@ document.addEventListener("keydown", (e) => {
   style.textContent = `#log { bottom: 150px !important; }`;
   document.head.appendChild(style);
 })();
-(() => {
-  try {
-    (window as any).VAQ?.ensureQuestState?.();
-    (window as any).VAQ?.renderHUD?.();
-  } catch (err) {
-    console.warn("VAQ HUD auto-init skipped:", err);
-  }
-})();
+
+// Auto-apply catalog rules at boot (no-op if catalog not needed yet)
+loadCatalog().then(() => (window as any).VAQ2?.applyRulesOnce?.()).catch(() => {});
+
+
 
 
 
