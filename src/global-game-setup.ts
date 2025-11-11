@@ -100,6 +100,13 @@ function qEnsure() {
     }
   }
 
+  // If race chosen and travel not completed yet, auto-activate Travel
+  // (and make "active" exclusive)
+  if (race && !travelDone) {
+    for (const q of list) if (q.status === "active") q.status = "available";
+    qTravel.status = "active";
+  }
+
   qWrite(list);
 }
 
@@ -125,6 +132,21 @@ function qComplete(id: string) {
 function qActive(): Quest | null {
   const list = qRead();
   return list.find(q => q.status === "active") || null;
+}
+/** Start a "next" quest by object (commonly used after completing current) */
+function qStartNext(prevId: string, next: Quest) {
+  const list = qRead();
+  // complete prev if still not marked
+  for (const q of list) if (q.id === prevId && q.status !== "completed") { q.status = "completed"; q.progress = 100; }
+  // exclusive active
+  for (const q of list) if (q.status === "active") q.status = "available";
+
+  // add or replace next
+  const i = list.findIndex(q => q.id === next.id);
+  if (i >= 0) list[i] = { ...list[i], ...next, status: "active", progress: next.progress ?? 0 };
+  else list.push({ ...next, status: "active", progress: next.progress ?? 0 });
+
+  qWrite(list);
 }
 
 // HUD (bottom-left)
@@ -166,6 +188,7 @@ function qHudRender() {
   setActive: qSetActive,
   complete: qComplete,
   active: qActive,
+  startNext: qStartNext,
   renderHUD: qHudRender,
 };
 
@@ -175,6 +198,97 @@ window.addEventListener("va-quest-updated", qHudRender);
 // Initialize on every page
 qEnsure();
 qHudRender();
+
+/* =========================================================
+   ACTIVE QUEST WIDGETS (auto-bind across all pages)
+   ========================================================= */
+/*
+  Markup this expects (any/all are optional):
+  <div class="vaq-box" id="activeQuestBox">
+    <div class="vaq-title"></div>
+    <div class="vaq-desc"></div>
+    <div class="vaq-status"></div>
+    <div class="vaq-progress">
+      <div class="vaq-progress-bar"></div>
+      <span class="vaq-progress-val"></span>
+    </div>
+    <a class="vaq-travel" href="#" style="display:none">Travel</a>
+  </div>
+*/
+function __vaq_findBoxes(): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>(".vaq-box, #activeQuest, #activeQuestBox"));
+}
+
+function __vaq_renderBoxes() {
+  const boxes = __vaq_findBoxes();
+  if (!boxes.length) return;
+
+  // ensure quest state before reading
+  try { (window as any).VAQ?.ensureQuestState?.(); } catch {}
+
+  const active = (window as any).VAQ?.active?.() || null;
+  for (const box of boxes) {
+    const title = box.querySelector<HTMLElement>(".vaq-title,#aqTitle");
+    const desc  = box.querySelector<HTMLElement>(".vaq-desc,#aqDesc");
+    const stat  = box.querySelector<HTMLElement>(".vaq-status,#aqStatus");
+    const pv    = box.querySelector<HTMLElement>(".vaq-progress-val,#aqProgVal");
+    const pb    = box.querySelector<HTMLElement>(".vaq-progress-bar,#aqProgBar");
+    const travel= box.querySelector<HTMLAnchorElement>(".vaq-travel,#aqTravel");
+
+    if (!active) {
+      box.setAttribute("hidden","true");
+      continue;
+    }
+
+    box.removeAttribute("hidden");
+    if (title) title.textContent = active.title || "—";
+    if (desc)  desc.textContent  = active.desc  || "—";
+
+    const statusText = active.status ? active.status[0].toUpperCase()+active.status.slice(1) : "Available";
+    if (stat)  stat.textContent  = `Status: ${statusText}`;
+
+    const prog = Math.max(0, Math.min(100, Number(active.progress || 0)));
+    if (pv)    pv.textContent = String(prog);
+    if (pb)    (pb as HTMLElement).style.width = prog + "%";
+
+    // Handle "Travel" button only for the travel quest
+    if (travel) {
+      const showTravel = active.id === "q_travel_home" && active.status !== "completed";
+      travel.style.display = showTravel ? "inline-block" : "none";
+
+      if (showTravel) {
+        // pick destination from race
+        const race = (localStorage.getItem("va_race") || "").toLowerCase();
+        const dest =
+          race === "myriador"  ? "/myriadormap.html"  :
+          race === "wildwood"  ? "/wildwoodmap.html"  :
+                                 "/dreadheimmap.html";
+
+        travel.href = dest;
+        travel.onclick = (ev) => {
+          ev.preventDefault();
+          try { localStorage.setItem("va_pending_travel","1"); } catch {}
+          location.assign(dest);
+        };
+      }
+    }
+  }
+}
+
+// Re-render on quest changes and lifecycle events
+window.addEventListener("va-quest-updated", __vaq_renderBoxes);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) __vaq_renderBoxes(); });
+window.addEventListener("pageshow", __vaq_renderBoxes);
+window.addEventListener("storage", (e) => {
+  if (e.key === "va_quests" || e.key === "va_race") __vaq_renderBoxes();
+});
+
+// First paint
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", __vaq_renderBoxes, { once: true });
+} else {
+  __vaq_renderBoxes();
+}
 
 /* =========================================================
    GLOBAL QUEST DIALOGUE (placeholder system)
@@ -499,7 +613,7 @@ function ensureSkillIconsOnPage() {
       else div.prepend(img);
     }
 
-    // Don't double-prefix; allow absolute or root-relative
+    // Don’t double-prefix; allow absolute or root-relative
     if (img.src !== want && !img.src.endsWith(want)) {
       img.style.display = "";
       img.src = want;
@@ -793,6 +907,7 @@ document.addEventListener("keydown", (e) => {
   style.textContent = `#log { bottom: 150px !important; }`;
   document.head.appendChild(style);
 })();
+
 
 
 
