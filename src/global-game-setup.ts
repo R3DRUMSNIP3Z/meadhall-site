@@ -23,6 +23,60 @@ document.body?.setAttribute("data-gender", localStorage.getItem("va_gender") || 
 };
 
 /* =========================================================
+   CATALOG TYPES + LOADER
+   ========================================================= */
+type CatalogDialogueChoice = {
+  text: string;
+  /** id of next dialogue node within the same quest */
+  next?: string;
+};
+
+type CatalogDialogueNode = {
+  id: string;
+  speaker?: string;
+  text?: string;
+  choices?: CatalogDialogueChoice[];
+  /** inline step to execute when this node is shown */
+  action?:
+    | { type: "setVars"; set: Record<string, string | number | boolean> }
+    | { type: "completeQuest" }
+    | { type: "startNext"; nextId: string };
+  /** convenience: go to this node after showing current */
+  next?: string;
+};
+
+type CatalogQuest = {
+  id: string;
+  title: string;
+  desc: string;
+  rewards?: {
+    gold?: number;
+    brisingr?: number;
+    items?: { id: string; name: string; image: string; qty?: number }[];
+  };
+  dialogue?: CatalogDialogueNode[];
+};
+
+type Catalog = { quests: CatalogQuest[] };
+
+let CATALOG: Catalog | null = null;
+
+// NOTE: your file lives at: C:\Users\Lisa\meadhall-site\public\guildbook\catalogquests.json
+async function loadCatalog(): Promise<Catalog> {
+  if (CATALOG) return CATALOG;
+  const res = await fetch("/guildbook/catalogquests.json", { cache: "no-cache" });
+  if (!res.ok) throw new Error("Catalog fetch failed: " + res.status);
+  const json = (await res.json()) as Catalog;
+  CATALOG = json;
+  return json;
+}
+function getQuestFromCatalog(id: string): CatalogQuest | null {
+  if (!CATALOG) return null;
+  return CATALOG.quests.find(q => q.id === id) || null;
+}
+(window as any).getQuestFromCatalog = getQuestFromCatalog;
+
+/* =========================================================
    Global Quest Helpers (HUD + storage)
    ========================================================= */
 const VAQ_KEY = "va_quests";
@@ -36,7 +90,7 @@ function qRead(): Quest[] {
   try { return JSON.parse(localStorage.getItem(VAQ_KEY) || "[]"); } catch { return []; }
 }
 function qWrite(list: Quest[]) {
-  if (__qWriteBusy) { // prevent nested writes from causing storms
+  if (__qWriteBusy) {
     try { localStorage.setItem(VAQ_KEY, JSON.stringify(list)); } catch {}
     return;
   }
@@ -48,7 +102,7 @@ function qWrite(list: Quest[]) {
   window.dispatchEvent(new CustomEvent("va-quest-updated"));
 }
 
-// Boot defaults + race/travel-gated wizard quest
+// Boot defaults + race/travel-gated wizard/witch quests
 function qEnsure() {
   const list = qRead();
   const byId: Record<string, Quest> = Object.fromEntries(list.map(q => [q.id, q]));
@@ -81,6 +135,7 @@ function qEnsure() {
     qMain.status = "completed"; qMain.progress = 100;
   }
 
+  // Ensure Wizard quest
   let qWiz = map["q_find_dreadheim_wizard"];
   if (!qWiz) {
     qWiz = {
@@ -93,15 +148,17 @@ function qEnsure() {
     list.push(qWiz);
   }
 
-  // Ensure the follow-up quest exists (locked by default)
-  if (!map["q_find_witch_dreadheim"]) {
-    list.push({
-      id: "q_find_witch_dreadheim",
+  // Ensure Witch quest (Skarthra)
+  let qWitch = map["q_find_dreadheim_witch"];
+  if (!qWitch) {
+    qWitch = {
+      id: "q_find_dreadheim_witch",
       title: "Find the Witch",
       desc: "Seek Skarthra the Pale in the Outskirts.",
-      status: "locked",
+      status: "available",
       progress: 0,
-    });
+    };
+    list.push(qWitch);
   }
 
   const travelDone = qTravel.status === "completed";
@@ -158,7 +215,26 @@ function qStartNext(prevId: string, next: Quest) {
   qWrite(list);
 }
 
-// HUD (bottom-left)
+/* =========================================================
+   AUTO-RULES (catalog-friendly): Wizard → Witch
+   ========================================================= */
+function applyRulesOnce() {
+  const list = qRead();
+  const byId: Record<string, Quest> = Object.fromEntries(list.map(q => [q.id, q]));
+  const wiz = byId["q_find_dreadheim_wizard"];
+  const witch = byId["q_find_dreadheim_witch"];
+
+  if (wiz?.status === "completed" && witch && witch.status !== "completed") {
+    // If nothing active or the active is not meaningful anymore, switch to Witch
+    for (const q of list) if (q.status === "active") q.status = "available";
+    witch.status = "active";
+    qWrite(list);
+  }
+}
+
+/* =========================================================
+   HUD (bottom-left)
+   ========================================================= */
 let hud: HTMLDivElement | null = null;
 function qHudEnsure() {
   if (hud) return;
@@ -201,11 +277,12 @@ function qHudRender() {
   renderHUD: qHudRender,
 };
 
-// keep HUD fresh
-window.addEventListener("va-quest-updated", qHudRender);
+// keep HUD fresh + auto-rules
+window.addEventListener("va-quest-updated", () => { applyRulesOnce(); qHudRender(); });
 
 // Initialize on every page
 qEnsure();
+applyRulesOnce();
 qHudRender();
 
 /* =========================================================
@@ -214,10 +291,9 @@ qHudRender();
 function __vaq_findBoxes(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>(".vaq-box, #activeQuest, #activeQuestBox"));
 }
-
 let __rendering = false;
 function __vaq_renderBoxes() {
-  if (__rendering) return; // throttle re-entry during same tick
+  if (__rendering) return;
   __rendering = true;
   requestAnimationFrame(() => { __rendering = false; });
 
@@ -282,373 +358,117 @@ if (document.readyState === "loading") {
 }
 
 /* =========================================================
-   GLOBAL QUEST DIALOGUE (placeholder system)
+   GLOBAL QUEST DIALOGUE (minimal runner for catalog)
    ========================================================= */
-(function setupDialogueSystem() {
-  const DIALOG_ID = "vaDialogue";
+function readVars(): Record<string, any> {
+  try { return JSON.parse(localStorage.getItem("va_vars") || "{}"); } catch { return {}; }
+}
+function writeVars(v: Record<string, any>) {
+  try { localStorage.setItem("va_vars", JSON.stringify(v)); } catch {}
+}
 
-  type DialogueChoice = {
-    text: string;
-    next?: string;
-    reward?: { gold?: number; xp?: number; itemId?: string };
-    onPick?: () => void;
-    close?: boolean;
-  };
-  type DialogueNode = {
-    id: string;
-    title?: string;
-    portrait?: string;
-    lines: string[];
-    choices?: DialogueChoice[];
-    onStart?: () => void;
-    onEnd?: () => void;
-  };
+/** Execute a single catalog action */
+function applyAction(a?: CatalogDialogueNode["action"]) {
+  if (!a) return;
+  if (a.type === "setVars") {
+    const vars = readVars();
+    Object.assign(vars, a.set || {});
+    writeVars(vars);
+    applyRulesOnce(); qHudRender(); __vaq_renderBoxes();
+    return;
+  }
+  if (a.type === "completeQuest") {
+    try {
+      (window as any).VAQ?.complete?.("q_find_dreadheim_wizard");
+      // Auto-rule will switch to Witch; run now to reflect immediately
+      applyRulesOnce();
+      (window as any).VAQ?.renderHUD?.();
+    } catch {}
+    return;
+  }
+  if (a.type === "startNext") {
+    try { (window as any).VAQ?.setActive?.(a.nextId); } catch {}
+    return;
+  }
+}
 
-  function ensureDom(): HTMLElement {
-    let el = document.getElementById(DIALOG_ID) as HTMLElement | null;
-    if (!el) {
-      el = document.createElement("div");
-      el.id = DIALOG_ID;
-      el.style.cssText = `
-        position: fixed; inset: 0; z-index: 100000;
-        display: none; align-items: center; justify-content: center;
-        background: rgba(0,0,0,.6); backdrop-filter: blur(2px);
-      `;
-      el.innerHTML = `
-        <div id="vaDialogueCard" style="
-          width: min(720px, calc(100vw - 32px)); max-height: min(80vh, 640px);
-          background: #0f1318; color: #e7d7ab; border:1px solid rgba(212,169,77,.35);
-          border-radius: 16px; box-shadow: 0 30px 60px rgba(0,0,0,.55); overflow: hidden;
-          display: grid; grid-template-columns: 140px 1fr; grid-template-rows: auto 1fr auto;
-        ">
-          <div id="vaDialoguePortrait" style="
-            grid-row: 1 / span 3; background:#0b0f13; display:grid; place-items:center; border-right:1px solid rgba(212,169,77,.25);
-          "></div>
-          <div id="vaDialogueHeader" style="padding:12px 14px; font-weight:900; border-bottom:1px solid rgba(212,169,77,.25)">Dialogue</div>
-          <div id="vaDialogueBody" style="padding:12px 14px; overflow:auto; line-height:1.45"></div>
-          <div id="vaDialogueChoices" style="padding:10px 12px; display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid rgba(212,169,77,.25)"></div>
-        </div>
-      `;
-      document.body.appendChild(el);
-    }
-    return el!;
-  }
+/** Very small in-page dialogue using alert/prompt-style DOM (no external UI) */
+async function runCatalogDialogue(q: CatalogQuest, onDone?: () => void) {
+  // Build a simple overlay UI
+  const shell = document.createElement("div");
+  Object.assign(shell.style, {
+    position: "fixed", inset: "0", zIndex: "100000",
+    background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center"
+  } as CSSStyleDeclaration);
+  shell.innerHTML = `
+    <div style="
+      width:min(720px, calc(100vw - 32px)); max-height:min(80vh,640px);
+      background:#0f1318; color:#e7d7ab; border:1px solid rgba(212,169,77,.35);
+      border-radius:16px; box-shadow:0 30px 60px rgba(0,0,0,.55); overflow:hidden;
+      display:grid; grid-template-rows:auto 1fr auto;
+    ">
+      <div id="dlgHeader" style="padding:12px 14px; font-weight:900; border-bottom:1px solid rgba(212,169,77,.25)">${q.title}</div>
+      <div id="dlgBody"   style="padding:12px 14px; overflow:auto; line-height:1.45"></div>
+      <div id="dlgChoices"style="padding:10px 12px; display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid rgba(212,169,77,.25)"></div>
+    </div>
+  `;
+  document.body.appendChild(shell);
 
-  type DialogueNodeMap = Record<string, DialogueNode>;
+  const body = shell.querySelector("#dlgBody") as HTMLElement;
+  const bar  = shell.querySelector("#dlgChoices") as HTMLElement;
 
-  function setPortrait(url?: string) {
-    const box = document.getElementById("vaDialoguePortrait") as HTMLElement | null;
-    if (!box) return;
-    if (!url) { box.innerHTML = ""; return; }
-    box.innerHTML = `<img src="${url}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">`;
-  }
-  function setHeader(title?: string) {
-    const h = document.getElementById("vaDialogueHeader"); if (h) h.textContent = title || "Dialogue";
-  }
-  function setLines(lines: string[]) {
-    const body = document.getElementById("vaDialogueBody"); if (!body) return;
-    body.innerHTML = lines.map(l => `<p style="margin:.4em 0">${l}</p>`).join("");
-    body.scrollTop = 0;
-  }
-  function setChoices(choices: DialogueChoice[] = [], nextLoader: (id?: string) => void, endCb?: () => void) {
-    const bar = document.getElementById("vaDialogueChoices") as HTMLElement | null;
-    if (!bar) return;
+  const byId: Record<string, CatalogDialogueNode> = Object.fromEntries(
+    (q.dialogue || []).map(n => [n.id, n])
+  );
+
+  function renderNode(id?: string) {
+    if (!id) { close(); return; }
+    const node = byId[id];
+    if (!node) { close(); return; }
+
+    // body text
+    body.innerHTML = `
+      ${node.speaker ? `<div style="opacity:.8; font-weight:700; margin-bottom:4px">${node.speaker}</div>` : ""}
+      <div>${(node.text || "").replace(/\n/g, "<br>")}</div>
+    `;
+
+    // run action immediately when node shows
+    try { applyAction(node.action); } catch {}
+
+    // choices
     bar.innerHTML = "";
-    const mk = (label: string, click: () => void) => {
+    const addBtn = (label: string, cb: () => void) => {
       const b = document.createElement("button");
       b.textContent = label;
-      b.style.cssText = `
-        padding:8px 12px;border-radius:10px;border:1px solid rgba(212,169,77,.35);
-        background:#12161a;color:#e7d7ab;cursor:pointer;
-      `;
-      b.onclick = click;
+      Object.assign(b.style, {
+        padding:"8px 12px", borderRadius:"10px", border:"1px solid rgba(212,169,77,.35)",
+        background:"#12161a", color:"#e7d7ab", cursor:"pointer"
+      } as CSSStyleDeclaration);
+      b.onclick = cb;
       bar.appendChild(b);
     };
 
-    if (!choices.length) {
-      mk("Continue", () => { endCb?.(); close(); });
-      return;
-    }
-
-    for (const ch of choices) {
-      mk(ch.text, () => {
-        try { ch.onPick?.(); } catch {}
-        if (ch.reward) { /* hook later */ }
-        if (ch.close) { close(); return; }
-        nextLoader(ch.next);
-      });
+    const choices = node.choices || [];
+    if (choices.length) {
+      choices.forEach(c => addBtn(c.text, () => renderNode(c.next)));
+    } else if (node.next) {
+      addBtn("Continue", () => renderNode(node.next));
+    } else {
+      addBtn("Done", close);
     }
   }
 
-  function open() {
-    ensureDom();
-    const el = document.getElementById(DIALOG_ID) as HTMLElement;
-    el.style.display = "flex";
-  }
   function close() {
-    const el = document.getElementById(DIALOG_ID) as HTMLElement | null;
-    if (el) el.style.display = "none";
+    shell.remove();
+    try { onDone?.(); } catch {}
   }
 
-  const NODES: DialogueNodeMap = {
-    "q_find_dreadheim_wizard:intro": {
-      id: "q_find_dreadheim_wizard:intro",
-      title: "Mysterious Wizard",
-      portrait: "/guildbook/avatars/npcs/dreadheim-wizard.png",
-      lines: [
-        "[placeholder] You found the lamplit hall.",
-        "[placeholder] The wizard studies you in silence.",
-        "[placeholder] 'We have much to discuss…'",
-      ],
-      choices: [
-        { text: "Who are you?", next: "q_find_dreadheim_wizard:who" },
-        { text: "I'm ready for a task.", next: "q_find_dreadheim_wizard:task" },
-        { text: "Leave", close: true }
-      ],
-    },
-    "q_find_dreadheim_wizard:who": {
-      id: "q_find_dreadheim_wizard:who",
-      title: "Mysterious Wizard",
-      portrait: "/guildbook/avatars/npcs/dreadheim-wizard.png",
-      lines: [
-        "[placeholder] 'Names carry power. Mine is not for common speech.'",
-        "[placeholder] 'But you may call me… Wizard.'",
-      ],
-      choices: [
-        { text: "Back", next: "q_find_dreadheim_wizard:intro" },
-        { text: "Got a job for me?", next: "q_find_dreadheim_wizard:task" },
-        { text: "Done", close: true }
-      ],
-    },
-    "q_find_dreadheim_wizard:task": {
-      id: "q_find_dreadheim_wizard:task",
-      title: "Mysterious Wizard",
-      portrait: "/guildbook/avatars/npcs/dreadheim-wizard.png",
-      lines: [
-        "[placeholder] 'Bring me three wolf pelts from the Outskirts.'",
-        "[placeholder] 'Prove you can survive the dark that hunts here.'",
-      ],
-      choices: [
-        {
-          text: "Accept",
-          onPick: () => {
-            // (window as any).VAQ?.setActive?.("q_hunt_wolves");
-          },
-          close: true
-        },
-        { text: "Maybe later", close: true }
-      ],
-    },
-  };
-
-  function showDialogueNode(id?: string) {
-    if (!id) { close(); return; }
-    const node = NODES[id];
-    if (!node) { close(); return; }
-    ensureDom();
-    open();
-    try { node.onStart?.(); } catch {}
-    setPortrait(node.portrait);
-    setHeader(node.title || "Dialogue");
-    setLines(node.lines || []);
-    setChoices(node.choices || [], showDialogueNode, () => { try { node.onEnd?.(); } catch {} });
-  }
-
-  (window as any).VADialogue = {
-    openNode: showDialogueNode,
-    close,
-    register(id: string, node: DialogueNode) { NODES[id] = node; },
-  };
-  (window as any).showQuestDialogue = showDialogueNode;
-})();
-
-/* =========================================================
-   CATALOG + RULE ENGINE (JSON-driven)
-   ========================================================= */
-type DialogueAction =
-  | { type: "setVars"; set: Record<string, unknown> }
-  | { type: "completeQuest"; id?: string }
-  | { type: "startQuest"; id: string }
-  | { type: "openNode"; id: string };
-
-type CatalogChoice = { text: string; next?: string; };
-type CatalogNode = {
-  id: string;
-  speaker?: string;
-  text?: string;
-  choices?: CatalogChoice[];
-  action?: DialogueAction;
-};
-type CatalogQuest = {
-  id: string;
-  title: string;
-  desc: string;
-  dialogue?: CatalogNode[];
-  rewards?: {
-    gold?: number;
-    brisingr?: number;
-    items?: { id: string; name: string; image: string; qty?: number }[];
-  };
-};
-type Catalog = { quests: CatalogQuest[] };
-
-const VARS_KEY = "va_catalog_vars";
-function readVars(): Record<string, unknown> {
-  try { return JSON.parse(localStorage.getItem(VARS_KEY) || "{}"); } catch { return {}; }
+  // Start at first dialogue node (id "start") if present, else first
+  const startId = q.dialogue?.find(n => n.id === "start")?.id || q.dialogue?.[0]?.id;
+  renderNode(startId);
 }
-function writeVars(v: Record<string, unknown>) {
-  localStorage.setItem(VARS_KEY, JSON.stringify(v));
-}
-
-let CATALOG: Catalog | null = null;
-async function loadCatalog(): Promise<Catalog> {
-  if (CATALOG) return CATALOG;
-
-  const res = await fetch("/guildbook/catalogquests.json", { cache: "no-cache" });
-  const json = (await res.json()) as Catalog;
-  CATALOG = json;
-  return json;
-}
-function getQuestFromCatalog(id: string): CatalogQuest | null {
-  if (!CATALOG) return null;
-  return CATALOG.quests.find(q => q.id === id) || null;
-}
-
-// Render catalog dialogue using the global VADialogue shell
-function runCatalogDialogue(q: CatalogQuest, onDone?: () => void) {
-  const nodesById = Object.create(null) as Record<string, CatalogNode>;
-  (q.dialogue || []).forEach(n => (nodesById[n.id] = n));
-
-  function open(id?: string) {
-    if (!id) { (window as any).VADialogue?.close?.(); onDone?.(); return; }
-
-    const node = nodesById[id];
-    if (!node) { (window as any).VADialogue?.close?.(); onDone?.(); return; }
-
-    // Apply node action (if any) immediately
-    if (node.action) applyAction(node.action);
-
-    // If an action completed the quest, close
-    if (node.action && (node.action as any).type === "completeQuest") {
-      (window as any).VADialogue?.close?.();
-      onDone?.();
-      return;
-    }
-
-    // Build UI lines/choices from catalog node
-    const lines: string[] = [];
-    if (node.speaker) lines.push(`<b>${node.speaker}</b>`);
-    if (node.text) lines.push(node.text);
-
-    // Mount into the existing shell
-    const cardHeader = document.getElementById("vaDialogueHeader");
-    const cardPortrait = document.getElementById("vaDialoguePortrait");
-    if (cardHeader) cardHeader.textContent = q.title || "Dialogue";
-    if (cardPortrait) cardPortrait.innerHTML = ""; // catalog doesn't carry portraits yet
-
-    const body = document.getElementById("vaDialogueBody");
-    if (body) {
-      body.innerHTML = lines.map(l => `<p style="margin:.4em 0">${l}</p>`).join("");
-    }
-
-    const choicesBar = document.getElementById("vaDialogueChoices");
-    if (choicesBar) {
-      choicesBar.innerHTML = "";
-      const choices = node.choices && node.choices.length ? node.choices : [{ text: "Continue", next: undefined }];
-      for (const ch of choices) {
-        const b = document.createElement("button");
-        b.textContent = ch.text;
-        b.style.cssText = `
-          padding:8px 12px;border-radius:10px;border:1px solid rgba(212,169,77,.35);
-          background:#12161a;color:#e7d7ab;cursor:pointer;
-        `;
-        b.onclick = () => open(ch.next);
-        choicesBar.appendChild(b);
-      }
-    }
-
-    (window as any).VADialogue?.openNode?.(""); // ensures overlay is open
-    // (Above call simply opens; content already injected)
-  }
-
-  open("start");
-}
-
-// Simple rules pass driven by local vars + quest statuses
-function applyRulesOnce() {
-  (window as any).VAQ?.ensureQuestState?.();
-  const qs = (window as any).VAQ?.readQuests?.() as Quest[];
-  const map: Record<string, Quest> = Object.fromEntries(qs.map(q => [q.id, q]));
-
-  // Wizard completed -> start Find Witch (Skarthra the Pale)
-  if (map["q_find_dreadheim_wizard"]?.status === "completed") {
-    const next: Quest = {
-      id: "q_find_witch_dreadheim",
-      title: "Find the Witch",
-      desc: "Seek Skarthra the Pale in the Outskirts.",
-      status: "active",
-      progress: 0,
-    };
-    (window as any).VAQ?.startNext?.("q_find_dreadheim_wizard", next);
-  }
-  (window as any).VAQ?.renderHUD?.();
-  __vaq_renderBoxes();
-}
-
-// ---- Fixed, strongly-typed action handler ----
-function applyAction(a?: DialogueAction): void {
-  if (!a) return;
-
-  switch (a.type) {
-    case "setVars": {
-      const vars = readVars();
-      Object.assign(vars, a.set || {});
-      writeVars(vars);
-      applyRulesOnce();
-      return;
-    }
-    case "completeQuest": {
-      const id = a.id || (window as any).__CURRENT_QUEST_ID__ || "q_find_dreadheim_wizard";
-      (window as any).VAQ?.complete?.(id);
-
-      // Optional: reward scroll parchment UI if present
-      try { (window as any).showParchmentSignature?.("wizardscroll"); } catch {}
-
-      applyRulesOnce();
-      return;
-    }
-    case "startQuest": {
-      (window as any).VAQ?.setActive?.(a.id);
-      (window as any).VAQ?.renderHUD?.();
-      __vaq_renderBoxes();
-      return;
-    }
-    case "openNode": {
-      (window as any).VADialogue?.openNode?.(a.id);
-      return;
-    }
-  }
-}
-
-// Expose a tiny runner so map pages / NPC scripts can invoke catalog dialogue:
-(window as any).VAQ2 = {
-  async openQuestDialogue(id: string) {
-    await loadCatalog();
-    const q = getQuestFromCatalog(id);
-    if (!q || !q.dialogue || !q.dialogue.length) return false;
-
-    // Mark current quest for actions that omit id
-    (window as any).__CURRENT_QUEST_ID__ = id;
-
-    runCatalogDialogue(q, () => {
-      try { (window as any).VAQ?.renderHUD?.(); } catch {}
-      applyRulesOnce();
-      setTimeout(() => { (window as any).__CURRENT_QUEST_ID__ = undefined; }, 0);
-    });
-    return true;
-  },
-  applyRulesOnce,
-};
+(window as any).runCatalogDialogue = runCatalogDialogue;
+(window as any).applyCatalogAction = applyAction;
 
 /* =========================================================
    TRAVEL HANDOFF → complete Travel, activate Wizard (once)
@@ -669,6 +489,7 @@ function applyAction(a?: DialogueAction): void {
       (window as any).VAQ?.setActive?.("q_find_dreadheim_wizard");
     }
 
+    applyRulesOnce();
     (window as any).VAQ?.renderHUD?.();
     window.dispatchEvent(new CustomEvent("va-quest-updated"));
   } catch {}
@@ -857,14 +678,12 @@ window.addEventListener("focus", renderBadge);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) renderBadge(); });
 
 /* =========================================================
-   INVENTORY INIT
+   INVENTORY INIT + Click hook example (optional)
    ========================================================= */
 try { Inventory.init(); } catch { /* already inited is fine */ }
-// --- Global item click handler ---
+// Example: clicking an item opens a quest scroll
 (window as any).__va_onItemClick = function (itemId: string) {
-  if (itemId === "wizardscroll") {
-    showQuestScrollOverlay();
-  }
+  if (itemId === "wizardscroll") showQuestScrollOverlay();
 };
 function showQuestScrollOverlay() {
   const overlay = document.createElement("div");
@@ -889,70 +708,6 @@ function showQuestScrollOverlay() {
   `;
   overlay.querySelector("#closeScroll")!.addEventListener("click", () => overlay.remove());
   document.body.appendChild(overlay);
-}
-
-/* =========================================================
-   SHARED MAP/BAG UTILITIES
-   ========================================================= */
-function fixQtyLayers() {
-  document
-    .querySelectorAll(
-      ".inv-name .inv-qty, .va-name .inv-qty, .inv-name .stack, .va-name .stack, .inv-name .va-qty, .va-name .va-qty, .va-stack, .item-qty"
-    )
-    .forEach((el) => {
-      const bubble = el as HTMLElement;
-      const cell = bubble.closest(".inv-cell, .va-item") as HTMLElement | null;
-      if (cell) cell.appendChild(bubble);
-    });
-
-  document.querySelectorAll(".inv-qty, .va-qty, .item-qty, .va-stack, .stack").forEach((el) => {
-    const b = el as HTMLElement;
-    b.classList.add("inv-qty");
-    Object.assign(b.style, {
-      position: "absolute",
-      top: "6px",
-      right: "6px",
-      left: "auto",
-      bottom: "auto",
-      zIndex: "999",
-    } as CSSStyleDeclaration);
-  });
-}
-function disableInventoryKeyboard() {
-  const root =
-    (document.querySelector("#inventory, .inventory, .inventory-panel, #bag, .bag-panel") as HTMLElement | null)
-    || null;
-  if (!root) return;
-
-  const focusables = root.querySelectorAll<HTMLElement>(
-    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-  );
-  focusables.forEach((el) => {
-    el.setAttribute("tabindex", "-1");
-    el.setAttribute("aria-disabled", "true");
-  });
-
-  if (root.contains(document.activeElement)) {
-    (document.activeElement as HTMLElement).blur?.();
-  }
-}
-function afterInventoryOpen() {
-  setTimeout(() => {
-    fixQtyLayers();
-    disableInventoryKeyboard();
-
-    const root =
-      document.querySelector("#inventory, .inventory, .inventory-panel, #bag, .bag-panel") || document.body;
-    try {
-      const mo = new MutationObserver(() => {
-        fixQtyLayers();
-        disableInventoryKeyboard();
-      });
-      mo.observe(root as Node, { childList: true, subtree: true });
-    } catch {}
-  }, 0);
-
-  clearUnseenBadge();
 }
 
 /* =========================================================
@@ -983,7 +738,7 @@ function afterInventoryOpen() {
     if (!__bagGate) return;
     const r = orig(...args);
     isOpen = true;
-    afterInventoryOpen();
+    setTimeout(() => { clearUnseenBadge(); }, 0);
     return r;
   });
 
@@ -991,7 +746,7 @@ function afterInventoryOpen() {
     if (!__bagGate) return;
     const r = orig(...args);
     isOpen = true;
-    afterInventoryOpen();
+    setTimeout(() => { clearUnseenBadge(); }, 0);
     return r;
   });
 
@@ -999,8 +754,7 @@ function afterInventoryOpen() {
     if (!__bagGate) return;
     const r = orig(...args);
     isOpen = !isOpen;
-    if (isOpen) afterInventoryOpen();
-    else clearUnseenBadge();
+    if (isOpen) setTimeout(() => { clearUnseenBadge(); }, 0);
     return r;
   });
 
@@ -1014,13 +768,13 @@ function afterInventoryOpen() {
     const origAdd = invAny.add.bind(Inventory);
     invAny.add = (...args: any[]) => {
       const r = origAdd(...args);
-      if (!isOpen) setUnseen(getUnseen() + 1);
+      if (!isOpen) {
+        const n = getUnseen();
+        setUnseen(n + 1);
+      }
       return r;
     };
   }
-
-  const bagBtn = document.querySelector<HTMLElement>("#vaBagBtn, .bag, .inventory-button");
-  if (bagBtn) bagBtn.addEventListener("click", () => setTimeout(afterInventoryOpen, 0));
 })();
 
 /* =========================================================
@@ -1033,7 +787,7 @@ document.addEventListener("keydown", (e) => {
     e.stopPropagation();
     e.preventDefault();
   }
-}); // note: no {capture:true}
+});
 
 /* =========================================================
    SMALL TWEAKS: Button position & log spacing for battle HUD
@@ -1049,8 +803,11 @@ document.addEventListener("keydown", (e) => {
   document.head.appendChild(style);
 })();
 
-// Auto-apply catalog rules at boot (no-op if catalog not needed yet)
-loadCatalog().then(() => (window as any).VAQ2?.applyRulesOnce?.()).catch(() => {});
+/* =========================================================
+   On first load, make sure catalog is in memory (no-op if cached)
+   ========================================================= */
+loadCatalog().catch(() => { /* non-fatal for pages without dialogue */ });
+
 
 
 
