@@ -1,33 +1,41 @@
 // /src/dreadheimmap.ts
-// --- Dreadheim Forest Entrance (Overworld with slow-chasing boar + loot + free-roaming bat flock) ---
+// --- Dreadheim • Forest Entrance (boar encounter + animated bat flock) ---
+// NOTE: Requires /src/global-game-setup.ts to be loaded first (for VAQ + Inventory + getHeroSprite)
 
-// ====== CANVAS ======
+//////////////////////////////
+// Canvas
+//////////////////////////////
 const canvas = document.getElementById("map") as HTMLCanvasElement;
 if (!canvas) throw new Error("#map canvas not found");
 const ctx = canvas.getContext("2d")!;
 
-// ====== CONFIG ======
+//////////////////////////////
+// Assets / Config
+//////////////////////////////
 const ASSETS = {
   bg: "/guildbook/maps/dreadheimforest.png",
-  hero: (window as any).getHeroSprite
-    ? (window as any).getHeroSprite()
-    : "/guildbook/avatars/dreadheim-warrior.png",
+  hero:
+    (window as any).getHeroSprite
+      ? (window as any).getHeroSprite()
+      : "/guildbook/avatars/dreadheim-warrior.png",
   boar: "/guildbook/avatars/enemies/diseasedboar.png",
   meat: "/guildbook/loot/infectedboarmeat.png",
   bat1: "/guildbook/avatars/enemies/dreadheimbat.png",
   bat2: "/guildbook/avatars/enemies/dreadheimbat2.png",
   bat3: "/guildbook/avatars/enemies/dreadheimbat3.png",
-};
+} as const;
 
-// --- Edge exits ---
+// Edge exits
 const LEFT_EXIT_URL = "/game.html";
 const RIGHT_EXIT_URL = "/dreadheimperimeters.html";
-const EXIT_MARGIN = 4; // pixels from screen edge to trigger warp
+const EXIT_MARGIN = 4;
 
-// --- Battle target ---
+// Battle target
 const BATTLE_URL = "/dreadheimbattle.html";
 
-// --- Fade + warp (shared) ---
+//////////////////////////////
+// Fade / Warp helpers
+//////////////////////////////
 function fadeTo(seconds = 0.25, after?: () => void) {
   const f = document.createElement("div");
   Object.assign(f.style, {
@@ -53,7 +61,9 @@ function goToBattle() {
   warpTo(BATTLE_URL);
 }
 
-// ====== WORLD CONSTS ======
+//////////////////////////////
+// World constants
+//////////////////////////////
 const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
 const GRAVITY = 0.8;
@@ -62,13 +72,15 @@ const HERO_W = 96, HERO_H = 96;
 const BOAR_W = 110, BOAR_H = 90;
 
 const ENGAGE_DIST = 120;  // auto-start battle
-const ALERT_DIST = 320;   // start slow chase
-const CHASE_SPEED = 1.2;  // slower than player
+const ALERT_DIST = 320;   // slow chase radius
+const CHASE_SPEED = 1.2;
 const PATROL_SPEED = 1.8;
 
-// ====== DPR / Resize ======
+//////////////////////////////
+// DPI / Resize
+//////////////////////////////
 function fitCanvas() {
-  const dpr = Math.max(1, (window.devicePixelRatio || 1));
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
   const w = window.innerWidth, h = window.innerHeight;
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
@@ -79,7 +91,9 @@ function fitCanvas() {
 fitCanvas();
 window.addEventListener("resize", fitCanvas);
 
-// ====== LOAD IMAGES ======
+//////////////////////////////
+// Image loading
+//////////////////////////////
 function load(src: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => {
     const img = new Image();
@@ -95,7 +109,7 @@ let heroImg: HTMLImageElement | null = null;
 let boarImg: HTMLImageElement | null = null;
 let meatImg: HTMLImageElement | null = null;
 
-// === Bats (animated flock) ===
+// Bats
 let batFrames: HTMLImageElement[] = [];
 
 type Dir = 1 | -1;
@@ -106,8 +120,8 @@ type Bat = {
   maxSpeed: number; wanderTheta: number; wanderJitter: number; wanderRadius: number;
 };
 
-const BAT_SIZE = 30;       // 30x30 per your request
-const FLOCK_COUNT = 9;     // how many bats to spawn
+const BAT_SIZE = 30;
+const FLOCK_COUNT = 9;
 const bats: Bat[] = [];
 
 function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
@@ -136,7 +150,9 @@ function spawnBat() {
 }
 function spawnFlock(n = FLOCK_COUNT) { for (let i = 0; i < n; i++) spawnBat(); }
 
-// ====== WORLD / ENTITIES ======
+//////////////////////////////
+// Entities
+//////////////////////////////
 let groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
 
 const hero = {
@@ -147,7 +163,6 @@ const hero = {
   onGround: true,
 };
 
-// State flags saved by battle
 const BOAR_DEAD = () => localStorage.getItem("va_bf_boar_defeated") === "1";
 const LOOT_TAKEN = () => localStorage.getItem("va_loot_infectedboarmeat") === "1";
 
@@ -169,7 +184,6 @@ const loot = {
   visible: BOAR_DEAD() && !LOOT_TAKEN(),
 };
 
-// Recalc ground & patrol when viewport changes
 function refreshBounds() {
   groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
 
@@ -188,7 +202,9 @@ function refreshBounds() {
 }
 window.addEventListener("resize", refreshBounds);
 
-// ====== INPUT ======
+//////////////////////////////
+// Input
+//////////////////////////////
 const keys = new Set<string>();
 window.addEventListener("keydown", (e) => {
   keys.add(e.key);
@@ -200,9 +216,10 @@ window.addEventListener("keydown", (e) => {
 });
 window.addEventListener("keyup", (e) => keys.delete(e.key));
 
-// ===== DEV RESET (for testing) =====
+//////////////////////////////
+// Dev reset (testing)
+//////////////////////////////
 window.addEventListener("keydown", (e) => {
-  // hold CTRL + SHIFT + R to reset the boar fight and loot
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "r") {
     localStorage.removeItem("va_bf_boar_defeated");
     localStorage.removeItem("va_loot_infectedboarmeat");
@@ -212,7 +229,9 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+//////////////////////////////
 // Click: engage boar or pick loot
+//////////////////////////////
 canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
@@ -231,7 +250,6 @@ canvas.addEventListener("click", (e) => {
   }
   if (loot.visible) {
     if (mx >= loot.x && mx <= loot.x + loot.w && my >= loot.y && my <= loot.y + loot.h) {
-      // Add to bag (stacks to 99)
       (window as any).Inventory?.add?.("infectedboarmeat", "Infected Boar Meat", ASSETS.meat, 1);
       localStorage.setItem("va_loot_infectedboarmeat", "1");
       loot.visible = false;
@@ -240,7 +258,9 @@ canvas.addEventListener("click", (e) => {
   }
 });
 
-// ====== TOAST ======
+//////////////////////////////
+// Toast
+//////////////////////////////
 function toast(msg: string) {
   const t = document.createElement("div");
   t.textContent = msg;
@@ -262,19 +282,21 @@ function toast(msg: string) {
   setTimeout(() => t.remove(), 2000);
 }
 
-// ====== UPDATE ======
+//////////////////////////////
+// Update
+//////////////////////////////
 function step() {
-  // hero horizontal intent
+  // horizontal intent
   let vx = 0;
   if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) vx -= SPEED;
   if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) vx += SPEED;
   hero.vx = vx;
 
-  // --- Edge exits (before we move so pushing the wall warps) ---
+  // edge exits (before position update so hugging wall warps)
   if (hero.x <= EXIT_MARGIN) { warpTo(LEFT_EXIT_URL); return; }
   if (hero.x + hero.w >= window.innerWidth - EXIT_MARGIN) { warpTo(RIGHT_EXIT_URL); return; }
 
-  // apply horizontal + clamp
+  // movement + clamp
   hero.x += hero.vx;
   if (hero.x < 0) hero.x = 0;
   const maxHX = window.innerWidth - hero.w;
@@ -292,13 +314,13 @@ function step() {
     hero.onGround = true;
   }
 
-  // If boar died in battle, hide and show loot
+  // boar death/loot visibility sync
   if (BOAR_DEAD() && boar.alive) {
     boar.alive = false;
     loot.visible = !LOOT_TAKEN();
   }
 
-  // Boar AI
+  // boar AI
   if (boar.alive) {
     const cxHero = hero.x + hero.w / 2;
     const cxBoar = boar.x + boar.w / 2;
@@ -308,47 +330,42 @@ function step() {
     if (dist <= ENGAGE_DIST) {
       goToBattle();
     } else if (dist <= ALERT_DIST) {
-      // slow chase toward hero
       boar.dir = dx > 0 ? 1 : -1;
       boar.x += CHASE_SPEED * boar.dir;
     } else {
-      // patrol
       boar.x += PATROL_SPEED * boar.dir;
       if (boar.x <= boar.minX) { boar.x = boar.minX; boar.dir = 1; }
       if (boar.x >= boar.maxX) { boar.x = boar.maxX; boar.dir = -1; }
     }
   }
 
-  // --- Bat flock: wander, separate, wrap ---
+  // bat flock: wander + separation + wrap
   const now = performance.now();
-  const SEP_RADIUS = 80;   // personal space between bats
-  const SEP_FORCE  = 0.04; // separation strength
+  const SEP_RADIUS = 80;
+  const SEP_FORCE = 0.04;
 
   for (let i = 0; i < bats.length; i++) {
     const b = bats[i];
 
-    // flap frames
     if (batFrames.length === 3 && now - b.lastFrame > b.frameDelay) {
       b.frame = (b.frame + 1) % 3;
       b.lastFrame = now;
     }
 
-    // wander steering (gentle random heading)
     b.wanderTheta += rand(-b.wanderJitter, b.wanderJitter);
     const steerX = Math.cos(b.wanderTheta) * b.wanderRadius;
     const steerY = Math.sin(b.wanderTheta) * b.wanderRadius;
     b.vx += steerX * 0.02;
     b.vy += steerY * 0.02;
 
-    // separation from neighbors
     let sepX = 0, sepY = 0;
     for (let j = 0; j < bats.length; j++) {
       if (i === j) continue;
       const o = bats[j];
       const dx = b.x - o.x;
       const dy = b.y - o.y;
-      const d2 = dx*dx + dy*dy;
-      if (d2 > 0 && d2 < SEP_RADIUS*SEP_RADIUS) {
+      const d2 = dx * dx + dy * dy;
+      if (d2 > 0 && d2 < SEP_RADIUS * SEP_RADIUS) {
         const d = Math.sqrt(d2);
         sepX += dx / d;
         sepY += dy / d;
@@ -357,19 +374,16 @@ function step() {
     b.vx += sepX * SEP_FORCE;
     b.vy += sepY * SEP_FORCE;
 
-    // cap speed
     const sp = Math.hypot(b.vx, b.vy);
     if (sp > b.maxSpeed) {
       b.vx = (b.vx / sp) * b.maxSpeed;
       b.vy = (b.vy / sp) * b.maxSpeed;
     }
 
-    // move + face
     b.x += b.vx;
     b.y += b.vy;
     b.dir = b.vx >= 0 ? 1 : -1;
 
-    // wrap screen
     const pad = 40;
     const W = window.innerWidth, H = window.innerHeight;
     if (b.x > W + pad) b.x = -pad;
@@ -379,12 +393,14 @@ function step() {
   }
 }
 
-// ====== RENDER ======
+//////////////////////////////
+// Render
+//////////////////////////////
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
 
-  // bats (ambient layer; draw first to appear behind hero/boar)
+  // bats behind the hero
   if (batFrames.length === 3) {
     for (const b of bats) {
       const img = batFrames[b.frame];
@@ -426,7 +442,7 @@ function render() {
     }
   }
 
-  // loot drop
+  // loot
   if (loot.visible && meatImg) {
     ctx.drawImage(meatImg, loot.x, loot.y, loot.w, loot.h);
   }
@@ -438,7 +454,53 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// ====== BOOT ======
+//////////////////////////////
+// QUEST HOOK on Arrival
+//////////////////////////////
+function handleArrivalQuestProgress() {
+  // If game.ts set a pending travel marker, clear it and complete travel
+  let hadPending = false;
+  try {
+    if (localStorage.getItem("va_pending_travel") === "1") {
+      localStorage.removeItem("va_pending_travel");
+      hadPending = true;
+    }
+  } catch {}
+
+  const VAQ = (window as any).VAQ;
+  if (!VAQ) return;
+
+  try {
+    VAQ.ensureQuestState?.();
+
+    // Only progress this chain for Dreadheim path
+    const race = (localStorage.getItem("va_race") || "").toLowerCase();
+
+    // If we arrived via Travel, push the chain forward
+    if (hadPending && race === "dreadheim") {
+      VAQ.complete?.("q_travel_home");                // finish travel
+    }
+
+    // After ensuring/possibly completing travel, refresh readout
+    const qs = (VAQ.readQuests?.() as any[]) || [];
+
+    // Make wizard quest available/active if not done yet
+    const qWiz = qs.find(q => q.id === "q_find_dreadheim_wizard");
+    if (qWiz && qWiz.status !== "completed") {
+      // if it was locked, qEnsure should have unlocked it once travel is completed
+      VAQ.setActive?.("q_find_dreadheim_wizard");
+    }
+
+    // Render HUD bottom-left
+    VAQ.renderHUD?.();
+  } catch (e) {
+    console.warn("Quest arrival hook failed:", e);
+  }
+}
+
+//////////////////////////////
+// Boot
+//////////////////////////////
 Promise.all([
   load(ASSETS.bg),
   load(ASSETS.hero),
@@ -454,42 +516,44 @@ Promise.all([
     boarImg = bo;
     meatImg = m;
     batFrames = [b1, b2, b3];
-    spawnFlock(FLOCK_COUNT);   // populate the forest with bats
-   // --- Quest HUD hookup (force travel complete here; then focus Wizard) ---
-try {
-  const VAQ = (window as any).VAQ;
-  VAQ?.ensureQuestState?.();
 
-  const race = (localStorage.getItem("va_race") || "").toLowerCase();
-  if (race === "dreadheim") {
-    const qs = (VAQ?.readQuests?.() as any[]) || [];
-    const qTravel = qs.find((q: any) => q.id === "q_travel_home");
-    const qWiz = qs.find((q: any) => q.id === "q_find_dreadheim_wizard");
+    // Spawn ambience
+    spawnFlock(FLOCK_COUNT);
 
-    // If travel isn't completed yet, mark it complete so the chain can advance
-    if (qTravel && qTravel.status !== "completed") {
-      VAQ?.complete?.("q_travel_home");
-    }
-
-    // If Wizard quest exists and isn’t done, make it active for the HUD
-    if (qWiz && qWiz.status !== "completed") {
-      VAQ?.setActive?.("q_find_dreadheim_wizard");
-    }
-  }
-
-  // Render the bottom-left HUD
-  VAQ?.renderHUD?.();
-} catch (e) {
-      console.warn("Quest HUD hook failed:", e);
-    }
+    // Quest arrival progress + HUD
+    handleArrivalQuestProgress();
 
     refreshBounds();
     loop();
   })
-  .catch(() => {
+  .catch((err) => {
+    console.warn("Dreadheim map: asset load fallback", err);
+    // Even if images fail, still run the loop
+    try { handleArrivalQuestProgress(); } catch {}
     refreshBounds();
     loop();
   });
+
+//////////////////////////////
+// (Optional) Badge cleanup — if a previous page left it visible
+//////////////////////////////
+(function cleanupBagBadge() {
+  try { localStorage.setItem("va_bag_unread", "0"); } catch {}
+  function nukeBadge() {
+    const sel = "#vaBagBadge, .bag-badge, .inventory-badge";
+    document.querySelectorAll(sel).forEach(el => {
+      (el as HTMLElement).textContent = "";
+      (el as HTMLElement).style.display = "none";
+      (el as HTMLElement).removeAttribute("data-count");
+    });
+  }
+  nukeBadge();
+  addEventListener("pageshow", nukeBadge);
+  addEventListener("focus", nukeBadge);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) nukeBadge(); });
+})();
+
+
 
 
 
