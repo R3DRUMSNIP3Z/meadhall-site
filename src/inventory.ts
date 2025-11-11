@@ -93,6 +93,40 @@ function setBadge(items: InvItem[]) {
   }
 }
 
+/* ========= NEW: generic overlay for showing an image ========= */
+function openImageOverlay(url: string, alt = "Image") {
+  const overlay = document.createElement("div");
+  overlay.style.cssText = `
+    position:fixed; inset:0; background:rgba(0,0,0,.7);
+    display:flex; align-items:center; justify-content:center;
+    z-index: 100001; /* above inventory */
+  `;
+  overlay.innerHTML = `
+    <div style="position:relative">
+      <img src="${url}" alt="${alt}" style="max-width:92vw; max-height:92vh; object-fit:contain; border-radius:10px;">
+      <button id="imgClose" style="
+        position:absolute; top:10px; right:10px; border:none;
+        background:rgba(0,0,0,.6); color:#fff; font:18px;
+        padding:6px 10px; border-radius:8px; cursor:pointer;">×</button>
+    </div>
+  `;
+  overlay.querySelector<HTMLButtonElement>("#imgClose")!.onclick = () => overlay.remove();
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+/* ========= NEW: per-item click behavior ========= */
+function handleItemClick(it: InvItem, _index: number) {
+  // Wizard’s Lamplit Clue → open the full parchment
+  if (it.id === "wizardscroll") {
+    openImageOverlay("/guildbook/loot/unsheathedscroll.png", "Quest Scroll");
+    return;
+  }
+
+  // Default: just show a small toast (you can extend this)
+  toast(`${it.name} ×${it.qty}`);
+}
+
 function renderGrid(items: InvItem[]) {
   const grid = document.getElementById("vaInvGrid");
   if (!grid) return;
@@ -102,7 +136,7 @@ function renderGrid(items: InvItem[]) {
   const slots: (InvItem | null)[] = items.slice(0, CAPACITY);
   while (slots.length < CAPACITY) slots.push(null);
 
-slots.forEach((it) => {
+  slots.forEach((it, index) => {
     const cell = document.createElement("div");
     cell.style.cssText = "position:relative;border:1px solid #3b3325;border-radius:12px;background:#0f1215;overflow:hidden";
     if (it) {
@@ -111,6 +145,12 @@ slots.forEach((it) => {
         <div style="position:absolute;right:6px;bottom:4px;background:rgba(0,0,0,.55);color:#e6d5a9;border:1px solid rgba(255,255,255,.18);border-radius:7px;padding:0 6px;font-size:12px">${it.qty}</div>
         <div title="${it.name}" style="position:absolute;left:0;right:0;bottom:0;height:18px;font-size:11px;line-height:18px;text-align:center;color:#997e38;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.45));border-top:1px solid rgba(200,169,107,.22)">${it.name}</div>
       `;
+      // NEW: clickable items
+      cell.style.cursor = "pointer";
+      cell.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        handleItemClick(it, index);
+      });
     } else {
       cell.innerHTML = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#6d5a35;opacity:.4;font-size:12px">Empty</div>`;
     }
@@ -180,3 +220,4 @@ export const Inventory = {
   open, close, toggle,
   CAPACITY, STACK_MAX
 };
+

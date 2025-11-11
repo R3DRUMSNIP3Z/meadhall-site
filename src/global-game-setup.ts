@@ -675,6 +675,38 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) rend
    INVENTORY INIT
    ========================================================= */
 try { Inventory.init(); } catch { /* already inited is fine */ }
+// --- Global item click handler ---
+(window as any).__va_onItemClick = function (itemId: string) {
+  if (itemId === "wizardscroll") {
+    showQuestScrollOverlay();
+  }
+};
+function showQuestScrollOverlay() {
+  const overlay = document.createElement("div");
+  overlay.style.cssText = `
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999999;
+  `;
+  overlay.innerHTML = `
+    <div style="position:relative">
+      <img src="/guildbook/loot/unsheathedscroll.png"
+           style="max-width:90vw; max-height:90vh; object-fit:contain; border-radius:8px;"
+           alt="Quest Scroll">
+      <button id="closeScroll" style="
+        position:absolute; top:10px; right:10px;
+        border:none; background:rgba(0,0,0,.6);
+        color:#fff; font:18px; padding:6px 10px; border-radius:8px;
+        cursor:pointer;
+      ">×</button>
+    </div>
+  `;
+  overlay.querySelector("#closeScroll")!.addEventListener("click", () => overlay.remove());
+  document.body.appendChild(overlay);
+}
+
+
 
 /* =========================================================
    SHARED MAP/BAG UTILITIES
