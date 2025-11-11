@@ -24,7 +24,7 @@ const ASSETS = {
 const EXIT_URL = "/dreadheimperimeters.html";
 
 /* =========================================================
-   QUEST CATALOG LOADER (JSON-first, TS fallback)
+   QUEST CATALOG LOADER
    ========================================================= */
 const QUESTS_CATALOG_PATH = "/guildbook/catalogquests.json";
 let __questsCatalog: any | null = null;
@@ -41,7 +41,6 @@ async function loadQuestsCatalog(): Promise<any | null> {
     return null;
   }
 }
-
 async function getQuestFromCatalog(qid: string): Promise<any | null> {
   const cat = await loadQuestsCatalog();
   if (!cat || !Array.isArray(cat.quests)) return null;
@@ -51,17 +50,15 @@ async function getQuestFromCatalog(qid: string): Promise<any | null> {
 /* =========================================================
    WORLD CONFIG
    ========================================================= */
-// Only the floor is walkable: allow a thin vertical band near the floor
-const WALK_BAND_PX = 48; // how much vertical movement above the floor
-
+const WALK_BAND_PX = 48;
 const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
 const HERO_W = 96, HERO_H = 96;
 
-// NPC (center-back between pillars, slightly farther back toward wall)
+// NPC (center-back)
 const NPC_W = 144, NPC_H = 252;
 const NPC_X_RATIO = 0.5;
-const NPC_BACK_OFFSET_RATIO = 0.06; // push up/back by ~6% of viewport height
+const NPC_BACK_OFFSET_RATIO = 0.06;
 const TALK_DISTANCE = 110;
 
 /* =========================================================
@@ -112,8 +109,6 @@ const npc = { x: 0, y: 0, w: NPC_W, h: NPC_H };
 function layoutHouse() {
   const vw = window.innerWidth, vh = window.innerHeight;
   groundY = Math.round(vh * WALKWAY_TOP_RATIO);
-
-  // NPC centered, pushed back toward the wall a bit
   npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
   npc.y = Math.round(groundY - npc.h - vh * NPC_BACK_OFFSET_RATIO);
 }
@@ -148,7 +143,7 @@ function warpTo(url: string) {
 }
 
 /* =========================================================
-   SIMPLE STEP-DIALOGUE (fallback) • click to advance
+   SIMPLE TEXT DIALOGUE (fallback)
    ========================================================= */
 let dlg: HTMLDivElement | null = null;
 function showDialogue(lines: string[], ms = 0) {
@@ -183,7 +178,140 @@ function showDialogue(lines: string[], ms = 0) {
 }
 
 /* =========================================================
-   CLICK / HOVER → NPC DIALOGUE (DPR-safe, generous hitbox)
+   CATALOG DIALOGUE RUNNER (uses your JSON format)
+   ========================================================= */
+type CatalogNode = {
+  id: string;
+  speaker?: string;
+  text: string;
+  choices?: { text: string; next?: string }[];
+  next?: string;
+  action?: string;
+};
+type CatalogQuest = {
+  id: string;
+  title?: string;
+  desc?: string;
+  rewards?: {
+    gold?: number;
+    brisingr?: number;
+    items?: { id: string; name?: string; image?: string; qty?: number }[];
+  };
+  dialogue: CatalogNode[];
+};
+
+let catDialogEl: HTMLDivElement | null = null;
+function ensureCatDialogEl(): HTMLDivElement {
+  if (catDialogEl) return catDialogEl;
+  const el = document.createElement("div");
+  el.id = "vaCatDialogue";
+  el.style.cssText = `
+    position: fixed; inset: 0; z-index: 100000;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.6); backdrop-filter: blur(2px);
+  `;
+  el.innerHTML = `
+    <div style="
+      width: min(720px, calc(100vw - 32px));
+      background: #0f1318; color: #e7d7ab;
+      border:1px solid rgba(212,169,77,.35);
+      border-radius: 16px; box-shadow: 0 30px 60px rgba(0,0,0,.55);
+      padding: 12px 14px; display:flex; flex-direction:column; gap:10px;
+      max-height: min(80vh, 640px);
+    ">
+      <div id="vaCatHeader" style="font-weight:900; border-bottom:1px solid rgba(212,169,77,.25); padding-bottom:6px">
+        Dialogue
+      </div>
+      <div id="vaCatBody" style="line-height:1.45; overflow:auto; min-height: 96px"></div>
+      <div id="vaCatChoices" style="display:flex; gap:8px; flex-wrap:wrap"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px">
+        <button id="vaCatClose" style="
+          padding:8px 12px;border-radius:10px;border:1px solid rgba(212,169,77,.35);
+          background:#12161a;color:#e7d7ab;cursor:pointer;">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(el);
+  catDialogEl = el as HTMLDivElement;
+  (el.querySelector("#vaCatClose") as HTMLButtonElement).onclick = () => closeCatDialogue();
+  return catDialogEl!;
+}
+function openCatDialogue() { ensureCatDialogEl().style.display = "flex"; }
+function closeCatDialogue() { if (catDialogEl) catDialogEl.style.display = "none"; }
+
+function renderCatNode(q: CatalogQuest, nodeId: string, onDone?: () => void) {
+  const el = ensureCatDialogEl();
+  const body = el.querySelector("#vaCatBody") as HTMLElement;
+  const choices = el.querySelector("#vaCatChoices") as HTMLElement;
+  const header = el.querySelector("#vaCatHeader") as HTMLElement;
+
+  const node = q.dialogue.find(n => n.id === nodeId);
+  if (!node) { closeCatDialogue(); onDone?.(); return; }
+
+  header.textContent = q.title || "Dialogue";
+  body.innerHTML = `
+    ${node.speaker ? `<div style="opacity:.9;font-weight:800;margin-bottom:4px">${node.speaker}</div>` : ""}
+    <div>${node.text}</div>
+  `;
+  choices.innerHTML = "";
+
+  // Handle action before rendering choices
+  if (node.action === "completeQuest") {
+    // Rewards (items via Inventory if available)
+    try {
+      const inv: any = (window as any).Inventory;
+      for (const it of (q.rewards?.items || [])) {
+        const qty = Math.max(1, it?.qty || 1);
+        inv?.add?.({ id: it.id, name: it.name || it.id, image: it.image || "", qty });
+      }
+    } catch {}
+    // (Optional) gold/brisingr logging — wire up to your economy if you have helpers
+    if (q.rewards?.gold)  console.log(`+${q.rewards.gold} gold (reward)`);
+    if (q.rewards?.brisingr) console.log(`+${q.rewards.brisingr} brisingr (reward)`);
+
+    // Complete quest & parchment
+    closeCatDialogue();
+    finishWizardQuest();
+    onDone?.();
+    return;
+  }
+
+  const goNext = (next?: string) => {
+    if (!next) { closeCatDialogue(); onDone?.(); return; }
+    renderCatNode(q, next, onDone);
+  };
+
+  if (node.choices && node.choices.length) {
+    for (const ch of node.choices) {
+      const b = document.createElement("button");
+      b.textContent = ch.text;
+      b.style.cssText = `
+        padding:8px 12px;border-radius:10px;border:1px solid rgba(212,169,77,.35);
+        background:#12161a;color:#e7d7ab;cursor:pointer;
+      `;
+      b.onclick = () => goNext(ch.next);
+      choices.appendChild(b);
+    }
+  } else {
+    // No choices → continue to next or close
+    const b = document.createElement("button");
+    b.textContent = "Continue";
+    b.style.cssText = `
+      padding:8px 12px;border-radius:10px;border:1px solid rgba(212,169,77,.35);
+      background:#12161a;color:#e7d7ab;cursor:pointer;
+    `;
+    b.onclick = () => goNext(node.next);
+    choices.appendChild(b);
+  }
+}
+
+function runCatalogDialogue(q: CatalogQuest, onDone?: () => void) {
+  openCatDialogue();
+  renderCatNode(q, "start", onDone);
+}
+
+/* =========================================================
+   CLICK / HOVER → NPC DIALOGUE (generous hitbox)
    ========================================================= */
 function cssPointFromEvent(ev: MouseEvent) {
   const rect = canvas.getBoundingClientRect();
@@ -191,11 +319,8 @@ function cssPointFromEvent(ev: MouseEvent) {
   const y = ev.clientY - rect.top;
   return { x, y };
 }
-
-// Generous click zone so it's easy to hit (a bit wider/taller than sprite)
 function isOverNPC(x: number, y: number): boolean {
-  const padX = 24; // widen hitbox
-  const padY = 16; // taller hitbox
+  const padX = 24, padY = 16;
   return (
     x >= npc.x - padX &&
     x <= npc.x + npc.w + padX &&
@@ -203,13 +328,11 @@ function isOverNPC(x: number, y: number): boolean {
     y <= npc.y + npc.h + padY
   );
 }
-
 canvas.addEventListener("pointermove", (ev) => {
   const { x, y } = cssPointFromEvent(ev);
   canvas.style.cursor = isOverNPC(x, y) ? "pointer" : "default";
 });
-
-canvas.addEventListener("pointerdown", (ev) => {
+canvas.addEventListener("pointerdown", async (ev) => {
   const { x, y } = cssPointFromEvent(ev);
   if (isOverNPC(x, y)) startWizardDialogue();
 });
@@ -239,39 +362,24 @@ async function startWizardDialogue() {
   if (wizardLocked) return;
   wizardLocked = true;
 
-  // 1) Try catalog quest (preferred)
   const q = await getQuestFromCatalog("q_find_dreadheim_wizard");
 
   if (q && Array.isArray(q.dialogue) && q.dialogue.length) {
-    // Use the global Dialogue engine from global-game-setup.ts if present
-    const show = (window as any).showQuestDialogue as
-      | ((questId: string, nodes: any[], onDone?: () => void) => void)
-      | undefined;
-
-    if (typeof show === "function") {
-      show("q_find_dreadheim_wizard", q.dialogue, () => {
-        // Engine may already award/complete. We just refresh HUD & unlock.
-        try { (window as any).VAQ?.renderHUD?.(); } catch {}
-        setTimeout(() => { wizardLocked = false; }, 300);
-      });
-      return;
-    }
+    runCatalogDialogue(q as CatalogQuest, () => {
+      try { (window as any).VAQ?.renderHUD?.(); } catch {}
+      setTimeout(() => { wizardLocked = false; }, 300);
+    });
+    return;
   }
 
-  // 2) Fallback to inline text if catalog/engine missing
+  // Fallback text (only if catalog missing)
   const playerName = getPlayerName();
   const lines = [
     `Old Seer: "Ah... greetings, ${playerName}. I see you've been marked as a Dreadheimer."`,
-    `Old Seer: "*tsk tsk tsk* ... a grim fate indeed. I feel sorry for you—why one would *choose* such a path baffles even me."`,
-    `Old Seer: "Still, the winds whisper of your weakness. You look pale, worn from travel."`,
-    `Old Seer: "Very well. I will help you, because you seem... *pathetic enough* to need it."`,
-    `Old Seer: "Go now, to the Dreadheim Outskirts. There, you shall find the witch named Skarthra the Pale."`,
-    `Old Seer: "She will grant you your path—if she doesn’t turn you into ash first."`,
+    `Old Seer: "*tsk tsk tsk* ... a grim fate indeed."`,
+    `Old Seer: "Go now, to the Dreadheim Outskirts. Seek Skarthra the Pale."`,
   ];
-
   showDialogue(lines, 0);
-  // After dialogue finishes (user closes), drop parchment signature:
-  // Slight delay to avoid double overlays on immediate click.
   setTimeout(() => showParchmentSignature(), 400);
 }
 
@@ -321,7 +429,6 @@ function showParchmentSignature() {
 
   closeBtn.addEventListener("click", () => {
     paper.remove();
-    // fail-safe: allow retry
     setTimeout(() => { wizardLocked = false; }, 200);
   });
 }
@@ -329,10 +436,8 @@ function showParchmentSignature() {
 function finishWizardQuest() {
   try {
     const VAQ = (window as any).VAQ;
-    // Mark completed
     VAQ?.complete?.("q_find_dreadheim_wizard");
-    // Optionally start next quest here (uncomment if you already defined it)
-    // VAQ?.setActive?.("q_find_dreadheim_witch");
+    // VAQ?.setActive?.("q_find_dreadheim_witch"); // (uncomment when defined)
     VAQ?.renderHUD?.();
     window.dispatchEvent(new CustomEvent("va-quest-updated"));
   } catch (err) {
@@ -413,7 +518,7 @@ function step() {
     dxCenter < TALK_DISTANCE &&
     Math.abs((hero.y + hero.h) - (npc.y + npc.h)) < 80;
 
-  // Show small floating hint when close enough
+  // Small floating hint when close enough
   if (touchingNPC) {
     if (!document.getElementById("eHint")) {
       const h = document.createElement("div");
@@ -444,7 +549,7 @@ function render() {
 
   if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
 
-  // simple depth: draw whichever "feet" are lower last
+  // depth sort by feet
   const heroFeet = hero.y + hero.h;
   const npcFeet  = npc.y + npc.h;
   if (heroFeet < npcFeet) {
@@ -487,7 +592,7 @@ window.addEventListener("va-gender-changed", () => {
   resetWizard() {
     try {
       const VAQ = (window as any).VAQ;
-      VAQ?.reset?.("q_find_dreadheim_wizard");
+      VAQ?.reset?.("q_find_dreadheim_wizard"); // if you implemented reset
       VAQ?.setActive?.("q_find_dreadheim_wizard");
       VAQ?.renderHUD?.();
       console.log("✅ Wizard quest reset + set active");
