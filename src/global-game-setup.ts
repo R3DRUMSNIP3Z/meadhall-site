@@ -503,7 +503,8 @@ function writeVars(v: Record<string, unknown>) {
 let CATALOG: Catalog | null = null;
 async function loadCatalog(): Promise<Catalog> {
   if (CATALOG) return CATALOG;
-  const res = await fetch("/guildbook/quest_catalog.json", { cache: "no-cache" });
+
+  const res = await fetch("/guildbook/catalogquests.json", { cache: "no-cache" });
   const json = (await res.json()) as Catalog;
   CATALOG = json;
   return json;
