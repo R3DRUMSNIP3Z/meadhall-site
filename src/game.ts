@@ -384,7 +384,7 @@ function renderActiveQuest() {
         travelBtn.setAttribute("href", dest);
       }
 
-      // --- Travel click: complete Travel + activate Wizard, then warp ---
+      // Capture-phase safety click: force nav and flip quests BEFORE leaving
       travelBtn.addEventListener(
         "click",
         (ev) => {
@@ -392,30 +392,15 @@ function renderActiveQuest() {
           ev.stopPropagation();
           (ev as any).stopImmediatePropagation?.();
 
-          try { localStorage.setItem("va_pending_travel", "1"); } catch {}
-
-          // ✅ Update quests locally before leaving
           try {
             const VAQ = (window as any).VAQ;
             VAQ?.ensureQuestState?.();
-
-            const qs = (VAQ?.readQuests?.() as any[]) || [];
-            const qTravel = qs.find((q: any) => q.id === "q_travel_home");
-            const qWiz    = qs.find((q: any) => q.id === "q_find_dreadheim_wizard");
-
-            if (qTravel && qTravel.status !== "completed") {
-              VAQ?.complete?.("q_travel_home");
-            }
-            if (qWiz && qWiz.status !== "completed") {
-              VAQ?.setActive?.("q_find_dreadheim_wizard");
-            }
-
-            // Refresh the HUD in game.html right away
+            VAQ?.complete?.("q_travel_home");
+            VAQ?.setActive?.("q_find_dreadheim_wizard");
             VAQ?.renderHUD?.();
-          } catch (err) {
-            console.warn("Quest update before travel failed:", err);
-          }
+          } catch {}
 
+          try { localStorage.setItem("va_pending_travel", "1"); } catch {}
           window.location.assign(dest);
         },
         { capture: true }
@@ -615,7 +600,7 @@ function renderShop() {
       </div>
     `;
 
-    // ✅ TS-safe listeners: accept generic Event and cast when needed
+    // TS-safe listeners
     line.addEventListener("mouseenter", (ev) => {
       const me = ev as MouseEvent;
       tipShow(me.clientX, me.clientY, tooltipHTML(item));
@@ -859,8 +844,6 @@ async function train(stat: "power"|"defense"|"speed") {
     }
 
     (travelEl as any).onclick = null;
-
-    // --- Safety-net travel: complete Travel + activate Wizard, then warp ---
     travelEl.addEventListener(
       "click",
       (ev) => {
@@ -868,28 +851,15 @@ async function train(stat: "power"|"defense"|"speed") {
         ev.stopPropagation();
         (ev as any).stopImmediatePropagation?.();
 
-        try { localStorage.setItem("va_pending_travel", "1"); } catch {}
-
         try {
           const VAQ = (window as any).VAQ;
           VAQ?.ensureQuestState?.();
-
-          const qs = (VAQ?.readQuests?.() as any[]) || [];
-          const qTravel = qs.find((q: any) => q.id === "q_travel_home");
-          const qWiz    = qs.find((q: any) => q.id === "q_find_dreadheim_wizard");
-
-          if (qTravel && qTravel.status !== "completed") {
-            VAQ?.complete?.("q_travel_home");
-          }
-          if (qWiz && qWiz.status !== "completed") {
-            VAQ?.setActive?.("q_find_dreadheim_wizard");
-          }
-
+          VAQ?.complete?.("q_travel_home");
+          VAQ?.setActive?.("q_find_dreadheim_wizard");
           VAQ?.renderHUD?.();
-        } catch (err) {
-          console.warn("Quest update before travel (safety) failed:", err);
-        }
+        } catch {}
 
+        try { localStorage.setItem("va_pending_travel", "1"); } catch {}
         window.location.assign(dest);
       },
       { capture: true }
