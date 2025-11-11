@@ -12,7 +12,6 @@ import { Inventory } from "./inventory";
 if (!localStorage.getItem("va_gender")) {
   localStorage.setItem("va_gender", "male");
 }
-// reflect gender on <body> for optional CSS theming
 document.body?.setAttribute("data-gender", localStorage.getItem("va_gender") || "male");
 
 // Universal hero sprite (used by arena/game.ts and maps if needed)
@@ -32,11 +31,20 @@ const RACE_KEY = "va_race"; // used to gate wizard quest
 type QStatus = "available" | "active" | "completed" | "locked";
 type Quest = { id: string; title: string; desc: string; status: QStatus; progress?: number };
 
+let __qWriteBusy = false; // re-entrancy guard
 function qRead(): Quest[] {
   try { return JSON.parse(localStorage.getItem(VAQ_KEY) || "[]"); } catch { return []; }
 }
 function qWrite(list: Quest[]) {
-  try { localStorage.setItem(VAQ_KEY, JSON.stringify(list)); } catch {}
+  if (__qWriteBusy) { // prevent nested writes from causing storms
+    try { localStorage.setItem(VAQ_KEY, JSON.stringify(list)); } catch {}
+    return;
+  }
+  __qWriteBusy = true;
+  try {
+    localStorage.setItem(VAQ_KEY, JSON.stringify(list));
+  } catch {}
+  __qWriteBusy = false;
   window.dispatchEvent(new CustomEvent("va-quest-updated"));
 }
 
@@ -46,7 +54,6 @@ function qEnsure() {
   const byId: Record<string, Quest> = Object.fromEntries(list.map(q => [q.id, q]));
   const race = (localStorage.getItem(RACE_KEY) || "").toLowerCase();
 
-  // Seed main + travel if missing
   if (!byId["q_main_pick_race"]) {
     list.push({
       id: "q_main_pick_race",
@@ -66,17 +73,14 @@ function qEnsure() {
     });
   }
 
-  // Rebuild map after any pushes
   const map: Record<string, Quest> = Object.fromEntries(list.map(q => [q.id, q]));
   const qMain   = map["q_main_pick_race"];
   const qTravel = map["q_travel_home"];
 
-  // If race is chosen, mark main as completed
   if (race && (qMain.status !== "completed" || (qMain.progress ?? 0) !== 100)) {
     qMain.status = "completed"; qMain.progress = 100;
   }
 
-  // Wizard quest exists but starts LOCKED
   let qWiz = map["q_find_dreadheim_wizard"];
   if (!qWiz) {
     qWiz = {
@@ -89,10 +93,9 @@ function qEnsure() {
     list.push(qWiz);
   }
 
-  // Gate: ONLY when race === dreadheim AND travel is completed → unlock (available)
   const travelDone = qTravel.status === "completed";
   if (race === "dreadheim" && travelDone) {
-    if (qWiz.status === "locked") qWiz.status = "available"; // don't auto-activate
+    if (qWiz.status === "locked") qWiz.status = "available";
   } else {
     if (qWiz.status !== "completed" && qWiz.status !== "locked") {
       qWiz.status = "locked";
@@ -101,7 +104,6 @@ function qEnsure() {
   }
 
   // If race chosen and travel not completed yet, auto-activate Travel
-  // (and make "active" exclusive)
   if (race && !travelDone) {
     for (const q of list) if (q.status === "active") q.status = "available";
     qTravel.status = "active";
@@ -112,7 +114,6 @@ function qEnsure() {
 
 // Utilities
 function qSetActive(id: string) {
-  // make "active" exclusive
   const list = qRead();
   let changed = false;
   for (const q of list) {
@@ -136,12 +137,9 @@ function qActive(): Quest | null {
 /** Start a "next" quest by object (commonly used after completing current) */
 function qStartNext(prevId: string, next: Quest) {
   const list = qRead();
-  // complete prev if still not marked
   for (const q of list) if (q.id === prevId && q.status !== "completed") { q.status = "completed"; q.progress = 100; }
-  // exclusive active
   for (const q of list) if (q.status === "active") q.status = "available";
 
-  // add or replace next
   const i = list.findIndex(q => q.id === next.id);
   if (i >= 0) list[i] = { ...list[i], ...next, status: "active", progress: next.progress ?? 0 };
   else list.push({ ...next, status: "active", progress: next.progress ?? 0 });
@@ -203,7 +201,7 @@ qHudRender();
    ACTIVE QUEST WIDGETS (auto-bind across all pages)
    ========================================================= */
 /*
-  Markup this expects (any/all are optional):
+Expected markup (optional):
   <div class="vaq-box" id="activeQuestBox">
     <div class="vaq-title"></div>
     <div class="vaq-desc"></div>
@@ -219,14 +217,18 @@ function __vaq_findBoxes(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>(".vaq-box, #activeQuest, #activeQuestBox"));
 }
 
+let __rendering = false;
 function __vaq_renderBoxes() {
+  if (__rendering) return; // throttle re-entry during same tick
+  __rendering = true;
+  requestAnimationFrame(() => { __rendering = false; });
+
   const boxes = __vaq_findBoxes();
   if (!boxes.length) return;
 
-  // ensure quest state before reading
-  try { (window as any).VAQ?.ensureQuestState?.(); } catch {}
-
+  // IMPORTANT: do NOT call qEnsure() here; it fires qWrite() -> event -> this function.
   const active = (window as any).VAQ?.active?.() || null;
+
   for (const box of boxes) {
     const title = box.querySelector<HTMLElement>(".vaq-title,#aqTitle");
     const desc  = box.querySelector<HTMLElement>(".vaq-desc,#aqDesc");
@@ -235,10 +237,7 @@ function __vaq_renderBoxes() {
     const pb    = box.querySelector<HTMLElement>(".vaq-progress-bar,#aqProgBar");
     const travel= box.querySelector<HTMLAnchorElement>(".vaq-travel,#aqTravel");
 
-    if (!active) {
-      box.setAttribute("hidden","true");
-      continue;
-    }
+    if (!active) { box.setAttribute("hidden","true"); continue; }
 
     box.removeAttribute("hidden");
     if (title) title.textContent = active.title || "—";
@@ -251,13 +250,11 @@ function __vaq_renderBoxes() {
     if (pv)    pv.textContent = String(prog);
     if (pb)    (pb as HTMLElement).style.width = prog + "%";
 
-    // Handle "Travel" button only for the travel quest
     if (travel) {
       const showTravel = active.id === "q_travel_home" && active.status !== "completed";
       travel.style.display = showTravel ? "inline-block" : "none";
 
       if (showTravel) {
-        // pick destination from race
         const race = (localStorage.getItem("va_race") || "").toLowerCase();
         const dest =
           race === "myriador"  ? "/myriadormap.html"  :
@@ -275,15 +272,12 @@ function __vaq_renderBoxes() {
   }
 }
 
-// Re-render on quest changes and lifecycle events
 window.addEventListener("va-quest-updated", __vaq_renderBoxes);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) __vaq_renderBoxes(); });
 window.addEventListener("pageshow", __vaq_renderBoxes);
 window.addEventListener("storage", (e) => {
   if (e.key === "va_quests" || e.key === "va_race") __vaq_renderBoxes();
 });
-
-// First paint
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", __vaq_renderBoxes, { once: true });
 } else {
@@ -313,7 +307,6 @@ if (document.readyState === "loading") {
     onEnd?: () => void;
   };
 
-  // --- minimal DOM shell ---
   function ensureDom(): HTMLElement {
     let el = document.getElementById(DIALOG_ID) as HTMLElement | null;
     if (!el) {
@@ -343,6 +336,8 @@ if (document.readyState === "loading") {
     }
     return el!;
   }
+
+  type DialogueNodeMap = Record<string, DialogueNode>;
 
   function setPortrait(url?: string) {
     const box = document.getElementById("vaDialoguePortrait") as HTMLElement | null;
@@ -381,10 +376,7 @@ if (document.readyState === "loading") {
     for (const ch of choices) {
       mk(ch.text, () => {
         try { ch.onPick?.(); } catch {}
-        if (ch.reward) {
-          // Hook for backend later; for now you can process on the map or via window.dev helpers
-          // Example: (window as any).dev.gold({ add: ch.reward.gold || 0 })
-        }
+        if (ch.reward) { /* hook later */ }
         if (ch.close) { close(); return; }
         nextLoader(ch.next);
       });
@@ -401,9 +393,7 @@ if (document.readyState === "loading") {
     if (el) el.style.display = "none";
   }
 
-  // --- registry for quick quest→dialog mapping (you can expand freely) ---
-  const NODES: Record<string, DialogueNode> = {
-    // Placeholder wizard dialogue
+  const NODES: DialogueNodeMap = {
     "q_find_dreadheim_wizard:intro": {
       id: "q_find_dreadheim_wizard:intro",
       title: "Mysterious Wizard",
@@ -445,14 +435,12 @@ if (document.readyState === "loading") {
         {
           text: "Accept",
           onPick: () => {
-            // Example: activate a follow-up quest here when you add it
             // (window as any).VAQ?.setActive?.("q_hunt_wolves");
           },
           close: true
         },
         { text: "Maybe later", close: true }
       ],
-      onEnd: () => { /* optional */ },
     },
   };
 
@@ -469,14 +457,11 @@ if (document.readyState === "loading") {
     setChoices(node.choices || [], showDialogueNode, () => { try { node.onEnd?.(); } catch {} });
   }
 
-  // Public API
   (window as any).VADialogue = {
     openNode: showDialogueNode,
     close,
     register(id: string, node: DialogueNode) { NODES[id] = node; },
   };
-
-  // Convenience alias for quick calls
   (window as any).showQuestDialogue = showDialogueNode;
 })();
 
@@ -488,31 +473,25 @@ if (document.readyState === "loading") {
     const pending = localStorage.getItem("va_pending_travel") === "1";
     if (!pending) return;
 
-    // consume the flag
     localStorage.removeItem("va_pending_travel");
 
-    // make sure quests exist
     (window as any).VAQ?.ensureQuestState?.();
 
-    // complete Travel
     (window as any).VAQ?.complete?.("q_travel_home");
 
-    // if Dreadheim, set Wizard as the active quest
     const race = (localStorage.getItem("va_race") || "").toLowerCase();
     if (race === "dreadheim") {
       (window as any).VAQ?.setActive?.("q_find_dreadheim_wizard");
     }
 
-    // refresh HUD + notify listeners
     (window as any).VAQ?.renderHUD?.();
     window.dispatchEvent(new CustomEvent("va-quest-updated"));
   } catch {}
 })();
 
 /* =========================================================
-   GLOBAL SFX — Gender-aware hurt sounds
+   GLOBAL SFX — Gender-aware hurt & battle sounds
    ========================================================= */
-// Preload once and reuse (no new Audio on every hit)
 const __vaSFX = {
   femaleHurt: new Audio("/guildbook/sfx/femalehurt.mp3"),
   maleHurt:   new Audio("/guildbook/sfx/malehurt.mp3"),
@@ -520,47 +499,21 @@ const __vaSFX = {
 __vaSFX.femaleHurt.preload = "auto";
 __vaSFX.maleHurt.preload   = "auto";
 
-function __playFemaleHurt(): void {
-  const a = __vaSFX.femaleHurt; if (!a) return;
-  a.currentTime = 0; a.volume = 0.9;
-  a.play().catch(() => {});
-}
-function __playMaleHurt(): void {
-  const a = __vaSFX.maleHurt; if (!a) return;
-  a.currentTime = 0; a.volume = 0.9;
-  a.play().catch(() => {});
-}
-/** Gender-aware wrapper (pick by va_gender) */
-function __playHeroHurt(): void {
-  const g = localStorage.getItem("va_gender");
-  if (g === "female") __playFemaleHurt(); else __playMaleHurt();
-}
-// Expose to any page / script
+function __playFemaleHurt(): void { const a = __vaSFX.femaleHurt; a.currentTime = 0; a.volume = 0.9; a.play().catch(()=>{}); }
+function __playMaleHurt(): void   { const a = __vaSFX.maleHurt;   a.currentTime = 0; a.volume = 0.9; a.play().catch(()=>{}); }
+function __playHeroHurt(): void   { const g = localStorage.getItem("va_gender"); g === "female" ? __playFemaleHurt() : __playMaleHurt(); }
 (window as any).playFemaleHurt = __playFemaleHurt;
 (window as any).playMaleHurt   = __playMaleHurt;
 (window as any).playHeroHurt   = __playHeroHurt;
 
-/* =========================================================
-   GLOBAL SFX — Battle End Sounds (Victory / Defeat)
-   ========================================================= */
 const __vaBattleSFX = {
   victory: new Audio("/guildbook/sfx/battlevictory.mp3"),
   fail:    new Audio("/guildbook/sfx/fightfail.mp3"),
 };
 __vaBattleSFX.victory.preload = "auto";
 __vaBattleSFX.fail.preload    = "auto";
-
-function __playVictory(): void {
-  const a = __vaBattleSFX.victory;
-  a.currentTime = 0; a.volume = 0.9;
-  a.play().catch(() => {});
-}
-function __playDefeat(): void {
-  const a = __vaBattleSFX.fail;
-  a.currentTime = 0; a.volume = 0.9;
-  a.play().catch(() => {});
-}
-// expose globally
+function __playVictory(): void { const a = __vaBattleSFX.victory; a.currentTime = 0; a.volume = 0.9; a.play().catch(()=>{}); }
+function __playDefeat(): void  { const a = __vaBattleSFX.fail;    a.currentTime = 0; a.volume = 0.9; a.play().catch(()=>{}); }
 (window as any).playVictory = __playVictory;
 (window as any).playDefeat  = __playDefeat;
 
@@ -583,13 +536,11 @@ function currentSkillIconMap() {
   };
   return g === "female" ? femaleIcons : maleIcons;
 }
-
 (window as any).getSkillIcon = function (key: string): string {
   const map = currentSkillIconMap();
   return map[key] || "";
 };
 
-// Inject skill icons into any page that has #skillbar .skill
 function ensureSkillIconsOnPage() {
   const skillEls = Array.from(document.querySelectorAll<HTMLDivElement>("#skillbar .skill"));
   if (!skillEls.length) return;
@@ -613,22 +564,17 @@ function ensureSkillIconsOnPage() {
       else div.prepend(img);
     }
 
-    // Don’t double-prefix; allow absolute or root-relative
     if (img.src !== want && !img.src.endsWith(want)) {
       img.style.display = "";
       img.src = want;
     }
   });
 }
-
-// Re-run icon injection when gender changes
 window.addEventListener("va-gender-changed", (ev: any) => {
   const g = (ev?.detail as string) || localStorage.getItem("va_gender") || "male";
   document.body?.setAttribute("data-gender", g);
   ensureSkillIconsOnPage();
 });
-
-// Also try once on load (in case battle pages loaded first)
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", ensureSkillIconsOnPage, { once: true });
 } else {
@@ -663,7 +609,6 @@ if (document.readyState === "loading") {
   s.textContent = css;
   document.head.appendChild(s);
 })();
-
 function ensureBagButton() {
   if (document.getElementById("vaBagBtn")) return;
 
@@ -678,10 +623,7 @@ function ensureBagButton() {
   `;
   document.body.appendChild(btn);
 
-  // Ignore any key events that might slip through on the button
   btn.addEventListener("keydown", (e) => e.preventDefault());
-
-  // Only this click path is allowed to toggle the bag
   btn.addEventListener("click", () => {
     try { (window as any).__va_openBagFromClick?.(); } catch {}
     clearUnseenBadge();
@@ -703,7 +645,6 @@ function currentUserId(): string {
   } catch {}
   return "guest";
 }
-
 function unseenKey() { return `va_bag_unseen__${currentUserId()}`; }
 function getUnseen(): number {
   return Math.max(0, parseInt(localStorage.getItem(unseenKey()) || "0", 10) || 0);
@@ -713,7 +654,6 @@ function setUnseen(n: number) {
   localStorage.setItem(unseenKey(), String(v));
   renderBadge();
 }
-
 function renderBadge() {
   const badge = document.getElementById("vaBagBadge") as HTMLElement | null;
   if (!badge) return;
@@ -727,7 +667,6 @@ function renderBadge() {
   }
 }
 function clearUnseenBadge() { setUnseen(0); }
-
 window.addEventListener("pageshow", renderBadge);
 window.addEventListener("focus", renderBadge);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) renderBadge(); });
@@ -740,8 +679,6 @@ try { Inventory.init(); } catch { /* already inited is fine */ }
 /* =========================================================
    SHARED MAP/BAG UTILITIES
    ========================================================= */
-
-// 1) Fix stack number layering (qty bubbles should sit on top)
 function fixQtyLayers() {
   document
     .querySelectorAll(
@@ -766,8 +703,6 @@ function fixQtyLayers() {
     } as CSSStyleDeclaration);
   });
 }
-
-// 2) Mouse-only inventory: disable keyboard focus inside the bag
 function disableInventoryKeyboard() {
   const root =
     (document.querySelector("#inventory, .inventory, .inventory-panel, #bag, .bag-panel") as HTMLElement | null)
@@ -786,8 +721,6 @@ function disableInventoryKeyboard() {
     (document.activeElement as HTMLElement).blur?.();
   }
 }
-
-// 3) After-open hook: fix layers, observe changes, clear badge, and disable keyboard
 function afterInventoryOpen() {
   setTimeout(() => {
     fixQtyLayers();
@@ -814,7 +747,6 @@ function afterInventoryOpen() {
   const invAny = Inventory as any;
   let isOpen = false;
 
-  // === Gate: allow open/show/toggle ONLY when explicitly set by our bag button click
   let __bagGate = false;
   (window as any).__va_openBagFromClick = () => {
     __bagGate = true;
@@ -822,20 +754,18 @@ function afterInventoryOpen() {
       if (typeof invAny?.toggle === "function") invAny.toggle();
       else if (typeof invAny?.open === "function") invAny.open();
     } finally {
-      __bagGate = false; // always reset
+      __bagGate = false;
     }
   };
 
-  // Wrap helper
   const wrap = (name: string, handler: (orig: Function, ...args: any[]) => any) => {
     if (typeof invAny?.[name] !== "function") return;
     const orig = invAny[name].bind(Inventory);
     invAny[name] = (...args: any[]) => handler(orig, ...args);
   };
 
-  // Block ALL non-click attempts to open/show/toggle
   wrap("open", (orig, ...args) => {
-    if (!__bagGate) return; // ignore non-click opens
+    if (!__bagGate) return;
     const r = orig(...args);
     isOpen = true;
     afterInventoryOpen();
@@ -843,7 +773,7 @@ function afterInventoryOpen() {
   });
 
   wrap("show", (orig, ...args) => {
-    if (!__bagGate) return; // ignore non-click shows
+    if (!__bagGate) return;
     const r = orig(...args);
     isOpen = true;
     afterInventoryOpen();
@@ -851,22 +781,20 @@ function afterInventoryOpen() {
   });
 
   wrap("toggle", (orig, ...args) => {
-    if (!__bagGate) return; // ignore non-click toggles
+    if (!__bagGate) return;
     const r = orig(...args);
-    isOpen = !isOpen; // infer new state
+    isOpen = !isOpen;
     if (isOpen) afterInventoryOpen();
     else clearUnseenBadge();
     return r;
   });
 
-  // Allow CLOSE from anywhere (UI close button, your own ESC handler, etc.)
   wrap("close", (orig, ...args) => {
     const r = orig(...args);
     isOpen = false;
     return r;
   });
 
-  // When items get added and bag is closed, bump unseen badge counter
   if (typeof invAny?.add === "function") {
     const origAdd = invAny.add.bind(Inventory);
     invAny.add = (...args: any[]) => {
@@ -876,7 +804,6 @@ function afterInventoryOpen() {
     };
   }
 
-  // Also clear the badge if the floating bag button is clicked (redundant but safe)
   const bagBtn = document.querySelector<HTMLElement>("#vaBagBtn, .bag, .inventory-button");
   if (bagBtn) bagBtn.addEventListener("click", () => setTimeout(afterInventoryOpen, 0));
 })();
@@ -901,12 +828,12 @@ document.addEventListener("keydown", (e) => {
   style.textContent = `#vaBagBtn{ top:auto !important; bottom:16px !important; }`;
   document.head.appendChild(style);
 })();
-
 (() => {
   const style = document.createElement("style");
   style.textContent = `#log { bottom: 150px !important; }`;
   document.head.appendChild(style);
 })();
+
 
 
 
