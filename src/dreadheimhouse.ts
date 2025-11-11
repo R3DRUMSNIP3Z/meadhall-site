@@ -366,6 +366,7 @@ function getPlayerName(): string {
   return "traveler";
 }
 
+
 /* =========================================================
    INTERACTIVE WIZARD FLOW (catalog-first)
    ========================================================= */
@@ -379,22 +380,32 @@ async function startWizardDialogue() {
 
   if (q && Array.isArray(q.dialogue) && q.dialogue.length) {
     runCatalogDialogue(q as CatalogQuest, () => {
-      try { (window as any).VAQ?.renderHUD?.(); } catch {}
-      setTimeout(() => { wizardLocked = false; }, 300);
+      try {
+        // 🧾 Show parchment signature animation (reward or quest start)
+        if (typeof (window as any).showParchmentSignature === "function") {
+          (window as any).showParchmentSignature("wizardscroll");
+        }
+
+        // 🧙 Re-render the quest HUD after completing the dialogue
+        (window as any).VAQ?.renderHUD?.();
+      } catch (err) {
+        console.warn("Wizard post-dialogue hook failed:", err);
+      } finally {
+        // 🔓 Unlock interaction again after short delay
+        setTimeout(() => { wizardLocked = false; }, 300);
+      }
     });
     return;
   }
 
-  // Fallback text (only if catalog missing)
-  const playerName = getPlayerName();
-  const lines = [
-    `Old Seer: "Ah... greetings, ${playerName}. I see you've been marked as a Dreadheimer."`,
-    `Old Seer: "*tsk tsk tsk* ... a grim fate indeed."`,
-    `Old Seer: "Go now, to the Dreadheim Outskirts. Seek Skarthra the Pale."`,
-  ];
-  showDialogue(lines, 0);
-  setTimeout(() => showParchmentSignature(), 400);
+  // --- Fallback (no catalog dialogue defined)
+  (window as any).VADialogue?.openNode?.("q_find_dreadheim_wizard:intro");
+  if (typeof (window as any).showParchmentSignature === "function") {
+    (window as any).showParchmentSignature("wizardscroll");
+  }
+  setTimeout(() => { wizardLocked = false; }, 300);
 }
+
 
 /* =========================================================
    PARCHMENT SIGNATURE → COMPLETE QUEST (with fail-safe close)
@@ -443,8 +454,12 @@ function showParchmentSignature() {
   closeBtn.addEventListener("click", () => {
     paper.remove();
     setTimeout(() => { wizardLocked = false; }, 200);
+
   });
+
 }
+(window as any).showParchmentSignature = showParchmentSignature;
+
 
 function finishWizardQuest() {
   try {
