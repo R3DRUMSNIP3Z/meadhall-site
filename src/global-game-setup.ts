@@ -865,6 +865,14 @@ document.addEventListener("keydown", (e) => {
   style.textContent = `#log { bottom: 150px !important; }`;
   document.head.appendChild(style);
 })();
+(() => {
+  try {
+    (window as any).VAQ?.ensureQuestState?.();
+    (window as any).VAQ?.renderHUD?.();
+  } catch (err) {
+    console.warn("VAQ HUD auto-init skipped:", err);
+  }
+})();
 
 
 
