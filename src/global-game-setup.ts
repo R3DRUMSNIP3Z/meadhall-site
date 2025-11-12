@@ -67,7 +67,7 @@ function qWrite(list: Quest[], forceEmit = false) {
 type Vars = {
   race?: string;                 // "dreadheim"|"myriador"|"wildwood"
   travelCompleted?: boolean;     // set after travel
-  wizardParchmentSigned?: boolean; // set after parchment signature
+  wizardParchmentSigned?: boolean; // set after parchment signature or scroll in bag
   [k: string]: any;
 };
 function readVars(): Vars {
@@ -76,6 +76,51 @@ function readVars(): Vars {
 }
 function writeVars(v: Vars) {
   localStorage.setItem(VARS_KEY, JSON.stringify(v));
+}
+
+/** Helper: ensure only one active; if none active, pick a preferred one */
+function ensureSingleActiveAndAutoPick(map: Record<string, Quest>, v: Vars) {
+  // Keep only one active
+  let activeCount = 0;
+  for (const q of Object.values(map)) if (q.status === "active") activeCount++;
+  if (activeCount > 1) {
+    // demote extras to available, keep the first encountered
+    let kept = false;
+    for (const q of Object.values(map)) {
+      if (q.status === "active") {
+        if (!kept) { kept = true; }
+        else q.status = "available";
+      }
+    }
+  }
+
+  const currentActive = Object.values(map).find(q => q.status === "active");
+
+  if (!currentActive) {
+    const race = (v.race || localStorage.getItem(RACE_KEY) || "").toLowerCase();
+
+    // Priority order:
+    // 1) Travel if race is chosen but not completed
+    if (race && map["q_travel_home"]?.status !== "completed") {
+      map["q_travel_home"].status = "active";
+      return;
+    }
+    // 2) Wizard if Dreadheim, travel done, wizard not completed
+    if (race === "dreadheim"
+      && (v.travelCompleted || map["q_travel_home"]?.status === "completed")
+      && map["q_find_dreadheim_wizard"]
+      && map["q_find_dreadheim_wizard"].status !== "completed") {
+      map["q_find_dreadheim_wizard"].status = "active";
+      return;
+    }
+    // 3) Witch if parchment signed (or wizard completed) and witch not completed
+    if ((v.wizardParchmentSigned || map["q_find_dreadheim_wizard"]?.status === "completed")
+      && map["q_find_dreadheim_witch"]
+      && map["q_find_dreadheim_witch"].status !== "completed") {
+      map["q_find_dreadheim_witch"].status = "active";
+      return;
+    }
+  }
 }
 
 /**
@@ -109,7 +154,7 @@ function applyRulesOnce(): void {
     qMain.status = "completed"; qMain.progress = 100;
   }
 
-  // 2) Travel chain: if race picked but travel not done, make Travel active
+  // 2) Travel chain: if race picked but travel not done, prefer Travel as active
   if (race && qTravel.status !== "completed") {
     // only one active at a time
     for (const q of Object.values(map)) if (q.status === "active") q.status = "available";
@@ -129,6 +174,9 @@ function applyRulesOnce(): void {
   if (v.wizardParchmentSigned || qWiz.status === "completed") {
     if (qWitch.status === "locked") qWitch.status = "available";
   }
+
+  // 5) If nothing is active, auto-pick best next
+  ensureSingleActiveAndAutoPick(map, v);
 
   qWrite(Object.values(map));
 }
@@ -356,11 +404,10 @@ function getQuestFromCatalog(id: string): CatalogQuest | null {
     }
 
     if (a.type === "completeQuest") {
-      // If the active is the wizard quest, show parchment signature first
       const cur = (window as any).VAQ?.active?.();
       const proceed = () => {
         if (cur) (window as any).VAQ?.complete?.(cur.id);
-        // Unlock/advance via rules (also unlock witch, etc.)
+        // Unlock/advance via rules
         applyRulesOnce();
 
         // Rewards from the parent quest (if any)
@@ -403,7 +450,6 @@ function getQuestFromCatalog(id: string): CatalogQuest | null {
       setChoices(node.choices, show, onClose);
     }
 
-    // Prefer "start"; fallback to first node id
     const startNodeId = q.dialogue?.find(n => n.id === "start")?.id || q.dialogue?.[0]?.id || "start";
     show(startNodeId);
   }
@@ -618,6 +664,23 @@ window.addEventListener("va-gender-changed", (ev: any) => {
    INVENTORY + BAG + BADGE
    ========================================================= */
 try { Inventory.init(); } catch {}
+
+/* ===== NEW: poll inventory → set wizardParchmentSigned when scroll is present ===== */
+function scanInventoryForQuestVars() {
+  try {
+    const items = (window as any).Inventory?.get?.() || [];
+    const hasScroll = items.some((it: any) => it?.id === "wizardscroll" && (it.qty ?? 0) > 0);
+    const v = readVars();
+    if (hasScroll && !v.wizardParchmentSigned) {
+      v.wizardParchmentSigned = true;
+      writeVars(v);
+      applyRulesOnce();
+      qHudRender();
+      __vaq_renderBoxes();
+      window.dispatchEvent(new CustomEvent("va-quest-updated"));
+    }
+  } catch {}
+}
 
 (window as any).__va_onItemClick = function (itemId: string) {
   if (itemId === "wizardscroll") {
@@ -855,6 +918,15 @@ if (document.readyState === "loading") {
   __vaq_renderBoxes();
 }
 loadCatalog().catch(()=>{});
+
+/* ===== NEW: gentle quest tick (inventory → vars → rules → HUD) ===== */
+setInterval(() => {
+  scanInventoryForQuestVars();   // sets wizardParchmentSigned if scroll exists
+  applyRulesOnce();              // updates quest states and auto-picks next if needed
+  qHudRender();                  // refresh HUD
+  __vaq_renderBoxes();           // refresh any quest widgets
+}, 1500);
+
 
 
 
