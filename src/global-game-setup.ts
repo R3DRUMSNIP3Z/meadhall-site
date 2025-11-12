@@ -1,11 +1,11 @@
 // /src/global-game-setup.ts
-// Runs on every game page that includes it
+// Unified global bootstrap for VA (quests, catalog, HUD, inventory, SFX, etc.)
 
 import { Inventory } from "./inventory";
 (window as any).Inventory = Inventory;
 
 /* =========================================================
-   GENDER + GLOBAL SPRITES
+   GENDER + UNIVERSAL HERO SPRITE
    ========================================================= */
 if (!localStorage.getItem("va_gender")) {
   localStorage.setItem("va_gender", "male");
@@ -20,20 +20,23 @@ document.body?.setAttribute("data-gender", localStorage.getItem("va_gender") || 
 };
 
 /* =========================================================
-   QUEST STORAGE (localStorage) + SAFE WRITE
+   KEYS / TYPES
    ========================================================= */
-const VAQ_KEY = "va_quests";
-const RACE_KEY = "va_race";
+const VAQ_KEY   = "va_quests";
+const RACE_KEY  = "va_race";
+const VARS_KEY  = "va_vars";
 
 type QStatus = "available" | "active" | "completed" | "locked";
 type Quest = { id: string; title: string; desc: string; status: QStatus; progress?: number };
 
+/* =========================================================
+   QUEST STORAGE (safe write + debounced event)
+   ========================================================= */
 function qRead(): Quest[] {
   try { return JSON.parse(localStorage.getItem(VAQ_KEY) || "[]"); }
   catch { return []; }
 }
 
-// Guard re-entrancy + debounce the event to avoid recursion
 let __qWriteBusy = false;
 let __emitQueued = false;
 function qWrite(list: Quest[], forceEmit = false) {
@@ -45,7 +48,6 @@ function qWrite(list: Quest[], forceEmit = false) {
     try { localStorage.setItem(VAQ_KEY, next); } catch {}
     return;
   }
-
   __qWriteBusy = true;
   try { localStorage.setItem(VAQ_KEY, next); } catch (e) { console.warn("qWrite failed:", e); }
   __qWriteBusy = false;
@@ -60,56 +62,32 @@ function qWrite(list: Quest[], forceEmit = false) {
 }
 
 /* =========================================================
-   CATALOG (dialogue + rules) — /guildbook/catalogquests.json
+   VARS ENGINE (catalog-driven autoprogress)
    ========================================================= */
-type CatalogAction =
-  | { type: "setVars"; set: Record<string, any> }
-  | { type: "completeQuest"; nextId?: string };
-
-type CatalogNode = {
-  id: string;
-  speaker?: string;
-  text?: string;
-  // choices win over next; if no choices and a "next" exists, auto-advance with Continue
-  choices?: { text: string; next?: string }[];
-  next?: string;
-  action?: CatalogAction;
+type Vars = {
+  race?: string;                 // "dreadheim"|"myriador"|"wildwood"
+  travelCompleted?: boolean;     // set after travel
+  wizardParchmentSigned?: boolean; // set after parchment signature
+  [k: string]: any;
 };
-
-type CatalogQuest = {
-  id: string;
-  title: string;
-  desc: string;
-  dialogue?: CatalogNode[];
-  rewards?: any; // future: gold, brisingr, items, etc
-};
-
-type Catalog = { quests: CatalogQuest[] };
-
-let CATALOG: Catalog | null = null;
-
-async function loadCatalog(): Promise<Catalog> {
-  if (CATALOG) return CATALOG;
-  const res = await fetch("/guildbook/catalogquests.json", { cache: "no-cache" });
-  const json = (await res.json()) as Catalog;
-  CATALOG = json;
-  return json;
+function readVars(): Vars {
+  try { return JSON.parse(localStorage.getItem(VARS_KEY) || "{}"); }
+  catch { return {}; }
+}
+function writeVars(v: Vars) {
+  localStorage.setItem(VARS_KEY, JSON.stringify(v));
 }
 
-function getQuestFromCatalog(id: string): CatalogQuest | null {
-  if (!CATALOG) return null;
-  return CATALOG.quests.find(q => q.id === id) || null;
-}
-
-/* =========================================================
-   QUEST ENSURE + BASIC GRAPH (Main → Travel → Wizard → Witch)
-   ========================================================= */
-function qEnsure() {
+/**
+ * Apply global rules to quests based on vars.
+ * Keeps things “automatic” so catalog actions can just set flags.
+ */
+function applyRulesOnce(): void {
+  const v = readVars();
   const list = qRead();
   const map: Record<string, Quest> = Object.fromEntries(list.map(q => [q.id, q]));
-  const race = (localStorage.getItem(RACE_KEY) || "").toLowerCase();
 
-  // seed
+  // seed baseline quests if missing
   if (!map["q_main_pick_race"])
     map["q_main_pick_race"] = { id:"q_main_pick_race", title:"Choose Your Path", desc:"Pick your homeland.", status:"available", progress:0 };
   if (!map["q_travel_home"])
@@ -124,28 +102,40 @@ function qEnsure() {
   const qWiz    = map["q_find_dreadheim_wizard"];
   const qWitch  = map["q_find_dreadheim_witch"];
 
-  // race selection completes main
-  if (race && qMain.status !== "completed") { qMain.status = "completed"; qMain.progress = 100; }
+  const race = (v.race || localStorage.getItem(RACE_KEY) || "").toLowerCase();
 
-  // wizard unlocked only after travel completed for dreadheim
-  if (race === "dreadheim" && qTravel.status === "completed" && qWiz.status === "locked") {
-    qWiz.status = "available";
+  // 1) Choosing a race completes main
+  if (race && qMain.status !== "completed") {
+    qMain.status = "completed"; qMain.progress = 100;
   }
 
-  // witch becomes available after wizard completed
-  if (qWiz.status === "completed" && qWitch.status === "locked") {
-    qWitch.status = "available";
-  }
-
-  // if race chosen but travel not completed, auto-activate travel
+  // 2) Travel chain: if race picked but travel not done, make Travel active
   if (race && qTravel.status !== "completed") {
+    // only one active at a time
     for (const q of Object.values(map)) if (q.status === "active") q.status = "available";
     qTravel.status = "active";
+  }
+
+  // 3) Wizard unlocks only after travel completed (for dreadheim path)
+  if (race === "dreadheim" && (v.travelCompleted || qTravel.status === "completed")) {
+    if (qWiz.status === "locked") qWiz.status = "available";
+  } else {
+    if (qWiz.status !== "completed" && qWiz.status !== "locked") {
+      qWiz.status = "locked"; qWiz.progress = 0;
+    }
+  }
+
+  // 4) Witch unlocks after wizard parchment is signed / wizard completed
+  if (v.wizardParchmentSigned || qWiz.status === "completed") {
+    if (qWitch.status === "locked") qWitch.status = "available";
   }
 
   qWrite(Object.values(map));
 }
 
+/* =========================================================
+   BASIC QUEST HELPERS
+   ========================================================= */
 function qSetActive(id: string) {
   const list = qRead();
   let changed = false;
@@ -158,18 +148,15 @@ function qSetActive(id: string) {
   }
   if (changed) qWrite(list);
 }
-
 function qComplete(id: string) {
   const list = qRead();
   for (const q of list) if (q.id === id) { q.status = "completed"; q.progress = 100; }
   qWrite(list);
 }
-
 function qActive(): Quest | null {
   const list = qRead();
   return list.find(q => q.status === "active") || null;
 }
-
 function qStartNext(prevId: string, next: Quest) {
   const list = qRead();
   for (const q of list) if (q.id === prevId) { q.status = "completed"; q.progress = 100; }
@@ -181,102 +168,55 @@ function qStartNext(prevId: string, next: Quest) {
 }
 
 /* =========================================================
-   HUD (bottom-left) — tiny overlay
+   CATALOG LOADER (expects /guildbook/catalogquests.json)
    ========================================================= */
-let hud: HTMLDivElement | null = null;
-function qHudEnsure() {
-  if (hud) return;
-  hud = document.createElement("div");
-  hud.id = "vaQuestHUD";
-  hud.style.cssText = `
-    position:fixed; left:16px; bottom:16px; z-index:99998;
-    max-width:360px; padding:10px 12px; border-radius:12px;
-    background:rgba(0,0,0,.55); color:#fff;
-    border:1px solid rgba(255,255,255,.15); backdrop-filter: blur(4px);
-    font:13px/1.35 ui-sans-serif,system-ui; box-shadow:0 8px 24px rgba(0,0,0,.35);
-    pointer-events:none;
-  `;
-  document.body.appendChild(hud);
+type CatalogAction =
+  | { type: "setVars"; set: Record<string, any> }
+  | { type: "completeQuest"; nextId?: string };
+
+type CatalogNode = {
+  id: string;
+  speaker?: string;
+  text?: string;
+  choices?: { text: string; next?: string }[];
+  next?: string;
+  action?: CatalogAction;
+};
+
+type CatalogQuest = {
+  id: string;
+  title: string;
+  desc: string;
+  rewards?: {
+    gold?: number;
+    brisingr?: number;
+    items?: { id: string; name: string; image: string; qty?: number }[];
+  };
+  dialogue?: CatalogNode[];
+};
+
+type Catalog = { quests: CatalogQuest[] };
+
+let CATALOG: Catalog | null = null;
+
+async function loadCatalog(): Promise<Catalog> {
+  if (CATALOG) return CATALOG;
+  // 🔁 change path here if your filename differs
+  const res = await fetch("/guildbook/catalogquests.json", { cache: "no-cache" });
+  const json = (await res.json()) as Catalog;
+  CATALOG = json;
+  return json;
 }
-function qHudRender() {
-  qHudEnsure();
-  const q = qActive();
-  if (!hud) return;
-  if (!q) { hud.style.display = "none"; return; }
-  hud.style.display = "block";
-  hud.innerHTML = `
-    <div style="opacity:.85; font-weight:700; margin-bottom:2px;">Active Quest</div>
-    <div style="font-weight:700;">${q.title}</div>
-    <div style="opacity:.9;">${q.desc}</div>
-    <div style="opacity:.6; font-size:12px; margin-top:4px;">Tip: Press <b>E</b> when prompted</div>
-  `;
+function getQuestFromCatalog(id: string): CatalogQuest | null {
+  if (!CATALOG) return null;
+  return CATALOG.quests.find(q => q.id === id) || null;
 }
+// add this line right after the function:
+(window as any).getQuestFromCatalog = getQuestFromCatalog;
+
 
 /* =========================================================
-   ACTIVE QUEST WIDGETS (auto-bind on any page)
-   ========================================================= */
-function __vaq_findBoxes(): HTMLElement[] {
-  return Array.from(document.querySelectorAll<HTMLElement>(".vaq-box, #activeQuest, #activeQuestBox"));
-}
-
-let __renderingBoxes = false;
-function __vaq_renderBoxes() {
-  if (__renderingBoxes) return;
-  __renderingBoxes = true;
-  requestAnimationFrame(() => { __renderingBoxes = false; });
-
-  const boxes = __vaq_findBoxes();
-  if (!boxes.length) return;
-
-  const active = (window as any).VAQ?.active?.() || null;
-  for (const box of boxes) {
-    const title = box.querySelector<HTMLElement>(".vaq-title,#aqTitle");
-    const desc  = box.querySelector<HTMLElement>(".vaq-desc,#aqDesc");
-    const stat  = box.querySelector<HTMLElement>(".vaq-status,#aqStatus");
-    const pv    = box.querySelector<HTMLElement>(".vaq-progress-val,#aqProgVal");
-    const pb    = box.querySelector<HTMLElement>(".vaq-progress-bar,#aqProgBar");
-    const travel= box.querySelector<HTMLAnchorElement>(".vaq-travel,#aqTravel");
-
-    if (!active) { box.setAttribute("hidden","true"); continue; }
-    box.removeAttribute("hidden");
-
-    if (title) title.textContent = active.title || "—";
-    if (desc)  desc.textContent  = active.desc  || "—";
-    if (stat)  stat.textContent  = `Status: ${active.status[0].toUpperCase()}${active.status.slice(1)}`;
-
-    const prog = Math.max(0, Math.min(100, Number(active.progress || 0)));
-    if (pv) pv.textContent = String(prog);
-    if (pb) (pb as HTMLElement).style.width = prog + "%";
-
-    if (travel) {
-      const showTravel = active.id === "q_travel_home" && active.status !== "completed";
-      travel.style.display = showTravel ? "inline-block" : "none";
-      if (showTravel) {
-        const race = (localStorage.getItem("va_race") || "").toLowerCase();
-        const dest =
-          race === "myriador" ? "/myriadormap.html" :
-          race === "wildwood" ? "/wildwoodmap.html" :
-                                 "/dreadheimmap.html";
-        travel.href = dest;
-        travel.onclick = (ev) => {
-          ev.preventDefault();
-          try { localStorage.setItem("va_pending_travel","1"); } catch {}
-          location.assign(dest);
-        };
-      }
-    }
-  }
-}
-
-window.addEventListener("va-quest-updated", __vaq_renderBoxes);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) __vaq_renderBoxes(); });
-window.addEventListener("pageshow", __vaq_renderBoxes);
-window.addEventListener("storage", (e) => {
-  if (e.key === VAQ_KEY || e.key === RACE_KEY) __vaq_renderBoxes();
-});
-
-/* =========================================================
-   SIMPLE DIALOGUE UI (for catalog nodes)
+   DIALOGUE UI + ACTIONS (uses catalog)
    ========================================================= */
 (function setupCatalogueDialogue() {
   const DIALOG_ID = "vaDialogue";
@@ -351,21 +291,91 @@ window.addEventListener("storage", (e) => {
     if (el) el.style.display = "none";
   }
 
-  function applyAction(a?: CatalogAction) {
+  /** Parchment signature overlay (calls cb after finish) */
+  function showParchmentSignature(cb?: () => void) {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `
+      position:fixed; inset:0; background:rgba(0,0,0,.75);
+      display:flex; align-items:center; justify-content:center; z-index:100001;
+    `;
+    overlay.innerHTML = `
+      <div style="position:relative">
+        <img src="/guildbook/loot/unsheathedscroll.png"
+             style="max-width:90vw; max-height:90vh; object-fit:contain; border-radius:8px;"
+             alt="Parchment">
+        <button id="sigBtn" style="
+          position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
+          border:1px solid rgba(212,169,77,.5); background:#12161a; color:#e7d7ab;
+          font:600 14px ui-sans-serif,system-ui; padding:8px 12px; border-radius:10px; cursor:pointer;
+        ">Sign</button>
+        <button id="xBtn" style="
+          position:absolute; top:10px; right:10px;
+          border:none; background:rgba(0,0,0,.6); color:#fff;
+          font:18px; padding:6px 10px; border-radius:8px; cursor:pointer;
+        ">×</button>
+      </div>
+    `;
+    const finish = () => { overlay.remove(); cb?.(); };
+    overlay.querySelector<HTMLButtonElement>("#sigBtn")!.onclick = finish;
+    overlay.querySelector<HTMLButtonElement>("#xBtn")!.onclick   = finish;
+    document.body.appendChild(overlay);
+
+    // flag var for rules
+    const v = readVars();
+    v.wizardParchmentSigned = true;
+    writeVars(v);
+    applyRulesOnce();
+    qHudRender();
+    __vaq_renderBoxes();
+  }
+  (window as any).showParchmentSignature = showParchmentSignature;
+
+  function grantRewards(r?: CatalogQuest["rewards"]) {
+    if (!r) return;
+    try {
+      if (r.items && r.items.length) {
+        for (const it of r.items) {
+          (window as any).Inventory?.add?.(it.id, it.name, it.image, it.qty ?? 1);
+        }
+      }
+      // gold/brisingr hooks can be added if your backend/game.ts supports them
+    } catch {}
+  }
+
+  function applyAction(a?: CatalogAction, parentQuest?: CatalogQuest) {
     if (!a) return;
+
     if (a.type === "setVars") {
-      const vars = JSON.parse(localStorage.getItem("va_vars") || "{}");
-      Object.assign(vars, a.set || {});
-      localStorage.setItem("va_vars", JSON.stringify(vars));
-      (window as any).VAQ?.renderHUD?.();
+      const v = readVars();
+      Object.assign(v, a.set || {});
+      writeVars(v);
+      applyRulesOnce();
+      qHudRender();
+      __vaq_renderBoxes();
       return;
     }
+
     if (a.type === "completeQuest") {
+      // If the active is the wizard quest, show parchment signature first
       const cur = (window as any).VAQ?.active?.();
-      if (cur) (window as any).VAQ?.complete?.(cur.id);
-      if (a.nextId) (window as any).VAQ?.setActive?.(a.nextId);
-      (window as any).VAQ?.renderHUD?.();
-      window.dispatchEvent(new CustomEvent("va-quest-updated"));
+      const proceed = () => {
+        if (cur) (window as any).VAQ?.complete?.(cur.id);
+        // Unlock/advance via rules (also unlock witch, etc.)
+        applyRulesOnce();
+
+        // Rewards from the parent quest (if any)
+        try { grantRewards(parentQuest?.rewards); } catch {}
+
+        if (a.nextId) (window as any).VAQ?.setActive?.(a.nextId);
+        (window as any).VAQ?.renderHUD?.();
+        window.dispatchEvent(new CustomEvent("va-quest-updated"));
+      };
+
+      if (cur?.id === "q_find_dreadheim_wizard") {
+        showParchmentSignature(proceed);
+      } else {
+        proceed();
+      }
     }
   }
 
@@ -383,7 +393,7 @@ window.addEventListener("storage", (e) => {
       setLines(node.text);
 
       const onClose = () => {
-        try { applyAction(node.action); } catch {}
+        try { applyAction(node.action, q); } catch {}
         if (node.next && (!node.choices || node.choices.length === 0)) {
           show(node.next);
         } else if (!node.choices || node.choices.length === 0) {
@@ -393,8 +403,8 @@ window.addEventListener("storage", (e) => {
       setChoices(node.choices, show, onClose);
     }
 
-    // Default entry is "start" else first node
-    const startNodeId = (q.dialogue && q.dialogue[0]?.id) || "start";
+    // Prefer "start"; fallback to first node id
+    const startNodeId = q.dialogue?.find(n => n.id === "start")?.id || q.dialogue?.[0]?.id || "start";
     show(startNodeId);
   }
 
@@ -403,7 +413,100 @@ window.addEventListener("storage", (e) => {
 })();
 
 /* =========================================================
-   TRAVEL HANDOFF: complete travel, activate wizard once
+   HUD (bottom-left)
+   ========================================================= */
+let hud: HTMLDivElement | null = null;
+function qHudEnsure() {
+  if (hud) return;
+  hud = document.createElement("div");
+  hud.id = "vaQuestHUD";
+  hud.style.cssText = `
+    position:fixed; left:16px; bottom:16px; z-index:99998;
+    max-width:360px; padding:10px 12px; border-radius:12px;
+    background:rgba(0,0,0,.55); color:#fff;
+    border:1px solid rgba(255,255,255,.15); backdrop-filter: blur(4px);
+    font:13px/1.35 ui-sans-serif,system-ui; box-shadow:0 8px 24px rgba(0,0,0,.35);
+    pointer-events:none;
+  `;
+  document.body.appendChild(hud);
+}
+function qHudRender() {
+  qHudEnsure();
+  const q = qActive();
+  if (!hud) return;
+  if (!q) { hud.style.display = "none"; return; }
+  hud.style.display = "block";
+  hud.innerHTML = `
+    <div style="opacity:.85; font-weight:700; margin-bottom:2px;">Active Quest</div>
+    <div style="font-weight:700;">${q.title}</div>
+    <div style="opacity:.9;">${q.desc}</div>
+    <div style="opacity:.6; font-size:12px; margin-top:4px;">Tip: Press <b>E</b> when prompted</div>
+  `;
+}
+
+/* =========================================================
+   ACTIVE QUEST WIDGETS (auto-bind)
+   ========================================================= */
+function __vaq_findBoxes(): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>(".vaq-box, #activeQuest, #activeQuestBox"));
+}
+let __renderingBoxes = false;
+function __vaq_renderBoxes() {
+  if (__renderingBoxes) return;
+  __renderingBoxes = true;
+  requestAnimationFrame(() => { __renderingBoxes = false; });
+
+  const boxes = __vaq_findBoxes();
+  if (!boxes.length) return;
+
+  const active = (window as any).VAQ?.active?.() || null;
+  for (const box of boxes) {
+    const title = box.querySelector<HTMLElement>(".vaq-title,#aqTitle");
+    const desc  = box.querySelector<HTMLElement>(".vaq-desc,#aqDesc");
+    const stat  = box.querySelector<HTMLElement>(".vaq-status,#aqStatus");
+    const pv    = box.querySelector<HTMLElement>(".vaq-progress-val,#aqProgVal");
+    const pb    = box.querySelector<HTMLElement>(".vaq-progress-bar,#aqProgBar");
+    const travel= box.querySelector<HTMLAnchorElement>(".vaq-travel,#aqTravel");
+
+    if (!active) { box.setAttribute("hidden","true"); continue; }
+    box.removeAttribute("hidden");
+
+    if (title) title.textContent = active.title || "—";
+    if (desc)  desc.textContent  = active.desc  || "—";
+    if (stat)  stat.textContent  = `Status: ${active.status[0].toUpperCase()}${active.status.slice(1)}`;
+
+    const prog = Math.max(0, Math.min(100, Number(active.progress || 0)));
+    if (pv) pv.textContent = String(prog);
+    if (pb) (pb as HTMLElement).style.width = prog + "%";
+
+    if (travel) {
+      const showTravel = active.id === "q_travel_home" && active.status !== "completed";
+      travel.style.display = showTravel ? "inline-block" : "none";
+      if (showTravel) {
+        const race = (localStorage.getItem(RACE_KEY) || readVars().race || "").toLowerCase();
+        const dest =
+          race === "myriador" ? "/myriadormap.html" :
+          race === "wildwood" ? "/wildwoodmap.html" :
+                                 "/dreadheimmap.html";
+        travel.href = dest;
+        travel.onclick = (ev) => {
+          ev.preventDefault();
+          try { localStorage.setItem("va_pending_travel","1"); } catch {}
+          location.assign(dest);
+        };
+      }
+    }
+  }
+}
+window.addEventListener("va-quest-updated", __vaq_renderBoxes);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) __vaq_renderBoxes(); });
+window.addEventListener("pageshow", __vaq_renderBoxes);
+window.addEventListener("storage", (e) => {
+  if (e.key === VAQ_KEY || e.key === RACE_KEY || e.key === VARS_KEY) __vaq_renderBoxes();
+});
+
+/* =========================================================
+   TRAVEL HANDOFF (on arrival page)
    ========================================================= */
 (() => {
   try {
@@ -414,16 +517,20 @@ window.addEventListener("storage", (e) => {
     (window as any).VAQ?.ensureQuestState?.();
     (window as any).VAQ?.complete?.("q_travel_home");
 
-    const race = (localStorage.getItem("va_race") || "").toLowerCase();
+    // also set var for rules
+    const v = readVars(); v.travelCompleted = true; writeVars(v);
+
+    const race = (localStorage.getItem(RACE_KEY) || v.race || "").toLowerCase();
     if (race === "dreadheim") (window as any).VAQ?.setActive?.("q_find_dreadheim_wizard");
 
+    applyRulesOnce();
     (window as any).VAQ?.renderHUD?.();
     window.dispatchEvent(new CustomEvent("va-quest-updated"));
   } catch {}
 })();
 
 /* =========================================================
-   GLOBAL SFX — hurt + battle
+   SFX
    ========================================================= */
 const __vaSFX = {
   femaleHurt: new Audio("/guildbook/sfx/femalehurt.mp3"),
@@ -472,7 +579,6 @@ function currentSkillIconMap() {
   const map = currentSkillIconMap();
   return map[key] || "";
 };
-
 function ensureSkillIconsOnPage() {
   const skillEls = Array.from(document.querySelectorAll<HTMLDivElement>("#skillbar .skill"));
   if (!skillEls.length) return;
@@ -509,38 +615,35 @@ window.addEventListener("va-gender-changed", (ev: any) => {
 });
 
 /* =========================================================
-   INVENTORY INIT + ITEM CLICK HOOKS
+   INVENTORY + BAG + BADGE
    ========================================================= */
 try { Inventory.init(); } catch {}
+
 (window as any).__va_onItemClick = function (itemId: string) {
-  if (itemId === "wizardscroll") showQuestScrollOverlay();
+  if (itemId === "wizardscroll") {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `
+      position: fixed; inset: 0; background: rgba(0,0,0,.7);
+      display:flex; align-items:center; justify-content:center; z-index: 999999;
+    `;
+    overlay.innerHTML = `
+      <div style="position:relative">
+        <img src="/guildbook/loot/unsheathedscroll.png"
+             style="max-width:90vw; max-height:90vh; object-fit:contain; border-radius:8px;"
+             alt="Quest Scroll">
+        <button id="closeScroll" style="
+          position:absolute; top:10px; right:10px;
+          border:none; background:rgba(0,0,0,.6);
+          color:#fff; font:18px; padding:6px 10px; border-radius:8px;
+          cursor:pointer;
+        ">×</button>
+      </div>
+    `;
+    overlay.querySelector("#closeScroll")!.addEventListener("click", () => overlay.remove());
+    document.body.appendChild(overlay);
+  }
 };
 
-function showQuestScrollOverlay() {
-  const overlay = document.createElement("div");
-  overlay.style.cssText = `
-    position: fixed; inset: 0; background: rgba(0,0,0,.7);
-    display:flex; align-items:center; justify-content:center; z-index:999999;
-  `;
-  overlay.innerHTML = `
-    <div style="position:relative">
-      <img src="/guildbook/loot/unsheathedscroll.png"
-           style="max-width:90vw; max-height:90vh; object-fit:contain; border-radius:8px;"
-           alt="Quest Scroll">
-      <button id="closeScroll" style="
-        position:absolute; top:10px; right:10px;
-        border:none; background:rgba(0,0,0,.6); color:#fff; font:18px;
-        padding:6px 10px; border-radius:8px; cursor:pointer;
-      ">×</button>
-    </div>
-  `;
-  overlay.querySelector("#closeScroll")!.addEventListener("click", () => overlay.remove());
-  document.body.appendChild(overlay);
-}
-
-/* =========================================================
-   BAG BUTTON + BADGE, UNSEEN COUNTS PER-USER
-   ========================================================= */
 (function injectBagStyles() {
   if (document.getElementById("vaGlobalStyle")) return;
   const css = `
@@ -619,9 +722,7 @@ window.addEventListener("pageshow", renderBadge);
 window.addEventListener("focus", renderBadge);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) renderBadge(); });
 
-/* =========================================================
-   INVENTORY MONKEY-PATCH — Only open via mouse click
-   ========================================================= */
+/* Open/close only via mouse click; add unseen counter */
 (() => {
   const invAny = Inventory as any;
   let isOpen = false;
@@ -643,39 +744,20 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) rend
     invAny[name] = (...args: any[]) => handler(orig, ...args);
   };
 
-  wrap("open", (orig, ...args) => {
-    if (!__bagGate) return;
-    const r = orig(...args);
-    isOpen = true;
-    afterInventoryOpen();
-    return r;
-  });
-  wrap("show", (orig, ...args) => {
-    if (!__bagGate) return;
-    const r = orig(...args);
-    isOpen = true; afterInventoryOpen(); return r;
-  });
-  wrap("toggle", (orig, ...args) => {
-    if (!__bagGate) return;
-    const r = orig(...args);
-    isOpen = !isOpen; if (isOpen) afterInventoryOpen(); else clearUnseenBadge(); return r;
-  });
+  wrap("open", (orig, ...args) => { if (!__bagGate) return; const r = orig(...args); isOpen = true;  afterInventoryOpen(); return r; });
+  wrap("show", (orig, ...args) => { if (!__bagGate) return; const r = orig(...args); isOpen = true;  afterInventoryOpen(); return r; });
+  wrap("toggle",(orig,...args)=>{ if (!__bagGate) return; const r = orig(...args); isOpen=!isOpen; if(isOpen) afterInventoryOpen(); else clearUnseenBadge(); return r; });
   wrap("close", (orig, ...args) => { const r = orig(...args); isOpen = false; return r; });
 
   if (typeof invAny?.add === "function") {
     const origAdd = invAny.add.bind(Inventory);
-    invAny.add = (...args: any[]) => {
-      const r = origAdd(...args);
-      if (!isOpen) setUnseen(getUnseen() + 1);
-      return r;
-    };
+    invAny.add = (...args: any[]) => { const r = origAdd(...args); if (!isOpen) setUnseen(getUnseen() + 1); return r; };
   }
 
   const bagBtn = document.querySelector<HTMLElement>("#vaBagBtn, .bag, .inventory-button");
   if (bagBtn) bagBtn.addEventListener("click", () => setTimeout(afterInventoryOpen, 0));
 })();
 
-// Inventory UI polish
 function fixQtyLayers() {
   document
     .querySelectorAll(
@@ -737,9 +819,7 @@ function afterInventoryOpen() {
   clearUnseenBadge();
 }
 
-/* =========================================================
-   ARROWS: suppress only inside inventory
-   ========================================================= */
+/* Arrow keys suppressed only inside inventory UI */
 document.addEventListener("keydown", (e) => {
   const target = e.target as HTMLElement | null;
   const inInventory = !!target?.closest("#inventory, .inventory, .inventory-panel, #bag, .bag-panel");
@@ -748,17 +828,15 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-/* =========================================================
-   SMALL TWEAKS (bag position + battle log spacing)
-   ========================================================= */
+/* Small tweaks: bag button position + battle log spacing */
 (() => { const s = document.createElement("style"); s.textContent = `#vaBagBtn{ top:auto !important; bottom:16px !important; }`; document.head.appendChild(s); })();
 (() => { const s = document.createElement("style"); s.textContent = `#log { bottom: 150px !important; }`; document.head.appendChild(s); })();
 
 /* =========================================================
-   PUBLIC BRIDGE + INIT
+   PUBLIC BRIDGE + INIT ORDER
    ========================================================= */
 (window as any).VAQ = {
-  ensureQuestState: qEnsure,
+  ensureQuestState: () => { applyRulesOnce(); }, // rules populate + normalize
   readQuests: qRead,
   writeQuests: qWrite,
   setActive: qSetActive,
@@ -768,16 +846,16 @@ document.addEventListener("keydown", (e) => {
   renderHUD: qHudRender,
 };
 
-// Init order matters: ensure quests → render HUD → bind boxes → load catalog (lazy)
-qEnsure();
+// Boot: apply rules → HUD → widgets → preload catalog
+applyRulesOnce();
 qHudRender();
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", __vaq_renderBoxes, { once: true });
 } else {
   __vaq_renderBoxes();
 }
-// preload catalog in background (non-blocking)
 loadCatalog().catch(()=>{});
+
 
 
 
