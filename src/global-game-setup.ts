@@ -716,9 +716,17 @@ if (document.readyState === "loading") {
     localStorage.removeItem("va_pending_travel");
 
     (window as any).VAQ?.ensureQuestState?.();
-    (window as any).VAQ?.complete?.("q_travel_home");
 
-    // also set var for rules
+    const qs = qRead();
+    const travel = qs.find(q => q.id === "q_travel_home");
+
+    // Only complete here if it somehow wasn't completed on click
+    if (travel && travel.status !== "completed") {
+      travel.status = "completed";
+      travel.progress = 100;
+      qWrite(qs);
+    }
+
     const v = readVars(); v.travelCompleted = true; writeVars(v);
 
     const race = (localStorage.getItem(RACE_KEY) || v.race || "").toLowerCase();
@@ -729,6 +737,7 @@ if (document.readyState === "loading") {
     window.dispatchEvent(new CustomEvent("va-quest-updated"));
   } catch {}
 })();
+
 
 /* =========================================================
    SFX
@@ -1191,10 +1200,55 @@ function __vaq_getTravelDest(): string {
 
 function __vaq_performTravel(ev?: Event) {
   try { ev?.preventDefault(); } catch {}
+
+  // Set a small handoff flag (still useful for pages that want to detect arrivals)
   try { localStorage.setItem("va_pending_travel", "1"); } catch {}
+
+  // ✅ Complete the travel quest immediately on click
+  try {
+    (window as any).VAQ?.ensureQuestState?.();
+
+    // Complete q_travel_home now
+    const list = qRead();
+    const travel = list.find(q => q.id === "q_travel_home");
+    if (travel && travel.status !== "completed") {
+      travel.status = "completed";
+      travel.progress = 100;
+      qWrite(list, true);
+    }
+
+    // Record var for rules
+    const v = readVars();
+    v.travelCompleted = true;
+    writeVars(v);
+
+    // If Dreadheim path, unlock + set Wizard active (unless already done)
+    const race = (localStorage.getItem(RACE_KEY) || v.race || "").toLowerCase();
+    if (race === "dreadheim") {
+      const after = qRead();
+      const wiz = after.find(q => q.id === "q_find_dreadheim_wizard");
+      if (wiz && wiz.status !== "completed") {
+        if (wiz.status === "locked") wiz.status = "available";
+        // make it active and clear any other active
+        for (const q of after) if (q.status === "active") q.status = "available";
+        wiz.status = "active";
+        qWrite(after, true);
+      }
+    }
+
+    // Refresh UI/HUD immediately so the player sees the change before navigation
+    applyRulesOnce();
+    sanitizeQuestOrder();
+    qHudRender();
+    __vaq_renderBoxes();
+    window.dispatchEvent(new CustomEvent("va-quest-updated"));
+  } catch {}
+
+  // Go!
   const dest = __vaq_getTravelDest();
   location.assign(dest);
 }
+
 
 /** Bind ALL travel buttons found on the page (idempotent via per-element flag) */
 function __vaq_bindTravelButtons() {
