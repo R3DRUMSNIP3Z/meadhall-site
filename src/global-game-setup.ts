@@ -22,19 +22,19 @@ document.body?.setAttribute("data-gender", localStorage.getItem("va_gender") || 
 /* =========================================================
    KEYS / TYPES
    ========================================================= */
-const VAQ_KEY   = "va_quests";
-const RACE_KEY  = "va_race";
-const VARS_KEY  = "va_vars";
+const VAQ_KEY  = "va_quests";
+const RACE_KEY = "va_race";
+const VARS_KEY = "va_vars";
 
 type QStatus = "available" | "active" | "completed" | "locked";
 type Quest = { id: string; title: string; desc: string; status: QStatus; progress?: number };
 
 /* Hard order + rules (prevents skipping ahead) */
 const VAQ_RULES = [
-  { id: "q_main_pick_race",         next: "q_travel_home" },
-  { id: "q_travel_home",            next: "q_find_dreadheim_wizard", requires: ["q_main_pick_race"], race: "dreadheim" },
-  { id: "q_find_dreadheim_wizard",  next: "q_find_dreadheim_witch",  requires: ["q_travel_home"],    race: "dreadheim" },
-  { id: "q_find_dreadheim_witch",   next: null,                      requires: ["q_find_dreadheim_wizard"], race: "dreadheim" },
+  { id: "q_main_pick_race",        next: "q_travel_home" },
+  { id: "q_travel_home",           next: "q_find_dreadheim_wizard", requires: ["q_main_pick_race"], race: "dreadheim" },
+  { id: "q_find_dreadheim_wizard", next: "q_find_dreadheim_witch",  requires: ["q_travel_home"],    race: "dreadheim" },
+  { id: "q_find_dreadheim_witch",  next: null,                      requires: ["q_find_dreadheim_wizard"], race: "dreadheim" },
 ] as const;
 function getRule(id: string) { return VAQ_RULES.find(r => r.id === id) || null; }
 function getNextQuestId(id: string): string | null { return getRule(id)?.next || null; }
@@ -297,7 +297,10 @@ function qProgressSet(id: string, value: number) {
 function qProgressAdd(id: string, delta: number) {
   const list = qRead();
   let changed = false;
-  for (const q of list) if (q.id === id) { const n = Math.max(0, Math.min(100, Math.floor((q.progress||0)+delta))); if (n !== q.progress) { q.progress = n; changed = true; } }
+  for (const q of list) if (q.id === id) {
+    const n = Math.max(0, Math.min(100, Math.floor((q.progress||0)+delta)));
+    if (n !== q.progress) { q.progress = n; changed = true; }
+  }
   if (changed) { qWrite(list); window.dispatchEvent(new CustomEvent("va-quest-updated")); }
 }
 
@@ -390,7 +393,11 @@ function getQuestFromCatalog(id: string): CatalogQuest | null {
     body.innerHTML = lines.map(l => `<p style="margin:.4em 0">${l}</p>`).join("");
     (body as HTMLElement).scrollTop = 0;
   }
-  function setChoices(choices: {text:string; next?:string}[] | undefined, nextLoader: (id?: string)=>void, onClose: ()=>void) {
+  function setChoices(
+    choices: {text:string; next?:string}[] | undefined,
+    nextLoader: (id?: string)=>void,
+    onClose: ()=>void
+  ) {
     const bar = document.getElementById("vaDialogueChoices") as HTMLElement | null;
     if (!bar) return;
     bar.innerHTML = "";
@@ -630,6 +637,9 @@ function __vaq_renderBoxes() {
       }
     }
   }
+
+  // Also (re)bind any other travel buttons on the page
+  __vaq_bindTravelButtons();
 }
 window.addEventListener("va-quest-updated", __vaq_renderBoxes);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) __vaq_renderBoxes(); });
@@ -997,6 +1007,64 @@ document.addEventListener("keydown", (e) => {
 (() => { const s = document.createElement("style"); s.textContent = `#log { bottom: 150px !important; }`; document.head.appendChild(s); })();
 
 /* =========================================================
+   GLOBAL TRAVEL HELPERS (works for ALL travel buttons)
+   ========================================================= */
+function __vaq_getTravelDest(): string {
+  const v = readVars();
+  const race = (localStorage.getItem("va_race") || v.race || "").toLowerCase();
+  return race === "myriador" ? "/myriadormap.html"
+       : race === "wildwood" ? "/wildwoodmap.html"
+       : "/dreadheimmap.html";
+}
+
+function __vaq_performTravel(ev?: Event) {
+  try { ev?.preventDefault(); } catch {}
+  try { localStorage.setItem("va_pending_travel", "1"); } catch {}
+  const dest = __vaq_getTravelDest();
+  location.assign(dest);
+}
+
+/** Bind ALL travel buttons found on the page */
+let __vaq_travelBound = false;
+function __vaq_bindTravelButtons() {
+  const selectors = [
+    "#aqTravel", ".aq-travel",            // quest widgets
+    ".vaq-travel",                        // generic quest class
+    "#arenaTravel", "#arenaQuest .vaq-travel",
+    "#gameTravel", "#travelBtn",          // common IDs people use
+    "[data-va-travel]"                    // future-proof: <a data-va-travel>
+  ];
+
+  const dest = __vaq_getTravelDest();
+  const seen = new Set<HTMLElement>();
+
+  for (const sel of selectors) {
+    document.querySelectorAll<HTMLElement>(sel).forEach(el => {
+      if (seen.has(el)) return;
+      seen.add(el);
+
+      if (el instanceof HTMLAnchorElement) {
+        if (!el.href || !el.href.endsWith(dest)) el.href = dest;
+      }
+
+      if ((el as any).__vaq_travel_hooked) return;
+      (el as any).__vaq_travel_hooked = true;
+
+      el.addEventListener("click", __vaq_performTravel);
+
+      try {
+        const active = (window as any).VAQ?.active?.();
+        if (active?.id === "q_travel_home" && active?.status !== "completed") {
+          el.style.removeProperty("display");
+        }
+      } catch {}
+    });
+  }
+
+  __vaq_travelBound = true;
+}
+
+/* =========================================================
    PUBLIC BRIDGE + INIT ORDER
    ========================================================= */
 (window as any).VAQ = {
@@ -1007,8 +1075,9 @@ document.addEventListener("keydown", (e) => {
   complete: qComplete,
   active: qActive,
   startNext: qStartNext,
-  sanitizeQuestOrder,       // external pages may call after events
-  getNextQuestId,           // helper
+  renderHUD: qHudRender,          // expose HUD refresh
+  sanitizeQuestOrder,             // external pages may call after events
+  getNextQuestId,                 // helper
   list: () => qRead(),
   get: (id: string) => qRead().find(q => q.id === id) || null,
   progressSet: qProgressSet,
@@ -1016,18 +1085,22 @@ document.addEventListener("keydown", (e) => {
 };
 
 // Game.ts quick bridge (zero-import convenience)
-(window as any).getActiveQuest = () => qActive();
+(window as any).getActiveQuest   = () => qActive();
 (window as any).getActiveQuestId = () => qActive()?.id || null;
-(window as any).isActiveQuest = (id: string) => (qActive()?.id === id);
+(window as any).isActiveQuest    = (id: string) => (qActive()?.id === id);
 
-// Boot: apply rules → sanitize → HUD → widgets → preload catalog
+// Boot: apply rules → sanitize → HUD → widgets → travel bind → preload catalog
 applyRulesOnce();
 sanitizeQuestOrder();
 qHudRender();
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", __vaq_renderBoxes, { once: true });
+  document.addEventListener("DOMContentLoaded", () => {
+    __vaq_renderBoxes();
+    __vaq_bindTravelButtons();
+  }, { once: true });
 } else {
   __vaq_renderBoxes();
+  __vaq_bindTravelButtons();
 }
 loadCatalog().catch(()=>{});
 
@@ -1038,7 +1111,10 @@ setInterval(() => {
   sanitizeQuestOrder();          // enforce order
   qHudRender();                  // refresh HUD
   __vaq_renderBoxes();           // refresh widgets (including game HUD)
+  __vaq_bindTravelButtons();     // late-added buttons also work
 }, 1500);
+
+
 
 
 
