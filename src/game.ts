@@ -1,7 +1,7 @@
-/* ===============================
-   Valhalla Ascending — src/game.ts
-   (Arena + Quests HUD + Shop)
-   =============================== */
+//* ===============================//
+   //Valhalla Ascending — src/game.ts//
+   //(Arena + Quests HUD + Shop)//
+   //=============================== *//
 
 type Gender = "female" | "male";
 type Slot =
@@ -87,15 +87,6 @@ function log(msg: string, cls?: string) {
   if (cls) p.className = cls;
   p.textContent = msg;
   logBox.prepend(p);
-}
-
-/* Reset an element by cloning (drops old listeners) */
-function resetEl<T extends HTMLElement = HTMLElement>(id: string): T | null {
-  const el = document.getElementById(id) as T | null;
-  if (!el) return null;
-  const clone = el.cloneNode(true) as T;
-  el.replaceWith(clone);
-  return document.getElementById(id) as T | null;
 }
 
 /* ---------- tooltip (used by shop; harmless on arena) ---------- */
@@ -295,75 +286,6 @@ function updateAvatar(m: Me) {
   }, 60);
 }
 
-/* === Quest helpers (fallback if arena modal bridge unavailable) === */
-const QKEY = "va_quests";
-function readQuests(): any[] {
-  try { return JSON.parse(localStorage.getItem(QKEY) || "[]"); }
-  catch { return []; }
-}
-
-let _aqRendering = false;
-function renderActiveQuest() {
-  if (_aqRendering) return;
-  _aqRendering = true;
-  try {
-    const slot = document.getElementById("activeQuest") as HTMLElement | null;
-    if (!slot) return;
-
-    const read = ((window as any).VAQ?.readQuests) || readQuests;
-    const quests = read() || [];
-
-    // Prefer the true active quest from VAQ (e.g., Wizard), then fall back by priority.
-    const VAQ = (window as any).VAQ;
-    const activeQ = VAQ?.active?.() || null;
-
-    let q: any =
-      activeQ ||
-      quests.find((x: any) => x.id === "q_find_dreadheim_wizard" && x.status !== "completed") ||
-      quests.find((x: any) => x.id === "q_travel_home" && x.status !== "completed") ||
-      quests.find((x: any) => x.id === "q_main_pick_race" && x.status !== "completed");
-
-    if (!q) { slot.style.display = "none"; return; }
-    slot.style.display = "flex";
-
-    const title = document.getElementById("aqTitle")   as HTMLElement | null;
-    const desc  = document.getElementById("aqDesc")    as HTMLElement | null;
-    const st    = document.getElementById("aqStatus")  as HTMLElement | null;
-    const pv    = document.getElementById("aqProgVal") as HTMLElement | null;
-    const pb    = document.getElementById("aqProgBar") as HTMLElement | null;
-
-    if (title) title.textContent = q.title || "—";
-    if (desc)  desc.textContent  = q.desc  || "—";
-    const statusText = q.status ? (q.status.charAt(0).toUpperCase() + q.status.slice(1)) : "Available";
-    if (st) st.textContent = `Status: ${statusText}`;
-    const prog = Math.max(0, Math.min(100, Number(q.progress || 0)));
-    if (pv) pv.textContent = String(prog);
-    if (pb) pb.style.width = prog + "%";
-
-    // Fresh buttons (clone to nuke old listeners)
-    const abandonBtn = resetEl<HTMLButtonElement>("aqAbandon");
-
-    if (abandonBtn) {
-      abandonBtn.addEventListener("click", () => {
-        const r  = ((window as any).VAQ?.readQuests) || readQuests;
-        const w = ((window as any).VAQ?.writeQuests as ((l: any[]) => void))
-               || ((l: any[]) => localStorage.setItem(QKEY, JSON.stringify(l)));
-
-        const list = r() || [];
-        const curr = list.find((x: any) => x.id === q.id);
-        if (curr) { curr.status = "available"; curr.progress = 0; }
-        w(list);
-        window.dispatchEvent(new CustomEvent("va-quest-updated"));
-        renderActiveQuest();
-      });
-    }
-  } finally {
-    _aqRendering = false;
-  }
-}
-// Subscribe ONCE (not every render)
-window.addEventListener("va-quest-updated", renderActiveQuest);
-
 /* ---------- Allocation UI ---------- */
 let allocInput: HTMLInputElement | null = null;
 let btnAllocPow: HTMLButtonElement | null = null;
@@ -417,8 +339,17 @@ async function allocate(stat: "power"|"defense"|"speed") {
     });
     state.me = r.me;
     await renderArena();
+
+    // keep quest HUD/widgets in sync on arena pages
+    try {
+      (window as any).VAQ?.renderHUD?.();
+      (window as any).__vaq_renderBoxes?.();
+    } catch {}
+
     log(`Allocated ${amt} → ${stat}`, "ok");
-  } catch (err: any) { log("Allocate error: " + err.message, "bad"); }
+  } catch (err: any) {
+    log("Allocate error: " + err.message, "bad");
+  }
 }
 
 /* ---------- RENAME ---------- */
@@ -677,7 +608,6 @@ async function boot() {
   }
 
   await renderArena();
-  renderActiveQuest();
 
   setInterval(async () => {
     try {
@@ -824,29 +754,3 @@ boot().catch(e => log(e.message, "bad"));
 - dev.bagList() → inspect stored bag keys
 `);
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
