@@ -1007,6 +1007,141 @@ document.addEventListener("keydown", (e) => {
 (() => { const s = document.createElement("style"); s.textContent = `#log { bottom: 150px !important; }`; document.head.appendChild(s); })();
 
 /* =========================================================
+   QUICK QUEST BUTTON (always-on HUD next to Inventory)
+   (Inserted AFTER the small tweaks above and BEFORE travel helpers)
+   ========================================================= */
+(function __vaq_installQuestQuickButton() {
+  if (document.getElementById("vaQuestQuickBtn")) return;
+
+  if (!document.getElementById("vaQuickbarCSS")) {
+    const css = document.createElement("style");
+    css.id = "vaQuickbarCSS";
+    css.textContent = `
+      .va-quickbtn {
+        position: fixed; right: 16px; bottom: 96px; /* above the bag */
+        display: flex; align-items: center; gap: 8px;
+        padding: 10px 14px; border-radius: 999px;
+        background: rgba(0,0,0,.55); backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,.08);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Cinzel", serif;
+        font-size: 14px; color: #f6e7c5; cursor: pointer; user-select: none;
+        z-index: 9999; box-shadow: 0 2px 12px rgba(0,0,0,.35);
+      }
+      .va-quickbtn:hover { background: rgba(0,0,0,.7); }
+      .va-quickbtn img { width: 18px; height: 18px; display:inline-block; }
+      #vaQuestOverlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,.6);
+        display: none; align-items: center; justify-content: center; z-index: 10000;
+      }
+      #vaQuestPanel {
+        width: min(520px, 92vw); max-height: 80vh; overflow: auto;
+        background: rgba(15,15,15,.95); border: 1px solid rgba(255,255,255,.08);
+        border-radius: 16px; padding: 18px 16px; color: #f5e8c8;
+        box-shadow: 0 10px 40px rgba(0,0,0,.5);
+      }
+      #vaQuestPanel h2 { margin: 0 0 8px; font-weight: 700; font-size: 18px; }
+      .vaQuestRow {
+        padding: 10px 12px; border: 1px solid rgba(255,255,255,.08);
+        border-radius: 12px; margin: 10px 0; background: rgba(255,255,255,.03);
+      }
+      .vaQuestRow .meta { opacity:.8; font-size:12px; margin-top:6px; }
+      .vaRowBtns { display:flex; gap:8px; margin-top:10px; }
+      .vaRowBtns button {
+        padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,.08);
+        background: rgba(0,0,0,.5); color:#ffeaa0; cursor:pointer;
+      }
+      .vaRowBtns button:hover { background: rgba(0,0,0,.7); }
+      #vaQuestClose {
+        position:absolute; top:10px; right:12px; font-size:18px;
+        background:transparent; color:#f5e8c8; border:none; cursor:pointer;
+      }
+    `;
+    document.head.appendChild(css);
+  }
+
+  const btn = document.createElement("button");
+  btn.id = "vaQuestQuickBtn";
+  btn.className = "va-quickbtn";
+  btn.setAttribute("aria-label", "Open Quests");
+  btn.innerHTML = `
+    <img alt="" src="/guildbook/ui/quest-parchment.png" onerror="this.remove()">
+    <span>Quests</span>
+  `;
+  document.body.appendChild(btn);
+
+  const overlay = document.createElement("div");
+  overlay.id = "vaQuestOverlay";
+  overlay.innerHTML = `
+    <div id="vaQuestPanel">
+      <button id="vaQuestClose" title="Close">✕</button>
+      <h2>Quest Log</h2>
+      <div id="vaQuestList"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  function qReadLocal(): Quest[] {
+  try {
+    return JSON.parse(localStorage.getItem("va_quests") || "[]") as Quest[];
+  } catch {
+    return [] as Quest[];
+  }
+}
+
+  function qWriteLocal(qs: any[]) { localStorage.setItem("va_quests", JSON.stringify(qs)); }
+  function setActiveQuest(id: string) {
+    const qs = qReadLocal();
+    let found = false;
+    for (const q of qs) {
+      if (q.id === id && q.status !== "completed") { q.status = "active"; found = true; }
+      else if (q.status === "active") q.status = "available";
+    }
+    if (found) {
+      qWriteLocal(qs);
+      try { (window as any).qHudRender?.(); } catch {}
+      window.dispatchEvent(new CustomEvent("va-quest-updated"));
+    }
+  }
+
+  function renderList() {
+    const list = document.getElementById("vaQuestList")!;
+    const qs = qReadLocal();
+    const order = (s: string) => (s === "active" ? 0 : s === "available" ? 1 : 2);
+    qs.sort((a,b)=> order(a.status) - order(b.status));
+
+    list.innerHTML = qs.length
+      ? qs.map(q => `
+          <div class="vaQuestRow" data-id="${q.id}">
+            <div><strong>${q.title}</strong> — <em>${q.status}</em></div>
+            ${q.desc ? `<div class="meta">${q.desc}</div>` : ``}
+            <div class="vaRowBtns">
+              ${q.status !== "completed" ? `<button data-act="setActive">Set Active</button>` : ``}
+            </div>
+          </div>
+        `).join("")
+      : `<div class="vaQuestRow">No quests yet.</div>`;
+
+    list.querySelectorAll<HTMLButtonElement>("[data-act='setActive']").forEach(b=>{
+      b.onclick = () => {
+        const row = b.closest(".vaQuestRow") as HTMLElement | null;
+        const id = row?.dataset.id; if (!id) return;
+        setActiveQuest(id);
+        renderList();
+      };
+    });
+  }
+
+  function openOverlay() { renderList(); overlay.style.display = "flex"; }
+  function closeOverlay() { overlay.style.display = "none"; }
+
+  btn.addEventListener("click", openOverlay);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeOverlay(); });
+  (overlay.querySelector("#vaQuestClose") as HTMLButtonElement).onclick = closeOverlay;
+
+  (window as any).openQuestLog = openOverlay;
+})();
+
+/* =========================================================
    GLOBAL TRAVEL HELPERS (works for ALL travel buttons)
    ========================================================= */
 function __vaq_getTravelDest(): string {
@@ -1024,15 +1159,14 @@ function __vaq_performTravel(ev?: Event) {
   location.assign(dest);
 }
 
-/** Bind ALL travel buttons found on the page */
-let __vaq_travelBound = false;
+/** Bind ALL travel buttons found on the page (idempotent via per-element flag) */
 function __vaq_bindTravelButtons() {
   const selectors = [
-    "#aqTravel", ".aq-travel",            // quest widgets
-    ".vaq-travel",                        // generic quest class
+    "#aqTravel", ".aq-travel",
+    ".vaq-travel",
     "#arenaTravel", "#arenaQuest .vaq-travel",
-    "#gameTravel", "#travelBtn",          // common IDs people use
-    "[data-va-travel]"                    // future-proof: <a data-va-travel>
+    "#gameTravel", "#travelBtn",
+    "[data-va-travel]"
   ];
 
   const dest = __vaq_getTravelDest();
@@ -1043,25 +1177,20 @@ function __vaq_bindTravelButtons() {
       if (seen.has(el)) return;
       seen.add(el);
 
-      if (el instanceof HTMLAnchorElement) {
-        if (!el.href || !el.href.endsWith(dest)) el.href = dest;
-      }
-
-      if ((el as any).__vaq_travel_hooked) return;
+      if ((el as any).__vaq_travel_hooked) return; // already bound
       (el as any).__vaq_travel_hooked = true;
 
+      if (el instanceof HTMLAnchorElement) el.href = dest; // ensure correct href
       el.addEventListener("click", __vaq_performTravel);
 
       try {
         const active = (window as any).VAQ?.active?.();
         if (active?.id === "q_travel_home" && active?.status !== "completed") {
-          el.style.removeProperty("display");
+          (el as HTMLElement).style.removeProperty("display");
         }
       } catch {}
     });
   }
-
-  __vaq_travelBound = true;
 }
 
 /* =========================================================
@@ -1113,6 +1242,7 @@ setInterval(() => {
   __vaq_renderBoxes();           // refresh widgets (including game HUD)
   __vaq_bindTravelButtons();     // late-added buttons also work
 }, 1500);
+
 
 
 
