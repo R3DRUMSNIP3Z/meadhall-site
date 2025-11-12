@@ -5,27 +5,70 @@ import { Inventory } from "./inventory";
 (window as any).Inventory = Inventory;
 
 /* =========================================================
+   USER‑SCOPED STORAGE HELPERS (matches Arena page scripts)
+   ========================================================= */
+function __vaq_getUserId(): string | null {
+  try {
+    const raw = localStorage.getItem("mh_user");
+    if (raw) {
+      const obj = JSON.parse(raw);
+      return obj?.id || obj?._id || obj?.user?.id || null;
+    }
+  } catch {}
+  try {
+    const q = new URLSearchParams(location.search);
+    return q.get("user");
+  } catch {}
+  return null;
+}
+const __UID = __vaq_getUserId() || "guest";
+const __userKey = (base: string) => `${base}__${__UID}`;
+
+/* =========================================================
    GENDER + UNIVERSAL HERO SPRITE
    ========================================================= */
-if (!localStorage.getItem("va_gender")) {
+// Keep a per-user gender if present; fall back to the old global key
+if (!localStorage.getItem(__userKey("va_gender")) && !localStorage.getItem("va_gender")) {
   localStorage.setItem("va_gender", "male");
 }
-document.body?.setAttribute("data-gender", localStorage.getItem("va_gender") || "male");
+const __gender = localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender") || "male";
+document.body?.setAttribute("data-gender", __gender);
 
 (window as any).getHeroSprite = function (): string {
-  const g = localStorage.getItem("va_gender");
+  const g = localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender") || "male";
   return g === "female"
     ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
     : "/guildbook/avatars/dreadheim-warrior.png";
 };
 
 /* =========================================================
-   KEYS / TYPES
+   KEYS / TYPES (user‑scoped; migrates from old globals)
    ========================================================= */
-const VAQ_KEY  = "va_quests";
-const RACE_KEY = "va_race";
-const VARS_KEY = "va_vars";
+const VAQ_KEY_BASE  = "va_quests";
+const RACE_KEY_BASE = "va_race";
+const VARS_KEY_BASE = "va_vars";
 
+const VAQ_KEY  = __userKey(VAQ_KEY_BASE);
+const RACE_KEY = __userKey(RACE_KEY_BASE);
+const VARS_KEY = __userKey(VARS_KEY_BASE);
+
+// One-time migration from old global keys → user‑scoped
+(function __migrateKeys(){
+  try {
+    if (!localStorage.getItem(VAQ_KEY) && localStorage.getItem(VAQ_KEY_BASE)) {
+      localStorage.setItem(VAQ_KEY, localStorage.getItem(VAQ_KEY_BASE) as string);
+    }
+    if (!localStorage.getItem(RACE_KEY) && localStorage.getItem(RACE_KEY_BASE)) {
+      localStorage.setItem(RACE_KEY, localStorage.getItem(RACE_KEY_BASE) as string);
+      localStorage.removeItem(RACE_KEY_BASE);
+    }
+    if (!localStorage.getItem(VARS_KEY) && localStorage.getItem(VARS_KEY_BASE)) {
+      localStorage.setItem(VARS_KEY, localStorage.getItem(VARS_KEY_BASE) as string);
+    }
+  } catch {}
+})();
+
+// Types
 type QStatus = "available" | "active" | "completed" | "locked";
 type Quest = { id: string; title: string; desc: string; status: QStatus; progress?: number };
 
@@ -34,7 +77,7 @@ const VAQ_RULES = [
   { id: "q_main_pick_race",        next: "q_travel_home" },
   { id: "q_travel_home",           next: "q_find_dreadheim_wizard", requires: ["q_main_pick_race"], race: "dreadheim" },
   { id: "q_find_dreadheim_wizard", next: "q_find_dreadheim_witch",  requires: ["q_travel_home"],    race: "dreadheim" },
-  { id: "q_find_dreadheim_witch",  next: null,                      requires: ["q_find_dreadheim_wizard"], race: "dreadheim" },
+  { id: "q_find_dreadheim_witch",  next: null,                       requires: ["q_find_dreadheim_wizard"], race: "dreadheim" },
 ] as const;
 function getRule(id: string) { return VAQ_RULES.find(r => r.id === id) || null; }
 function getNextQuestId(id: string): string | null { return getRule(id)?.next || null; }
@@ -74,12 +117,12 @@ function qWrite(list: Quest[], forceEmit = false) {
 /* =========================================================
    VARS ENGINE (catalog-driven autoprogress)
    ========================================================= */
-type Vars = {
+interface Vars {
   race?: string;                   // "dreadheim"|"myriador"|"wildwood"
   travelCompleted?: boolean;       // set after travel
   wizardParchmentSigned?: boolean; // set after parchment signature or scroll in bag
   [k: string]: any;
-};
+}
 function readVars(): Vars {
   try { return JSON.parse(localStorage.getItem(VARS_KEY) || "{}"); }
   catch { return {}; }
@@ -178,15 +221,21 @@ function applyRulesOnce(): void {
   const list = qRead();
   const map: Record<string, Quest> = Object.fromEntries(list.map(q => [q.id, q]));
 
-  // seed baseline quests if missing
-  if (!map["q_main_pick_race"])
-    map["q_main_pick_race"] = { id:"q_main_pick_race", title:"Choose Your Path", desc:"Pick your homeland.", status:"available", progress:0 };
-  if (!map["q_travel_home"])
-    map["q_travel_home"] = { id:"q_travel_home", title:"Travel to Dreadheim", desc:"Return to your homeland.", status:"available", progress:0 };
-  if (!map["q_find_dreadheim_wizard"])
+  // seed baseline quests if missing (titles match Arena wording)
+  if (!map["q_main_pick_race"]) {
+    map["q_main_pick_race"] = { id:"q_main_pick_race", title:"Choose Your Race", desc:"Pick your lineage to begin your saga.", status:"available", progress:0 };
+  }
+  if (!map["q_travel_home"]) {
+    const race = (v.race || localStorage.getItem(RACE_KEY) || "dreadheim").toLowerCase();
+    const label = race === "myriador" ? "Myriador" : (race === "wildwood" ? "Wildwood" : "Dreadheim");
+    map["q_travel_home"] = { id:"q_travel_home", title:"Travel to your homeland", desc:`Go to ${label}.`, status:"available", progress:0 };
+  }
+  if (!map["q_find_dreadheim_wizard"]) {
     map["q_find_dreadheim_wizard"] = { id:"q_find_dreadheim_wizard", title:"Find the Dreadheim Wizard", desc:"They say he waits in a lamplit hall.", status:"locked", progress:0 };
-  if (!map["q_find_dreadheim_witch"])
+  }
+  if (!map["q_find_dreadheim_witch"]) {
     map["q_find_dreadheim_witch"] = { id:"q_find_dreadheim_witch", title:"Find the Witch", desc:"Seek Skarthra the Pale in the Outskirts.", status:"locked", progress:0 };
+  }
 
   const qMain   = map["q_main_pick_race"];
   const qTravel = map["q_travel_home"];
@@ -204,6 +253,10 @@ function applyRulesOnce(): void {
   if (race && qTravel.status !== "completed") {
     for (const q of Object.values(map)) if (q.status === "active") q.status = "available";
     qTravel.status = "active";
+
+    // Keep its desc aligned with arena modal
+    const label = race === "myriador" ? "Myriador" : (race === "wildwood" ? "Wildwood" : "Dreadheim");
+    qTravel.desc = `Go to ${label}.`;
   }
 
   // 3) Wizard unlocks only after travel completed (for dreadheim path)
@@ -307,20 +360,20 @@ function qProgressAdd(id: string, delta: number) {
 /* =========================================================
    CATALOG LOADER (expects /guildbook/catalogquests.json)
    ========================================================= */
-type CatalogAction =
+ type CatalogAction =
   | { type: "setVars"; set: Record<string, any> }
   | { type: "completeQuest"; nextId?: string };
 
-type CatalogNode = {
+ type CatalogNode = {
   id: string;
   speaker?: string;
   text?: string;
   choices?: { text: string; next?: string }[];
   next?: string;
   action?: CatalogAction;
-};
+ };
 
-type CatalogQuest = {
+ type CatalogQuest = {
   id: string;
   title: string;
   desc: string;
@@ -330,9 +383,9 @@ type CatalogQuest = {
     items?: { id: string; name: string; image: string; qty?: number }[];
   };
   dialogue?: CatalogNode[];
-};
+ };
 
-type Catalog = { quests: CatalogQuest[] };
+ type Catalog = { quests: CatalogQuest[] };
 
 let CATALOG: Catalog | null = null;
 
@@ -642,7 +695,7 @@ function __vaq_renderBoxes() {
   __vaq_bindTravelButtons();
 }
 window.addEventListener("va-quest-updated", __vaq_renderBoxes);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) __vaq_renderBoxes(); });
+(document as any).addEventListener?.("visibilitychange", () => { if (!document.hidden) __vaq_renderBoxes(); });
 window.addEventListener("pageshow", __vaq_renderBoxes);
 window.addEventListener("storage", (e) => {
   if (e.key === VAQ_KEY || e.key === RACE_KEY || e.key === VARS_KEY) __vaq_renderBoxes();
@@ -688,7 +741,7 @@ __vaSFX.femaleHurt.preload = "auto";
 __vaSFX.maleHurt.preload   = "auto";
 function __playFemaleHurt(): void { const a = __vaSFX.femaleHurt; a.currentTime = 0; a.volume = 0.9; a.play().catch(()=>{}); }
 function __playMaleHurt(): void   { const a = __vaSFX.maleHurt;   a.currentTime = 0; a.volume = 0.9; a.play().catch(()=>{}); }
-function __playHeroHurt(): void   { const g = localStorage.getItem("va_gender"); g === "female" ? __playFemaleHurt() : __playMaleHurt(); }
+function __playHeroHurt(): void   { const g = localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender"); g === "female" ? __playFemaleHurt() : __playMaleHurt(); }
 (window as any).playFemaleHurt = __playFemaleHurt;
 (window as any).playMaleHurt   = __playMaleHurt;
 (window as any).playHeroHurt   = __playHeroHurt;
@@ -708,7 +761,7 @@ function __playDefeat(): void  { const a = __vaBattleSFX.fail;    a.currentTime 
    GENDER-AWARE SKILL ICONS
    ========================================================= */
 function currentSkillIconMap() {
-  const g = localStorage.getItem("va_gender") || "male";
+  const g = localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender") || "male";
   const maleIcons: Record<string, string> = {
     basic:  "/guildbook/skillicons/drengrstrike.png",
     aoe:    "/guildbook/skillicons/whirlwinddance.png",
@@ -766,7 +819,7 @@ new MutationObserver(() => ensureSkillIconsOnPage())
   .observe(document.documentElement, { childList: true, subtree: true });
 
 window.addEventListener("va-gender-changed", (ev: any) => {
-  const g = (ev?.detail as string) || localStorage.getItem("va_gender") || "male";
+  const g = (ev?.detail as string) || localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender") || "male";
   document.body?.setAttribute("data-gender", g);
   ensureSkillIconsOnPage();
 });
@@ -864,18 +917,7 @@ function ensureBagButton() {
 }
 ensureBagButton();
 
-const UID_KEY = "mh_user";
-function currentUserId(): string {
-  try {
-    const raw = localStorage.getItem(UID_KEY);
-    if (raw) {
-      const obj = JSON.parse(raw);
-      return obj?.id || obj?._id || obj?.user?.id || "guest";
-    }
-  } catch {}
-  return "guest";
-}
-function unseenKey() { return `va_bag_unseen__${currentUserId()}`; }
+function unseenKey() { return `va_bag_unseen__${__UID}`; }
 function getUnseen(): number {
   return Math.max(0, parseInt(localStorage.getItem(unseenKey()) || "0", 10) || 0);
 }
@@ -1081,14 +1123,9 @@ document.addEventListener("keydown", (e) => {
   document.body.appendChild(overlay);
 
   function qReadLocal(): Quest[] {
-  try {
-    return JSON.parse(localStorage.getItem("va_quests") || "[]") as Quest[];
-  } catch {
-    return [] as Quest[];
+    try { return JSON.parse(localStorage.getItem(VAQ_KEY) || "[]") as Quest[]; } catch { return []; }
   }
-}
-
-  function qWriteLocal(qs: any[]) { localStorage.setItem("va_quests", JSON.stringify(qs)); }
+  function qWriteLocal(qs: any[]) { localStorage.setItem(VAQ_KEY, JSON.stringify(qs)); }
   function setActiveQuest(id: string) {
     const qs = qReadLocal();
     let found = false;
@@ -1146,7 +1183,7 @@ document.addEventListener("keydown", (e) => {
    ========================================================= */
 function __vaq_getTravelDest(): string {
   const v = readVars();
-  const race = (localStorage.getItem("va_race") || v.race || "").toLowerCase();
+  const race = (localStorage.getItem(RACE_KEY) || v.race || "").toLowerCase();
   return race === "myriador" ? "/myriadormap.html"
        : race === "wildwood" ? "/wildwoodmap.html"
        : "/dreadheimmap.html";
@@ -1242,6 +1279,7 @@ setInterval(() => {
   __vaq_renderBoxes();           // refresh widgets (including game HUD)
   __vaq_bindTravelButtons();     // late-added buttons also work
 }, 1500);
+
 
 
 
