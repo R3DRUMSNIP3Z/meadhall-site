@@ -1,3 +1,4 @@
+// /src/dreadheimhouse.ts
 // --- Dreadheim • House Interior (free 4-direction movement + NPC + exit) ---
 // Requires /src/global-game-setup.ts to be loaded BEFORE this script.
 
@@ -19,7 +20,7 @@ const ASSETS = {
       ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
       : "/guildbook/avatars/dreadheim-warrior.png";
   })(),
-};
+} as const;
 
 const EXIT_URL = "/dreadheimperimeters.html";
 
@@ -258,28 +259,23 @@ function renderCatNode(q: CatalogQuest, nodeId: string, onDone?: () => void) {
   // Handle action before rendering choices
   if (node.action === "completeQuest") {
     // Rewards (items via Inventory if available)
-// Rewards (items via Inventory if available)
-try {
-  const inv: any = (window as any).Inventory;
-  for (const it of (q.rewards?.items || [])) {
-    const qty = Math.max(1, Number(it?.qty ?? 1));
-    const name = it?.name || it?.id || "item";
-    // Explicitly handle both image/icon safely for TS
-    const icon = (it as any).icon || (it as any).image || "";
-
-    if (typeof inv?.add === "function" && it?.id) {
-      inv.add(it.id, name, icon, qty); // correct positional call
-    } else {
-      console.warn("Inventory.add unavailable or bad item:", it);
+    try {
+      const inv: any = (window as any).Inventory;
+      for (const it of (q.rewards?.items || [])) {
+        const qty = Math.max(1, Number(it?.qty ?? 1));
+        const name = it?.name || it?.id || "item";
+        const icon = (it as any).icon || (it as any).image || "";
+        if (typeof inv?.add === "function" && it?.id) {
+          inv.add(it.id, name, icon, qty);
+        } else {
+          console.warn("Inventory.add unavailable or bad item:", it);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to grant rewards:", e);
     }
-  }
-} catch (e) {
-  console.warn("Failed to grant rewards:", e);
-}
 
-
-    // (Optional) gold/brisingr logging — wire up to your economy if you have helpers
-    if (q.rewards?.gold)  console.log(`+${q.rewards.gold} gold (reward)`);
+    if (q.rewards?.gold)     console.log(`+${q.rewards.gold} gold (reward)`);
     if (q.rewards?.brisingr) console.log(`+${q.rewards.brisingr} brisingr (reward)`);
 
     // Complete quest & parchment
@@ -306,7 +302,6 @@ try {
       choices.appendChild(b);
     }
   } else {
-    // No choices → continue to next or close
     const b = document.createElement("button");
     b.textContent = "Continue";
     b.style.cssText = `
@@ -366,11 +361,10 @@ function getPlayerName(): string {
   return "traveler";
 }
 
-
 /* =========================================================
    INTERACTIVE WIZARD FLOW (catalog-first)
    ========================================================= */
-let wizardLocked = false; // debounce so we don't stack interactions
+let wizardLocked = false;
 
 async function startWizardDialogue() {
   if (wizardLocked) return;
@@ -381,24 +375,20 @@ async function startWizardDialogue() {
   if (q && Array.isArray(q.dialogue) && q.dialogue.length) {
     runCatalogDialogue(q as CatalogQuest, () => {
       try {
-        // 🧾 Show parchment signature animation (reward or quest start)
         if (typeof (window as any).showParchmentSignature === "function") {
           (window as any).showParchmentSignature("wizardscroll");
         }
-
-        // 🧙 Re-render the quest HUD after completing the dialogue
         (window as any).VAQ?.renderHUD?.();
       } catch (err) {
         console.warn("Wizard post-dialogue hook failed:", err);
       } finally {
-        // 🔓 Unlock interaction again after short delay
         setTimeout(() => { wizardLocked = false; }, 300);
       }
     });
     return;
   }
 
-  // --- Fallback (no catalog dialogue defined)
+  // Fallback
   (window as any).VADialogue?.openNode?.("q_find_dreadheim_wizard:intro");
   if (typeof (window as any).showParchmentSignature === "function") {
     (window as any).showParchmentSignature("wizardscroll");
@@ -406,9 +396,8 @@ async function startWizardDialogue() {
   setTimeout(() => { wizardLocked = false; }, 300);
 }
 
-
 /* =========================================================
-   PARCHMENT SIGNATURE → COMPLETE QUEST (with fail-safe close)
+   PARCHMENT SIGNATURE → COMPLETE QUEST
    ========================================================= */
 function showParchmentSignature() {
   const paper = document.createElement("div");
@@ -454,18 +443,15 @@ function showParchmentSignature() {
   closeBtn.addEventListener("click", () => {
     paper.remove();
     setTimeout(() => { wizardLocked = false; }, 200);
-
   });
-
 }
 (window as any).showParchmentSignature = showParchmentSignature;
-
 
 function finishWizardQuest() {
   try {
     const VAQ = (window as any).VAQ;
     VAQ?.complete?.("q_find_dreadheim_wizard");
-    // VAQ?.setActive?.("q_find_dreadheim_witch"); // (uncomment when defined)
+    // VAQ?.setActive?.("q_find_dreadheim_witch"); // enable when next quest is ready
     VAQ?.renderHUD?.();
     window.dispatchEvent(new CustomEvent("va-quest-updated"));
   } catch (err) {
@@ -524,7 +510,7 @@ function step() {
   // Bounds
   const leftBound = 0;
   const rightBound = window.innerWidth - hero.w;
-  const floorTop = groundY - hero.h;
+  const floorTop = Math.round(window.innerHeight * WALKWAY_TOP_RATIO) - hero.h;
   const ceiling = Math.max(0, floorTop - WALK_BAND_PX);
 
   if (hero.x < leftBound)  hero.x = leftBound;
@@ -547,21 +533,19 @@ function step() {
     Math.abs((hero.y + hero.h) - (npc.y + npc.h)) < 80;
 
   // Small floating hint when close enough
-  if (touchingNPC) {
-    if (!document.getElementById("eHint")) {
-      const h = document.createElement("div");
-      h.id = "eHint";
-      h.style.cssText = `
-        position:fixed; left:50%; bottom:36px; transform:translateX(-50%);
-        color:#fff; opacity:.95; font:13px ui-sans-serif,system-ui;
-        background:rgba(0,0,0,.55); padding:6px 10px; border-radius:8px;
-        border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(4px);
-        z-index:9999; pointer-events:none;
-      `;
-      h.textContent = "Press E to talk to the Wizard";
-      document.body.appendChild(h);
-      setTimeout(() => h.remove(), 1500);
-    }
+  if (touchingNPC && !document.getElementById("eHint")) {
+    const h = document.createElement("div");
+    h.id = "eHint";
+    h.style.cssText = `
+      position:fixed; left:50%; bottom:36px; transform:translateX(-50%);
+      color:#fff; opacity:.95; font:13px ui-sans-serif,system-ui;
+      background:rgba(0,0,0,.55); padding:6px 10px; border-radius:8px;
+      border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(4px);
+      z-index:9999; pointer-events:none;
+    `;
+    h.textContent = "Press E to talk to the Wizard";
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), 1500);
   }
 
   if (touchingNPC && (keys.has("e") || keys.has("E"))) {
@@ -620,7 +604,7 @@ window.addEventListener("va-gender-changed", () => {
   resetWizard() {
     try {
       const VAQ = (window as any).VAQ;
-      VAQ?.reset?.("q_find_dreadheim_wizard"); // if you implemented reset
+      VAQ?.reset?.("q_find_dreadheim_wizard"); // if implemented
       VAQ?.setActive?.("q_find_dreadheim_wizard");
       VAQ?.renderHUD?.();
       console.log("✅ Wizard quest reset + set active");

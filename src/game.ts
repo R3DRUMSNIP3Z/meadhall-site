@@ -314,14 +314,14 @@ function renderActiveQuest() {
     const quests = read() || [];
 
     // Prefer the true active quest from VAQ (e.g., Wizard), then fall back by priority.
-const VAQ = (window as any).VAQ;
-const activeQ = VAQ?.active?.() || null;
+    const VAQ = (window as any).VAQ;
+    const activeQ = VAQ?.active?.() || null;
 
-let q: any =
-  activeQ ||
-  quests.find((x: any) => x.id === "q_find_dreadheim_wizard" && x.status !== "completed") ||
-  quests.find((x: any) => x.id === "q_travel_home" && x.status !== "completed") ||
-  quests.find((x: any) => x.id === "q_main_pick_race" && x.status !== "completed");
+    let q: any =
+      activeQ ||
+      quests.find((x: any) => x.id === "q_find_dreadheim_wizard" && x.status !== "completed") ||
+      quests.find((x: any) => x.id === "q_travel_home" && x.status !== "completed") ||
+      quests.find((x: any) => x.id === "q_main_pick_race" && x.status !== "completed");
 
     if (!q) { slot.style.display = "none"; return; }
     slot.style.display = "flex";
@@ -341,82 +341,7 @@ let q: any =
     if (pb) pb.style.width = prog + "%";
 
     // Fresh buttons (clone to nuke old listeners)
-    const openBtn    = resetEl<HTMLButtonElement>("aqOpen");
-    const travelBtn  = resetEl<HTMLAnchorElement | HTMLButtonElement>("aqTravel");
     const abandonBtn = resetEl<HTMLButtonElement>("aqAbandon");
-
-    // helpers to read race with per-user preference
-    function getUID(): string | null {
-      try {
-        const raw = localStorage.getItem("mh_user");
-        if (raw) {
-          const o = JSON.parse(raw);
-          return o?.id || o?._id || o?.user?.id || null;
-        }
-      } catch {}
-      return new URLSearchParams(location.search).get("user");
-    }
-    function readRace(): string {
-      const uid = getUID() || "guest";
-      const per = localStorage.getItem(`va_race__${uid}`);
-      const glob = localStorage.getItem("va_race");
-      return (per || glob || "").toLowerCase();
-    }
-
-    // Hide travel by default; show for travel quest
-    if (travelBtn) (travelBtn as HTMLElement).style.display = "none";
-
-    if (q.id === "q_main_pick_race") {
-      openBtn?.addEventListener("click", () => {
-        const el = document.getElementById("questsOverlay") as HTMLElement | null;
-        if (el) el.style.display = "flex";
-      });
-    }
-
-    if (q.id === "q_travel_home" && travelBtn) {
-      const race = readRace();
-      const dest =
-        race === "dreadheim" ? "/dreadheimmap.html" :
-        race === "myriador"  ? "/myriadormap.html"  :
-        race === "wildwood"  ? "/wildwoodmap.html"  :
-        "/dreadheimmap.html";
-
-      // Show and bind
-      const el = travelBtn as HTMLElement;
-      el.style.display = "inline-block";
-
-      // Always give the anchor a proper href for middle-click/open in new tab
-      if (travelBtn instanceof HTMLAnchorElement) {
-        travelBtn.setAttribute("href", dest);
-      }
-
-      // Capture-phase safety click: force nav and flip quests BEFORE leaving
-      travelBtn.addEventListener(
-        "click",
-        (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          (ev as any).stopImmediatePropagation?.();
-
-          try {
-            const VAQ = (window as any).VAQ;
-            VAQ?.ensureQuestState?.();
-            VAQ?.complete?.("q_travel_home");
-            VAQ?.setActive?.("q_find_dreadheim_wizard");
-            VAQ?.renderHUD?.();
-          } catch {}
-
-          try { localStorage.setItem("va_pending_travel", "1"); } catch {}
-          window.location.assign(dest);
-        },
-        { capture: true }
-      );
-
-      if (openBtn) {
-        openBtn.textContent = "Details";
-        openBtn.onclick = () => alert(q.desc || "Travel to your homeland.");
-      }
-    }
 
     if (abandonBtn) {
       abandonBtn.addEventListener("click", () => {
@@ -432,12 +357,12 @@ let q: any =
         renderActiveQuest();
       });
     }
-
-    window.addEventListener("va-quest-updated", renderActiveQuest);
   } finally {
     _aqRendering = false;
   }
 }
+// Subscribe ONCE (not every render)
+window.addEventListener("va-quest-updated", renderActiveQuest);
 
 /* ---------- Allocation UI ---------- */
 let allocInput: HTMLInputElement | null = null;
@@ -800,95 +725,6 @@ async function train(stat: "power"|"defense"|"speed") {
   } catch (err: any) { log("Train error: " + err.message, "bad"); }
 }
 
-/* ==== Active Quest "Travel" Safety Net (extra) ==== */
-(function () {
-  function getUserIdLocal(): string | null {
-    try {
-      const raw = localStorage.getItem("mh_user");
-      if (raw) {
-        const o = JSON.parse(raw);
-        return o?.id || o?._id || o?.user?.id || null;
-      }
-    } catch {}
-    return new URLSearchParams(location.search).get("user");
-  }
-
-  const UID = getUserIdLocal() || "guest";
-  const key = (b: string) => `${b}__${UID}`;
-
-  function currentRace(): string {
-    const perUser = localStorage.getItem(key("va_race"));
-    if (perUser) return perUser.toLowerCase();
-    const globalRace = localStorage.getItem("va_race");
-    if (globalRace) return globalRace.toLowerCase();
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i) || "";
-      if (k.startsWith("va_race__")) {
-        const v = localStorage.getItem(k);
-        if (v) return v.toLowerCase();
-      }
-    }
-    return "";
-  }
-
-  function raceDest(): string {
-    const r = currentRace();
-    if (r === "myriador") return "/myriadormap.html";
-    if (r === "wildwood") return "/wildwoodmap.html";
-    return "/dreadheimmap.html";
-  }
-
-  function bindActiveQuestTravel() {
-    const travelEl = document.getElementById("aqTravel") as HTMLAnchorElement | HTMLButtonElement | null;
-    if (!travelEl) return;
-
-    (travelEl as HTMLElement).style.display = "inline-block";
-    const dest = raceDest();
-
-    if (travelEl instanceof HTMLAnchorElement) {
-      travelEl.href = dest;
-    }
-
-    (travelEl as any).onclick = null;
-    travelEl.addEventListener(
-      "click",
-      (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        (ev as any).stopImmediatePropagation?.();
-
-        try {
-          const VAQ = (window as any).VAQ;
-          VAQ?.ensureQuestState?.();
-          VAQ?.complete?.("q_travel_home");
-          VAQ?.setActive?.("q_find_dreadheim_wizard");
-          VAQ?.renderHUD?.();
-        } catch {}
-
-        try { localStorage.setItem("va_pending_travel", "1"); } catch {}
-        window.location.assign(dest);
-      },
-      { capture: true }
-    );
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bindActiveQuestTravel);
-  } else {
-    bindActiveQuestTravel();
-  }
-
-  window.addEventListener("va-quest-updated", bindActiveQuestTravel);
-
-  const aq = document.getElementById("activeQuest");
-  if (aq) {
-    new MutationObserver(() => bindActiveQuestTravel()).observe(aq, {
-      childList: true,
-      subtree: true,
-    });
-  }
-})();
-
 /* ---------- start ---------- */
 boot().catch(e => log(e.message, "bad"));
 
@@ -988,6 +824,8 @@ boot().catch(e => log(e.message, "bad"));
 - dev.bagList() → inspect stored bag keys
 `);
 })();
+
+
 
 
 

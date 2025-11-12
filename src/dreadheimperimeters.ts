@@ -1,3 +1,4 @@
+// /src/dreadheimperimeters.ts
 // --- Dreadheim • Perimeters (overworld transition) ---
 // Requires: /src/global-game-setup.ts to be loaded BEFORE this script.
 
@@ -17,7 +18,7 @@ const ASSETS = {
       ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
       : "/guildbook/avatars/dreadheim-warrior.png";
   })(),
-};
+} as const;
 
 // Edge exits
 const LEFT_EXIT_URL  = "/dreadheimmap.html";       // back to Forest Entrance
@@ -105,7 +106,7 @@ window.addEventListener("keydown", (e) => {
 });
 window.addEventListener("keyup", (e) => keys.delete(e.key));
 
-// Click-to-enter house (no collision boundaries)
+// Click-to-enter house
 canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
@@ -208,9 +209,47 @@ window.addEventListener("va-gender-changed", () => {
     img.src = next;
   } catch {}
 });
+
+// ===== Quest arrival hook (travel completion → wizard active) =====
+function handleArrivalQuestProgress() {
+  // only complete travel if the previous page marked it
+  let hadPending = false;
+  try {
+    if (localStorage.getItem("va_pending_travel") === "1") {
+      localStorage.removeItem("va_pending_travel");
+      hadPending = true;
+    }
+  } catch {}
+
+  const VAQ = (window as any).VAQ;
+  if (!VAQ) return;
+
+  try {
+    VAQ.ensureQuestState?.();
+
+    const race = (localStorage.getItem("va_race") || "").toLowerCase();
+
+    // If we arrived via Travel and we're on the Dreadheim path, finish travel now
+    if (hadPending && race === "dreadheim") {
+      VAQ.complete?.("q_travel_home");
+    }
+
+    // Ensure the wizard quest is active if not completed yet
+    const qs = (VAQ.readQuests?.() as any[]) || [];
+    const qWiz = qs.find(q => q.id === "q_find_dreadheim_wizard");
+    if (qWiz && qWiz.status !== "completed") {
+      VAQ.setActive?.("q_find_dreadheim_wizard");
+    }
+
+    VAQ.renderHUD?.();
+  } catch (e) {
+    console.warn("Perimeters quest arrival hook failed:", e);
+  }
+}
+
 Promise.all([
   load(ASSETS.bg),
-  load(ASSETS.house),  // ✅ add the house image
+  load(ASSETS.house),
   load(ASSETS.hero),
 ])
   .then(([b, ho, h]) => {
@@ -219,24 +258,21 @@ Promise.all([
     heroImg = h;
 
     refreshBounds();
-    layoutHouse(); // ✅ ensure the house position is calculated
+    layoutHouse();
 
-    // Quest chaining: Travel complete → start Find Wizard
-    try {
-      (window as any).VAQ?.ensureQuestState?.();
-      (window as any).VAQ?.complete?.("q_travel_home");
-      (window as any).VAQ?.setActive?.("q_find_dreadheim_wizard");
-      (window as any).VAQ?.renderHUD?.();
-    } catch {}
+    // Quest chaining: only when arriving from Travel
+    handleArrivalQuestProgress();
 
     loop();
   })
   .catch((err) => {
-    console.warn("Asset load error:", err);
+    console.warn("Perimeters asset load error:", err);
+    try { handleArrivalQuestProgress(); } catch {}
     refreshBounds();
     layoutHouse();
     loop();
   });
+
 
 
 

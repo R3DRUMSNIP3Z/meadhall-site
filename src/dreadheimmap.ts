@@ -478,7 +478,7 @@ function handleArrivalQuestProgress() {
 
     // If we arrived via Travel, push the chain forward
     if (hadPending && race === "dreadheim") {
-      VAQ.complete?.("q_travel_home");                // finish travel
+      VAQ.complete?.("q_travel_home"); // finish travel
     }
 
     // After ensuring/possibly completing travel, refresh readout
@@ -487,7 +487,6 @@ function handleArrivalQuestProgress() {
     // Make wizard quest available/active if not done yet
     const qWiz = qs.find(q => q.id === "q_find_dreadheim_wizard");
     if (qWiz && qWiz.status !== "completed") {
-      // if it was locked, qEnsure should have unlocked it once travel is completed
       VAQ.setActive?.("q_find_dreadheim_wizard");
     }
 
@@ -552,6 +551,7 @@ Promise.all([
   addEventListener("focus", nukeBadge);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) nukeBadge(); });
 })();
+
 
 
 
