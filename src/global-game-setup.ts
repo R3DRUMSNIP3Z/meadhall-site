@@ -30,7 +30,7 @@ type QStatus = "available" | "active" | "completed" | "locked";
 type Quest = { id: string; title: string; desc: string; status: QStatus; progress?: number };
 
 /* Hard order + rules (prevents skipping ahead) */
-type VAQuestLite = { id: string; status?: QStatus; progress?: number };
+
 const VAQ_RULES = [
   { id: "q_main_pick_race",         next: "q_travel_home" },
   { id: "q_travel_home",            next: "q_find_dreadheim_wizard", requires: ["q_main_pick_race"], race: "dreadheim" },
