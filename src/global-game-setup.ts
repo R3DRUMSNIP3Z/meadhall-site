@@ -29,6 +29,17 @@ const VARS_KEY  = "va_vars";
 type QStatus = "available" | "active" | "completed" | "locked";
 type Quest = { id: string; title: string; desc: string; status: QStatus; progress?: number };
 
+/* Hard order + rules (prevents skipping ahead) */
+type VAQuestLite = { id: string; status?: QStatus; progress?: number };
+const VAQ_RULES = [
+  { id: "q_main_pick_race",         next: "q_travel_home" },
+  { id: "q_travel_home",            next: "q_find_dreadheim_wizard", requires: ["q_main_pick_race"], race: "dreadheim" },
+  { id: "q_find_dreadheim_wizard",  next: "q_find_dreadheim_witch",  requires: ["q_travel_home"],    race: "dreadheim" },
+  { id: "q_find_dreadheim_witch",   next: null,                      requires: ["q_find_dreadheim_wizard"], race: "dreadheim" },
+] as const;
+function getRule(id: string) { return VAQ_RULES.find(r => r.id === id) || null; }
+function getNextQuestId(id: string): string | null { return getRule(id)?.next || null; }
+
 /* =========================================================
    QUEST STORAGE (safe write + debounced event)
    ========================================================= */
@@ -78,13 +89,55 @@ function writeVars(v: Vars) {
   localStorage.setItem(VARS_KEY, JSON.stringify(v));
 }
 
+/* =========================================================
+   SANITIZE (hard gates to enforce order)
+   ========================================================= */
+function sanitizeQuestOrder(): void {
+  const v = readVars();
+  const race = (v.race || localStorage.getItem(RACE_KEY) || "").toLowerCase();
+  const list = qRead();
+  const byId = new Map<string, Quest>(list.map(q => [q.id, q]));
+
+  const pick  = byId.get("q_main_pick_race");
+  const travel= byId.get("q_travel_home");
+  const wiz   = byId.get("q_find_dreadheim_wizard");
+  const witch = byId.get("q_find_dreadheim_witch");
+
+  const isDone = (q?: Quest) => q?.status === "completed";
+  const relock = (q?: Quest) => { if (q && q.status !== "completed") { q.status = "locked"; q.progress = 0; } };
+
+  // Witch cannot be before wizard complete
+  if (witch && (witch.status === "active" || witch.status === "available") && !isDone(wiz)) {
+    relock(witch);
+  }
+  // Wizard cannot be before travel complete (when Dreadheim)
+  if (race === "dreadheim" && wiz && (wiz.status === "active" || wiz.status === "available") && !(travel && travel.status === "completed")) {
+    relock(wiz);
+  }
+  // Travel cannot be before pick complete
+  if (travel && (travel.status === "active" || travel.status === "available") && !(pick && pick.status === "completed")) {
+    relock(travel);
+  }
+
+  // Only one active at a time
+  const actives = list.filter(q => q.status === "active");
+  if (actives.length > 1) {
+    // keep earliest in order, demote others
+    const order = ["q_main_pick_race", "q_travel_home", "q_find_dreadheim_wizard", "q_find_dreadheim_witch"];
+    const keep = actives.sort((a,b) => order.indexOf(a.id) - order.indexOf(b.id))[0];
+    for (const q of actives) if (q !== keep) q.status = "available";
+  }
+
+  qWrite(list);
+}
+
 /** Helper: ensure only one active; if none active, pick a preferred one */
 function ensureSingleActiveAndAutoPick(map: Record<string, Quest>, v: Vars) {
   // Keep only one active
   let activeCount = 0;
   for (const q of Object.values(map)) if (q.status === "active") activeCount++;
   if (activeCount > 1) {
-    // demote extras to available, keep the first encountered
+    // demote extras to available, keep the first encountered (we'll re-evaluate after sanitize)
     let kept = false;
     for (const q of Object.values(map)) {
       if (q.status === "active") {
@@ -95,31 +148,30 @@ function ensureSingleActiveAndAutoPick(map: Record<string, Quest>, v: Vars) {
   }
 
   const currentActive = Object.values(map).find(q => q.status === "active");
+  if (currentActive) return;
 
-  if (!currentActive) {
-    const race = (v.race || localStorage.getItem(RACE_KEY) || "").toLowerCase();
+  const race = (v.race || localStorage.getItem(RACE_KEY) || "").toLowerCase();
 
-    // Priority order:
-    // 1) Travel if race is chosen but not completed
-    if (race && map["q_travel_home"]?.status !== "completed") {
-      map["q_travel_home"].status = "active";
-      return;
-    }
-    // 2) Wizard if Dreadheim, travel done, wizard not completed
-    if (race === "dreadheim"
-      && (v.travelCompleted || map["q_travel_home"]?.status === "completed")
-      && map["q_find_dreadheim_wizard"]
-      && map["q_find_dreadheim_wizard"].status !== "completed") {
-      map["q_find_dreadheim_wizard"].status = "active";
-      return;
-    }
-    // 3) Witch if parchment signed (or wizard completed) and witch not completed
-    if ((v.wizardParchmentSigned || map["q_find_dreadheim_wizard"]?.status === "completed")
-      && map["q_find_dreadheim_witch"]
-      && map["q_find_dreadheim_witch"].status !== "completed") {
-      map["q_find_dreadheim_witch"].status = "active";
-      return;
-    }
+  // Priority order (forced):
+  // 1) Travel (if race chosen but travel not done)
+  if (race && map["q_travel_home"]?.status !== "completed") {
+    map["q_travel_home"].status = "active";
+    return;
+  }
+  // 2) Wizard (only if Dreadheim and travel done)
+  if (race === "dreadheim"
+    && (v.travelCompleted || map["q_travel_home"]?.status === "completed")
+    && map["q_find_dreadheim_wizard"]
+    && map["q_find_dreadheim_wizard"].status !== "completed") {
+    map["q_find_dreadheim_wizard"].status = "active";
+    return;
+  }
+  // 3) Witch (only if wizard complete or parchment signed)
+  if ((v.wizardParchmentSigned || map["q_find_dreadheim_wizard"]?.status === "completed")
+    && map["q_find_dreadheim_witch"]
+    && map["q_find_dreadheim_witch"].status !== "completed") {
+    map["q_find_dreadheim_witch"].status = "active";
+    return;
   }
 }
 
@@ -156,7 +208,7 @@ function applyRulesOnce(): void {
 
   // 2) Travel chain: if race picked but travel not done, prefer Travel as active
   if (race && qTravel.status !== "completed") {
-    // only one active at a time
+    // enforce one active (we'll sanitize again after)
     for (const q of Object.values(map)) if (q.status === "active") q.status = "available";
     qTravel.status = "active";
   }
@@ -175,16 +227,22 @@ function applyRulesOnce(): void {
     if (qWitch.status === "locked") qWitch.status = "available";
   }
 
-  // 5) If nothing is active, auto-pick best next
-  ensureSingleActiveAndAutoPick(map, v);
-
+  // First write intermediate state, then sanitize + auto-pick fallback
   qWrite(Object.values(map));
+  sanitizeQuestOrder();
+
+  // Re-read after sanitize to compute a safe fallback active
+  const list2 = qRead();
+  const map2: Record<string, Quest> = Object.fromEntries(list2.map(q => [q.id, q]));
+  ensureSingleActiveAndAutoPick(map2, v);
+  qWrite(Object.values(map2));
 }
 
 /* =========================================================
-   BASIC QUEST HELPERS
+   BASIC QUEST HELPERS (with guards)
    ========================================================= */
 function qSetActive(id: string) {
+  // Respect prereqs by sanitizing after any change
   const list = qRead();
   let changed = false;
   for (const q of list) {
@@ -194,12 +252,32 @@ function qSetActive(id: string) {
       q.status = "available"; changed = true;
     }
   }
-  if (changed) qWrite(list);
+  if (changed) {
+    qWrite(list);
+    sanitizeQuestOrder();
+    qWrite(qRead()); // write back sanitized
+  }
 }
 function qComplete(id: string) {
   const list = qRead();
-  for (const q of list) if (q.id === id) { q.status = "completed"; q.progress = 100; }
+  let did = false;
+  for (const q of list) if (q.id === id) { q.status = "completed"; q.progress = 100; did = true; }
+  if (!did) return;
   qWrite(list);
+
+  // Auto-advance suggestion (do not skip guards)
+  sanitizeQuestOrder();
+
+  const nextId = getNextQuestId(id);
+  if (nextId) {
+    const qs = qRead();
+    const nq = qs.find(q => q.id === nextId);
+    if (nq) {
+      if (nq.status === "locked") nq.status = "available";
+      qWrite(qs);
+      sanitizeQuestOrder();
+    }
+  }
 }
 function qActive(): Quest | null {
   const list = qRead();
@@ -213,6 +291,8 @@ function qStartNext(prevId: string, next: Quest) {
   if (i >= 0) list[i] = { ...list[i], ...next, status:"active", progress: next.progress ?? 0 };
   else list.push({ ...next, status:"active", progress: next.progress ?? 0 });
   qWrite(list);
+  sanitizeQuestOrder();
+  qWrite(qRead());
 }
 
 /* =========================================================
@@ -259,7 +339,7 @@ function getQuestFromCatalog(id: string): CatalogQuest | null {
   if (!CATALOG) return null;
   return CATALOG.quests.find(q => q.id === id) || null;
 }
-// add this line right after the function:
+// expose
 (window as any).getQuestFromCatalog = getQuestFromCatalog;
 
 
@@ -907,10 +987,13 @@ document.addEventListener("keydown", (e) => {
   active: qActive,
   startNext: qStartNext,
   renderHUD: qHudRender,
+  sanitizeQuestOrder,               // ⬅ added for external pages to call after events
+  getNextQuestId,                   // ⬅ optional helper
 };
 
-// Boot: apply rules → HUD → widgets → preload catalog
+// Boot: apply rules → sanitize → HUD → widgets → preload catalog
 applyRulesOnce();
+sanitizeQuestOrder();
 qHudRender();
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", __vaq_renderBoxes, { once: true });
@@ -922,10 +1005,12 @@ loadCatalog().catch(()=>{});
 /* ===== NEW: gentle quest tick (inventory → vars → rules → HUD) ===== */
 setInterval(() => {
   scanInventoryForQuestVars();   // sets wizardParchmentSigned if scroll exists
-  applyRulesOnce();              // updates quest states and auto-picks next if needed
+  applyRulesOnce();              // updates quest states
+  sanitizeQuestOrder();          // enforces order if anything drifted
   qHudRender();                  // refresh HUD
   __vaq_renderBoxes();           // refresh any quest widgets
 }, 1500);
+
 
 
 
