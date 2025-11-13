@@ -31,14 +31,38 @@ const __userKey = (base: string) => `${base}__${__UID}`;
 if (!localStorage.getItem(__userKey("va_gender")) && !localStorage.getItem("va_gender")) {
   localStorage.setItem("va_gender", "male");
 }
-const __gender = localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender") || "male";
+
+// Small helper so every place uses the same logic
+function __getCurrentGender(): "male" | "female" {
+  const g = localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender") || "male";
+  return g === "female" ? "female" : "male";
+}
+
+const __gender = __getCurrentGender();
 document.body?.setAttribute("data-gender", __gender);
 
+/**
+ * Legacy helper: returns a single "standing" frame for places
+ * that still expect ONE static hero image.
+ * Now uses the animated sprite sheets (IDLE_000) instead of the old PNGs.
+ */
 (window as any).getHeroSprite = function (): string {
-  const g = localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender") || "male";
-  return g === "female"
-    ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
-    : "/guildbook/avatars/dreadheim-warrior.png";
+  const g = __getCurrentGender();
+  const base = g === "female"
+    ? "/guildbook/avatars/Warrior_01__"
+    : "/guildbook/avatars/Viking_01__";
+  return `${base}IDLE_000.png`;   // e.g. /guildbook/avatars/Viking_01__IDLE_000.png
+};
+
+/**
+ * New helper for animated pages:
+ * returns the prefix inside /guildbook/avatars (no folder).
+ * Example values: "Viking_01__" or "Warrior_01__".
+ * Use this together with action + frame index to build full paths.
+ */
+(window as any).getHeroSpriteBase = function (): string {
+  const g = __getCurrentGender();
+  return g === "female" ? "Warrior_01__" : "Viking_01__";
 };
 
 /* =========================================================
