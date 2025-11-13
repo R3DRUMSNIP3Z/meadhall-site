@@ -91,8 +91,9 @@ function warpTo(url: string) {
    HERO + MOVEMENT + ANIMATION
    ========================================================= */
 
-const HERO_W = 64;
-const HERO_H = 80;
+const HERO_W = 160;  // wider
+const HERO_H = 200;  // taller
+
 const HERO_SPEED = 2.8;
 
 let heroX = 100;
