@@ -1,6 +1,6 @@
 // /src/dreadheimoutskirts.ts
-// Dreadheim • Outskirts (animated viking on swamp ground)
-// Requires /src/global-game-setup.ts to be loaded BEFORE this script.
+// Dreadheim • Outskirts (animated hero on witchy ground)
+// Requires /src/global-game-setup.ts to set va_gender BEFORE this script.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement | null;
 if (!canvas) throw new Error("#map canvas not found");
@@ -8,28 +8,33 @@ const ctx = canvas.getContext("2d");
 if (!ctx) throw new Error("2D context not available");
 
 /* =========================================================
-   ASSETS
+   GENDER + HERO PREFIX
    ========================================================= */
 
-// Base URL for all viking frames
-const HERO_SPRITE_BASE = "/guildbook/avatars/";
+// Read gender from localStorage (default to male)
+const g = localStorage.getItem("va_gender");
+const HERO_PREFIX_ROOT = g === "female" ? "Warrior_01__" : "Viking_01__";
+
+/* =========================================================
+   ASSETS
+   ========================================================= */
 
 // Every anim = 10 frames: 000–009
 type HeroAnimName = "idle" | "walk" | "run" | "attack" | "hurt" | "die" | "jump";
 
-const HERO_ANIM_SPECS: Record<HeroAnimName, { prefix: string; count: number }> = {
-  idle:   { prefix: "Viking_01__IDLE_",   count: 10 },
-  walk:   { prefix: "Viking_01__WALK_",   count: 10 },
-  run:    { prefix: "Viking_01__RUN_",    count: 10 },
-  attack: { prefix: "Viking_01__ATTACK_", count: 10 },
-  hurt:   { prefix: "Viking_01__HURT_",   count: 10 },
-  die:    { prefix: "Viking_01__DIE_",    count: 10 },
-  jump:   { prefix: "Viking_01__JUMP_",   count: 10 },
+const HERO_ANIM_SPECS: Record<HeroAnimName, { suffix: string; count: number }> = {
+  idle:   { suffix: "IDLE_",   count: 10 },
+  walk:   { suffix: "WALK_",   count: 10 },
+  run:    { suffix: "RUN_",    count: 10 },
+  attack: { suffix: "ATTACK_", count: 10 },
+  hurt:   { suffix: "HURT_",   count: 10 },
+  die:    { suffix: "DIE_",    count: 10 },
+  jump:   { suffix: "JUMP_",   count: 10 },
 };
 
-// Swamp ground tile
+// Witchy ground tile
 const ASSETS = {
-  ground: "/guildbook/maps/witchy-swamp-ground.png",
+  ground: "/guildbook/maps/witchy-ground.png", // ⬅️ uses your path
 };
 
 /* =========================================================
@@ -114,6 +119,7 @@ type HeroAnimState = {
   frameIndex: number;
   frameTimeMs: number;
 };
+
 const heroAnimState: HeroAnimState = {
   action: "idle",
   frameIndex: 0,
@@ -141,7 +147,7 @@ let groundImg: HTMLImageElement | null = null;
 let groundPattern: CanvasPattern | null = null;
 
 /* =========================================================
-   ANIM HELPERS
+   ANIMATION HELPERS
    ========================================================= */
 
 function pickHeroActionFromInput(): HeroAnimName {
@@ -151,7 +157,7 @@ function pickHeroActionFromInput(): HeroAnimName {
     keys["ArrowUp"] || keys["w"] || keys["W"] ||
     keys["ArrowDown"] || keys["s"] || keys["S"];
 
-  // For now: idle vs walk. We can switch to run/attack later.
+  // For now: idle vs walk (we can hook run/attack later)
   return moving ? "walk" : "idle";
 }
 
@@ -225,26 +231,26 @@ function step(ts: number) {
   if (heroY < 0) heroY = 0;
   if (heroY + HERO_H > ch) heroY = ch - HERO_H;
 
-  // Exit to perimeters
+  // Exit on left edge
   if (heroX <= EXIT_MARGIN) {
     warpTo(LEFT_EXIT_URL);
   }
 
-  // Update animation state
+  // Update animation
   updateHeroAnimation(dt);
 
   // Draw
   ctx!.clearRect(0, 0, cw, ch);
   ctx!.imageSmoothingEnabled = false;
 
-  // Tile swamp ground over full screen
+  // Tile witchy ground over full screen
   ctx!.fillStyle = groundPattern!;
   ctx!.fillRect(0, 0, cw, ch);
 
   const frame = getCurrentHeroFrame();
   if (frame) {
     ctx!.save();
-    ctx!.translate(heroX + HERO_W / 2, heroY); // pivot for flip
+    ctx!.translate(heroX + HERO_W / 2, heroY); // pivot at center for flip
 
     if (heroFacing === -1) {
       ctx!.scale(-1, 1);
@@ -263,12 +269,13 @@ function step(ts: number) {
 
 async function loadHeroAnimations(): Promise<void> {
   const entries = Object.entries(HERO_ANIM_SPECS) as
-    [HeroAnimName, { prefix: string; count: number }][];
+    [HeroAnimName, { suffix: string; count: number }][];
   for (const [name, spec] of entries) {
     const frames: HTMLImageElement[] = [];
     for (let i = 0; i < spec.count; i++) {
       const indexStr = i.toString().padStart(3, "0"); // 000–009
-      const path = `${HERO_SPRITE_BASE}${spec.prefix}${indexStr}.png`;
+      const path = `/guildbook/avatars/${HERO_PREFIX_ROOT}${spec.suffix}${indexStr}.png`;
+
       try {
         const img = await loadImage(path);
         frames.push(img);
@@ -307,5 +314,6 @@ async function init() {
 init();
 
 export {};
+
 
 
