@@ -1,5 +1,5 @@
 // /src/dreadheimoutskirts.ts
-// Dreadheim • Outskirts (animated hero on witchy ground)
+// Dreadheim • Outskirts (animated hero on witchy ground + witch hut)
 // Requires /src/global-game-setup.ts to set va_gender BEFORE this script.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement | null;
@@ -32,9 +32,10 @@ const HERO_ANIM_SPECS: Record<HeroAnimName, { suffix: string; count: number }> =
   jump:   { suffix: "JUMP_",   count: 10 },
 };
 
-// Witchy ground tile
+// Witchy ground tile + hut
 const ASSETS = {
-  ground: "/guildbook/maps/witchy-ground.png", // ⬅️ uses your path
+  ground: "/guildbook/maps/witchy-ground.png",
+  hut: "/guildbook/props/witch-hut.png", // ⬅️ your hut PNG
 };
 
 /* =========================================================
@@ -91,8 +92,8 @@ function warpTo(url: string) {
    HERO + MOVEMENT + ANIMATION
    ========================================================= */
 
-const HERO_W = 150;  // wider
-const HERO_H = 150;  // taller
+const HERO_W = 150;
+const HERO_H = 150;
 
 const HERO_SPEED = 2.8;
 
@@ -141,11 +142,15 @@ resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
 /* =========================================================
-   GROUND
+   GROUND + HUT
    ========================================================= */
 
 let groundImg: HTMLImageElement | null = null;
 let groundPattern: CanvasPattern | null = null;
+
+let hutImg: HTMLImageElement | null = null;
+// You can tweak this scale if the hut feels too big/small
+const HUT_SCALE = 0.55;
 
 /* =========================================================
    ANIMATION HELPERS
@@ -248,6 +253,21 @@ function step(ts: number) {
   ctx!.fillStyle = groundPattern!;
   ctx!.fillRect(0, 0, cw, ch);
 
+  // === Draw hut in center of map ===
+  if (hutImg) {
+    const rawW = hutImg.width;
+    const rawH = hutImg.height;
+    const drawW = rawW * HUT_SCALE;
+    const drawH = rawH * HUT_SCALE;
+
+    // Center horizontally, slightly lower vertically so it sits "on the ground"
+    const hutX = (cw - drawW) / 2;
+    const hutY = (ch - drawH) / 2 + 40;
+
+    ctx!.drawImage(hutImg, hutX, hutY, drawW, drawH);
+  }
+
+  // === Draw hero ===
   const frame = getCurrentHeroFrame();
   if (frame) {
     ctx!.save();
@@ -293,12 +313,14 @@ async function init() {
   started = true;
 
   try {
-    const [ground] = await Promise.all([
+    const [ground, hut] = await Promise.all([
       loadImage(ASSETS.ground),
+      loadImage(ASSETS.hut),
     ]);
 
     groundImg = ground;
     groundPattern = ctx!.createPattern(groundImg, "repeat");
+    hutImg = hut;
 
     await loadHeroAnimations();
 
@@ -315,6 +337,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
