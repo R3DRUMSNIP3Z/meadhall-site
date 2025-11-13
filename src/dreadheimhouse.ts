@@ -12,6 +12,8 @@ const ctx = canvas.getContext("2d")!;
 const ASSETS = {
   bg: "/guildbook/props/dreadheimhouseinside.png",
   npc: "/guildbook/npcs/dreadheim-wizard.png",
+    scroll: "/guildbook/loot/questscroll.png",
+
   hero: (() => {
     const pick = (window as any).getHeroSprite as undefined | (() => string);
     if (typeof pick === "function") return pick();
@@ -23,6 +25,18 @@ const ASSETS = {
 } as const;
 
 const EXIT_URL = "/dreadheimperimeters.html";
+
+// === Scroll loot (drops AFTER wizard quest is completed) ===
+let scrollImg: HTMLImageElement | null = null;
+
+const scrollLoot = {
+  x: 420,
+  y: 360,
+  w: 48,
+  h: 48,
+  visible: false,
+};
+
 
 /* =========================================================
    QUEST CATALOG LOADER
@@ -559,21 +573,41 @@ function step() {
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Background
   if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
 
-  // depth sort by feet
+  // === Scroll loot (behind NPC + hero) ===
+  if (scrollLoot.visible && scrollImg) {
+    ctx.drawImage(
+      scrollImg,
+      scrollLoot.x,
+      scrollLoot.y,
+      scrollLoot.w,
+      scrollLoot.h
+    );
+  }
+
+  // depth sort by feet (NPC and hero)
   const heroFeet = hero.y + hero.h;
   const npcFeet  = npc.y + npc.h;
+
   if (heroFeet < npcFeet) {
+    // hero in front
     if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
-    if (npcImg)  ctx.drawImage(npcImg,  npc.x,  npc.y,  npc.w,  npc.h);
+    if (npcImg) ctx.drawImage(npcImg, npc.x, npc.y, npc.w, npc.h);
   } else {
-    if (npcImg)  ctx.drawImage(npcImg,  npc.x,  npc.y,  npc.w,  npc.h);
+    // NPC in front
+    if (npcImg) ctx.drawImage(npcImg, npc.x, npc.y, npc.w, npc.h);
     if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
   }
 
-  if (!heroImg) { ctx.fillStyle = "#333"; ctx.fillRect(hero.x, hero.y, hero.w, hero.h); }
+  // fallback hero rectangle if no image
+  if (!heroImg) {
+    ctx.fillStyle = "#333";
+    ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
+  }
 }
+
 
 /* =========================================================
    LOOP
@@ -617,14 +651,30 @@ window.addEventListener("va-gender-changed", () => {
 /* =========================================================
    BOOT
    ========================================================= */
-Promise.all([load(ASSETS.bg), load(ASSETS.npc), load(ASSETS.hero)])
-  .then(([b, n, h]) => {
-    bg = b; npcImg = n; heroImg = h;
+Promise.all([
+  load(ASSETS.bg),
+  load(ASSETS.npc),
+  load(ASSETS.hero),
+  load(ASSETS.scroll), // NEW: wizard scroll asset
+])
+  .then(([b, n, h, s]) => {
+    // Assign loaded images
+    bg = b;
+    npcImg = n;
+    heroImg = h;
+    scrollImg = s; // NEW: assign scroll image here
+
+    // Now that images exist, update layout and start loop
     refreshBounds();
     showExitHint();
     loop();
   })
-  .catch(() => { refreshBounds(); loop(); });
+  .catch((err) => {
+    console.warn("House load fallback:", err);
+    refreshBounds();
+    loop();
+  });
+
 
 
 
