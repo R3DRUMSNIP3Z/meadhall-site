@@ -3,7 +3,17 @@
   "variables": {
     "race": null,
     "wizard_signed": false,
-    "witch_met": false
+    "witch_met": false,
+    "ph1_done": false,
+    "ph2_done": false,
+    "ph3_done": false,
+    "ph4_done": false,
+    "ph5_done": false,
+    "ph6_done": false,
+    "ph7_done": false,
+    "ph8_done": false,
+    "ph9_done": false,
+    "ph10_done": false
   },
 
   "rules": [
@@ -29,11 +39,70 @@
     },
     {
       "id": "q_find_dreadheim_witch",
-      "title": "Find Skarthra the Pale",
-      "desc": "She haunts the Dreadheim Outskirts.",
       "unlockIf": "wizard_signed",
       "autoActivateIf": "wizard_signed && !witch_met",
       "completeIf": "witch_met"
+    },
+
+    {
+      "id": "q_placeholder_01",
+      "unlockIf": "wizard_signed",
+      "autoActivateIf": "wizard_signed && !ph1_done",
+      "completeIf": "ph1_done"
+    },
+    {
+      "id": "q_placeholder_02",
+      "unlockIf": "ph1_done",
+      "autoActivateIf": "ph1_done && !ph2_done",
+      "completeIf": "ph2_done"
+    },
+    {
+      "id": "q_placeholder_03",
+      "unlockIf": "ph2_done",
+      "autoActivateIf": "ph2_done && !ph3_done",
+      "completeIf": "ph3_done"
+    },
+    {
+      "id": "q_placeholder_04",
+      "unlockIf": "ph3_done",
+      "autoActivateIf": "ph3_done && !ph4_done",
+      "completeIf": "ph4_done"
+    },
+    {
+      "id": "q_placeholder_05",
+      "unlockIf": "ph4_done",
+      "autoActivateIf": "ph4_done && !ph5_done",
+      "completeIf": "ph5_done"
+    },
+    {
+      "id": "q_placeholder_06",
+      "unlockIf": "ph5_done",
+      "autoActivateIf": "ph5_done && !ph6_done",
+      "completeIf": "ph6_done"
+    },
+    {
+      "id": "q_placeholder_07",
+      "unlockIf": "ph6_done",
+      "autoActivateIf": "ph6_done && !ph7_done",
+      "completeIf": "ph7_done"
+    },
+    {
+      "id": "q_placeholder_08",
+      "unlockIf": "ph7_done",
+      "autoActivateIf": "ph7_done && !ph8_done",
+      "completeIf": "ph8_done"
+    },
+    {
+      "id": "q_placeholder_09",
+      "unlockIf": "ph8_done",
+      "autoActivateIf": "ph8_done && !ph9_done",
+      "completeIf": "ph9_done"
+    },
+    {
+      "id": "q_placeholder_10",
+      "unlockIf": "ph9_done",
+      "autoActivateIf": "ph9_done && !ph10_done",
+      "completeIf": "ph10_done"
     }
   ],
 
@@ -122,7 +191,12 @@
         "gold": 100,
         "brisingr": 1,
         "items": [
-          { "id": "wizardscroll", "name": "Lamplit Clue", "image": "/guildbook/loot/questscroll.png", "qty": 1 }
+          {
+            "id": "wizardscroll",
+            "name": "Lamplit Clue",
+            "image": "/guildbook/loot/questscroll.png",
+            "qty": 1
+          }
         ]
       },
       "dialogue": [
@@ -190,9 +264,226 @@
           "text": "So the wizard sent you. Let's see if your courage isn't borrowed."
         }
       ]
+    },
+
+    {
+      "id": "q_placeholder_01",
+      "title": "Placeholder Quest 01",
+      "desc": "Temporary quest slot for future content.",
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "NPC",
+          "text": "Placeholder quest 01. Replace me later.",
+          "choices": [
+            { "text": "Complete.", "next": "done" },
+            { "text": "Not yet.", "next": "end" }
+          ]
+        },
+        {
+          "id": "done",
+          "text": "Marked complete.",
+          "action": { "type": "setVars", "set": { "ph1_done": true } }
+        },
+        {
+          "id": "end",
+          "text": "Come back anytime."
+        }
+      ]
+    },
+
+    {
+      "id": "q_placeholder_02",
+      "title": "Placeholder Quest 02",
+      "desc": "Temporary quest slot.",
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "NPC",
+          "text": "Placeholder quest 02.",
+          "choices": [
+            { "text": "OK.", "next": "done" }
+          ]
+        },
+        {
+          "id": "done",
+          "text": "Marked complete.",
+          "action": { "type": "setVars", "set": { "ph2_done": true } }
+        }
+      ]
+    },
+
+    {
+      "id": "q_placeholder_03",
+      "title": "Placeholder Quest 03",
+      "desc": "Temporary quest slot.",
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "NPC",
+          "text": "Placeholder quest 03.",
+          "choices": [
+            { "text": "OK.", "next": "done" }
+          ]
+        },
+        {
+          "id": "done",
+          "text": "Marked complete.",
+          "action": { "type": "setVars", "set": { "ph3_done": true } }
+        }
+      ]
+    },
+
+    {
+      "id": "q_placeholder_04",
+      "title": "Placeholder Quest 04",
+      "desc": "Temporary quest slot.",
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "NPC",
+          "text": "Placeholder quest 04.",
+          "choices": [
+            { "text": "OK.", "next": "done" }
+          ]
+        },
+        {
+          "id": "done",
+          "text": "Marked complete.",
+          "action": { "type": "setVars", "set": { "ph4_done": true } }
+        }
+      ]
+    },
+
+    {
+      "id": "q_placeholder_05",
+      "title": "Placeholder Quest 05",
+      "desc": "Temporary quest slot.",
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "NPC",
+          "text": "Placeholder quest 05.",
+          "choices": [
+            { "text": "OK.", "next": "done" }
+          ]
+        },
+        {
+          "id": "done",
+          "text": "Marked complete.",
+          "action": { "type": "setVars", "set": { "ph5_done": true } }
+        }
+      ]
+    },
+
+    {
+      "id": "q_placeholder_06",
+      "title": "Placeholder Quest 06",
+      "desc": "Temporary quest slot.",
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "NPC",
+          "text": "Placeholder quest 06.",
+          "choices": [
+            { "text": "OK.", "next": "done" }
+          ]
+        },
+        {
+          "id": "done",
+          "text": "Marked complete.",
+          "action": { "type": "setVars", "set": { "ph6_done": true } }
+        }
+      ]
+    },
+
+    {
+      "id": "q_placeholder_07",
+      "title": "Placeholder Quest 07",
+      "desc": "Temporary quest slot.",
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "NPC",
+          "text": "Placeholder quest 07.",
+          "choices": [
+            { "text": "OK.", "next": "done" }
+          ]
+        },
+        {
+          "id": "done",
+          "text": "Marked complete.",
+          "action": { "type": "setVars", "set": { "ph7_done": true } }
+        }
+      ]
+    },
+
+    {
+      "id": "q_placeholder_08",
+      "title": "Placeholder Quest 08",
+      "desc": "Temporary quest slot.",
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "NPC",
+          "text": "Placeholder quest 08.",
+          "choices": [
+            { "text": "OK.", "next": "done" }
+          ]
+        },
+        {
+          "id": "done",
+          "text": "Marked complete.",
+          "action": { "type": "setVars", "set": { "ph8_done": true } }
+        }
+      ]
+    },
+
+    {
+      "id": "q_placeholder_09",
+      "title": "Placeholder Quest 09",
+      "desc": "Temporary quest slot.",
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "NPC",
+          "text": "Placeholder quest 09.",
+          "choices": [
+            { "text": "OK.", "next": "done" }
+          ]
+        },
+        {
+          "id": "done",
+          "text": "Marked complete.",
+          "action": { "type": "setVars", "set": { "ph9_done": true } }
+        }
+      ]
+    },
+
+    {
+      "id": "q_placeholder_10",
+      "title": "Placeholder Quest 10",
+      "desc": "Temporary quest slot.",
+      "dialogue": [
+        {
+          "id": "start",
+          "speaker": "NPC",
+          "text": "Placeholder quest 10.",
+          "choices": [
+            { "text": "OK.", "next": "done" }
+          ]
+        },
+        {
+          "id": "done",
+          "text": "Marked complete.",
+          "action": { "type": "setVars", "set": { "ph10_done": true } }
+        }
+      ]
     }
+
   ]
 }
+
 
 
 

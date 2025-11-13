@@ -362,18 +362,18 @@ function qProgressAdd(id: string, delta: number) {
    ========================================================= */
  type CatalogAction =
   | { type: "setVars"; set: Record<string, any> }
-  | { type: "completeQuest"; nextId?: string };
+  | { type: "completeQuest"; nextId?: string; showParchmentSignature?: boolean; setVars?: Record<string, any> };
 
- type CatalogNode = {
+type CatalogNode = {
   id: string;
   speaker?: string;
   text?: string;
   choices?: { text: string; next?: string }[];
   next?: string;
   action?: CatalogAction;
- };
+};
 
- type CatalogQuest = {
+type CatalogQuest = {
   id: string;
   title: string;
   desc: string;
@@ -383,23 +383,54 @@ function qProgressAdd(id: string, delta: number) {
     items?: { id: string; name: string; image: string; qty?: number }[];
   };
   dialogue?: CatalogNode[];
- };
+};
 
- type Catalog = { quests: CatalogQuest[] };
+type CatalogRule = {
+  id: string;
+  title?: string;
+  desc?: string;
+  unlockIf?: string;       // JS-ish expression using vars: race, wizard_signed, witch_met
+  autoActivateIf?: string;
+  completeIf?: string;
+  next?: string;
+};
+
+type Catalog = {
+  version?: number;
+  variables?: Record<string, any>;
+  rules?: CatalogRule[];
+  quests: CatalogQuest[];
+};
+
+
 
 let CATALOG: Catalog | null = null;
 
 async function loadCatalog(): Promise<Catalog> {
   if (CATALOG) return CATALOG;
+
   const res = await fetch("/guildbook/catalogquests.json", { cache: "no-cache" });
   const json = (await res.json()) as Catalog;
   CATALOG = json;
+
+  // Initialize variables from catalog if they exist and we don't already have saved ones
+  try {
+    const have = localStorage.getItem(VARS_KEY);
+    if (!have && json?.variables) {
+      const v = readVars();
+      Object.assign(v, json.variables);
+      writeVars(v);
+    }
+  } catch {}
+
   return json;
 }
+
 function getQuestFromCatalog(id: string): CatalogQuest | null {
   if (!CATALOG) return null;
   return CATALOG.quests.find(q => q.id === id) || null;
 }
+
 (window as any).getQuestFromCatalog = getQuestFromCatalog;
 
 /* =========================================================
