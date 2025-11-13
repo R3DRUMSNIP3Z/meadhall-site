@@ -537,7 +537,10 @@ function getQuestFromCatalog(id: string): CatalogQuest | null {
         ">×</button>
       </div>
     `;
-    const finish = () => { overlay.remove(); cb?.(); };
+        const finish = () => {
+      overlay.remove();
+      cb?.();
+    };
     overlay.querySelector<HTMLButtonElement>("#sigBtn")!.onclick = finish;
     overlay.querySelector<HTMLButtonElement>("#xBtn")!.onclick   = finish;
     document.body.appendChild(overlay);
@@ -546,9 +549,22 @@ function getQuestFromCatalog(id: string): CatalogQuest | null {
     const v = readVars();
     v.wizardParchmentSigned = true;
     writeVars(v);
+
+    // ✅ also grant the wizard scroll directly to inventory
+    try {
+      (window as any).Inventory?.add?.(
+        "wizardscroll",
+        "Lamplit Clue",
+        "/guildbook/loot/questscroll.png",
+        1
+      );
+    } catch {}
+
+    // re-apply quest rules + refresh HUD/boxes
     applyRulesOnce();
     qHudRender();
     __vaq_renderBoxes();
+    window.dispatchEvent(new CustomEvent("va-quest-updated"));
   }
   (window as any).showParchmentSignature = showParchmentSignature;
 
