@@ -1,5 +1,5 @@
 // /src/dreadheimoutskirts.ts
-// --- Dreadheim • Outskirts (witchy tiled ground only) ---
+// --- Dreadheim • Outskirts (witchy tiled ground full screen) ---
 // Requires /src/global-game-setup.ts to be loaded BEFORE this script.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement | null;
@@ -110,9 +110,6 @@ let heroImg: HTMLImageElement | null = null;
 let groundImg: HTMLImageElement | null = null;
 let groundPattern: CanvasPattern | null = null;
 
-// Height of the walkable strip at the bottom
-const GROUND_HEIGHT = 200;
-
 /* =========================================================
    MAIN LOOP
    ========================================================= */
@@ -144,13 +141,11 @@ function step() {
     heroY += dy * HERO_SPEED;
   }
 
-  // Clamp hero inside screen and on top of ground
-  const groundTop = ch - GROUND_HEIGHT;
-
+  // Clamp hero inside full screen
   if (heroX < 0) heroX = 0;
   if (heroX + HERO_W > cw) heroX = cw - HERO_W;
 
-  if (heroY < groundTop - 40) heroY = groundTop - 40; // don’t float too high
+  if (heroY < 0) heroY = 0;
   if (heroY + HERO_H > ch) heroY = ch - HERO_H;
 
   // Exits
@@ -162,13 +157,9 @@ function step() {
   ctx!.clearRect(0, 0, cw, ch);
   ctx!.imageSmoothingEnabled = false;
 
-  // Simple black background for now
-  ctx!.fillStyle = "#000000";
-  ctx!.fillRect(0, 0, cw, ch);
-
-  // Ground at bottom using repeating pattern
+  // Tile ground over the whole page
   ctx!.fillStyle = groundPattern;
-  ctx!.fillRect(0, ch - GROUND_HEIGHT, cw, GROUND_HEIGHT);
+  ctx!.fillRect(0, 0, cw, ch);
 
   // Hero
   ctx!.drawImage(heroImg, heroX, heroY, HERO_W, HERO_H);
@@ -194,9 +185,9 @@ async function init() {
 
     groundPattern = ctx!.createPattern(groundImg, "repeat");
 
-    // Start hero roughly above the ground, centered
+    // Start hero roughly centered
     heroX = (canvas!.width - HERO_W) / 2;
-    heroY = canvas!.height - GROUND_HEIGHT - HERO_H + 20;
+    heroY = (canvas!.height - HERO_H) / 2;
 
     requestAnimationFrame(step);
   } catch (err) {
