@@ -12,7 +12,7 @@ const ctx = canvas.getContext("2d")!;
 const ASSETS = {
   bg: "/guildbook/props/dreadheimhouseinside.png",
   npc: "/guildbook/npcs/dreadheim-wizard.png",
-    scroll: "/guildbook/loot/questscroll.png",
+  scroll: "/guildbook/loot/questscroll.png",
 
   hero: (() => {
     const pick = (window as any).getHeroSprite as undefined | (() => string);
@@ -193,7 +193,7 @@ function showDialogue(lines: string[], ms = 0) {
 }
 
 /* =========================================================
-   CATALOG DIALOGUE RUNNER (uses your JSON format)
+   CATALOG DIALOGUE RUNNER
    ========================================================= */
 type CatalogNode = {
   id: string;
@@ -270,9 +270,8 @@ function renderCatNode(q: CatalogQuest, nodeId: string, onDone?: () => void) {
   `;
   choices.innerHTML = "";
 
-  // Handle action before rendering choices
+  // Action node
   if (node.action === "completeQuest") {
-    // Rewards (items via Inventory if available)
     try {
       const inv: any = (window as any).Inventory;
       for (const it of (q.rewards?.items || [])) {
@@ -281,18 +280,10 @@ function renderCatNode(q: CatalogQuest, nodeId: string, onDone?: () => void) {
         const icon = (it as any).icon || (it as any).image || "";
         if (typeof inv?.add === "function" && it?.id) {
           inv.add(it.id, name, icon, qty);
-        } else {
-          console.warn("Inventory.add unavailable or bad item:", it);
         }
       }
-    } catch (e) {
-      console.warn("Failed to grant rewards:", e);
-    }
+    } catch {}
 
-    if (q.rewards?.gold)     console.log(`+${q.rewards.gold} gold (reward)`);
-    if (q.rewards?.brisingr) console.log(`+${q.rewards.brisingr} brisingr (reward)`);
-
-    // Complete quest & parchment
     closeCatDialogue();
     finishWizardQuest();
     onDone?.();
@@ -333,7 +324,7 @@ function runCatalogDialogue(q: CatalogQuest, onDone?: () => void) {
 }
 
 /* =========================================================
-   CLICK / HOVER → NPC DIALOGUE (generous hitbox)
+   CLICK / HOVER → NPC DIALOGUE
    ========================================================= */
 function cssPointFromEvent(ev: MouseEvent) {
   const rect = canvas.getBoundingClientRect();
@@ -360,7 +351,7 @@ canvas.addEventListener("pointerdown", async (ev) => {
 });
 
 /* =========================================================
-   PLAYER NAME HELPER
+   PLAYER NAME
    ========================================================= */
 function getPlayerName(): string {
   try {
@@ -376,7 +367,7 @@ function getPlayerName(): string {
 }
 
 /* =========================================================
-   INTERACTIVE WIZARD FLOW (catalog-first)
+   WIZARD FLOW
    ========================================================= */
 let wizardLocked = false;
 
@@ -393,16 +384,14 @@ async function startWizardDialogue() {
           (window as any).showParchmentSignature("wizardscroll");
         }
         (window as any).VAQ?.renderHUD?.();
-      } catch (err) {
-        console.warn("Wizard post-dialogue hook failed:", err);
-      } finally {
+      } catch {}
+      finally {
         setTimeout(() => { wizardLocked = false; }, 300);
       }
     });
     return;
   }
 
-  // Fallback
   (window as any).VADialogue?.openNode?.("q_find_dreadheim_wizard:intro");
   if (typeof (window as any).showParchmentSignature === "function") {
     (window as any).showParchmentSignature("wizardscroll");
@@ -411,7 +400,7 @@ async function startWizardDialogue() {
 }
 
 /* =========================================================
-   PARCHMENT SIGNATURE → COMPLETE QUEST
+   SIGN PARCHMENT
    ========================================================= */
 function showParchmentSignature() {
   const paper = document.createElement("div");
@@ -461,16 +450,19 @@ function showParchmentSignature() {
 }
 (window as any).showParchmentSignature = showParchmentSignature;
 
+/* =========================================================
+   FINISH WIZARD QUEST — ⭐ FIX HERE
+   ========================================================= */
 function finishWizardQuest() {
   try {
     const VAQ = (window as any).VAQ;
     VAQ?.complete?.("q_find_dreadheim_wizard");
-    // VAQ?.setActive?.("q_find_dreadheim_witch"); // enable when next quest is ready
     VAQ?.renderHUD?.();
     window.dispatchEvent(new CustomEvent("va-quest-updated"));
-  } catch (err) {
-    console.warn("Quest system not found:", err);
-  }
+  } catch {}
+
+  //// ⭐ ADDED — MAKE SCROLL DROP
+  scrollLoot.visible = true;
 
   showDialogue([
     'Old Seer: "Your mark is sealed, and your path begins anew."',
@@ -481,7 +473,7 @@ function finishWizardQuest() {
 }
 
 /* =========================================================
-   SMALL BOTTOM HINT
+   BOTTOM HINT
    ========================================================= */
 function showExitHint() {
   const h = document.createElement("div");
@@ -498,7 +490,7 @@ function showExitHint() {
 }
 
 /* =========================================================
-   STEP (MOVEMENT) — with proximity E-hint
+   STEP (MOVEMENT)
    ========================================================= */
 function step() {
   let dx = 0, dy = 0;
@@ -521,7 +513,6 @@ function step() {
   hero.x += dx;
   hero.y += dy;
 
-  // Bounds
   const leftBound = 0;
   const rightBound = window.innerWidth - hero.w;
   const floorTop = Math.round(window.innerHeight * WALKWAY_TOP_RATIO) - hero.h;
@@ -532,13 +523,11 @@ function step() {
   if (hero.y < ceiling)    hero.y = ceiling;
   if (hero.y > floorTop)   hero.y = floorTop;
 
-  // Bottom-edge exit
   if (down && hero.y >= floorTop - 0.5) {
     warpTo(EXIT_URL);
     return;
   }
 
-  // Proximity check for E
   const heroCenterX = hero.x + hero.w / 2;
   const npcCenterX  = npc.x + npc.w / 2;
   const dxCenter = Math.abs(heroCenterX - npcCenterX);
@@ -546,7 +535,6 @@ function step() {
     dxCenter < TALK_DISTANCE &&
     Math.abs((hero.y + hero.h) - (npc.y + npc.h)) < 80;
 
-  // Small floating hint when close enough
   if (touchingNPC && !document.getElementById("eHint")) {
     const h = document.createElement("div");
     h.id = "eHint";
@@ -568,15 +556,45 @@ function step() {
 }
 
 /* =========================================================
+   ⭐ SCROLL PICKUP FIX
+   ========================================================= */
+
+canvas.addEventListener("pointerdown", (ev) => {
+  if (!scrollLoot.visible) return;
+
+  const { x, y } = cssPointFromEvent(ev);
+
+  if (
+    x >= scrollLoot.x &&
+    x <= scrollLoot.x + scrollLoot.w &&
+    y >= scrollLoot.y &&
+    y <= scrollLoot.y + scrollLoot.h
+  ) {
+    try {
+      const inv:any = (window as any).Inventory;
+      inv?.add?.(
+        "wizardscroll",
+        "Wizard's Scroll",
+        "/guildbook/loot/questscroll.png",
+        1
+      );
+    } catch {}
+
+    scrollLoot.visible = false;
+
+    showDialogue(["You picked up the Wizard’s Scroll."], 2000);
+  }
+});
+
+
+/* =========================================================
    RENDER
    ========================================================= */
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Background
   if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
 
-  // === Scroll loot (behind NPC + hero) ===
   if (scrollLoot.visible && scrollImg) {
     ctx.drawImage(
       scrollImg,
@@ -587,27 +605,22 @@ function render() {
     );
   }
 
-  // depth sort by feet (NPC and hero)
   const heroFeet = hero.y + hero.h;
   const npcFeet  = npc.y + npc.h;
 
   if (heroFeet < npcFeet) {
-    // hero in front
     if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
     if (npcImg) ctx.drawImage(npcImg, npc.x, npc.y, npc.w, npc.h);
   } else {
-    // NPC in front
     if (npcImg) ctx.drawImage(npcImg, npc.x, npc.y, npc.w, npc.h);
     if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
   }
 
-  // fallback hero rectangle if no image
   if (!heroImg) {
     ctx.fillStyle = "#333";
     ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
   }
 }
-
 
 /* =========================================================
    LOOP
@@ -632,19 +645,17 @@ window.addEventListener("va-gender-changed", () => {
 });
 
 /* =========================================================
-   Debug/Reset Helper (optional)
+   Debug Helper
    ========================================================= */
 (window as any).VAQdebug = {
   resetWizard() {
     try {
       const VAQ = (window as any).VAQ;
-      VAQ?.reset?.("q_find_dreadheim_wizard"); // if implemented
+      VAQ?.reset?.("q_find_dreadheim_wizard");
       VAQ?.setActive?.("q_find_dreadheim_wizard");
       VAQ?.renderHUD?.();
-      console.log("✅ Wizard quest reset + set active");
-    } catch (e) {
-      console.warn("VAQ reset unavailable:", e);
-    }
+      console.log("Wizard quest reset + set active");
+    } catch {}
   }
 };
 
@@ -655,16 +666,14 @@ Promise.all([
   load(ASSETS.bg),
   load(ASSETS.npc),
   load(ASSETS.hero),
-  load(ASSETS.scroll), // NEW: wizard scroll asset
+  load(ASSETS.scroll),
 ])
   .then(([b, n, h, s]) => {
-    // Assign loaded images
     bg = b;
     npcImg = n;
     heroImg = h;
-    scrollImg = s; // NEW: assign scroll image here
+    scrollImg = s;
 
-    // Now that images exist, update layout and start loop
     refreshBounds();
     showExitHint();
     loop();
@@ -674,6 +683,10 @@ Promise.all([
     refreshBounds();
     loop();
   });
+
+
+
+
 
 
 
