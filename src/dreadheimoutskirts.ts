@@ -1,5 +1,5 @@
 // /src/dreadheimoutskirts.ts
-// --- Dreadheim • Outskirts (witchy village + tiled ground) ---
+// --- Dreadheim • Outskirts (witchy tiled ground only) ---
 // Requires /src/global-game-setup.ts to be loaded BEFORE this script.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement | null;
@@ -11,9 +11,6 @@ if (!ctx) throw new Error("2D context not available");
    ASSETS
    ========================================================= */
 const ASSETS = {
-  // Witchy village background (full 1152x768 style image)
-  bg: "/guildbook/maps/dreadheimoutskirts_bg.png",
-
   // Mossy cobblestone ground tile (seamless)
   ground: "/guildbook/maps/witchy-ground.png",
 
@@ -109,7 +106,6 @@ window.addEventListener("resize", resizeCanvas);
 /* =========================================================
    IMAGES / PATTERN
    ========================================================= */
-let bgImg: HTMLImageElement | null = null;
 let heroImg: HTMLImageElement | null = null;
 let groundImg: HTMLImageElement | null = null;
 let groundPattern: CanvasPattern | null = null;
@@ -123,7 +119,7 @@ const GROUND_HEIGHT = 200;
 let started = false;
 
 function step() {
-  if (!bgImg || !heroImg || !groundPattern) {
+  if (!heroImg || !groundPattern) {
     requestAnimationFrame(step);
     return;
   }
@@ -166,8 +162,9 @@ function step() {
   ctx!.clearRect(0, 0, cw, ch);
   ctx!.imageSmoothingEnabled = false;
 
-  // Background covers whole screen
-  ctx!.drawImage(bgImg, 0, 0, cw, ch);
+  // Simple black background for now
+  ctx!.fillStyle = "#000000";
+  ctx!.fillRect(0, 0, cw, ch);
 
   // Ground at bottom using repeating pattern
   ctx!.fillStyle = groundPattern;
@@ -187,13 +184,11 @@ async function init() {
   started = true;
 
   try {
-    const [bg, hero, ground] = await Promise.all([
-      loadImage(ASSETS.bg),
+    const [hero, ground] = await Promise.all([
       loadImage(ASSETS.hero),
       loadImage(ASSETS.ground),
     ]);
 
-    bgImg = bg;
     heroImg = hero;
     groundImg = ground;
 
@@ -213,3 +208,4 @@ init();
 
 // Treat file as a module
 export {};
+
