@@ -1,5 +1,5 @@
 // /src/dreadheimoutskirts.ts
-// Dreadheim • Outskirts (animated hero on witchy ground + witch hut)
+// Dreadheim • Outskirts (animated hero on witchy ground + solid witch hut)
 // Requires /src/global-game-setup.ts to set va_gender BEFORE this script.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement | null;
@@ -19,7 +19,6 @@ const HERO_PREFIX_ROOT = g === "female" ? "Warrior_01__" : "Viking_01__";
    ASSETS
    ========================================================= */
 
-// Every anim = 10 frames: 000–009
 type HeroAnimName = "idle" | "walk" | "run" | "attack" | "hurt" | "die" | "jump";
 
 const HERO_ANIM_SPECS: Record<HeroAnimName, { suffix: string; count: number }> = {
@@ -35,7 +34,7 @@ const HERO_ANIM_SPECS: Record<HeroAnimName, { suffix: string; count: number }> =
 // Witchy ground tile + hut
 const ASSETS = {
   ground: "/guildbook/maps/witchy-ground.png",
-  hut: "/guildbook/props/witch-hut.png", // ⬅️ your hut PNG
+  hut: "/guildbook/props/witch-hut.png",
 };
 
 /* =========================================================
@@ -49,6 +48,19 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onerror = (e) => reject(e);
     img.src = src;
   });
+}
+
+// simple AABB overlap
+function rectsOverlap(
+  ax: number, ay: number, aw: number, ah: number,
+  b: { x: number; y: number; w: number; h: number }
+): boolean {
+  return (
+    ax < b.x + b.w &&
+    ax + aw > b.x &&
+    ay < b.y + b.h &&
+    ay + ah > b.y
+  );
 }
 
 /* =========================================================
@@ -149,8 +161,10 @@ let groundImg: HTMLImageElement | null = null;
 let groundPattern: CanvasPattern | null = null;
 
 let hutImg: HTMLImageElement | null = null;
-// You can tweak this scale if the hut feels too big/small
 const HUT_SCALE = 0.55;
+
+// collision box for the WHOLE hut
+const hutRect = { x: 0, y: 0, w: 0, h: 0 };
 
 /* =========================================================
    ANIMATION HELPERS
@@ -212,6 +226,23 @@ function step(ts: number) {
   const cw = canvas!.width;
   const ch = canvas!.height;
 
+  /* ---------- compute hut rect (center of screen) ---------- */
+  if (hutImg) {
+    const rawW = hutImg.width;
+    const rawH = hutImg.height;
+    const drawW = rawW * HUT_SCALE;
+    const drawH = rawH * HUT_SCALE;
+
+    hutRect.x = (cw - drawW) / 2;
+    hutRect.y = (ch - drawH) / 2 + 40;
+    hutRect.w = drawW;
+    hutRect.h = drawH;
+  } else {
+    hutRect.x = hutRect.y = hutRect.w = hutRect.h = 0;
+  }
+
+  /* ---------- movement + collision ---------- */
+
   let dx = 0;
   let dy = 0;
 
@@ -222,16 +253,26 @@ function step(ts: number) {
 
   if (dx !== 0 || dy !== 0) {
     const len = Math.hypot(dx, dy) || 1;
-    dx /= len;
-    dy /= len;
-    heroX += dx * HERO_SPEED;
-    heroY += dy * HERO_SPEED;
+    const stepX = (dx / len) * HERO_SPEED;
+    const stepY = (dy / len) * HERO_SPEED;
 
-    if (dx < 0) heroFacing = -1;
-    if (dx > 0) heroFacing = 1;
+    // try X movement
+    let nextX = heroX + stepX;
+    if (!rectsOverlap(nextX, heroY, HERO_W, HERO_H, hutRect)) {
+      heroX = nextX;
+    }
+
+    // try Y movement
+    let nextY = heroY + stepY;
+    if (!rectsOverlap(heroX, nextY, HERO_W, HERO_H, hutRect)) {
+      heroY = nextY;
+    }
+
+    if (stepX < 0) heroFacing = -1;
+    if (stepX > 0) heroFacing = 1;
   }
 
-  // Clamp hero inside screen
+  // Clamp hero inside screen AFTER collision
   if (heroX < 0) heroX = 0;
   if (heroX + HERO_W > cw) heroX = cw - HERO_W;
   if (heroY < 0) heroY = 0;
@@ -245,33 +286,25 @@ function step(ts: number) {
   // Update animation
   updateHeroAnimation(dt);
 
-  // Draw
+  /* ---------- draw ---------- */
+
   ctx!.clearRect(0, 0, cw, ch);
   ctx!.imageSmoothingEnabled = false;
 
-  // Tile witchy ground over full screen
+  // tile ground
   ctx!.fillStyle = groundPattern!;
   ctx!.fillRect(0, 0, cw, ch);
 
-  // === Draw hut in center of map ===
-  if (hutImg) {
-    const rawW = hutImg.width;
-    const rawH = hutImg.height;
-    const drawW = rawW * HUT_SCALE;
-    const drawH = rawH * HUT_SCALE;
-
-    // Center horizontally, slightly lower vertically so it sits "on the ground"
-    const hutX = (cw - drawW) / 2;
-    const hutY = (ch - drawH) / 2 + 40;
-
-    ctx!.drawImage(hutImg, hutX, hutY, drawW, drawH);
+  // hut
+  if (hutImg && hutRect.w > 0 && hutRect.h > 0) {
+    ctx!.drawImage(hutImg, hutRect.x, hutRect.y, hutRect.w, hutRect.h);
   }
 
-  // === Draw hero ===
+  // hero
   const frame = getCurrentHeroFrame();
   if (frame) {
     ctx!.save();
-    ctx!.translate(heroX + HERO_W / 2, heroY); // pivot at center for flip
+    ctx!.translate(heroX + HERO_W / 2, heroY);
 
     if (heroFacing === -1) {
       ctx!.scale(-1, 1);
@@ -294,7 +327,7 @@ async function loadHeroAnimations(): Promise<void> {
   for (const [name, spec] of entries) {
     const frames: HTMLImageElement[] = [];
     for (let i = 0; i < spec.count; i++) {
-      const indexStr = i.toString().padStart(3, "0"); // 000–009
+      const indexStr = i.toString().padStart(3, "0");
       const path = `/guildbook/avatars/${HERO_PREFIX_ROOT}${spec.suffix}${indexStr}.png`;
 
       try {
@@ -337,6 +370,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
