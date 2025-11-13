@@ -30,8 +30,8 @@ const EXIT_URL = "/dreadheimperimeters.html";
 let scrollImg: HTMLImageElement | null = null;
 
 const scrollLoot = {
-  x: 420,
-  y: 460,
+  x: 620,
+  y: 660,
   w: 48,
   h: 48,
   visible: false,
