@@ -31,7 +31,7 @@ let scrollImg: HTMLImageElement | null = null;
 
 const scrollLoot = {
   x: 420,
-  y: 260,
+  y: 460,
   w: 48,
   h: 48,
   visible: false,
