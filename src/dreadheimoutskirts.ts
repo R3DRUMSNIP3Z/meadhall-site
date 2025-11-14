@@ -1,11 +1,21 @@
 // /src/dreadheimoutskirts.ts
-// Dreadheim • Outskirts (animated hero + witch hut, clickable door → interior)
+// Dreadheim • Outskirts + Witch Hut Interior (single page, mode-switching)
 // Requires /src/global-game-setup.ts to set va_gender BEFORE this script.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement | null;
 if (!canvas) throw new Error("#map canvas not found");
 const ctx = canvas.getContext("2d");
 if (!ctx) throw new Error("2D context not available");
+
+/* =========================================================
+   MODES
+   ========================================================= */
+
+type MapMode = "outside" | "inside";
+let mapMode: MapMode = "outside";
+
+// when we come back from inside and want to spawn in front of the door
+let pendingSpawnAtDoor = false;
 
 /* =========================================================
    GENDER + HERO PREFIX
@@ -36,25 +46,11 @@ const ANIMS_FOR_THIS_MAP: HeroAnimName[] = ["idle", "walk"];
 const ASSETS = {
   ground: "/guildbook/maps/witchy-ground.png",
   hut: "/guildbook/props/witch-hut.png",
+  inside: "/guildbook/props/insidewitchhut.png", // 👈 your interior image
 };
 
-const HOUSE_URL = "/dreadheimhouse.html";
-
 /* =========================================================
-   HELPERS
-   ========================================================= */
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
-    img.src = src;
-  });
-}
-
-/* =========================================================
-   EXITS / WARP
+   EXITS / WARP (ONLY OUTSIDE)
    ========================================================= */
 
 const LEFT_EXIT_URL = "/dreadheimperimeters.html";
@@ -179,13 +175,15 @@ resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
 /* =========================================================
-   GROUND + HUT + DOOR RECT
+   GROUND + HUT + DOOR RECT + INSIDE BG
    ========================================================= */
 
 let groundImg: HTMLImageElement | null = null;
 let groundPattern: CanvasPattern | null = null;
 
 let hutImg: HTMLImageElement | null = null;
+let insideImg: HTMLImageElement | null = null;
+
 const HUT_SCALE = 0.55;
 
 // full hut rect (for drawing & depth)
@@ -195,10 +193,30 @@ const hutRectFull = { x: 0, y: 0, w: 0, h: 0 };
 const doorRect = { x: 0, y: 0, w: 0, h: 0 };
 
 /* =========================================================
-   CLICK HANDLER FOR DOOR
+   MODE HELPERS
+   ========================================================= */
+
+function enterInterior(cw: number, ch: number) {
+  mapMode = "inside";
+
+  // put hero near bottom-center of the room
+  heroX = (cw - HERO_W) / 2;
+  heroY = ch - HERO_H - 30;
+}
+
+function exitInterior() {
+  // switch back to outside; spawn near door on next frame
+  mapMode = "outside";
+  pendingSpawnAtDoor = true;
+}
+
+/* =========================================================
+   CLICK HANDLER FOR DOOR (ONLY OUTSIDE)
    ========================================================= */
 
 canvas!.addEventListener("click", (ev) => {
+  if (mapMode !== "outside") return;
+
   const rect = canvas!.getBoundingClientRect();
   const mx = ev.clientX - rect.left;
   const my = ev.clientY - rect.top;
@@ -209,7 +227,8 @@ canvas!.addEventListener("click", (ev) => {
     my >= doorRect.y &&
     my <= doorRect.y + doorRect.h
   ) {
-    warpTo(HOUSE_URL);
+    // go inside hut (same page)
+    enterInterior(canvas!.width, canvas!.height);
   }
 });
 
@@ -221,7 +240,7 @@ let started = false;
 let lastTs = 0;
 
 function step(ts: number) {
-  if (!groundPattern || heroAnims.idle.length === 0) {
+  if (!groundPattern || !insideImg || heroAnims.idle.length === 0) {
     requestAnimationFrame(step);
     return;
   }
@@ -232,8 +251,8 @@ function step(ts: number) {
   const cw = canvas!.width;
   const ch = canvas!.height;
 
-  // --- compute hut rect (centered) ---
-  if (hutImg) {
+  /* ---------- compute hut + door when OUTSIDE ---------- */
+  if (mapMode === "outside" && hutImg) {
     const rawW = hutImg.width;
     const rawH = hutImg.height;
     const drawW = rawW * HUT_SCALE;
@@ -245,11 +264,10 @@ function step(ts: number) {
     hutRectFull.h = drawH;
 
     // --- compute door rect inside hut ---
-    // tuned for your hut: centered, bottom half-ish
-    const DOOR_WIDTH_RATIO  = 0.18; // fraction of hut width
-    const DOOR_HEIGHT_RATIO = 0.45; // fraction of hut height
-    const DOOR_CENTER_X_RATIO = 0.5; // middle of hut
-    const DOOR_TOP_RATIO = 0.55;     // start a bit above the base
+    const DOOR_WIDTH_RATIO  = 0.18;
+    const DOOR_HEIGHT_RATIO = 0.45;
+    const DOOR_CENTER_X_RATIO = 0.5;
+    const DOOR_TOP_RATIO = 0.55;
 
     const doorW = drawW * DOOR_WIDTH_RATIO;
     const doorH = drawH * DOOR_HEIGHT_RATIO;
@@ -259,12 +277,16 @@ function step(ts: number) {
     doorRect.y = hutRectFull.y + drawH * DOOR_TOP_RATIO;
     doorRect.w = doorW;
     doorRect.h = doorH;
-  } else {
-    hutRectFull.x = hutRectFull.y = hutRectFull.w = hutRectFull.h = 0;
-    doorRect.x = doorRect.y = doorRect.w = doorRect.h = 0;
+
+    // if we just came back from inside, spawn in front of door
+    if (pendingSpawnAtDoor) {
+      heroX = doorRect.x + doorRect.w / 2 - HERO_W / 2;
+      heroY = hutRectFull.y + hutRectFull.h - HERO_H + 10;
+      pendingSpawnAtDoor = false;
+    }
   }
 
-  // --- movement (no collision walls) ---
+  /* ---------- movement (same logic for both modes) ---------- */
   let dx = 0;
   let dy = 0;
 
@@ -291,52 +313,82 @@ function step(ts: number) {
   if (heroY < 0) heroY = 0;
   if (heroY + HERO_H > ch) heroY = ch - HERO_H;
 
-  // exit on left edge
-  if (heroX <= EXIT_MARGIN) {
-    warpTo(LEFT_EXIT_URL);
+  // exits:
+  if (mapMode === "outside") {
+    // OUTSIDE: left edge goes back to perimeters
+    if (heroX <= EXIT_MARGIN) {
+      warpTo(LEFT_EXIT_URL);
+      return;
+    }
+  } else {
+    // INSIDE: walking down to bottom leaves the hut
+    if (heroY + HERO_H >= ch - 5) {
+      exitInterior();
+      // next frame will recompute hut + door and spawn hero there
+      requestAnimationFrame(step);
+      return;
+    }
   }
 
-  // update anim
+  // update animation
   updateHeroAnimation(dt);
 
-  // --- draw ---
+  /* ---------- draw ---------- */
+
   ctx!.clearRect(0, 0, cw, ch);
   ctx!.imageSmoothingEnabled = false;
 
-  // ground
-  ctx!.fillStyle = groundPattern!;
-  ctx!.fillRect(0, 0, cw, ch);
-
   const frame = getCurrentHeroFrame();
 
-  if (hutImg && hutRectFull.w > 0 && hutRectFull.h > 0 && frame) {
-    const heroFeetY = heroY + HERO_H;
-    const hutMidY = hutRectFull.y + hutRectFull.h * 0.5;
+  if (mapMode === "outside") {
+    // === OUTSIDE: tile ground + draw hut with depth ===
+    ctx!.fillStyle = groundPattern!;
+    ctx!.fillRect(0, 0, cw, ch);
 
-    if (heroFeetY < hutMidY) {
-      // hero "behind" hut → draw hero, then hut
-      ctx!.save();
-      ctx!.translate(heroX + HERO_W / 2, heroY);
-      if (heroFacing === -1) ctx!.scale(-1, 1);
-      ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
-      ctx!.restore();
+    if (hutImg && hutRectFull.w > 0 && hutRectFull.h > 0 && frame) {
+      const heroFeetY = heroY + HERO_H;
+      const hutMidY = hutRectFull.y + hutRectFull.h * 0.5;
 
-      ctx!.drawImage(
-        hutImg,
-        hutRectFull.x,
-        hutRectFull.y,
-        hutRectFull.w,
-        hutRectFull.h
-      );
-    } else {
-      // hero in front → draw hut, then hero
-      ctx!.drawImage(
-        hutImg,
-        hutRectFull.x,
-        hutRectFull.y,
-        hutRectFull.w,
-        hutRectFull.h
-      );
+      if (heroFeetY < hutMidY) {
+        // hero "behind" hut → hero, then hut
+        ctx!.save();
+        ctx!.translate(heroX + HERO_W / 2, heroY);
+        if (heroFacing === -1) ctx!.scale(-1, 1);
+        ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
+        ctx!.restore();
+
+        ctx!.drawImage(
+          hutImg,
+          hutRectFull.x,
+          hutRectFull.y,
+          hutRectFull.w,
+          hutRectFull.h
+        );
+      } else {
+        // hero in front → hut, then hero
+        ctx!.drawImage(
+          hutImg,
+          hutRectFull.x,
+          hutRectFull.y,
+          hutRectFull.w,
+          hutRectFull.h
+        );
+
+        ctx!.save();
+        ctx!.translate(heroX + HERO_W / 2, heroY);
+        if (heroFacing === -1) ctx!.scale(-1, 1);
+        ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
+        ctx!.restore();
+      }
+
+      // DEBUG: see door hitbox
+      // ctx!.strokeStyle = "rgba(0, 200, 255, 0.9)";
+      // ctx!.lineWidth = 2;
+      // ctx!.strokeRect(doorRect.x, doorRect.y, doorRect.w, doorRect.h);
+    } else if (frame) {
+      // fallback if hut missing
+      ctx!.fillStyle = groundPattern!;
+      ctx!.fillRect(0, 0, cw, ch);
 
       ctx!.save();
       ctx!.translate(heroX + HERO_W / 2, heroY);
@@ -344,15 +396,10 @@ function step(ts: number) {
       ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
       ctx!.restore();
     }
-
-    // OPTIONAL: door debug box — uncomment if you want to see the hotspot
-    /*
-    ctx!.strokeStyle = "rgba(0, 200, 255, 0.9)";
-    ctx!.lineWidth = 2;
-    ctx!.strokeRect(doorRect.x, doorRect.y, doorRect.w, doorRect.h);
-    */
   } else {
-    // fallback: just hero if hut missing
+    // === INSIDE: draw interior BG full-screen ===
+    ctx!.drawImage(insideImg, 0, 0, cw, ch);
+
     if (frame) {
       ctx!.save();
       ctx!.translate(heroX + HERO_W / 2, heroY);
@@ -371,7 +418,11 @@ function step(ts: number) {
 
 async function loadHeroAnimations(): Promise<void> {
   const entries = ANIMS_FOR_THIS_MAP.map(
-    (name) => [name, HERO_ANIM_SPECS[name]] as [HeroAnimName, { suffix: string; count: number }]
+    (name) =>
+      [name, HERO_ANIM_SPECS[name]] as [
+        HeroAnimName,
+        { suffix: string; count: number }
+      ]
   );
 
   for (const [name, spec] of entries) {
@@ -391,23 +442,34 @@ async function loadHeroAnimations(): Promise<void> {
   }
 }
 
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = src;
+  });
+}
+
 async function init() {
   if (started) return;
   started = true;
 
   try {
-    const [ground, hut] = await Promise.all([
+    const [ground, hut, inside] = await Promise.all([
       loadImage(ASSETS.ground),
       loadImage(ASSETS.hut),
+      loadImage(ASSETS.inside),
     ]);
 
     groundImg = ground;
     groundPattern = ctx!.createPattern(groundImg, "repeat");
     hutImg = hut;
+    insideImg = inside;
 
     await loadHeroAnimations();
 
-    // Start hero in bottom-left corner
+    // Start hero in bottom-left corner (outside)
     const MARGIN_X = 40;
     const MARGIN_Y = 40;
     heroX = MARGIN_X;
@@ -422,6 +484,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
