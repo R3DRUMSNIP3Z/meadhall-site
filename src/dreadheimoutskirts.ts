@@ -228,27 +228,43 @@ function step(ts: number) {
   const ch = canvas!.height;
 
   /* ---------- compute hut rects (center of screen) ---------- */
-  if (hutImg) {
-    const rawW = hutImg.width;
-    const rawH = hutImg.height;
-    const drawW = rawW * HUT_SCALE;
-    const drawH = rawH * HUT_SCALE;
+if (hutImg) {
+  const rawW = hutImg.width;
+  const rawH = hutImg.height;
+  const drawW = rawW * HUT_SCALE;
+  const drawH = rawH * HUT_SCALE;
 
-    hutRectFull.x = (cw - drawW) / 2;
-    hutRectFull.y = (ch - drawH) / 2 + 40;
-    hutRectFull.w = drawW;
-    hutRectFull.h = drawH;
+  // Full hut rect (for drawing + depth)
+  hutRectFull.x = (cw - drawW) / 2;
+  hutRectFull.y = (ch - drawH) / 2 + 40;
+  hutRectFull.w = drawW;
+  hutRectFull.h = drawH;
 
-    // bottom band of hut = collision base (e.g. bottom 30%)
-    const baseHeight = drawH * 0.1;
-    hutBaseRect.x = hutRectFull.x;
-    hutBaseRect.w = hutRectFull.w;
-    hutBaseRect.h = baseHeight;
-    hutBaseRect.y = hutRectFull.y + (drawH - baseHeight);
-  } else {
-    hutRectFull.x = hutRectFull.y = hutRectFull.w = hutRectFull.h = 0;
-    hutBaseRect.x = hutBaseRect.y = hutBaseRect.w = hutBaseRect.h = 0;
-  }
+  // === CUSTOM COLLISION BASE ===
+  // Tune these values to shape the invisible solid area:
+  const BASE_WIDTH_RATIO  = 0.55; // 55% of hut width (make bigger/smaller)
+  const BASE_HEIGHT_RATIO = 0.22; // 22% of hut height (make taller/shorter)
+
+  // Computed dimensions
+  const baseW = drawW * BASE_WIDTH_RATIO;
+  const baseH = drawH * BASE_HEIGHT_RATIO;
+
+  // Center the collision box horizontally under the hut
+  const baseOffsetX = (drawW - baseW) / 2;
+
+  // Attach the collision box to the bottom of the hut
+  const baseOffsetY = drawH - baseH;
+
+  hutBaseRect.x = hutRectFull.x + baseOffsetX;
+  hutBaseRect.y = hutRectFull.y + baseOffsetY;
+  hutBaseRect.w = baseW;
+  hutBaseRect.h = baseH;
+
+} else {
+  hutRectFull.x = hutRectFull.y = hutRectFull.w = hutRectFull.h = 0;
+  hutBaseRect.x = hutBaseRect.y = hutBaseRect.w = hutBaseRect.h = 0;
+}
+
 
   /* ---------- movement + collision (only with base rect) ---------- */
 
