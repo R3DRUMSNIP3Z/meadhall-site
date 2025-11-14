@@ -257,18 +257,16 @@ function step(ts: number) {
     hutRectFull.h = drawH;
 
     // === CUSTOM COLLISION BASE ===
-// We want a big slab in front of the hut, like your red box.
+// Big slab that reaches up into the roof, so you can't walk "onto" it.
 
 // How wide the barrier is (0–1 of hut width)
-const BASE_WIDTH_RATIO = 0.9;   // 90% of hut width
+const BASE_WIDTH_RATIO  = 0.9;  // keep 90% of hut width
+
+// Where the TOP of the barrier starts (0 = roof, 1 = bottom)
+const BASE_TOP_RATIO    = 0.35; // start higher, up in the wall/roof
 
 // How tall the barrier is (0–1 of hut height)
-const BASE_HEIGHT_RATIO = 0.20;  // 50% of hut height
-
-// Where the TOP of the barrier starts, as % of hut height
-// (0 = roof line, 1 = bottom of hut; >1 = extends below hut)
-const BASE_TOP_RATIO = 0.55;    // starts a bit below mid-wall
-
+const BASE_HEIGHT_RATIO = 0.70; // tall box reaching well in front
 // Computed dimensions
 const baseW = drawW * BASE_WIDTH_RATIO;
 const baseH = drawH * BASE_HEIGHT_RATIO;
