@@ -263,10 +263,10 @@ function step(ts: number) {
 const BASE_WIDTH_RATIO  = 0.9;  // keep 90% of hut width
 
 // Where the TOP of the barrier starts (0 = roof, 1 = bottom)
-const BASE_TOP_RATIO    = 0.35; // start higher, up in the wall/roof
+const BASE_TOP_RATIO    = 0.20; // start higher, up in the wall/roof
 
 // How tall the barrier is (0–1 of hut height)
-const BASE_HEIGHT_RATIO = 0.70; // tall box reaching well in front
+const BASE_HEIGHT_RATIO = 0.55; // tall box reaching well in front
 // Computed dimensions
 const baseW = drawW * BASE_WIDTH_RATIO;
 const baseH = drawH * BASE_HEIGHT_RATIO;
