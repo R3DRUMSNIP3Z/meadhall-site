@@ -267,7 +267,7 @@ const BASE_HEIGHT_RATIO = 0.20;  // 50% of hut height
 
 // Where the TOP of the barrier starts, as % of hut height
 // (0 = roof line, 1 = bottom of hut; >1 = extends below hut)
-const BASE_TOP_RATIO = 0.70;    // starts a bit below mid-wall
+const BASE_TOP_RATIO = 0.55;    // starts a bit below mid-wall
 
 // Computed dimensions
 const baseW = drawW * BASE_WIDTH_RATIO;
