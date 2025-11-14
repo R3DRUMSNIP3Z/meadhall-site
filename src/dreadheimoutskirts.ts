@@ -1,5 +1,5 @@
 // /src/dreadheimoutskirts.ts
-// Dreadheim • Outskirts (animated hero on witchy ground + solid witch hut)
+// Dreadheim • Outskirts (animated hero + witch hut with base collision + depth overlap)
 // Requires /src/global-game-setup.ts to set va_gender BEFORE this script.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement | null;
@@ -163,8 +163,10 @@ let groundPattern: CanvasPattern | null = null;
 let hutImg: HTMLImageElement | null = null;
 const HUT_SCALE = 0.55;
 
-// collision box for the WHOLE hut
-const hutRect = { x: 0, y: 0, w: 0, h: 0 };
+// full hut rect (for drawing & depth)
+const hutRectFull = { x: 0, y: 0, w: 0, h: 0 };
+// base rect (bottom of hut = solid collision)
+const hutBaseRect = { x: 0, y: 0, w: 0, h: 0 };
 
 /* =========================================================
    ANIMATION HELPERS
@@ -177,7 +179,6 @@ function pickHeroActionFromInput(): HeroAnimName {
     keys["ArrowUp"] || keys["w"] || keys["W"] ||
     keys["ArrowDown"] || keys["s"] || keys["S"];
 
-  // For now: idle vs walk (we can hook run/attack later)
   return moving ? "walk" : "idle";
 }
 
@@ -226,22 +227,30 @@ function step(ts: number) {
   const cw = canvas!.width;
   const ch = canvas!.height;
 
-  /* ---------- compute hut rect (center of screen) ---------- */
+  /* ---------- compute hut rects (center of screen) ---------- */
   if (hutImg) {
     const rawW = hutImg.width;
     const rawH = hutImg.height;
     const drawW = rawW * HUT_SCALE;
     const drawH = rawH * HUT_SCALE;
 
-    hutRect.x = (cw - drawW) / 2;
-    hutRect.y = (ch - drawH) / 2 + 40;
-    hutRect.w = drawW;
-    hutRect.h = drawH;
+    hutRectFull.x = (cw - drawW) / 2;
+    hutRectFull.y = (ch - drawH) / 2 + 40;
+    hutRectFull.w = drawW;
+    hutRectFull.h = drawH;
+
+    // bottom band of hut = collision base (e.g. bottom 30%)
+    const baseHeight = drawH * 0.3;
+    hutBaseRect.x = hutRectFull.x;
+    hutBaseRect.w = hutRectFull.w;
+    hutBaseRect.h = baseHeight;
+    hutBaseRect.y = hutRectFull.y + (drawH - baseHeight);
   } else {
-    hutRect.x = hutRect.y = hutRect.w = hutRect.h = 0;
+    hutRectFull.x = hutRectFull.y = hutRectFull.w = hutRectFull.h = 0;
+    hutBaseRect.x = hutBaseRect.y = hutBaseRect.w = hutBaseRect.h = 0;
   }
 
-  /* ---------- movement + collision ---------- */
+  /* ---------- movement + collision (only with base rect) ---------- */
 
   let dx = 0;
   let dy = 0;
@@ -256,15 +265,15 @@ function step(ts: number) {
     const stepX = (dx / len) * HERO_SPEED;
     const stepY = (dy / len) * HERO_SPEED;
 
-    // try X movement
+    // try X movement (collide only with hutBaseRect)
     let nextX = heroX + stepX;
-    if (!rectsOverlap(nextX, heroY, HERO_W, HERO_H, hutRect)) {
+    if (!rectsOverlap(nextX, heroY, HERO_W, HERO_H, hutBaseRect)) {
       heroX = nextX;
     }
 
     // try Y movement
     let nextY = heroY + stepY;
-    if (!rectsOverlap(heroX, nextY, HERO_W, HERO_H, hutRect)) {
+    if (!rectsOverlap(heroX, nextY, HERO_W, HERO_H, hutBaseRect)) {
       heroY = nextY;
     }
 
@@ -295,23 +304,47 @@ function step(ts: number) {
   ctx!.fillStyle = groundPattern!;
   ctx!.fillRect(0, 0, cw, ch);
 
-  // hut
-  if (hutImg && hutRect.w > 0 && hutRect.h > 0) {
-    ctx!.drawImage(hutImg, hutRect.x, hutRect.y, hutRect.w, hutRect.h);
-  }
-
-  // hero
   const frame = getCurrentHeroFrame();
-  if (frame) {
-    ctx!.save();
-    ctx!.translate(heroX + HERO_W / 2, heroY);
 
-    if (heroFacing === -1) {
-      ctx!.scale(-1, 1);
+  // determine layering: hero in front or behind hut?
+  if (hutImg && hutRectFull.w > 0 && hutRectFull.h > 0 && frame) {
+    const heroFeetY = heroY + HERO_H;
+    const hutMidY = hutRectFull.y + hutRectFull.h * 0.5;
+
+    if (heroFeetY < hutMidY) {
+      // hero "behind" hut → draw hero first, then hut on top
+      ctx!.save();
+      ctx!.translate(heroX + HERO_W / 2, heroY);
+
+      if (heroFacing === -1) ctx!.scale(-1, 1);
+
+      ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
+      ctx!.restore();
+
+      ctx!.drawImage(hutImg, hutRectFull.x, hutRectFull.y, hutRectFull.w, hutRectFull.h);
+    } else {
+      // hero in front → draw hut first, then hero
+      ctx!.drawImage(hutImg, hutRectFull.x, hutRectFull.y, hutRectFull.w, hutRectFull.h);
+
+      ctx!.save();
+      ctx!.translate(heroX + HERO_W / 2, heroY);
+
+      if (heroFacing === -1) ctx!.scale(-1, 1);
+
+      ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
+      ctx!.restore();
     }
+  } else {
+    // fallback: just draw hero if hut missing
+    if (frame) {
+      ctx!.save();
+      ctx!.translate(heroX + HERO_W / 2, heroY);
 
-    ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
-    ctx!.restore();
+      if (heroFacing === -1) ctx!.scale(-1, 1);
+
+      ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
+      ctx!.restore();
+    }
   }
 
   requestAnimationFrame(step);
@@ -370,6 +403,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
