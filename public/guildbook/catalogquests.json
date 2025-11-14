@@ -267,26 +267,26 @@
     },
 
     {
-      "id": "q_placeholder_01",
-      "title": "Placeholder Quest 01",
-      "desc": "Temporary quest slot for future content.",
+      "id": "q_find_dreadheim_witch",
+      "title": "You met the witch",
+      "desc": "you found the witch in a hut on the outskirts of Dreadheim.",
       "dialogue": [
         {
           "id": "start",
-          "speaker": "NPC",
-          "text": "Placeholder quest 01. Replace me later.",
+          "speaker": "Skarthra",
+          "text": "Are you ready for thy journey?.",
           "choices": [
-            { "text": "Complete.", "next": "done" },
-            { "text": "Not yet.", "next": "end" }
+            { "text": "Yes.", "next": "May your journey begin evil one" },
+            { "text": "No.", "next": "end" }
           ]
         },
         {
-          "id": "done",
+          "id": "q_find_dreadheim_witch",
           "text": "Marked complete.",
-          "action": { "type": "setVars", "set": { "ph1_done": true } }
+          "action": { "type": "setVars", "set": { "witch_met": true } }
         },
         {
-          "id": "end",
+          "id": "q_find_dreadheim_witch",
           "text": "Come back anytime."
         }
       ]
