@@ -1,5 +1,5 @@
 // /src/dreadheimoutskirts.ts
-// Dreadheim • Outskirts (animated hero + witch hut, NO collision)
+// Dreadheim • Outskirts (animated hero + witch hut, clickable door → interior)
 // Requires /src/global-game-setup.ts to set va_gender BEFORE this script.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement | null;
@@ -37,6 +37,8 @@ const ASSETS = {
   ground: "/guildbook/maps/witchy-ground.png",
   hut: "/guildbook/props/witch-hut.png",
 };
+
+const HOUSE_URL = "/dreadheimhouse.html";
 
 /* =========================================================
    HELPERS
@@ -177,7 +179,7 @@ resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
 /* =========================================================
-   GROUND + HUT
+   GROUND + HUT + DOOR RECT
    ========================================================= */
 
 let groundImg: HTMLImageElement | null = null;
@@ -188,6 +190,28 @@ const HUT_SCALE = 0.55;
 
 // full hut rect (for drawing & depth)
 const hutRectFull = { x: 0, y: 0, w: 0, h: 0 };
+
+// clickable door rect (inside the hut)
+const doorRect = { x: 0, y: 0, w: 0, h: 0 };
+
+/* =========================================================
+   CLICK HANDLER FOR DOOR
+   ========================================================= */
+
+canvas!.addEventListener("click", (ev) => {
+  const rect = canvas!.getBoundingClientRect();
+  const mx = ev.clientX - rect.left;
+  const my = ev.clientY - rect.top;
+
+  if (
+    mx >= doorRect.x &&
+    mx <= doorRect.x + doorRect.w &&
+    my >= doorRect.y &&
+    my <= doorRect.y + doorRect.h
+  ) {
+    warpTo(HOUSE_URL);
+  }
+});
 
 /* =========================================================
    MAIN LOOP
@@ -219,11 +243,28 @@ function step(ts: number) {
     hutRectFull.y = (ch - drawH) / 2 + 40;
     hutRectFull.w = drawW;
     hutRectFull.h = drawH;
+
+    // --- compute door rect inside hut ---
+    // tuned for your hut: centered, bottom half-ish
+    const DOOR_WIDTH_RATIO  = 0.18; // fraction of hut width
+    const DOOR_HEIGHT_RATIO = 0.45; // fraction of hut height
+    const DOOR_CENTER_X_RATIO = 0.5; // middle of hut
+    const DOOR_TOP_RATIO = 0.55;     // start a bit above the base
+
+    const doorW = drawW * DOOR_WIDTH_RATIO;
+    const doorH = drawH * DOOR_HEIGHT_RATIO;
+    const doorCenterX = hutRectFull.x + drawW * DOOR_CENTER_X_RATIO;
+
+    doorRect.x = doorCenterX - doorW / 2;
+    doorRect.y = hutRectFull.y + drawH * DOOR_TOP_RATIO;
+    doorRect.w = doorW;
+    doorRect.h = doorH;
   } else {
     hutRectFull.x = hutRectFull.y = hutRectFull.w = hutRectFull.h = 0;
+    doorRect.x = doorRect.y = doorRect.w = doorRect.h = 0;
   }
 
-  // --- movement (no collision) ---
+  // --- movement (no collision walls) ---
   let dx = 0;
   let dy = 0;
 
@@ -303,6 +344,13 @@ function step(ts: number) {
       ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
       ctx!.restore();
     }
+
+    // OPTIONAL: door debug box — uncomment if you want to see the hotspot
+    /*
+    ctx!.strokeStyle = "rgba(0, 200, 255, 0.9)";
+    ctx!.lineWidth = 2;
+    ctx!.strokeRect(doorRect.x, doorRect.y, doorRect.w, doorRect.h);
+    */
   } else {
     // fallback: just hero if hut missing
     if (frame) {
@@ -374,6 +422,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
