@@ -1,5 +1,5 @@
 // /src/dreadheimoutskirts.ts
-// Dreadheim • Outskirts (animated hero + witch hut with base collision + depth overlap)
+// Dreadheim • Outskirts (animated hero + witch hut, NO collision)
 // Requires /src/global-game-setup.ts to set va_gender BEFORE this script.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement | null;
@@ -11,7 +11,6 @@ if (!ctx) throw new Error("2D context not available");
    GENDER + HERO PREFIX
    ========================================================= */
 
-// Read gender from localStorage (default to male)
 const g = localStorage.getItem("va_gender");
 const HERO_PREFIX_ROOT = g === "female" ? "Warrior_01__" : "Viking_01__";
 
@@ -31,10 +30,9 @@ const HERO_ANIM_SPECS: Record<HeroAnimName, { suffix: string; count: number }> =
   jump:   { suffix: "JUMP_",   count: 10 },
 };
 
-// On this map we only really need idle + walk → faster load
+// only need idle + walk here (faster load)
 const ANIMS_FOR_THIS_MAP: HeroAnimName[] = ["idle", "walk"];
 
-// Witchy ground tile + hut
 const ASSETS = {
   ground: "/guildbook/maps/witchy-ground.png",
   hut: "/guildbook/props/witch-hut.png",
@@ -51,19 +49,6 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onerror = (e) => reject(e);
     img.src = src;
   });
-}
-
-// simple AABB overlap
-function rectsOverlap(
-  ax: number, ay: number, aw: number, ah: number,
-  b: { x: number; y: number; w: number; h: number }
-): boolean {
-  return (
-    ax < b.x + b.w &&
-    ax + aw > b.x &&
-    ay < b.y + b.h &&
-    ay + ah > b.y
-  );
 }
 
 /* =========================================================
@@ -109,12 +94,11 @@ function warpTo(url: string) {
 
 const HERO_W = 150;
 const HERO_H = 150;
-
 const HERO_SPEED = 2.8;
 
 let heroX = 100;
 let heroY = 100;
-let heroFacing: 1 | -1 = 1; // 1 = right, -1 = left
+let heroFacing: 1 | -1 = 1;
 
 const keys: Record<string, boolean> = {};
 
@@ -144,36 +128,6 @@ const heroAnimState: HeroAnimState = {
 };
 
 const FRAME_DURATION_MS = 90;
-
-/* =========================================================
-   RESIZE
-   ========================================================= */
-
-function resizeCanvas() {
-  canvas!.width = window.innerWidth;
-  canvas!.height = window.innerHeight;
-}
-resizeCanvas();
-window.addEventListener("resize", resizeCanvas);
-
-/* =========================================================
-   GROUND + HUT
-   ========================================================= */
-
-let groundImg: HTMLImageElement | null = null;
-let groundPattern: CanvasPattern | null = null;
-
-let hutImg: HTMLImageElement | null = null;
-const HUT_SCALE = 0.55;
-
-// full hut rect (for drawing & depth)
-const hutRectFull = { x: 0, y: 0, w: 0, h: 0 };
-// base rect (bottom of hut = solid collision)
-const hutBaseRect = { x: 0, y: 0, w: 0, h: 0 };
-
-/* =========================================================
-   ANIMATION HELPERS
-   ========================================================= */
 
 function pickHeroActionFromInput(): HeroAnimName {
   const moving =
@@ -212,17 +166,28 @@ function getCurrentHeroFrame(): HTMLImageElement | null {
 }
 
 /* =========================================================
-   DEBUG TOGGLE (B key)
+   RESIZE
    ========================================================= */
 
-let DEBUG_COLLISION = true;
+function resizeCanvas() {
+  canvas!.width = window.innerWidth;
+  canvas!.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
 
-window.addEventListener("keydown", (ev) => {
-  if (ev.key.toLowerCase() === "b") {
-    DEBUG_COLLISION = !DEBUG_COLLISION;
-    console.log("Debug collision:", DEBUG_COLLISION);
-  }
-});
+/* =========================================================
+   GROUND + HUT
+   ========================================================= */
+
+let groundImg: HTMLImageElement | null = null;
+let groundPattern: CanvasPattern | null = null;
+
+let hutImg: HTMLImageElement | null = null;
+const HUT_SCALE = 0.55;
+
+// full hut rect (for drawing & depth)
+const hutRectFull = { x: 0, y: 0, w: 0, h: 0 };
 
 /* =========================================================
    MAIN LOOP
@@ -243,53 +208,22 @@ function step(ts: number) {
   const cw = canvas!.width;
   const ch = canvas!.height;
 
-  /* ---------- compute hut rects (center of screen) ---------- */
+  // --- compute hut rect (centered) ---
   if (hutImg) {
     const rawW = hutImg.width;
     const rawH = hutImg.height;
     const drawW = rawW * HUT_SCALE;
     const drawH = rawH * HUT_SCALE;
 
-    // Full hut rect (for drawing + depth)
     hutRectFull.x = (cw - drawW) / 2;
     hutRectFull.y = (ch - drawH) / 2 + 40;
     hutRectFull.w = drawW;
     hutRectFull.h = drawH;
-
-    // === CUSTOM COLLISION BASE ===
-// Big slab that reaches up into the roof, so you can't walk "onto" it.
-
-// How wide the barrier is (0–1 of hut width)
-const BASE_WIDTH_RATIO  = 0.3;  // keep 90% of hut width
-
-// Where the TOP of the barrier starts (0 = roof, 1 = bottom)
-const BASE_TOP_RATIO    = 0.10; // start higher, up in the wall/roof
-
-// How tall the barrier is (0–1 of hut height)
-const BASE_HEIGHT_RATIO = 0.55; // tall box reaching well in front
-// Computed dimensions
-const baseW = drawW * BASE_WIDTH_RATIO;
-const baseH = drawH * BASE_HEIGHT_RATIO;
-
-// Center the collision box horizontally
-const baseOffsetX = (drawW - baseW) / 2;
-
-// Position the top of the box using BASE_TOP_RATIO
-const baseOffsetY = drawH * BASE_TOP_RATIO;
-
-hutBaseRect.x = hutRectFull.x + baseOffsetX;
-hutBaseRect.y = hutRectFull.y + baseOffsetY;
-hutBaseRect.w = baseW;
-hutBaseRect.h = baseH;
-
-
   } else {
     hutRectFull.x = hutRectFull.y = hutRectFull.w = hutRectFull.h = 0;
-    hutBaseRect.x = hutBaseRect.y = hutBaseRect.w = hutBaseRect.h = 0;
   }
 
-  /* ---------- movement + collision (only with hutBaseRect) ---------- */
-
+  // --- movement (no collision) ---
   let dx = 0;
   let dy = 0;
 
@@ -303,42 +237,32 @@ hutBaseRect.h = baseH;
     const stepX = (dx / len) * HERO_SPEED;
     const stepY = (dy / len) * HERO_SPEED;
 
-    // try X movement
-    let nextX = heroX + stepX;
-    if (!rectsOverlap(nextX, heroY, HERO_W, HERO_H, hutBaseRect)) {
-      heroX = nextX;
-    }
-
-    // try Y movement
-    let nextY = heroY + stepY;
-    if (!rectsOverlap(heroX, nextY, HERO_W, HERO_H, hutBaseRect)) {
-      heroY = nextY;
-    }
+    heroX += stepX;
+    heroY += stepY;
 
     if (stepX < 0) heroFacing = -1;
     if (stepX > 0) heroFacing = 1;
   }
 
-  // Clamp hero inside screen AFTER collision
+  // clamp inside screen
   if (heroX < 0) heroX = 0;
   if (heroX + HERO_W > cw) heroX = cw - HERO_W;
   if (heroY < 0) heroY = 0;
   if (heroY + HERO_H > ch) heroY = ch - HERO_H;
 
-  // Exit on left edge
+  // exit on left edge
   if (heroX <= EXIT_MARGIN) {
     warpTo(LEFT_EXIT_URL);
   }
 
-  // Update animation
+  // update anim
   updateHeroAnimation(dt);
 
-  /* ---------- draw ---------- */
-
+  // --- draw ---
   ctx!.clearRect(0, 0, cw, ch);
   ctx!.imageSmoothingEnabled = false;
 
-  // tile ground
+  // ground
   ctx!.fillStyle = groundPattern!;
   ctx!.fillRect(0, 0, cw, ch);
 
@@ -349,7 +273,7 @@ hutBaseRect.h = baseH;
     const hutMidY = hutRectFull.y + hutRectFull.h * 0.5;
 
     if (heroFeetY < hutMidY) {
-      // hero "behind" hut → draw hero first, then hut (hut covers hero)
+      // hero "behind" hut → draw hero, then hut
       ctx!.save();
       ctx!.translate(heroX + HERO_W / 2, heroY);
       if (heroFacing === -1) ctx!.scale(-1, 1);
@@ -363,16 +287,8 @@ hutBaseRect.h = baseH;
         hutRectFull.w,
         hutRectFull.h
       );
-
-      if (DEBUG_COLLISION) {
-        ctx!.fillStyle = "rgba(255,0,0,0.35)";
-        ctx!.fillRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
-        ctx!.strokeStyle = "rgba(255,0,0,0.85)";
-        ctx!.lineWidth = 3;
-        ctx!.strokeRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
-      }
     } else {
-      // hero in front → draw hut first, then hero
+      // hero in front → draw hut, then hero
       ctx!.drawImage(
         hutImg,
         hutRectFull.x,
@@ -380,14 +296,6 @@ hutBaseRect.h = baseH;
         hutRectFull.w,
         hutRectFull.h
       );
-
-      if (DEBUG_COLLISION) {
-        ctx!.fillStyle = "rgba(255,0,0,0.35)";
-        ctx!.fillRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
-        ctx!.strokeStyle = "rgba(255,0,0,0.85)";
-        ctx!.lineWidth = 3;
-        ctx!.strokeRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
-      }
 
       ctx!.save();
       ctx!.translate(heroX + HERO_W / 2, heroY);
@@ -396,24 +304,7 @@ hutBaseRect.h = baseH;
       ctx!.restore();
     }
   } else {
-    // fallback if hut or hero frame is missing
-    if (hutImg && hutRectFull.w > 0 && hutRectFull.h > 0) {
-      ctx!.drawImage(
-        hutImg,
-        hutRectFull.x,
-        hutRectFull.y,
-        hutRectFull.w,
-        hutRectFull.h
-      );
-      if (DEBUG_COLLISION) {
-        ctx!.fillStyle = "rgba(255,0,0,0.35)";
-        ctx!.fillRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
-        ctx!.strokeStyle = "rgba(255,0,0,0.85)";
-        ctx!.lineWidth = 3;
-        ctx!.strokeRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
-      }
-    }
-
+    // fallback: just hero if hut missing
     if (frame) {
       ctx!.save();
       ctx!.translate(heroX + HERO_W / 2, heroY);
@@ -468,9 +359,11 @@ async function init() {
 
     await loadHeroAnimations();
 
-    // Start hero centered
-    heroX = (canvas!.width - HERO_W) / 40;
-    heroY = (canvas!.height - HERO_H) / 40;
+    // Start hero in bottom-left corner
+    const MARGIN_X = 40;
+    const MARGIN_Y = 40;
+    heroX = MARGIN_X;
+    heroY = canvas!.height - HERO_H - MARGIN_Y;
 
     requestAnimationFrame(step);
   } catch (err) {
@@ -481,6 +374,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
