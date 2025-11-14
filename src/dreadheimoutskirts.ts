@@ -46,8 +46,8 @@ const ANIMS_FOR_THIS_MAP: HeroAnimName[] = ["idle", "walk"];
 const ASSETS = {
   ground: "/guildbook/maps/witchy-ground.png",
   hut: "/guildbook/props/witch-hut.png",
-  inside: "/guildbook/props/insidewitchhut.png", // 👈 interior image
-  witch: "/guildbook/npcs/dreadheim-witch.png",  // 👈 your new witch NPC (transparent PNG)
+  inside: "/guildbook/props/insidewitchhut.png", // interior image
+  witch: "/guildbook/npcs/dreadheim-witch.png",  // evil-beautiful witch (transparent PNG)
 };
 
 /* =========================================================
@@ -164,7 +164,7 @@ function getCurrentHeroFrame(): HTMLImageElement | null {
   return frames[heroAnimState.frameIndex] || frames[0];
 }
 
-// small helper so we don't duplicate hero drawing everywhere
+// helper so we don't repeat draw logic
 function drawHero(frame: HTMLImageElement) {
   ctx!.save();
   ctx!.translate(heroX + HERO_W / 2, heroY);
@@ -225,24 +225,55 @@ function exitInterior() {
 }
 
 /* =========================================================
-   CLICK HANDLER FOR DOOR (ONLY OUTSIDE)
+   QUEST DIALOGUE HELPER (WITCH)
+   ========================================================= */
+
+function openQuestDialogue(questId: string) {
+  const w = window as any;
+  try {
+    if (w.VAQ && typeof w.VAQ.openDialogue === "function") {
+      w.VAQ.openDialogue(questId);
+      return;
+    }
+    if (w.VADialogue && typeof w.VADialogue.open === "function") {
+      w.VADialogue.open(questId);
+      return;
+    }
+  } catch (err) {
+    console.error("Error opening quest dialogue:", err);
+  }
+  console.warn("No quest dialogue handler found for", questId);
+}
+
+/* =========================================================
+   CLICK HANDLER (DOOR OUTSIDE, WITCH INSIDE)
    ========================================================= */
 
 canvas!.addEventListener("click", (ev) => {
-  if (mapMode !== "outside") return;
-
   const rect = canvas!.getBoundingClientRect();
   const mx = ev.clientX - rect.left;
   const my = ev.clientY - rect.top;
 
-  if (
-    mx >= doorRect.x &&
-    mx <= doorRect.x + doorRect.w &&
-    my >= doorRect.y &&
-    my <= doorRect.y + doorRect.h
-  ) {
-    // go inside hut (same page)
-    enterInterior(canvas!.width, canvas!.height);
+  if (mapMode === "outside") {
+    // click door to go inside
+    if (
+      mx >= doorRect.x &&
+      mx <= doorRect.x + doorRect.w &&
+      my >= doorRect.y &&
+      my <= doorRect.y + doorRect.h
+    ) {
+      enterInterior(canvas!.width, canvas!.height);
+    }
+  } else {
+    // INSIDE: click the witch to talk / start quest
+    if (
+      mx >= witchRect.x &&
+      mx <= witchRect.x + witchRect.w &&
+      my >= witchRect.y &&
+      my <= witchRect.y + witchRect.h
+    ) {
+      openQuestDialogue("q_find_dreadheim_witch");
+    }
   }
 });
 
@@ -290,7 +321,7 @@ function step(ts: number) {
     doorRect.x = doorCenterX - doorW / 2;
     doorRect.y = hutRectFull.y + drawH * DOOR_TOP_RATIO;
     doorRect.w = doorW;
-    doorRect.h = doorW ? doorH : 0;
+    doorRect.h = doorH;
 
     // if we just came back from inside, spawn in front of door
     if (pendingSpawnAtDoor) {
@@ -385,7 +416,7 @@ function step(ts: number) {
         drawHero(frame);
       }
 
-      // DEBUG: see door hitbox
+      // DEBUG door hitbox
       // ctx!.strokeStyle = "rgba(0, 200, 255, 0.9)";
       // ctx!.lineWidth = 2;
       // ctx!.strokeRect(doorRect.x, doorRect.y, doorRect.w, doorRect.h);
@@ -404,21 +435,21 @@ function step(ts: number) {
       const rawW = witchImg.width;
       const rawH = witchImg.height;
 
-      const desiredH = ch * 0.7; // witch about 70% of screen height
+      const desiredH = ch * 0.5; // witch about 70% of screen height
       const scale = desiredH / rawH;
 
       witchRect.w = rawW * scale;
       witchRect.h = desiredH;
-      witchRect.x = cw - witchRect.w - 120; // a bit from right wall
+      witchRect.x = cw - witchRect.w - 90; // near right wall
       witchRect.y = ch - witchRect.h - 40;  // stand slightly above bottom
     }
 
-    if (witchImg && witchRect.w > 0 && witchRect.h > 0 && frame) {
+    if (frame && witchImg && witchRect.w > 0 && witchRect.h > 0) {
       const heroFeetY = heroY + HERO_H;
       const witchFeetY = witchRect.y + witchRect.h;
 
       if (heroFeetY < witchFeetY) {
-        // hero "behind" witch (further back in the room)
+        // hero "behind" witch
         drawHero(frame);
         ctx!.drawImage(witchImg, witchRect.x, witchRect.y, witchRect.w, witchRect.h);
       } else {
@@ -429,6 +460,13 @@ function step(ts: number) {
     } else if (frame) {
       drawHero(frame);
     }
+
+    // DEBUG witch hitbox
+    // if (witchRect.w > 0) {
+    //   ctx!.strokeStyle = "rgba(255, 0, 150, 0.7)";
+    //   ctx!.lineWidth = 2;
+    //   ctx!.strokeRect(witchRect.x, witchRect.y, witchRect.w, witchRect.h);
+    // }
   }
 
   requestAnimationFrame(step);
@@ -508,6 +546,8 @@ async function init() {
 init();
 
 export {};
+
+
 
 
 
