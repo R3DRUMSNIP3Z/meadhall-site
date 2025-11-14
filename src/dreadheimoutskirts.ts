@@ -469,8 +469,8 @@ async function init() {
     await loadHeroAnimations();
 
     // Start hero centered
-    heroX = (canvas!.width - HERO_W) / 2;
-    heroY = (canvas!.height - HERO_H) / 2;
+    heroX = (canvas!.width - HERO_W) / 40;
+    heroY = (canvas!.height - HERO_H) / 40;
 
     requestAnimationFrame(step);
   } catch (err) {
