@@ -263,7 +263,7 @@ function step(ts: number) {
 const BASE_WIDTH_RATIO = 0.9;   // 90% of hut width
 
 // How tall the barrier is (0–1 of hut height)
-const BASE_HEIGHT_RATIO = 0.5;  // 50% of hut height
+const BASE_HEIGHT_RATIO = 0.40;  // 50% of hut height
 
 // Where the TOP of the barrier starts, as % of hut height
 // (0 = roof line, 1 = bottom of hut; >1 = extends below hut)
