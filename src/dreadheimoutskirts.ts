@@ -240,7 +240,7 @@ function step(ts: number) {
     hutRectFull.h = drawH;
 
     // bottom band of hut = collision base (e.g. bottom 30%)
-    const baseHeight = drawH * 0.3;
+    const baseHeight = drawH * 0.1;
     hutBaseRect.x = hutRectFull.x;
     hutBaseRect.w = hutRectFull.w;
     hutBaseRect.h = baseHeight;
