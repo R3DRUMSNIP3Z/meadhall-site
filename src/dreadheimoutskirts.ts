@@ -31,6 +31,9 @@ const HERO_ANIM_SPECS: Record<HeroAnimName, { suffix: string; count: number }> =
   jump:   { suffix: "JUMP_",   count: 10 },
 };
 
+// On this map we only really need idle + walk → faster load
+const ANIMS_FOR_THIS_MAP: HeroAnimName[] = ["idle", "walk"];
+
 // Witchy ground tile + hut
 const ASSETS = {
   ground: "/guildbook/maps/witchy-ground.png",
@@ -209,6 +212,19 @@ function getCurrentHeroFrame(): HTMLImageElement | null {
 }
 
 /* =========================================================
+   DEBUG TOGGLE (B key)
+   ========================================================= */
+
+let DEBUG_COLLISION = true;
+
+window.addEventListener("keydown", (ev) => {
+  if (ev.key.toLowerCase() === "b") {
+    DEBUG_COLLISION = !DEBUG_COLLISION;
+    console.log("Debug collision:", DEBUG_COLLISION);
+  }
+});
+
+/* =========================================================
    MAIN LOOP
    ========================================================= */
 
@@ -228,45 +244,44 @@ function step(ts: number) {
   const ch = canvas!.height;
 
   /* ---------- compute hut rects (center of screen) ---------- */
-if (hutImg) {
-  const rawW = hutImg.width;
-  const rawH = hutImg.height;
-  const drawW = rawW * HUT_SCALE;
-  const drawH = rawH * HUT_SCALE;
+  if (hutImg) {
+    const rawW = hutImg.width;
+    const rawH = hutImg.height;
+    const drawW = rawW * HUT_SCALE;
+    const drawH = rawH * HUT_SCALE;
 
-  // Full hut rect (for drawing + depth)
-  hutRectFull.x = (cw - drawW) / 2;
-  hutRectFull.y = (ch - drawH) / 2 + 40;
-  hutRectFull.w = drawW;
-  hutRectFull.h = drawH;
+    // Full hut rect (for drawing + depth)
+    hutRectFull.x = (cw - drawW) / 2;
+    hutRectFull.y = (ch - drawH) / 2 + 40;
+    hutRectFull.w = drawW;
+    hutRectFull.h = drawH;
 
-  // === CUSTOM COLLISION BASE ===
-  // Tune these values to shape the invisible solid area:
-  const BASE_WIDTH_RATIO  = 0.55; // 55% of hut width (make bigger/smaller)
-  const BASE_HEIGHT_RATIO = 0.22; // 22% of hut height (make taller/shorter)
+    // === CUSTOM COLLISION BASE ===
+    // Tune these values to shape the invisible solid area:
+    const BASE_WIDTH_RATIO  = 0.55; // 55% of hut width (make bigger/smaller)
+    const BASE_HEIGHT_RATIO = 0.22; // 22% of hut height (make taller/shorter)
 
-  // Computed dimensions
-  const baseW = drawW * BASE_WIDTH_RATIO;
-  const baseH = drawH * BASE_HEIGHT_RATIO;
+    // Computed dimensions
+    const baseW = drawW * BASE_WIDTH_RATIO;
+    const baseH = drawH * BASE_HEIGHT_RATIO;
 
-  // Center the collision box horizontally under the hut
-  const baseOffsetX = (drawW - baseW) / 2;
+    // Center the collision box horizontally under the hut
+    const baseOffsetX = (drawW - baseW) / 2;
 
-  // Attach the collision box to the bottom of the hut
-  const baseOffsetY = drawH - baseH;
+    // Attach the collision box to the bottom of the hut
+    const baseOffsetY = drawH - baseH;
 
-  hutBaseRect.x = hutRectFull.x + baseOffsetX;
-  hutBaseRect.y = hutRectFull.y + baseOffsetY;
-  hutBaseRect.w = baseW;
-  hutBaseRect.h = baseH;
+    hutBaseRect.x = hutRectFull.x + baseOffsetX;
+    hutBaseRect.y = hutRectFull.y + baseOffsetY;
+    hutBaseRect.w = baseW;
+    hutBaseRect.h = baseH;
 
-} else {
-  hutRectFull.x = hutRectFull.y = hutRectFull.w = hutRectFull.h = 0;
-  hutBaseRect.x = hutBaseRect.y = hutBaseRect.w = hutBaseRect.h = 0;
-}
+  } else {
+    hutRectFull.x = hutRectFull.y = hutRectFull.w = hutRectFull.h = 0;
+    hutBaseRect.x = hutBaseRect.y = hutBaseRect.w = hutBaseRect.h = 0;
+  }
 
-
-  /* ---------- movement + collision (only with base rect) ---------- */
+  /* ---------- movement + collision (only with hutBaseRect) ---------- */
 
   let dx = 0;
   let dy = 0;
@@ -281,7 +296,7 @@ if (hutImg) {
     const stepX = (dx / len) * HERO_SPEED;
     const stepY = (dy / len) * HERO_SPEED;
 
-    // try X movement (collide only with hutBaseRect)
+    // try X movement
     let nextX = heroX + stepX;
     if (!rectsOverlap(nextX, heroY, HERO_W, HERO_H, hutBaseRect)) {
       heroX = nextX;
@@ -322,42 +337,80 @@ if (hutImg) {
 
   const frame = getCurrentHeroFrame();
 
-  // determine layering: hero in front or behind hut?
   if (hutImg && hutRectFull.w > 0 && hutRectFull.h > 0 && frame) {
     const heroFeetY = heroY + HERO_H;
     const hutMidY = hutRectFull.y + hutRectFull.h * 0.5;
 
     if (heroFeetY < hutMidY) {
-      // hero "behind" hut → draw hero first, then hut on top
+      // hero "behind" hut → draw hero first, then hut (hut covers hero)
       ctx!.save();
       ctx!.translate(heroX + HERO_W / 2, heroY);
-
       if (heroFacing === -1) ctx!.scale(-1, 1);
-
       ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
       ctx!.restore();
 
-      ctx!.drawImage(hutImg, hutRectFull.x, hutRectFull.y, hutRectFull.w, hutRectFull.h);
+      ctx!.drawImage(
+        hutImg,
+        hutRectFull.x,
+        hutRectFull.y,
+        hutRectFull.w,
+        hutRectFull.h
+      );
+
+      if (DEBUG_COLLISION) {
+        ctx!.fillStyle = "rgba(255,0,0,0.35)";
+        ctx!.fillRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
+        ctx!.strokeStyle = "rgba(255,0,0,0.85)";
+        ctx!.lineWidth = 3;
+        ctx!.strokeRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
+      }
     } else {
       // hero in front → draw hut first, then hero
-      ctx!.drawImage(hutImg, hutRectFull.x, hutRectFull.y, hutRectFull.w, hutRectFull.h);
+      ctx!.drawImage(
+        hutImg,
+        hutRectFull.x,
+        hutRectFull.y,
+        hutRectFull.w,
+        hutRectFull.h
+      );
+
+      if (DEBUG_COLLISION) {
+        ctx!.fillStyle = "rgba(255,0,0,0.35)";
+        ctx!.fillRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
+        ctx!.strokeStyle = "rgba(255,0,0,0.85)";
+        ctx!.lineWidth = 3;
+        ctx!.strokeRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
+      }
 
       ctx!.save();
       ctx!.translate(heroX + HERO_W / 2, heroY);
-
       if (heroFacing === -1) ctx!.scale(-1, 1);
-
       ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
       ctx!.restore();
     }
   } else {
-    // fallback: just draw hero if hut missing
+    // fallback if hut or hero frame is missing
+    if (hutImg && hutRectFull.w > 0 && hutRectFull.h > 0) {
+      ctx!.drawImage(
+        hutImg,
+        hutRectFull.x,
+        hutRectFull.y,
+        hutRectFull.w,
+        hutRectFull.h
+      );
+      if (DEBUG_COLLISION) {
+        ctx!.fillStyle = "rgba(255,0,0,0.35)";
+        ctx!.fillRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
+        ctx!.strokeStyle = "rgba(255,0,0,0.85)";
+        ctx!.lineWidth = 3;
+        ctx!.strokeRect(hutBaseRect.x, hutBaseRect.y, hutBaseRect.w, hutBaseRect.h);
+      }
+    }
+
     if (frame) {
       ctx!.save();
       ctx!.translate(heroX + HERO_W / 2, heroY);
-
       if (heroFacing === -1) ctx!.scale(-1, 1);
-
       ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
       ctx!.restore();
     }
@@ -371,8 +424,10 @@ if (hutImg) {
    ========================================================= */
 
 async function loadHeroAnimations(): Promise<void> {
-  const entries = Object.entries(HERO_ANIM_SPECS) as
-    [HeroAnimName, { suffix: string; count: number }][];
+  const entries = ANIMS_FOR_THIS_MAP.map(
+    (name) => [name, HERO_ANIM_SPECS[name]] as [HeroAnimName, { suffix: string; count: number }]
+  );
+
   for (const [name, spec] of entries) {
     const frames: HTMLImageElement[] = [];
     for (let i = 0; i < spec.count; i++) {
@@ -419,6 +474,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
