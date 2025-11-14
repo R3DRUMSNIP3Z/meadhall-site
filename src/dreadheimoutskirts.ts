@@ -260,7 +260,7 @@ function step(ts: number) {
 // Big slab that reaches up into the roof, so you can't walk "onto" it.
 
 // How wide the barrier is (0–1 of hut width)
-const BASE_WIDTH_RATIO  = 0.7;  // keep 90% of hut width
+const BASE_WIDTH_RATIO  = 0.3;  // keep 90% of hut width
 
 // Where the TOP of the barrier starts (0 = roof, 1 = bottom)
 const BASE_TOP_RATIO    = 0.10; // start higher, up in the wall/roof
