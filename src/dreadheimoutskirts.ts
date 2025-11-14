@@ -242,12 +242,17 @@ function openQuestDialogue(questId: string) {
   } catch (err) {
     console.error("Error opening quest dialogue:", err);
   }
+
+  // Visible fallback so you KNOW the click worked even if VAQ/VADialogue is missing
+  alert("Witch clicked, but no quest dialogue handler (VAQ/VADialogue) is available on this page.");
   console.warn("No quest dialogue handler found for", questId);
 }
 
 /* =========================================================
    CLICK HANDLER (DOOR OUTSIDE, WITCH INSIDE)
    ========================================================= */
+
+const WITCH_HIT_MARGIN = 40; // expand clickable area around witch
 
 canvas!.addEventListener("click", (ev) => {
   const rect = canvas!.getBoundingClientRect();
@@ -265,12 +270,12 @@ canvas!.addEventListener("click", (ev) => {
       enterInterior(canvas!.width, canvas!.height);
     }
   } else {
-    // INSIDE: click the witch to talk / start quest
+    // INSIDE: click the witch to talk / start quest (with bigger hitbox)
     if (
-      mx >= witchRect.x &&
-      mx <= witchRect.x + witchRect.w &&
-      my >= witchRect.y &&
-      my <= witchRect.y + witchRect.h
+      mx >= witchRect.x - WITCH_HIT_MARGIN &&
+      mx <= witchRect.x + witchRect.w + WITCH_HIT_MARGIN &&
+      my >= witchRect.y - WITCH_HIT_MARGIN &&
+      my <= witchRect.y + witchRect.h + WITCH_HIT_MARGIN
     ) {
       openQuestDialogue("q_find_dreadheim_witch");
     }
@@ -435,12 +440,12 @@ function step(ts: number) {
       const rawW = witchImg.width;
       const rawH = witchImg.height;
 
-      const desiredH = ch * 0.5; // witch about 70% of screen height
+      const desiredH = ch * 0.5; // height scaling
       const scale = desiredH / rawH;
 
       witchRect.w = rawW * scale;
       witchRect.h = desiredH;
-      witchRect.x = cw - witchRect.w - 90; // near right wall
+      witchRect.x = cw - witchRect.w - 120; // near right wall
       witchRect.y = ch - witchRect.h - 40;  // stand slightly above bottom
     }
 
@@ -465,7 +470,7 @@ function step(ts: number) {
     // if (witchRect.w > 0) {
     //   ctx!.strokeStyle = "rgba(255, 0, 150, 0.7)";
     //   ctx!.lineWidth = 2;
-    //   ctx!.strokeRect(witchRect.x, witchRect.y, witchRect.w, witchRect.h);
+    //   ctx!.strokeRect(witchRect.x - WITCH_HIT_MARGIN, witchRect.y - WITCH_HIT_MARGIN, witchRect.w + WITCH_HIT_MARGIN*2, witchRect.h + WITCH_HIT_MARGIN*2);
     // }
   }
 
@@ -546,6 +551,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
