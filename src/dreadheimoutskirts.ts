@@ -257,24 +257,33 @@ function step(ts: number) {
     hutRectFull.h = drawH;
 
     // === CUSTOM COLLISION BASE ===
-    // Tune these values to shape the invisible solid area:
-    const BASE_WIDTH_RATIO  = 0.55; // 55% of hut width (make bigger/smaller)
-    const BASE_HEIGHT_RATIO = 0.22; // 22% of hut height (make taller/shorter)
+// We want a big slab in front of the hut, like your red box.
 
-    // Computed dimensions
-    const baseW = drawW * BASE_WIDTH_RATIO;
-    const baseH = drawH * BASE_HEIGHT_RATIO;
+// How wide the barrier is (0–1 of hut width)
+const BASE_WIDTH_RATIO = 0.9;   // 90% of hut width
 
-    // Center the collision box horizontally under the hut
-    const baseOffsetX = (drawW - baseW) / 2;
+// How tall the barrier is (0–1 of hut height)
+const BASE_HEIGHT_RATIO = 0.5;  // 50% of hut height
 
-    // Attach the collision box to the bottom of the hut
-    const baseOffsetY = drawH - baseH;
+// Where the TOP of the barrier starts, as % of hut height
+// (0 = roof line, 1 = bottom of hut; >1 = extends below hut)
+const BASE_TOP_RATIO = 0.55;    // starts a bit below mid-wall
 
-    hutBaseRect.x = hutRectFull.x + baseOffsetX;
-    hutBaseRect.y = hutRectFull.y + baseOffsetY;
-    hutBaseRect.w = baseW;
-    hutBaseRect.h = baseH;
+// Computed dimensions
+const baseW = drawW * BASE_WIDTH_RATIO;
+const baseH = drawH * BASE_HEIGHT_RATIO;
+
+// Center the collision box horizontally
+const baseOffsetX = (drawW - baseW) / 2;
+
+// Position the top of the box using BASE_TOP_RATIO
+const baseOffsetY = drawH * BASE_TOP_RATIO;
+
+hutBaseRect.x = hutRectFull.x + baseOffsetX;
+hutBaseRect.y = hutRectFull.y + baseOffsetY;
+hutBaseRect.w = baseW;
+hutBaseRect.h = baseH;
+
 
   } else {
     hutRectFull.x = hutRectFull.y = hutRectFull.w = hutRectFull.h = 0;
