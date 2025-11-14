@@ -230,22 +230,35 @@ function exitInterior() {
 
 function openQuestDialogue(questId: string) {
   const w = window as any;
+
   try {
-    if (w.VAQ && typeof w.VAQ.openDialogue === "function") {
-      w.VAQ.openDialogue(questId);
-      return;
-    }
-    if (w.VADialogue && typeof w.VADialogue.open === "function") {
-      w.VADialogue.open(questId);
-      return;
+    const getQuest =
+      (w.getQuestFromCatalog as undefined | ((id: string) => any)) || null;
+    const runDialogue =
+      (w.runCatalogDialogue as
+        | undefined
+        | ((q: any, after?: () => void) => void)) || null;
+
+    if (typeof getQuest === "function" && typeof runDialogue === "function") {
+      const quest = getQuest(questId);
+      if (quest) {
+        // Open the JSON-driven dialogue. Any quest vars / completion
+        // should be handled by the catalog actions in catalogquests.json.
+        runDialogue(quest, () => {
+          // optional: anything you want to run *after* dialogue closes
+          // (we can hook quest vars here later if needed)
+        });
+        return;
+      }
     }
   } catch (err) {
     console.error("Error opening quest dialogue:", err);
   }
 
-  // Visible fallback so you KNOW the click worked even if VAQ/VADialogue is missing
-  alert("Witch clicked, but no quest dialogue handler (VAQ/VADialogue) is available on this page.");
-  console.warn("No quest dialogue handler found for", questId);
+  // Fallback if something isn’t wired up
+  alert(
+    "Witch clicked, but the quest dialogue catalog isn't ready on this page."
+  );
 }
 
 /* =========================================================
