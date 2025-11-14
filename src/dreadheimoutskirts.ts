@@ -46,7 +46,8 @@ const ANIMS_FOR_THIS_MAP: HeroAnimName[] = ["idle", "walk"];
 const ASSETS = {
   ground: "/guildbook/maps/witchy-ground.png",
   hut: "/guildbook/props/witch-hut.png",
-  inside: "/guildbook/props/insidewitchhut.png", // 👈 your interior image
+  inside: "/guildbook/props/insidewitchhut.png", // 👈 interior image
+  witch: "/guildbook/npcs/dreadheim-witch.png",  // 👈 your new witch NPC (transparent PNG)
 };
 
 /* =========================================================
@@ -163,6 +164,15 @@ function getCurrentHeroFrame(): HTMLImageElement | null {
   return frames[heroAnimState.frameIndex] || frames[0];
 }
 
+// small helper so we don't duplicate hero drawing everywhere
+function drawHero(frame: HTMLImageElement) {
+  ctx!.save();
+  ctx!.translate(heroX + HERO_W / 2, heroY);
+  if (heroFacing === -1) ctx!.scale(-1, 1);
+  ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
+  ctx!.restore();
+}
+
 /* =========================================================
    RESIZE
    ========================================================= */
@@ -175,7 +185,7 @@ resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
 /* =========================================================
-   GROUND + HUT + DOOR RECT + INSIDE BG
+   GROUND + HUT + DOOR RECT + INSIDE BG + WITCH NPC
    ========================================================= */
 
 let groundImg: HTMLImageElement | null = null;
@@ -183,6 +193,7 @@ let groundPattern: CanvasPattern | null = null;
 
 let hutImg: HTMLImageElement | null = null;
 let insideImg: HTMLImageElement | null = null;
+let witchImg: HTMLImageElement | null = null;
 
 const HUT_SCALE = 0.55;
 
@@ -191,6 +202,9 @@ const hutRectFull = { x: 0, y: 0, w: 0, h: 0 };
 
 // clickable door rect (inside the hut)
 const doorRect = { x: 0, y: 0, w: 0, h: 0 };
+
+// witch rect (inside mode only)
+const witchRect = { x: 0, y: 0, w: 0, h: 0 };
 
 /* =========================================================
    MODE HELPERS
@@ -276,7 +290,7 @@ function step(ts: number) {
     doorRect.x = doorCenterX - doorW / 2;
     doorRect.y = hutRectFull.y + drawH * DOOR_TOP_RATIO;
     doorRect.w = doorW;
-    doorRect.h = doorH;
+    doorRect.h = doorW ? doorH : 0;
 
     // if we just came back from inside, spawn in front of door
     if (pendingSpawnAtDoor) {
@@ -351,12 +365,7 @@ function step(ts: number) {
 
       if (heroFeetY < hutMidY) {
         // hero "behind" hut → hero, then hut
-        ctx!.save();
-        ctx!.translate(heroX + HERO_W / 2, heroY);
-        if (heroFacing === -1) ctx!.scale(-1, 1);
-        ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
-        ctx!.restore();
-
+        drawHero(frame);
         ctx!.drawImage(
           hutImg,
           hutRectFull.x,
@@ -373,12 +382,7 @@ function step(ts: number) {
           hutRectFull.w,
           hutRectFull.h
         );
-
-        ctx!.save();
-        ctx!.translate(heroX + HERO_W / 2, heroY);
-        if (heroFacing === -1) ctx!.scale(-1, 1);
-        ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
-        ctx!.restore();
+        drawHero(frame);
       }
 
       // DEBUG: see door hitbox
@@ -389,23 +393,41 @@ function step(ts: number) {
       // fallback if hut missing
       ctx!.fillStyle = groundPattern!;
       ctx!.fillRect(0, 0, cw, ch);
-
-      ctx!.save();
-      ctx!.translate(heroX + HERO_W / 2, heroY);
-      if (heroFacing === -1) ctx!.scale(-1, 1);
-      ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
-      ctx!.restore();
+      drawHero(frame);
     }
   } else {
     // === INSIDE: draw interior BG full-screen ===
     ctx!.drawImage(insideImg, 0, 0, cw, ch);
 
-    if (frame) {
-      ctx!.save();
-      ctx!.translate(heroX + HERO_W / 2, heroY);
-      if (heroFacing === -1) ctx!.scale(-1, 1);
-      ctx!.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
-      ctx!.restore();
+    // compute witch rect (scaled to room size)
+    if (witchImg) {
+      const rawW = witchImg.width;
+      const rawH = witchImg.height;
+
+      const desiredH = ch * 0.7; // witch about 70% of screen height
+      const scale = desiredH / rawH;
+
+      witchRect.w = rawW * scale;
+      witchRect.h = desiredH;
+      witchRect.x = cw - witchRect.w - 120; // a bit from right wall
+      witchRect.y = ch - witchRect.h - 40;  // stand slightly above bottom
+    }
+
+    if (witchImg && witchRect.w > 0 && witchRect.h > 0 && frame) {
+      const heroFeetY = heroY + HERO_H;
+      const witchFeetY = witchRect.y + witchRect.h;
+
+      if (heroFeetY < witchFeetY) {
+        // hero "behind" witch (further back in the room)
+        drawHero(frame);
+        ctx!.drawImage(witchImg, witchRect.x, witchRect.y, witchRect.w, witchRect.h);
+      } else {
+        // hero in front of witch
+        ctx!.drawImage(witchImg, witchRect.x, witchRect.y, witchRect.w, witchRect.h);
+        drawHero(frame);
+      }
+    } else if (frame) {
+      drawHero(frame);
     }
   }
 
@@ -415,6 +437,15 @@ function step(ts: number) {
 /* =========================================================
    BOOTSTRAP
    ========================================================= */
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = src;
+  });
+}
 
 async function loadHeroAnimations(): Promise<void> {
   const entries = ANIMS_FOR_THIS_MAP.map(
@@ -442,30 +473,23 @@ async function loadHeroAnimations(): Promise<void> {
   }
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
-    img.src = src;
-  });
-}
-
 async function init() {
   if (started) return;
   started = true;
 
   try {
-    const [ground, hut, inside] = await Promise.all([
+    const [ground, hut, inside, witch] = await Promise.all([
       loadImage(ASSETS.ground),
       loadImage(ASSETS.hut),
       loadImage(ASSETS.inside),
+      loadImage(ASSETS.witch),
     ]);
 
     groundImg = ground;
     groundPattern = ctx!.createPattern(groundImg, "repeat");
     hutImg = hut;
     insideImg = inside;
+    witchImg = witch;
 
     await loadHeroAnimations();
 
@@ -484,6 +508,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
