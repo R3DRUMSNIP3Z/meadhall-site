@@ -256,37 +256,61 @@
     {
       "id": "q_find_dreadheim_witch",
       "title": "Find Skarthra the Pale",
-      "desc": "She haunts the Dreadheim Outskirts.",
+      "desc": "You found the witch in a hut on the outskirts of Dreadheim.",
       "dialogue": [
         {
           "id": "start",
           "speaker": "Skarthra",
-          "text": "So the wizard sent you. Let's see if your courage isn't borrowed."
+          "text": "So the wizard sent you. Let's see if your courage isn't borrowed.\nAre you ready for thy journey?",
+          "choices": [
+            { "text": "Yes.", "next": "accept" },
+            { "text": "No.", "next": "end" }
+          ]
+        },
+        {
+          "id": "accept",
+          "speaker": "Skarthra",
+          "text": "Good. Then let your steps carry you where even ravens fear to fly.",
+          "choices": [
+            { "text": "I'm ready.", "next": "complete" }
+          ]
+        },
+        {
+          "id": "complete",
+          "text": "The witch smiles, a little too wide. Your fate is now woven into her plans.",
+          "action": {
+            "type": "completeQuest",
+            "setVars": { "witch_met": true }
+          }
+        },
+        {
+          "id": "end",
+          "text": "Then go think, little wolf. I will still be here when you return."
         }
       ]
     },
 
     {
-      "id": "q_find_dreadheim_witch",
-      "title": "You met the witch",
-      "desc": "you found the witch in a hut on the outskirts of Dreadheim.",
+      "id": "q_placeholder_01",
+      "title": "Placeholder Quest 01",
+      "desc": "Temporary quest slot for future content.",
       "dialogue": [
         {
           "id": "start",
-          "speaker": "Skarthra",
-          "text": "Are you ready for thy journey?.",
+          "speaker": "NPC",
+          "text": "Placeholder quest 01. Replace me later.",
           "choices": [
-            { "text": "Yes.", "next": "May your journey begin evil one" },
-            { "text": "No.", "next": "end" }
+            { "text": "Complete.", "next": "done" },
+            { "text": "Not yet.", "next": "end" }
           ]
         },
         {
-          "id": "q_find_dreadheim_witch",
+          "id": "done",
           "text": "Marked complete.",
-          "action": { "type": "setVars", "set": { "witch_met": true } }
+          "action": { "type": "setVars", "set": { "ph1_done": true } }
         },
         {
-          "id": "q_find_dreadheim_witch",
+          "id": "end",
           "text": "Come back anytime."
         }
       ]
@@ -480,9 +504,9 @@
         }
       ]
     }
-
   ]
 }
+
 
 
 
