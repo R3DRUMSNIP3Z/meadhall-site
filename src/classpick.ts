@@ -1,63 +1,86 @@
-// ==============================================
-// Valhalla Ascending — Class Pick (image frames)
-// Animates separate PNGs like the chibi preview
-// ==============================================
+// ===============================================
+// Valhalla Ascending — Class Pick Screen (FULL)
+// ===============================================
 
 type ClassId = "warrior" | "shieldmaiden" | "rune-mage" | "berserker" | "hunter";
-
-type ClassStats = {
-  power: number;
-  defense: number;
-  speed: number;
-  control: number;
-  difficulty: number;
-};
 
 type ClassSpec = {
   id: ClassId;
   name: string;
   role: string;
   desc: string;
-  frames: string[];   // list of frame URLs (first one also used as icon/preview)
-  stats: ClassStats;
+  tags: string[];
+  stats: {
+    power: number;
+    defense: number;
+    speed: number;
+    control: number;
+    difficulty: number;
+  };
+  frames: string[];
 };
 
 const CLASS_KEY = "va_class";
 const CLASS_NAME_KEY = "va_class_name";
 
-/* ---------------- Helpers ---------------- */
-
 function getUserIdFromQuery(): string | null {
   try {
-    const p = new URLSearchParams(window.location.search);
+    const p = new URLSearchParams(location.search);
     return p.get("user");
   } catch {
     return null;
   }
 }
 
-// Build Shieldmaiden frame list sm_000.png ... sm_008.png
-const shieldFrames: string[] = Array.from({ length: 9 }, (_, i) => {
-  const n = i.toString().padStart(3, "0"); // 000, 001, ...
-  return `/guildbook/avatars/shieldmaiden/sm_${n}.png`;
-});
+/* ====================================
+   Frame Builders (9 frames each)
+   ==================================== */
 
-/* --------------- Class data --------------- */
+// Warrior (war_000 → war_008)
+const warriorFrames = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/warrior/war_${i.toString().padStart(3, "0")}.png`
+);
+
+// Shieldmaiden (sm_000 → sm_008)
+const shieldFrames = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/shieldmaiden/sm_${i.toString().padStart(3, "0")}.png`
+);
+
+// Rune-Mage (rm_000 → rm_008)
+const runeFrames = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/rune-mage/rm_${i.toString().padStart(3, "0")}.png`
+);
+
+// Berserker (b_000 → b_008)
+const berserkerFrames = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/berserker/b_${i.toString().padStart(3, "0")}.png`
+);
+
+// Hunter (h_000 → h_008)
+const hunterFrames = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/hunter/h_${i.toString().padStart(3, "0")}.png`
+);
+
+/* ====================================
+   Class Definitions
+   ==================================== */
 
 const classes: ClassSpec[] = [
   {
     id: "warrior",
     name: "Warrior",
     role: "Frontline Tank / Bruiser",
-    desc: "Warriors hold the line with steel and stubborn will.",
-    frames: ["/logo/logo-512.png"], // TODO: replace with warrior frames
+    desc: "Warriors stand at the front lines with steel and stubborn will.",
+    tags: ["Melee", "Tank", "Physical"],
+    frames: warriorFrames,
     stats: { power: 70, defense: 85, speed: 55, control: 40, difficulty: 40 },
   },
   {
     id: "shieldmaiden",
     name: "Shieldmaiden",
     role: "Defender / Support",
-    desc: "Shieldmaidens fight with blade and board, guarding allies.",
+    desc: "Shieldmaidens guard allies while striking with shield and blade.",
+    tags: ["Melee", "Defender", "Support"],
     frames: shieldFrames,
     stats: { power: 65, defense: 80, speed: 60, control: 55, difficulty: 50 },
   },
@@ -65,168 +88,181 @@ const classes: ClassSpec[] = [
     id: "rune-mage",
     name: "Rune-Mage",
     role: "Burst Caster",
-    desc: "Rune-Mages wield ancient magic to devastate foes.",
-    frames: ["/logo/logo-512.png"],
+    desc: "Rune-Mages unleash devastating magic from afar.",
+    tags: ["Magic", "Ranged", "Burst"],
+    frames: runeFrames,
     stats: { power: 90, defense: 35, speed: 65, control: 75, difficulty: 80 },
   },
   {
     id: "berserker",
     name: "Berserker",
     role: "Melee Frenzy",
-    desc: "Berserkers unleash unstoppable rage in battle.",
-    frames: ["/logo/logo-512.png"],
+    desc: "Berserkers thrive in chaos, growing stronger as battle rages.",
+    tags: ["Melee", "Frenzy", "Burst"],
+    frames: berserkerFrames,
     stats: { power: 95, defense: 55, speed: 70, control: 35, difficulty: 65 },
   },
   {
     id: "hunter",
     name: "Hunter",
     role: "Ranged Assassin",
-    desc: "Hunters strike from afar with deadly precision.",
-    frames: ["/logo/logo-512.png"],
+    desc: "Hunters eliminate threats with precision and agility.",
+    tags: ["Ranged", "Agile", "Stealth"],
+    frames: hunterFrames,
     stats: { power: 80, defense: 45, speed: 85, control: 60, difficulty: 55 },
   },
 ];
 
-/* ---------------- DOM refs ---------------- */
+/* ====================================
+   DOM
+   ==================================== */
 
-const tabsEl = document.getElementById("classTabs") as HTMLDivElement | null;
-const previewImg = document.getElementById("previewPortrait") as HTMLImageElement | null;
-const pvName = document.getElementById("pvName") as HTMLElement | null;
-const pvRole = document.getElementById("pvRole") as HTMLElement | null;
-const pvDesc = document.getElementById("pvDesc") as HTMLElement | null;
-const pvStats = document.getElementById("pvStats") as HTMLDivElement | null;
-const btnSelect = document.getElementById("btnSelect") as HTMLButtonElement | null;
+const grid = document.getElementById("classGrid")!;
+const previewCanvas = document.getElementById("previewCanvas") as HTMLCanvasElement;
+const ctx = previewCanvas.getContext("2d")!;
 
-/* ------------- Animation state ------------ */
+const nameEl = document.getElementById("className")!;
+const roleEl = document.getElementById("classRole")!;
+const descEl = document.getElementById("classDesc")!;
+const statsEl = {
+  power: document.getElementById("statPower")!,
+  defense: document.getElementById("statDefense")!,
+  speed: document.getElementById("statSpeed")!,
+  control: document.getElementById("statControl")!,
+  difficulty: document.getElementById("statDifficulty")!,
+};
 
-let currentClass: ClassSpec | null = null;
+let animIndex = 0;
+let animTimer: number | null = null;
 let currentFrames: string[] = [];
-let frameIndex = 0;
 
-const FRAME_MS = 120;
-let animTimer: number | undefined;
+/* ====================================
+   Animation Function
+   ==================================== */
 
-/* ----------------- UI build ---------------- */
-
-function buildTabs() {
-  if (!tabsEl) return;
-  tabsEl.innerHTML = "";
-
-  for (const c of classes) {
-    const tab = document.createElement("div");
-    tab.className = "class-tab";
-    tab.textContent = c.name;
-    tab.dataset.id = c.id;
-    tabsEl.appendChild(tab);
-  }
-}
-
-/* ------------- Animation control ---------- */
-
-function startAnimation(frames: string[]) {
+function playAnimation(frames: string[]) {
   currentFrames = frames;
-  frameIndex = 0;
+  animIndex = 0;
 
-  if (previewImg && frames.length) {
-    previewImg.src = frames[0];
+  if (animTimer) cancelAnimationFrame(animTimer);
+
+  const img = new Image();
+  let frameImages: HTMLImageElement[] = [];
+  let loadedCount = 0;
+
+  // Preload frames
+  frames.forEach((src, i) => {
+    const f = new Image();
+    f.src = src;
+    f.onload = () => {
+      loadedCount++;
+      if (loadedCount === frames.length) startLoop();
+    };
+    frameImages[i] = f;
+  });
+
+  function startLoop() {
+    function loop() {
+      ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+      const frame = frameImages[animIndex];
+      if (frame) {
+        const scale = 0.9;
+        const w = frame.width * scale;
+        const h = frame.height * scale;
+        const x = (previewCanvas.width - w) / 2;
+        const y = (previewCanvas.height - h) / 2;
+        ctx.drawImage(frame, x, y, w, h);
+      }
+
+      animIndex = (animIndex + 1) % frameImages.length;
+      animTimer = requestAnimationFrame(loop);
+    }
+    loop();
   }
-
-  if (animTimer !== undefined) {
-    window.clearInterval(animTimer);
-  }
-
-  if (!previewImg || frames.length <= 1) return;
-
-  animTimer = window.setInterval(() => {
-    if (!previewImg || !currentFrames.length) return;
-    frameIndex = (frameIndex + 1) % currentFrames.length;
-    previewImg.src = currentFrames[frameIndex];
-  }, FRAME_MS);
 }
 
-/* ------------ Preview rendering ----------- */
+/* ====================================
+   Render Preview
+   ==================================== */
 
 function renderPreview(c: ClassSpec) {
-  currentClass = c;
+  // Update text
+  nameEl.textContent = c.name;
+  roleEl.textContent = c.role;
+  descEl.textContent = c.desc;
 
-  // tabs highlight
-  if (tabsEl) {
-    Array.from(tabsEl.children).forEach((el) =>
-      (el as HTMLElement).classList.toggle(
-        "active",
-        (el as HTMLElement).dataset.id === c.id
-      )
-    );
-  }
+  statsEl.power.style.width = c.stats.power + "%";
+  statsEl.defense.style.width = c.stats.defense + "%";
+  statsEl.speed.style.width = c.stats.speed + "%";
+  statsEl.control.style.width = c.stats.control + "%";
+  statsEl.difficulty.style.width = c.stats.difficulty + "%";
 
-  if (pvName) pvName.textContent = c.name;
-  if (pvRole) pvRole.textContent = c.role;
-  if (pvDesc) pvDesc.textContent = c.desc;
-
-  if (pvStats) {
-    pvStats.innerHTML = "";
-    const entries: Array<[string, number]> = Object.entries(c.stats) as any;
-
-    for (const [key, value] of entries) {
-      const label = key.toUpperCase();
-      const row = document.createElement("div");
-      row.className = "stat-row";
-      row.innerHTML = `
-        <div class="stat-label">${label}<span class="bar-value">${value}</span></div>
-        <div class="bar-wrap"><div class="bar" style="width:${value}%;"></div></div>
-      `;
-      pvStats.appendChild(row);
-    }
-  }
-
-  startAnimation(c.frames);
+  // Play animation
+  playAnimation(c.frames);
 }
 
-/* ----------------- Events ----------------- */
+/* ====================================
+   Build Class Grid Buttons
+   ==================================== */
 
-tabsEl?.addEventListener("click", (ev) => {
+function buildClassButtons() {
+  grid.innerHTML = "";
+
+  classes.forEach((c) => {
+    const btn = document.createElement("div");
+    btn.className = "class-card";
+    btn.dataset.id = c.id;
+    btn.textContent = c.name;
+    grid.appendChild(btn);
+  });
+}
+
+buildClassButtons();
+
+/* ====================================
+   Click Handler
+   ==================================== */
+
+grid.addEventListener("click", (ev) => {
   const target = ev.target as HTMLElement | null;
   if (!target) return;
-  const tab = target.closest(".class-tab") as HTMLElement | null;
-  if (!tab) return;
 
-  const id = tab.dataset.id as ClassId | undefined;
-  if (!id) return;
+  const card = target.closest(".class-card") as HTMLElement | null;
+  if (!card) return;
 
+  const id = card.dataset.id as ClassId;
   const c = classes.find((x) => x.id === id);
   if (!c) return;
+
+  // highlight active
+  Array.from(grid.children).forEach((el) =>
+    (el as HTMLElement).classList.remove("active")
+  );
+  card.classList.add("active");
 
   renderPreview(c);
 });
 
-btnSelect?.addEventListener("click", () => {
-  if (!currentClass) {
-    alert("Choose a class first!");
-    return;
-  }
+/* ====================================
+   Select Class Button
+   ==================================== */
 
-  try {
-    localStorage.setItem(CLASS_KEY, currentClass.id);
-    localStorage.setItem(CLASS_NAME_KEY, currentClass.name);
-  } catch (err) {
-    console.warn("Could not save class selection:", err);
-  }
+const selectBtn = document.getElementById("selectClassBtn")!;
+selectBtn.addEventListener("click", () => {
+  const active = grid.querySelector(".active") as HTMLElement | null;
+  if (!active) return;
 
-  const uid = getUserIdFromQuery();
-  const qs = uid ? `?user=${encodeURIComponent(uid)}` : "";
-  window.location.href = `/game.html${qs}`;
+  const id = active.dataset.id as ClassId;
+  const c = classes.find((x) => x.id === id);
+  if (!c) return;
+
+  localStorage.setItem(CLASS_KEY, c.id);
+  localStorage.setItem(CLASS_NAME_KEY, c.name);
+
+  location.href = "/game.html";
 });
 
-/* ----------------- Init ------------------- */
-
-function init() {
-  buildTabs();
-  // default to Shieldmaiden if available
-  const def = classes.find((c) => c.id === "shieldmaiden") ?? classes[0];
-  renderPreview(def);
-}
-
-document.addEventListener("DOMContentLoaded", init);
 
 
 
