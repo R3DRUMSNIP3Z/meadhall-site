@@ -1,6 +1,6 @@
 // /src/dreadheimmap.ts
-// --- Dreadheim • Forest Entrance (boar encounter + animated bat flock) ---
-// NOTE: Requires /src/global-game-setup.ts to be loaded first (for VAQ + Inventory + getHeroSprite)
+// --- Dreadheim • Forest Entrance (boar encounter + animated bat flock + animated hero) ---
+// NOTE: Requires /src/global-game-setup.ts to be loaded first (for VAQ + Inventory)
 
 //////////////////////////////
 // Canvas
@@ -10,10 +10,24 @@ if (!canvas) throw new Error("#map canvas not found");
 const ctx = canvas.getContext("2d")!;
 
 //////////////////////////////
+// Hero animation frame URLs (Shieldmaiden 0–8)
+//////////////////////////////
+const HERO_IDLE_URLS = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/shieldmaiden/sm_${i.toString().padStart(3, "0")}.png`
+);
+const HERO_LEFT_URLS = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/shieldmaiden/leftwalk_${i.toString().padStart(3, "0")}.png`
+);
+const HERO_RIGHT_URLS = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/shieldmaiden/rightwalk_${i.toString().padStart(3, "0")}.png`
+);
+
+//////////////////////////////
 // Assets / Config
 //////////////////////////////
 const ASSETS = {
   bg: "/guildbook/maps/dreadheimforest.png",
+  // kept as a generic fallback, but normal rendering uses the frame arrays above
   hero:
     (window as any).getHeroSprite
       ? (window as any).getHeroSprite()
@@ -71,8 +85,8 @@ const JUMP_VELOCITY = -16;
 const HERO_W = 96, HERO_H = 96;
 const BOAR_W = 110, BOAR_H = 90;
 
-const ENGAGE_DIST = 120;  // auto-start battle
-const ALERT_DIST = 320;   // slow chase radius
+const ENGAGE_DIST = 120; // auto-start battle
+const ALERT_DIST = 320;  // slow chase radius
 const CHASE_SPEED = 1.2;
 const PATROL_SPEED = 1.8;
 
@@ -105,7 +119,12 @@ function load(src: string): Promise<HTMLImageElement> {
 }
 
 let bg: HTMLImageElement | null = null;
-let heroImg: HTMLImageElement | null = null;
+// hero frames
+let heroIdleFrames: HTMLImageElement[] = [];
+let heroLeftFrames: HTMLImageElement[] = [];
+let heroRightFrames: HTMLImageElement[] = [];
+let heroFallbackImg: HTMLImageElement | null = null;
+
 let boarImg: HTMLImageElement | null = null;
 let meatImg: HTMLImageElement | null = null;
 
@@ -161,7 +180,13 @@ const hero = {
   w: HERO_W, h: HERO_H,
   vx: 0, vy: 0,
   onGround: true,
+  anim: "idle" as "idle" | "walk",
+  facing: "right" as "left" | "right",
+  frameIndex: 0,
 };
+
+const HERO_FRAME_MS = 100;
+let lastHeroFrameTime = performance.now();
 
 const BOAR_DEAD = () => localStorage.getItem("va_bf_boar_defeated") === "1";
 const LOOT_TAKEN = () => localStorage.getItem("va_loot_infectedboarmeat") === "1";
@@ -283,14 +308,43 @@ function toast(msg: string) {
 }
 
 //////////////////////////////
+// Helper: pick current hero frame list
+//////////////////////////////
+function getHeroFrameList(): HTMLImageElement[] {
+  if (hero.anim === "walk") {
+    return hero.facing === "left" ? heroLeftFrames : heroRightFrames;
+  }
+  return heroIdleFrames;
+}
+
+//////////////////////////////
 // Update
 //////////////////////////////
 function step() {
   // horizontal intent
   let vx = 0;
-  if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) vx -= SPEED;
-  if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) vx += SPEED;
+  if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) {
+    vx -= SPEED;
+    hero.anim = "walk";
+    hero.facing = "left";
+  }
+  if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) {
+    vx += SPEED;
+    hero.anim = "walk";
+    hero.facing = "right";
+  }
+  if (vx === 0) {
+    hero.anim = "idle";
+  }
   hero.vx = vx;
+
+  // hero animation timing
+  const nowAnim = performance.now();
+  const frames = getHeroFrameList();
+  if (frames.length && nowAnim - lastHeroFrameTime >= HERO_FRAME_MS) {
+    lastHeroFrameTime = nowAnim;
+    hero.frameIndex = (hero.frameIndex + 1) % frames.length;
+  }
 
   // edge exits (before position update so hugging wall warps)
   if (hero.x <= EXIT_MARGIN) { warpTo(LEFT_EXIT_URL); return; }
@@ -417,8 +471,13 @@ function render() {
   }
 
   // hero
-  if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
-  else {
+  const frames = getHeroFrameList();
+  const img =
+    frames.length ? frames[hero.frameIndex % frames.length] : heroFallbackImg;
+
+  if (img) {
+    ctx.drawImage(img, hero.x, hero.y, hero.w, hero.h);
+  } else {
     ctx.fillStyle = "#333";
     ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
   }
@@ -502,19 +561,31 @@ function handleArrivalQuestProgress() {
 //////////////////////////////
 Promise.all([
   load(ASSETS.bg),
-  load(ASSETS.hero),
   load(ASSETS.boar),
   load(ASSETS.meat),
   load(ASSETS.bat1),
   load(ASSETS.bat2),
   load(ASSETS.bat3),
+  ...HERO_IDLE_URLS.map(load),
+  ...HERO_LEFT_URLS.map(load),
+  ...HERO_RIGHT_URLS.map(load),
 ])
-  .then(([b, h, bo, m, b1, b2, b3]) => {
-    bg = b;
-    heroImg = h;
-    boarImg = bo;
-    meatImg = m;
-    batFrames = [b1, b2, b3];
+  .then((imgs) => {
+    const baseCount = 6; // bg, boar, meat, bat1, bat2, bat3
+    bg = imgs[0];
+    boarImg = imgs[1];
+    meatImg = imgs[2];
+    batFrames = [imgs[3], imgs[4], imgs[5]];
+
+    const idleCount = HERO_IDLE_URLS.length;
+    const leftCount = HERO_LEFT_URLS.length;
+    const rightCount = HERO_RIGHT_URLS.length;
+
+    const heroImgs = imgs.slice(baseCount);
+    heroIdleFrames = heroImgs.slice(0, idleCount);
+    heroLeftFrames = heroImgs.slice(idleCount, idleCount + leftCount);
+    heroRightFrames = heroImgs.slice(idleCount + leftCount, idleCount + leftCount + rightCount);
+    heroFallbackImg = heroIdleFrames[0] || null;
 
     // Spawn ambience
     spawnFlock(FLOCK_COUNT);
@@ -527,7 +598,6 @@ Promise.all([
   })
   .catch((err) => {
     console.warn("Dreadheim map: asset load fallback", err);
-    // Even if images fail, still run the loop
     try { handleArrivalQuestProgress(); } catch {}
     refreshBounds();
     loop();
@@ -551,6 +621,8 @@ Promise.all([
   addEventListener("focus", nukeBadge);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) nukeBadge(); });
 })();
+
+
 
 
 
