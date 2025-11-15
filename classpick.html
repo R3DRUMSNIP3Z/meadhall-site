@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Valhalla Ascending — Choose Your Class</title>
+
+  <!-- Optional: use same font/theme as Mead Hall -->
+  <link rel="stylesheet" href="/Styles/odin.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --va-gold: #f1d18a;
+      --va-gold-soft: #c8a96b;
+      --va-bg: #05070a;
+      --va-panel: rgba(10,12,16,0.92);
+      --va-panel-soft: rgba(18,20,26,0.96);
+      --va-red: #e15c4c;
+      --va-blue: #5bb0ff;
+      --va-green: #8ad06f;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #000;
+      color: #f7f3e6;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.15), transparent 60%),
+        url("/guildbook/maps/dreadheimforest.png") center/cover no-repeat;
+      filter: blur(4px) brightness(0.6);
+      z-index: -2;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(0,0,0,0.35), rgba(0,0,0,0.95));
+      z-index: -1;
+    }
+
+    .shell {
+      position: relative;
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 24px 18px 18px;
+      max-width: 1200px;
+      margin: 0 auto;
+      gap: 10px;
+    }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .logo-lockup {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-lockup img {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      object-fit: cover;
+      box-shadow: 0 0 20px rgba(0,0,0,0.7);
+    }
+
+    .logo-lockup h1 {
+      margin: 0;
+      font-size: 1.1rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-family: "Cinzel", serif;
+    }
+
+    .subtitle {
+      font-size: 0.82rem;
+      opacity: 0.8;
+    }
+
+    .back-link {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      opacity: 0.85;
+      cursor: pointer;
+    }
+    .back-link:hover { opacity: 1; text-decoration: underline; }
+
+    /* ===== MAIN LAYOUT ===== */
+    .main {
+      display: grid;
+      grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.3fr);
+      gap: 18px;
+      min-height: 0;
+    }
+
+    @media (max-width: 900px) {
+      .shell {
+        padding: 16px 10px;
+      }
+      .main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+      }
+    }
+
+    .panel {
+      background: linear-gradient(145deg, var(--va-panel-soft), #050609);
+      border-radius: 18px;
+      border: 1px solid rgba(241,209,138,0.18);
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.7),
+        0 20px 40px rgba(0,0,0,0.9);
+      padding: 16px 16px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top left, rgba(241,209,138,0.15), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(110,161,255,0.11), transparent 55%);
+      opacity: 0.6;
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+
+    .panel-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== CLASS LIST ===== */
+    .class-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .class-row h2 {
+      margin: 0;
+      font-size: 1.1rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .class-row span {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      opacity: 0.7;
+    }
+
+    .class-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .class-card {
+      position: relative;
+      padding: 10px 10px 12px;
+      border-radius: 14px;
+      background: radial-gradient(circle at top, rgba(255,255,255,0.08), rgba(0,0,0,1));
+      border: 1px solid rgba(241,209,138,0.22);
+      cursor: pointer;
+      transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease;
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .class-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--va-gold);
+      box-shadow: 0 0 0 1px rgba(241,209,138,0.5), 0 14px 28px rgba(0,0,0,0.9);
+      background: radial-gradient(circle at top, rgba(241,209,138,0.3), rgba(0,0,0,1));
+    }
+
+    .class-card.is-selected {
+      border-color: var(--va-gold);
+      box-shadow: 0 0 0 1px rgba(241,209,138,0.65), 0 16px 36px rgba(0,0,0,1);
+      background: radial-gradient(circle at top, rgba(241,209,138,0.4), rgba(0,0,0,1));
+    }
+
+    .class-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fff, #555);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #111;
+      text-transform: uppercase;
+      box-shadow: 0 0 10px rgba(0,0,0,0.8);
+    }
+
+    .class-main {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .class-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .class-role {
+      font-size: 0.75rem;
+      opacity: 0.85;
+    }
+
+    .class-flavor {
+      font-size: 0.75rem;
+      opacity: 0.7;
+      margin-top: 2px;
+    }
+
+    /* ===== PREVIEW PANEL ===== */
+    .preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .preview-header-left h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .preview-class-name {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--va-gold);
+      margin-top: 3px;
+    }
+
+    .preview-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 0.72rem;
+      margin-top: 4px;
+    }
+
+    .tag-pill {
+      border-radius: 999px;
+      padding: 2px 9px;
+      border: 1px solid rgba(241,209,138,0.35);
+      background: linear-gradient(135deg, rgba(241,209,138,0.18), rgba(16,16,18,0.96));
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      opacity: 0.95;
+    }
+
+    .preview-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      gap: 14px;
+      margin-top: 6px;
+      min-height: 0;
+    }
+
+    @media (max-width: 900px) {
+      .preview-body {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .preview-portrait-wrap {
+      position: relative;
+      border-radius: 16px;
+      border: 1px solid rgba(241,209,138,0.25);
+      background: radial-gradient(circle at top, rgba(255,255,255,0.06), rgba(0,0,0,1));
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      overflow: hidden;
+      min-height: 230px;
+    }
+
+    .preview-portrait-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 50% 100%, rgba(0,0,0,0.9), transparent 65%),
+        radial-gradient(circle at 10% 0, rgba(241,209,138,0.18), transparent 65%);
+      pointer-events: none;
+      mix-blend-mode: soft-light;
+    }
+
+    .preview-portrait {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      image-rendering: auto;
+      filter: drop-shadow(0 0 18px rgba(0,0,0,0.9));
+    }
+
+    .preview-speedlines {
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          -30deg,
+          rgba(255,255,255,0.04),
+          rgba(255,255,255,0.04) 1px,
+          transparent 3px,
+          transparent 6px
+        );
+      mix-blend-mode: soft-light;
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .preview-desc {
+      font-size: 0.87rem;
+      line-height: 1.5;
+      opacity: 0.9;
+    }
+
+    .preview-stats {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      font-size: 0.78rem;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-label {
+      width: 82px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.7rem;
+      opacity: 0.78;
+    }
+
+    .stat-bar-wrap {
+      flex: 1;
+      height: 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(241,209,138,0.4);
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.08), rgba(0,0,0,0.9));
+      overflow: hidden;
+    }
+
+    .stat-bar-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #ffdd9a, #f2a45f, #f55f52);
+      width: 0%;
+      transition: width 0.25s ease-out;
+    }
+
+    .stat-value {
+      width: 32px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-size: 0.74rem;
+      opacity: 0.8;
+    }
+
+    /* ===== FOOTER ===== */
+    .bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.78rem;
+      opacity: 0.82;
+    }
+
+    .btn-main {
+      padding: 8px 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(241,209,138,0.8);
+      background: radial-gradient(circle at top, rgba(241,209,138,0.4), rgba(0,0,0,1));
+      color: #121212;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-size: 0.78rem;
+      box-shadow: 0 0 14px rgba(241,209,138,0.6);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-main span {
+      font-size: 0.92rem;
+    }
+
+    .btn-main:disabled {
+      opacity: 0.45;
+      cursor: default;
+      box-shadow: none;
+      border-color: rgba(241,209,138,0.4);
+      background: radial-gradient(circle at top, rgba(241,209,138,0.18), rgba(0,0,0,1));
+      color: #b3a37b;
+    }
+
+    .btn-main:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 24px rgba(241,209,138,0.9);
+    }
+
+    .tip-text {
+      opacity: 0.75;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <!-- TOP -->
+    <header class="top-bar">
+      <div class="logo-lockup">
+        <img src="/logo/logo-64.png" alt="Mead Hall">
+        <div>
+          <h1>Valhalla Ascending</h1>
+          <div class="subtitle">Choose your path before entering the arena.</div>
+        </div>
+      </div>
+      <div class="back-link" onclick="history.back()">⟵ Back to Mead Hall</div>
+    </header>
+
+    <!-- MAIN -->
+    <main class="main">
+      <!-- LEFT: Class list -->
+      <section class="panel">
+        <div class="panel-inner">
+          <div class="class-row">
+            <div>
+              <h2>Classes</h2>
+              <span>Click to preview</span>
+            </div>
+          </div>
+
+          <div class="class-list" id="classList">
+            <!-- Cards built by JS, but here’s structure for reference:
+            <article class="class-card" data-id="warrior">
+              <div class="class-icon">W</div>
+              <div class="class-main">
+                <div class="class-name">Warrior</div>
+                <div class="class-role">Frontline Tank / Bruiser</div>
+                <div class="class-flavor">Heavy armor, shield, and steady damage.</div>
+              </div>
+            </article>
+            -->
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: Preview -->
+      <section class="panel">
+        <div class="panel-inner">
+          <div class="preview-header">
+            <div class="preview-header-left">
+              <h2>Preview</h2>
+              <div id="previewClassName" class="preview-class-name">No class selected</div>
+              <div id="previewTags" class="preview-tags"></div>
+            </div>
+          </div>
+
+          <div class="preview-body">
+            <div class="preview-portrait-wrap">
+              <img id="previewPortrait" class="preview-portrait"
+                   src="/guildbook/avatars/dreadheim-warrior.png"
+                   alt="Class portrait" style="opacity:0.2; filter:grayscale(0.9)"/>
+              <div class="preview-speedlines"></div>
+            </div>
+
+            <div>
+              <div id="previewDesc" class="preview-desc">
+                Choose a class on the left to see their artwork, combat role, and stats.
+              </div>
+
+              <div class="preview-stats" id="previewStats">
+                <!-- Filled via JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- BOTTOM -->
+    <footer class="bottom-bar">
+      <div class="tip-text">
+        Tip: You can change how each class behaves later in your TypeScript. For now we just save your choice.
+      </div>
+      <button id="confirmBtn" class="btn-main" type="button" disabled>
+        <span>Confirm</span> ▶
+      </button>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const CLASS_KEY = "va_class";
+      const CLASS_NAME_KEY = "va_class_name";
+
+      // Optional: if you want class to auto-set gender, you can use this map
+      const CLASS_GENDER = {
+        warrior: "male",
+        shieldmaiden: "female",
+        "rune-mage": "male",
+        berserker: "male",
+        hunter: "male",
+      };
+
+      function getUserIdFromQuery() {
+        const p = new URLSearchParams(location.search);
+        return p.get("user");
+      }
+
+      const classes = [
+        {
+          id: "warrior",
+          name: "Warrior",
+          icon: "W",
+          role: "Frontline Tank / Bruiser",
+          flavor: "Heavy armor, shield, and steady damage.",
+          tags: ["Melee", "Tank", "Physical"],
+          portrait: "/guildbook/avatars/class-warrior.png", // <-- swap to your image
+          stats: { power: 70, defense: 85, speed: 55, control: 40, difficulty: 40 },
+          desc: "Warriors hold the line with steel and stubborn will. They excel at soaking damage, protecting allies, and punishing foes who dare draw near."
+        },
+        {
+          id: "shieldmaiden",
+          name: "Shieldmaiden",
+          icon: "S",
+          role: "Off-Tank / Support",
+          flavor: "Defensive stance with team buffs.",
+          tags: ["Melee", "Support", "Defender"],
+          portrait: "/guildbook/avatars/class-shieldmaiden.png",
+          stats: { power: 65, defense: 80, speed: 60, control: 55, difficulty: 50 },
+          desc: "Shieldmaidens fight at the front with blade and board, granting protection and boons to allies while counterstriking enemies who overextend."
+        },
+        {
+          id: "rune-mage",
+          name: "Rune-Mage",
+          icon: "R",
+          role: "Burst Caster",
+          flavor: "High damage, low defense.",
+          tags: ["Magic", "Burst", "Ranged"],
+          portrait: "/guildbook/avatars/class-runemage.png",
+          stats: { power: 90, defense: 35, speed: 65, control: 75, difficulty: 80 },
+          desc: "Rune-Mages etch the air with ancient sigils, unleashing storms of fire and ice. Fragile up close, but terrifying when left unchecked."
+        },
+        {
+          id: "berserker",
+          name: "Berserker",
+          icon: "B",
+          role: "All-In Bruiser",
+          flavor: "Big crits, risky playstyle.",
+          tags: ["Melee", "Burst", "Frenzy"],
+          portrait: "/guildbook/avatars/class-berserker.png",
+          stats: { power: 95, defense: 55, speed: 70, control: 35, difficulty: 65 },
+          desc: "Berserkers thrive on chaos, diving into the heart of battle with reckless abandon. The longer they fight, the harder they are to stop."
+        },
+        {
+          id: "hunter",
+          name: "Hunter",
+          icon: "H",
+          role: "Ranged DPS / Kiter",
+          flavor: "Bows, traps, and mobility.",
+          tags: ["Ranged", "Kite", "Physical"],
+          portrait: "/guildbook/avatars/class-hunter.png",
+          stats: { power: 80, defense: 45, speed: 85, control: 60, difficulty: 55 },
+          desc: "Hunters dance along the edge of danger, using bows, traps, and animal cunning to whittle enemies down from a safe distance."
+        },
+      ];
+
+      const classList = document.getElementById("classList");
+      const previewName = document.getElementById("previewClassName");
+      const previewTags = document.getElementById("previewTags");
+      const previewPortrait = document.getElementById("previewPortrait");
+      const previewDesc = document.getElementById("previewDesc");
+      const previewStats = document.getElementById("previewStats");
+      const confirmBtn = document.getElementById("confirmBtn");
+
+      let selectedId = null;
+
+      function buildClassCards() {
+        if (!classList) return;
+        classList.innerHTML = "";
+        classes.forEach(cls => {
+          const card = document.createElement("article");
+          card.className = "class-card";
+          card.dataset.id = cls.id;
+
+          card.innerHTML = `
+            <div class="class-icon">${cls.icon}</div>
+            <div class="class-main">
+              <div class="class-name">${cls.name}</div>
+              <div class="class-role">${cls.role}</div>
+              <div class="class-flavor">${cls.flavor}</div>
+            </div>
+          `;
+
+          card.addEventListener("click", () => selectClass(cls.id));
+          classList.appendChild(card);
+        });
+      }
+
+      function selectClass(id) {
+        selectedId = id;
+        if (!classList) return;
+
+        // highlight card
+        classList.querySelectorAll(".class-card").forEach(card => {
+          card.classList.toggle("is-selected", card.getAttribute("data-id") === id);
+        });
+
+        const cls = classes.find(c => c.id === id);
+        if (!cls) return;
+
+        // Update preview info
+        if (previewName) previewName.textContent = cls.name;
+        if (previewTags) {
+          previewTags.innerHTML = "";
+          cls.tags.forEach(t => {
+            const span = document.createElement("span");
+            span.className = "tag-pill";
+            span.textContent = t;
+            previewTags.appendChild(span);
+          });
+        }
+        if (previewPortrait) {
+          previewPortrait.style.opacity = "1";
+          previewPortrait.style.filter = "drop-shadow(0 0 18px rgba(0,0,0,0.9))";
+          previewPortrait.src = cls.portrait;
+        }
+        if (previewDesc) previewDesc.textContent = cls.desc;
+
+        // Stats
+        if (previewStats) {
+          previewStats.innerHTML = "";
+          const stats = cls.stats;
+          const entries = [
+            ["Power", stats.power],
+            ["Defense", stats.defense],
+            ["Speed", stats.speed],
+            ["Control", stats.control],
+            ["Difficulty", stats.difficulty],
+          ];
+          entries.forEach(([label, value]) => {
+            const row = document.createElement("div");
+            row.className = "stat-row";
+            row.innerHTML = `
+              <div class="stat-label">${label}</div>
+              <div class="stat-bar-wrap">
+                <div class="stat-bar-fill" style="width:${value}%;"></div>
+              </div>
+              <div class="stat-value">${value}</div>
+            `;
+            previewStats.appendChild(row);
+          });
+        }
+
+        if (confirmBtn) confirmBtn.disabled = false;
+      }
+
+      function saveAndEnter() {
+        if (!selectedId) return;
+        const cls = classes.find(c => c.id === selectedId);
+        try {
+          localStorage.setItem(CLASS_KEY, selectedId);
+          if (cls) localStorage.setItem(CLASS_NAME_KEY, cls.name);
+
+          // OPTIONAL: auto-set gender based on class
+          // Uncomment if you want this behavior:
+          /*
+          const g = CLASS_GENDER[selectedId] || "male";
+          localStorage.setItem("va_gender", g);
+          */
+
+        } catch (err) {
+          console.warn("Could not save class to localStorage:", err);
+        }
+
+        const userId = getUserIdFromQuery();
+        const qs = userId ? `?user=${encodeURIComponent(userId)}` : "";
+        window.location.href = `/game.html${qs}`;
+      }
+
+      function restorePreviousSelection() {
+        try {
+          const prev = localStorage.getItem(CLASS_KEY);
+          if (prev && classes.some(c => c.id === prev)) {
+            selectClass(prev);
+          }
+        } catch { /* ignore */ }
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        buildClassCards();
+        restorePreviousSelection();
+        if (confirmBtn) confirmBtn.addEventListener("click", saveAndEnter);
+      });
+    })();
+  </script>
+  <script type="module" src="/src/classpick.ts"></script>
+
+</body>
+</html>
