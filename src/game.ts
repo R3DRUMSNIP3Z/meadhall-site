@@ -1,13 +1,14 @@
 //* ===============================//
-   //Valhalla Ascending — src/game.ts//
-   //(Arena + Quests HUD + Shop)//
-   //=============================== *//
+// Valhalla Ascending — src/game.ts//
+// (Arena + Quests HUD + Shop)     //
+// ===============================*//
 
-type Gender = "female" | "male";
 type Slot =
   | "weapon"
   | "helm" | "shoulders" | "chest" | "gloves" | "boots"
   | "ring" | "wings" | "pet" | "sylph";
+
+type ClassId = "warrior" | "shieldmaiden" | "rune-mage" | "berserker" | "hunter";
 
 type Me = {
   id?: string;
@@ -19,7 +20,7 @@ type Me = {
   defense: number;
   speed: number;
   points?: number;
-  gender?: Gender;
+  // no gender – class is stored client-side in localStorage
   slots?: Partial<Record<Slot, string>>;
   gearPower?: number;
   battleRating?: number;
@@ -39,6 +40,7 @@ type ShopItem = {
   levelReq?: number;
   rarity?: "normal" | "epic" | "legendary";
   imageUrl?: string;
+  // set IDs double as class-locked sets (e.g. drengr = Warrior, skjaldmey = Shieldmaiden)
   set?: "drengr" | "skjaldmey";
 };
 
@@ -57,6 +59,9 @@ type FightResult = {
 /* ---------- config ---------- */
 const apiBase =
   (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content?.trim() || "";
+
+// class pick key (from classpick.ts)
+const CLASS_KEY = "va_class";
 
 /* ---------- user id helpers ---------- */
 const LS_KEY = "mh_user";
@@ -186,6 +191,36 @@ function clientBattleRating(m: Me): number {
 }
 
 /* =========================================================
+   CLASS HELPERS (no gender)
+   ========================================================= */
+function getCurrentClass(): ClassId | null {
+  try {
+    const raw = localStorage.getItem(CLASS_KEY) as ClassId | null;
+    return raw || null;
+  } catch {
+    return null;
+  }
+}
+
+function getClassBaseAvatar(): string {
+  const c = getCurrentClass();
+  switch (c) {
+    case "warrior":
+      return "/guildbook/avatars/warrior/war_000.png";
+    case "shieldmaiden":
+      return "/guildbook/avatars/shieldmaiden/sm_000.png";
+    case "rune-mage":
+      return "/guildbook/avatars/rune-mage/rm_000.png";
+    case "berserker":
+      return "/guildbook/avatars/berserker/b_000.png";
+    case "hunter":
+      return "/guildbook/avatars/hunter/h_000.png";
+    default:
+      return "/guildbook/avatars/warrior/war_000.png";
+  }
+}
+
+/* =========================================================
    ARENA: render character + stats + slots
    ========================================================= */
 async function renderArena() {
@@ -262,15 +297,19 @@ function hasFullSet(me: Me, setId: "drengr" | "skjaldmey") {
   return need.every(s => (slots[s] || "").startsWith(setId + "-"));
 }
 
+/**
+ * Avatar now driven by CLASS + set:
+ * - Base: picked class idle portrait
+ * - Full Drengr set → boydrengr.png
+ * - Full Skjaldmey set → girlskjaldmey.png
+ */
 function updateAvatar(m: Me) {
   const avatar = document.getElementById("avatar") as HTMLImageElement | null;
   if (!avatar) return;
 
-  const baseSrc = m.gender === "female"
-    ? "/guildbook/girl.png"
-    : "/guildbook/boy.png";
-
+  const baseSrc = getClassBaseAvatar();
   let nextSrc = baseSrc;
+
   if (hasFullSet(m, "drengr")) nextSrc = "/guildbook/boydrengr.png";
   else if (hasFullSet(m, "skjaldmey")) nextSrc = "/guildbook/girlskjaldmey.png";
 
@@ -374,7 +413,7 @@ function hookRename() {
 }
 
 /* =========================================================
-   SHOP: tabs + render + buys
+   SHOP: tabs + render + buys (class-locked sets)
    ========================================================= */
 
 const shopBox = document.getElementById("shop");
@@ -385,17 +424,27 @@ const brCount = document.getElementById("brCount");
 brIcon?.addEventListener("error", () => { (brIcon as HTMLImageElement).src = "/guildbook/Currency/Brisingr.png"; });
 
 function onShopPage(): boolean { return !!shopBox; }
-function genderMismatch(me: Me, item: ShopItem): boolean {
-  if (item.set === "drengr")   return me.gender === "female";
-  if (item.set === "skjaldmey") return me.gender === "male";
+
+// class-lock rules:
+//   drengr    → Warrior-only
+//   skjaldmey → Shieldmaiden-only
+function classMismatch(item: ShopItem): boolean {
+  const cls = getCurrentClass();
+  if (!item.set || !cls) return false;
+
+  if (item.set === "drengr")    return cls !== "warrior";
+  if (item.set === "skjaldmey") return cls !== "shieldmaiden";
+
   return false;
 }
-function genderLabelFor(setId?: string): string {
+
+function classLockLabel(setId?: string): string {
   if (!setId) return "";
-  if (setId === "drengr") return " (Male-only)";
-  if (setId === "skjaldmey") return " (Female-only)";
+  if (setId === "drengr") return " (Warrior-only)";
+  if (setId === "skjaldmey") return " (Shieldmaiden-only)";
   return "";
 }
+
 function currentItems(): ShopItem[] {
   if (state.activeTab === "brisingr") return state.brisingrItems;
   if (state.activeTab === "all")      return state.goldItems;
@@ -425,9 +474,9 @@ function renderShop() {
     if (equipped.has(item.id)) continue;
 
     const locked = !!(item.levelReq && me.level < item.levelReq);
-    const gMismatch = genderMismatch(me, item);
-    const disabled = locked || gMismatch;
-    const reason = gMismatch ? "Gender-locked" : (locked ? "Locked" : "Buy");
+    const cMismatch = classMismatch(item);
+    const disabled = locked || cMismatch;
+    const reason = cMismatch ? "Class-locked" : (locked ? "Locked" : "Buy");
 
     const rarity = (item.rarity || "normal").toLowerCase();
     const frameUrl = resolveImg(rarityFrame[rarity] || rarityFrame.normal);
@@ -445,7 +494,7 @@ function renderShop() {
             ${item.name}
             ${item.slot ? ` <span style="opacity:.8">[${String(item.slot).toUpperCase()}]</span>` : ""}
             ${item.levelReq ? ` <span style="opacity:.8">(Lv ${item.levelReq}+)</span>` : ""}
-            ${genderLabelFor(item.set)}
+            ${classLockLabel(item.set)}
           </div>
           <div class="shop-sub">+${item.boost} ${item.stat}</div>
         </div>
@@ -552,16 +601,10 @@ async function boot() {
 
   const meRes = await api<ApiMe>("/api/game/me");
   state.me = meRes.me;
-  try { if (state.me?.gender) localStorage.setItem("va_gender", state.me.gender); } catch {}
 
   await preloadItemIndex();
 
-  const genderPick = safeEl("genderPick");
-  if (genderPick && !state.me.gender) {
-    genderPick.style.display = "block";
-    safeEl<HTMLButtonElement>("pickFemale")?.addEventListener("click", () => setGender("female"));
-    safeEl<HTMLButtonElement>("pickMale")?.addEventListener("click",   () => setGender("male"));
-  }
+  // no genderPick – class comes from classpick page
 
   ensureAllocUI();
   hookRename();
@@ -618,29 +661,6 @@ async function boot() {
       if (onShopPage()) renderShop();
     } catch {}
   }, 10000);
-}
-
-async function setGender(g: Gender) {
-  try {
-    const res = await api<ApiMe>("/api/game/gender", {
-      method: "POST",
-      body: JSON.stringify({ gender: g }),
-    });
-    state.me = res.me;
-
-    try {
-      localStorage.setItem("va_gender", g);
-      (window as any).dispatchEvent?.(new CustomEvent("va-gender-changed", { detail: g }));
-    } catch {}
-
-    const genderPick = safeEl("genderPick");
-    if (genderPick) genderPick.style.display = "none";
-
-    await renderArena();
-    if (onShopPage()) renderShop();
-  } catch (e: any) {
-    log(e.message, "bad");
-  }
 }
 
 /* ---------- training ---------- */
@@ -754,3 +774,5 @@ boot().catch(e => log(e.message, "bad"));
 - dev.bagList() → inspect stored bag keys
 `);
 })();
+
+

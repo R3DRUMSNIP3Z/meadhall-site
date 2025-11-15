@@ -27,7 +27,6 @@ const inputs: Record<string, string> = {
   dreadheimhouse: html("dreadheimhouse.html")!,
   dreadheimoutskirts: html("dreadheimoutskirts.html")!,
   classpick: html("classpick.html")!,
-    game001: html("game001.html")!,
 
 
 

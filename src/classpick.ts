@@ -259,7 +259,7 @@ btnSelect?.addEventListener("click", () => {
   const qs = uid ? `?user=${encodeURIComponent(uid)}` : "";
 
   // First game scene
-  window.location.href = `/game001.html${qs}`;
+  window.location.href = `/game.html${qs}`;
 });
 
 /* -------- init -------- */
