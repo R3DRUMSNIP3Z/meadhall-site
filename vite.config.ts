@@ -26,6 +26,8 @@ const inputs: Record<string, string> = {
   dreadheimperimeters: html("dreadheimperimeters.html")!,
     dreadheimhouse: html("dreadheimhouse.html")!,
         dreadheimoutskirts: html("dreadheimoutskirts.html")!,
+                classpick: html("classpick.html")!,
+
 
 
 
