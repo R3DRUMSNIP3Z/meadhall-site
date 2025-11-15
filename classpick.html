@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Choose Your Class — Valhalla Ascending</title>
 
+  <!-- Your main theme CSS -->
   <link rel="stylesheet" href="/Styles/odin.css"/>
 
   <style>
@@ -24,6 +25,11 @@
       font-family:"Cinzel",serif;
     }
 
+    .layout {
+      max-width:1200px;
+      margin:0 auto;
+    }
+
     .title {
       font-size:42px;
       font-weight:900;
@@ -32,11 +38,6 @@
       margin-bottom:32px;
       color:var(--va-gold);
       text-shadow:0 0 16px rgba(255,213,108,0.7);
-    }
-
-    .layout {
-      max-width:1200px;
-      margin:0 auto;
     }
 
     /* Tabs row */
@@ -102,6 +103,7 @@
       justify-content:center;
       background:
         radial-gradient(circle at top,rgba(255,255,255,0.08),rgba(0,0,0,0.98)),
+        /* swap this for your house image if you want */
         url("/guildbook/maps/classpreviewbg.png") center/cover no-repeat;
       border-radius:12px;
       border:1px solid rgba(200,169,107,0.35);
@@ -236,19 +238,46 @@
         <p id="pvDesc" class="info-desc">Click a class tab above to preview the hero and stats.</p>
 
         <div id="pvTags" class="tag-row"></div>
-
         <div id="pvStats" class="stats"></div>
       </div>
     </div>
 
     <div class="bottom">
-      <button id="btnSelect" type="button">Select Class</button>
+      <div style="margin-bottom:12px; font-size:14px;">
+        <label for="heroName">Hero Name:</label>
+      </div>
+      <input
+        id="heroName"
+        type="text"
+        maxlength="16"
+        placeholder="Enter your hero name"
+        style="
+          padding:8px 12px;
+          border-radius:999px;
+          border:1px solid rgba(200,169,107,.6);
+          background:#111;
+          color:#f5efe0;
+          font-size:14px;
+          min-width:220px;
+          text-align:center;
+          margin-bottom:16px;
+          display:block;
+          margin-left:auto;
+          margin-right:auto;
+        "
+      />
+
+      <button id="btnSelect" type="button">
+        Start Game
+      </button>
     </div>
   </div>
 
+  <!-- TypeScript module -->
   <script type="module" src="/src/classpick.ts"></script>
 </body>
 </html>
+
 
 
 

@@ -24,6 +24,7 @@ type ClassSpec = {
 
 const CLASS_KEY = "va_class";
 const CLASS_NAME_KEY = "va_class_name";
+const HERO_NAME_KEY = "va_hero_name";
 
 /* -------- helpers -------- */
 
@@ -118,6 +119,7 @@ const descEl = document.getElementById("pvDesc") as HTMLElement | null;
 const tagsEl = document.getElementById("pvTags") as HTMLDivElement | null;
 const statsWrap = document.getElementById("pvStats") as HTMLDivElement | null;
 const btnSelect = document.getElementById("btnSelect") as HTMLButtonElement | null;
+const heroNameInput = document.getElementById("heroName") as HTMLInputElement | null;
 
 /* -------- animation state -------- */
 
@@ -136,7 +138,7 @@ function buildTabs() {
     const tab = document.createElement("div");
     tab.className = "class-tab";
     tab.textContent = c.name;
-    tab.dataset.id = c.id;
+    (tab as HTMLElement).dataset.id = c.id;
     tabsEl.appendChild(tab);
   }
 }
@@ -242,15 +244,21 @@ btnSelect?.addEventListener("click", () => {
     return;
   }
 
+  const rawName = (heroNameInput?.value || "").trim();
+  const heroName = rawName || currentClass.name;
+
   try {
     localStorage.setItem(CLASS_KEY, currentClass.id);
     localStorage.setItem(CLASS_NAME_KEY, currentClass.name);
+    localStorage.setItem(HERO_NAME_KEY, heroName);
   } catch (err) {
-    console.warn("Could not save class selection:", err);
+    console.warn("Could not save class/hero selection:", err);
   }
 
   const uid = getUserIdFromQuery();
   const qs = uid ? `?user=${encodeURIComponent(uid)}` : "";
+
+  // First game scene
   window.location.href = `/game.html${qs}`;
 });
 
@@ -258,11 +266,19 @@ btnSelect?.addEventListener("click", () => {
 
 function init() {
   buildTabs();
+
+  // Pre-fill hero name if they came back
+  try {
+    const saved = localStorage.getItem(HERO_NAME_KEY);
+    if (heroNameInput && saved) heroNameInput.value = saved;
+  } catch {}
+
   const def = classes.find((c) => c.id === "shieldmaiden") ?? classes[0];
   renderPreview(def);
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
 
 
 
