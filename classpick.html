@@ -2,541 +2,158 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Valhalla Ascending — Choose Your Class</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Choose Your Class — Valhalla Ascending</title>
 
-  <!-- Theme / fonts to match Mead Hall -->
-  <link rel="stylesheet" href="/Styles/odin.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/Styles/odin.css"/>
 
   <style>
-    :root {
-      --va-gold: #f1d18a;
-      --va-gold-soft: #c8a96b;
-      --va-bg: #05070a;
-      --va-panel: rgba(10,12,16,0.92);
-      --va-panel-soft: rgba(18,20,26,0.96);
-      --va-red: #e15c4c;
-      --va-blue: #5bb0ff;
-      --va-green: #8ad06f;
-    }
-
-    * { box-sizing: border-box; }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: #000;
-      color: #f7f3e6;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      overflow: hidden;
-    }
-
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background:
-        radial-gradient(circle at top, rgba(255,255,255,0.15), transparent 60%),
-        url("/guildbook/maps/dreadheimforest.png") center/cover no-repeat;
-      filter: blur(4px) brightness(0.6);
-      z-index: -2;
-    }
-
-    body::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background: radial-gradient(circle at center, rgba(0,0,0,0.35), rgba(0,0,0,0.95));
-      z-index: -1;
-    }
-
-    .shell {
-      position: relative;
-      height: 100%;
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-      padding: 24px 18px 18px;
-      max-width: 1200px;
-      margin: 0 auto;
-      gap: 10px;
-    }
-
-    .top-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .logo-lockup {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .logo-lockup img {
-      width: 40px;
-      height: 40px;
-      border-radius: 8px;
-      object-fit: cover;
-      box-shadow: 0 0 20px rgba(0,0,0,0.7);
-    }
-
-    .logo-lockup h1 {
-      margin: 0;
-      font-size: 1.1rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
+    body {
+      background: #0b0f12;
+      color: #ddd;
       font-family: "Cinzel", serif;
+      padding: 40px;
     }
 
-    .subtitle {
-      font-size: 0.82rem;
-      opacity: 0.8;
+    .title {
+      font-size: 42px;
+      font-weight: 900;
+      text-align: center;
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+      color: #ffd56c;
+      text-shadow: 0 0 12px rgba(255,200,90,0.6);
     }
 
-    .back-link {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      opacity: 0.85;
-      cursor: pointer;
-    }
-    .back-link:hover { opacity: 1; text-decoration: underline; }
-
-    /* ===== MAIN LAYOUT ===== */
-    .main {
+    .class-grid {
       display: grid;
-      grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.3fr);
-      gap: 18px;
-      min-height: 0;
-    }
-
-    @media (max-width: 900px) {
-      .shell {
-        padding: 16px 10px;
-      }
-      .main {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto;
-      }
-    }
-
-    .panel {
-      background: linear-gradient(145deg, var(--va-panel-soft), #050609);
-      border-radius: 18px;
-      border: 1px solid rgba(241,209,138,0.18);
-      box-shadow:
-        0 0 0 1px rgba(0,0,0,0.7),
-        0 20px 40px rgba(0,0,0,0.9);
-      padding: 16px 16px 18px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .panel::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(circle at top left, rgba(241,209,138,0.15), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(110,161,255,0.11), transparent 55%);
-      opacity: 0.6;
-      pointer-events: none;
-      mix-blend-mode: screen;
-    }
-
-    .panel-inner {
-      position: relative;
-      z-index: 1;
-    }
-
-    /* ===== CLASS LIST ===== */
-    .class-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-
-    .class-row h2 {
-      margin: 0;
-      font-size: 1.1rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-    }
-
-    .class-row span {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      opacity: 0.7;
-    }
-
-    .class-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 12px;
-      margin-top: 4px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
     }
 
     .class-card {
-      position: relative;
-      padding: 10px 10px 12px;
-      border-radius: 14px;
-      background: radial-gradient(circle at top, rgba(255,255,255,0.08), rgba(0,0,0,1));
-      border: 1px solid rgba(241,209,138,0.22);
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+      border: 1px solid rgba(200,169,107,0.35);
+      border-radius: 12px;
+      padding: 18px;
       cursor: pointer;
-      transition:
-        transform 0.18s ease,
-        border-color 0.18s ease,
-        box-shadow 0.18s ease,
-        background 0.18s ease;
-      display: grid;
-      grid-template-columns: 40px 1fr;
-      gap: 8px;
-      align-items: center;
+      text-align: center;
+      transition: 0.2s ease;
     }
 
     .class-card:hover {
-      transform: translateY(-3px);
-      border-color: var(--va-gold);
-      box-shadow: 0 0 0 1px rgba(241,209,138,0.5), 0 14px 28px rgba(0,0,0,0.9);
-      background: radial-gradient(circle at top, rgba(241,209,138,0.3), rgba(0,0,0,1));
+      transform: scale(1.05);
+      box-shadow: 0 0 20px rgba(255,205,100,0.35);
     }
 
-    .class-card.is-selected {
-      border-color: var(--va-gold);
-      box-shadow: 0 0 0 1px rgba(241,209,138,0.65), 0 16px 36px rgba(0,0,0,1);
-      background: radial-gradient(circle at top, rgba(241,209,138,0.4), rgba(0,0,0,1));
-    }
-
-    .class-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, #fff, #555);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: #111;
-      text-transform: uppercase;
-      box-shadow: 0 0 10px rgba(0,0,0,0.8);
-    }
-
-    .class-main {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
+    .class-card.active {
+      border-color: #ffd56c;
+      box-shadow: 0 0 20px rgba(255,205,100,0.7);
     }
 
     .class-name {
-      font-size: 0.9rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      font-size: 20px;
+      margin-top: 8px;
+      font-weight: 700;
     }
 
-    .class-role {
-      font-size: 0.75rem;
-      opacity: 0.85;
-    }
-
-    .class-flavor {
-      font-size: 0.75rem;
-      opacity: 0.7;
-      margin-top: 2px;
-    }
-
-    /* ===== PREVIEW PANEL ===== */
-    .preview-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 8px;
-    }
-
-    .preview-header-left h2 {
-      margin: 0;
-      font-size: 1.05rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }
-
-    .preview-class-name {
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      color: var(--va-gold);
-      margin-top: 3px;
-    }
-
-    .preview-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      font-size: 0.72rem;
-      margin-top: 4px;
-    }
-
-    .tag-pill {
-      border-radius: 999px;
-      padding: 2px 9px;
-      border: 1px solid rgba(241,209,138,0.35);
-      background: linear-gradient(135deg, rgba(241,209,138,0.18), rgba(16,16,18,0.96));
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
-      opacity: 0.95;
-    }
-
-    .preview-body {
+    .preview-box {
+      margin-top: 40px;
       display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-      gap: 14px;
-      margin-top: 6px;
-      min-height: 0;
+      grid-template-columns: 350px 1fr;
+      gap: 40px;
+      align-items: flex-start;
     }
 
-    @media (max-width: 900px) {
-      .preview-body {
-        grid-template-columns: 1fr;
-      }
+    .preview-inner {
+      background: rgba(255,255,255,0.04);
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(200,169,107,0.35);
     }
 
-    .preview-portrait-wrap {
-      position: relative;
-      border-radius: 16px;
-      border: 1px solid rgba(241,209,138,0.25);
-      background: radial-gradient(circle at top, rgba(255,255,255,0.06), rgba(0,0,0,1));
-      display: flex;
-      align-items: stretch;
-      justify-content: center;
-      overflow: hidden;
-      min-height: 230px;
-    }
-
-    .preview-portrait-wrap::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(circle at 50% 100%, rgba(0,0,0,0.9), transparent 65%),
-        radial-gradient(circle at 10% 0, rgba(241,209,138,0.18), transparent 65%);
-      pointer-events: none;
-      mix-blend-mode: soft-light;
-    }
-
-    .preview-speedlines {
-      position: absolute;
-      inset: 0;
-      background:
-        repeating-linear-gradient(
-          -30deg,
-          rgba(255,255,255,0.04),
-          rgba(255,255,255,0.04) 1px,
-          transparent 3px,
-          transparent 6px
-        );
-      mix-blend-mode: soft-light;
-      opacity: 0.35;
-      pointer-events: none;
-    }
-
-    /* animated canvas */
-    .preview-canvas {
+    #previewCanvas {
+      width: 256px;
+      height: 256px;
       display: block;
       margin: auto;
-      max-width: 100%;
-      image-rendering: auto;
+      image-rendering: pixelated;
     }
 
-    .preview-desc {
-      font-size: 0.87rem;
-      line-height: 1.5;
-      opacity: 0.9;
+    .stats {
+      margin-top: 20px;
     }
 
-    .preview-stats {
-      margin-top: 10px;
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 6px;
-      font-size: 0.78rem;
+    .stat {
+      margin-bottom: 10px;
+      font-size: 14px;
     }
 
-    .stat-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
+    .bar-wrap {
+      width: 100%;
+      height: 10px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px;
     }
 
-    .stat-label {
-      width: 82px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-size: 0.7rem;
-      opacity: 0.78;
+    .bar {
+      height: 10px;
+      border-radius: 20px;
+      background: linear-gradient(90deg, #ffbd4a, #ff8800);
     }
 
-    .stat-bar-wrap {
-      flex: 1;
-      height: 9px;
-      border-radius: 999px;
-      border: 1px solid rgba(241,209,138,0.4);
-      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.08), rgba(0,0,0,0.9));
-      overflow: hidden;
+    .desc {
+      font-size: 14px;
+      line-height: 1.45;
     }
 
-    .stat-bar-fill {
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, #ffdd9a, #f2a45f, #f55f52);
-      width: 0%;
-      transition: width 0.25s ease-out;
-    }
-
-    .stat-value {
-      width: 32px;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-      font-size: 0.74rem;
-      opacity: 0.8;
-    }
-
-    /* ===== FOOTER ===== */
-    .bottom-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      font-size: 0.78rem;
-      opacity: 0.82;
-    }
-
-    .btn-main {
-      padding: 8px 18px;
-      border-radius: 999px;
-      border: 1px solid rgba(241,209,138,0.8);
-      background: radial-gradient(circle at top, rgba(241,209,138,0.4), rgba(0,0,0,1));
-      color: #121212;
+    .btn-play {
+      display: block;
+      margin: 40px auto 0;
+      padding: 16px 40px;
+      font-size: 20px;
       font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
+      color: #111;
+      background: #ffd56c;
+      border: none;
+      border-radius: 10px;
       cursor: pointer;
-      font-size: 0.78rem;
-      box-shadow: 0 0 14px rgba(241,209,138,0.6);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      transition: 0.2s ease;
     }
 
-    .btn-main span {
-      font-size: 0.92rem;
+    .btn-play:hover {
+      background: #e6be55;
     }
 
-    .btn-main:disabled {
-      opacity: 0.45;
-      cursor: default;
-      box-shadow: none;
-      border-color: rgba(241,209,138,0.4);
-      background: radial-gradient(circle at top, rgba(241,209,138,0.18), rgba(0,0,0,1));
-      color: #b3a37b;
-    }
-
-    .btn-main:not(:disabled):hover {
-      transform: translateY(-1px);
-      box-shadow: 0 0 24px rgba(241,209,138,0.9);
-    }
-
-    .tip-text {
-      opacity: 0.75;
-    }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <!-- TOP -->
-    <header class="top-bar">
-      <div class="logo-lockup">
-        <img src="/logo/logo-64.png" alt="Mead Hall">
-        <div>
-          <h1>Valhalla Ascending</h1>
-          <div class="subtitle">Choose your path before entering the arena.</div>
-        </div>
-      </div>
-      <div class="back-link" onclick="history.back()">⟵ Back to Mead Hall</div>
-    </header>
 
-    <!-- MAIN -->
-    <main class="main">
-      <!-- LEFT: Class list -->
-      <section class="panel">
-        <div class="panel-inner">
-          <div class="class-row">
-            <div>
-              <h2>Classes</h2>
-              <span>Click to preview</span>
-            </div>
-          </div>
+  <h1 class="title">Choose Your Class</h1>
 
-          <div class="class-list" id="classList"></div>
-        </div>
-      </section>
+  <!-- Class cards -->
+  <div id="classGrid" class="class-grid"></div>
 
-      <!-- RIGHT: Preview -->
-      <section class="panel">
-        <div class="panel-inner">
-          <div class="preview-header">
-            <div class="preview-header-left">
-              <h2>Preview</h2>
-              <div id="previewClassName" class="preview-class-name">No class selected</div>
-              <div id="previewTags" class="preview-tags"></div>
-            </div>
-          </div>
+  <!-- Preview + Stats panel -->
+  <div class="preview-box">
+    <div class="preview-inner">
+      <canvas id="previewCanvas" width="256" height="256"></canvas>
+    </div>
 
-          <div class="preview-body">
-            <div class="preview-portrait-wrap">
-              <!-- Animated sprite preview (Shieldmaiden uses a 9-frame 256x256 sheet) -->
-              <canvas id="previewCanvas" width="256" height="256" class="preview-canvas"></canvas>
-              <div class="preview-speedlines"></div>
-            </div>
+    <div class="preview-inner">
+      <h2 id="pvName"></h2>
+      <p id="pvRole" class="muted"></p>
+      <p id="pvDesc" class="desc"></p>
 
-            <div>
-              <div id="previewDesc" class="preview-desc">
-                Choose a class on the left to see their artwork, combat role, and stats.
-              </div>
-
-              <div class="preview-stats" id="previewStats">
-                <!-- Filled by classpick.ts -->
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <!-- BOTTOM -->
-    <footer class="bottom-bar">
-      <div class="tip-text">
-        Tip: Your class choice will be saved for the arena. You can change it anytime by returning here.
-      </div>
-      <button id="confirmBtn" class="btn-main" type="button" disabled>
-        <span>Confirm</span> ▶
-      </button>
-    </footer>
+      <div id="pvStats" class="stats"></div>
+    </div>
   </div>
 
-  <!-- Class pick logic (animation + localStorage + redirect) -->
+  <button id="btnSelect" class="btn-play">Select Class</button>
+
   <script type="module" src="/src/classpick.ts"></script>
 </body>
 </html>
+
 

@@ -17,16 +17,16 @@ const inputs: Record<string, string> = {
   profile:       html("profile.html")!,
   book:          html("book.html")!,
   meadhall:      html("meadhall.html")!,
-  game:          html("game.html")!,        // ← ✅ add this line
-  shop:          html("shop.html")!,   // ← add this line
-  brisingrshop:  html("brisingrshop.html")!,  // ✅ Add this line
-  quests:        html("quests.html")!,        // ✅ add this line for Quests page
+  game:          html("game.html")!,        
+  shop:          html("shop.html")!,   
+  brisingrshop:  html("brisingrshop.html")!,  
+  quests:        html("quests.html")!,        
   dreadheimmap:  html("dreadheimmap.html")!,
   dreadheimbattle: html("dreadheimbattle.html")!,
   dreadheimperimeters: html("dreadheimperimeters.html")!,
-    dreadheimhouse: html("dreadheimhouse.html")!,
-        dreadheimoutskirts: html("dreadheimoutskirts.html")!,
-                classpick: html("classpick.html")!,
+  dreadheimhouse: html("dreadheimhouse.html")!,
+  dreadheimoutskirts: html("dreadheimoutskirts.html")!,
+  classpick: html("classpick.html")!,
 
 
 
