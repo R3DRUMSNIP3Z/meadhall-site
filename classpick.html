@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Valhalla Ascending — Choose Your Class</title>
 
-  <!-- Optional: use same font/theme as Mead Hall -->
+  <!-- Theme / fonts to match Mead Hall -->
   <link rel="stylesheet" href="/Styles/odin.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -335,14 +335,6 @@
       mix-blend-mode: soft-light;
     }
 
-    .preview-portrait {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      image-rendering: auto;
-      filter: drop-shadow(0 0 18px rgba(0,0,0,0.9));
-    }
-
     .preview-speedlines {
       position: absolute;
       inset: 0;
@@ -357,6 +349,14 @@
       mix-blend-mode: soft-light;
       opacity: 0.35;
       pointer-events: none;
+    }
+
+    /* animated canvas */
+    .preview-canvas {
+      display: block;
+      margin: auto;
+      max-width: 100%;
+      image-rendering: auto;
     }
 
     .preview-desc {
@@ -488,18 +488,7 @@
             </div>
           </div>
 
-          <div class="class-list" id="classList">
-            <!-- Cards built by JS, but here’s structure for reference:
-            <article class="class-card" data-id="warrior">
-              <div class="class-icon">W</div>
-              <div class="class-main">
-                <div class="class-name">Warrior</div>
-                <div class="class-role">Frontline Tank / Bruiser</div>
-                <div class="class-flavor">Heavy armor, shield, and steady damage.</div>
-              </div>
-            </article>
-            -->
-          </div>
+          <div class="class-list" id="classList"></div>
         </div>
       </section>
 
@@ -516,9 +505,8 @@
 
           <div class="preview-body">
             <div class="preview-portrait-wrap">
-              <img id="previewPortrait" class="preview-portrait"
-                   src="/guildbook/avatars/dreadheim-warrior.png"
-                   alt="Class portrait" style="opacity:0.2; filter:grayscale(0.9)"/>
+              <!-- Animated sprite preview (Shieldmaiden uses a 9-frame 256x256 sheet) -->
+              <canvas id="previewCanvas" width="256" height="256" class="preview-canvas"></canvas>
               <div class="preview-speedlines"></div>
             </div>
 
@@ -528,7 +516,7 @@
               </div>
 
               <div class="preview-stats" id="previewStats">
-                <!-- Filled via JS -->
+                <!-- Filled by classpick.ts -->
               </div>
             </div>
           </div>
@@ -539,7 +527,7 @@
     <!-- BOTTOM -->
     <footer class="bottom-bar">
       <div class="tip-text">
-        Tip: You can change how each class behaves later in your TypeScript. For now we just save your choice.
+        Tip: Your class choice will be saved for the arena. You can change it anytime by returning here.
       </div>
       <button id="confirmBtn" class="btn-main" type="button" disabled>
         <span>Confirm</span> ▶
@@ -547,213 +535,8 @@
     </footer>
   </div>
 
-  <script>
-    (function () {
-      const CLASS_KEY = "va_class";
-      const CLASS_NAME_KEY = "va_class_name";
-
-      // Optional: if you want class to auto-set gender, you can use this map
-      const CLASS_GENDER = {
-        warrior: "male",
-        shieldmaiden: "female",
-        "rune-mage": "male",
-        berserker: "male",
-        hunter: "male",
-      };
-
-      function getUserIdFromQuery() {
-        const p = new URLSearchParams(location.search);
-        return p.get("user");
-      }
-
-      const classes = [
-        {
-          id: "warrior",
-          name: "Warrior",
-          icon: "W",
-          role: "Frontline Tank / Bruiser",
-          flavor: "Heavy armor, shield, and steady damage.",
-          tags: ["Melee", "Tank", "Physical"],
-          portrait: "/guildbook/avatars/class-warrior.png", // <-- swap to your image
-          stats: { power: 70, defense: 85, speed: 55, control: 40, difficulty: 40 },
-          desc: "Warriors hold the line with steel and stubborn will. They excel at soaking damage, protecting allies, and punishing foes who dare draw near."
-        },
-        {
-          id: "shieldmaiden",
-          name: "Shieldmaiden",
-          icon: "S",
-          role: "Off-Tank / Support",
-          flavor: "Defensive stance with team buffs.",
-          tags: ["Melee", "Support", "Defender"],
-          portrait: "/guildbook/avatars/class-shieldmaiden.png",
-          stats: { power: 65, defense: 80, speed: 60, control: 55, difficulty: 50 },
-          desc: "Shieldmaidens fight at the front with blade and board, granting protection and boons to allies while counterstriking enemies who overextend."
-        },
-        {
-          id: "rune-mage",
-          name: "Rune-Mage",
-          icon: "R",
-          role: "Burst Caster",
-          flavor: "High damage, low defense.",
-          tags: ["Magic", "Burst", "Ranged"],
-          portrait: "/guildbook/avatars/class-runemage.png",
-          stats: { power: 90, defense: 35, speed: 65, control: 75, difficulty: 80 },
-          desc: "Rune-Mages etch the air with ancient sigils, unleashing storms of fire and ice. Fragile up close, but terrifying when left unchecked."
-        },
-        {
-          id: "berserker",
-          name: "Berserker",
-          icon: "B",
-          role: "All-In Bruiser",
-          flavor: "Big crits, risky playstyle.",
-          tags: ["Melee", "Burst", "Frenzy"],
-          portrait: "/guildbook/avatars/class-berserker.png",
-          stats: { power: 95, defense: 55, speed: 70, control: 35, difficulty: 65 },
-          desc: "Berserkers thrive on chaos, diving into the heart of battle with reckless abandon. The longer they fight, the harder they are to stop."
-        },
-        {
-          id: "hunter",
-          name: "Hunter",
-          icon: "H",
-          role: "Ranged DPS / Kiter",
-          flavor: "Bows, traps, and mobility.",
-          tags: ["Ranged", "Kite", "Physical"],
-          portrait: "/guildbook/avatars/class-hunter.png",
-          stats: { power: 80, defense: 45, speed: 85, control: 60, difficulty: 55 },
-          desc: "Hunters dance along the edge of danger, using bows, traps, and animal cunning to whittle enemies down from a safe distance."
-        },
-      ];
-
-      const classList = document.getElementById("classList");
-      const previewName = document.getElementById("previewClassName");
-      const previewTags = document.getElementById("previewTags");
-      const previewPortrait = document.getElementById("previewPortrait");
-      const previewDesc = document.getElementById("previewDesc");
-      const previewStats = document.getElementById("previewStats");
-      const confirmBtn = document.getElementById("confirmBtn");
-
-      let selectedId = null;
-
-      function buildClassCards() {
-        if (!classList) return;
-        classList.innerHTML = "";
-        classes.forEach(cls => {
-          const card = document.createElement("article");
-          card.className = "class-card";
-          card.dataset.id = cls.id;
-
-          card.innerHTML = `
-            <div class="class-icon">${cls.icon}</div>
-            <div class="class-main">
-              <div class="class-name">${cls.name}</div>
-              <div class="class-role">${cls.role}</div>
-              <div class="class-flavor">${cls.flavor}</div>
-            </div>
-          `;
-
-          card.addEventListener("click", () => selectClass(cls.id));
-          classList.appendChild(card);
-        });
-      }
-
-      function selectClass(id) {
-        selectedId = id;
-        if (!classList) return;
-
-        // highlight card
-        classList.querySelectorAll(".class-card").forEach(card => {
-          card.classList.toggle("is-selected", card.getAttribute("data-id") === id);
-        });
-
-        const cls = classes.find(c => c.id === id);
-        if (!cls) return;
-
-        // Update preview info
-        if (previewName) previewName.textContent = cls.name;
-        if (previewTags) {
-          previewTags.innerHTML = "";
-          cls.tags.forEach(t => {
-            const span = document.createElement("span");
-            span.className = "tag-pill";
-            span.textContent = t;
-            previewTags.appendChild(span);
-          });
-        }
-        if (previewPortrait) {
-          previewPortrait.style.opacity = "1";
-          previewPortrait.style.filter = "drop-shadow(0 0 18px rgba(0,0,0,0.9))";
-          previewPortrait.src = cls.portrait;
-        }
-        if (previewDesc) previewDesc.textContent = cls.desc;
-
-        // Stats
-        if (previewStats) {
-          previewStats.innerHTML = "";
-          const stats = cls.stats;
-          const entries = [
-            ["Power", stats.power],
-            ["Defense", stats.defense],
-            ["Speed", stats.speed],
-            ["Control", stats.control],
-            ["Difficulty", stats.difficulty],
-          ];
-          entries.forEach(([label, value]) => {
-            const row = document.createElement("div");
-            row.className = "stat-row";
-            row.innerHTML = `
-              <div class="stat-label">${label}</div>
-              <div class="stat-bar-wrap">
-                <div class="stat-bar-fill" style="width:${value}%;"></div>
-              </div>
-              <div class="stat-value">${value}</div>
-            `;
-            previewStats.appendChild(row);
-          });
-        }
-
-        if (confirmBtn) confirmBtn.disabled = false;
-      }
-
-      function saveAndEnter() {
-        if (!selectedId) return;
-        const cls = classes.find(c => c.id === selectedId);
-        try {
-          localStorage.setItem(CLASS_KEY, selectedId);
-          if (cls) localStorage.setItem(CLASS_NAME_KEY, cls.name);
-
-          // OPTIONAL: auto-set gender based on class
-          // Uncomment if you want this behavior:
-          /*
-          const g = CLASS_GENDER[selectedId] || "male";
-          localStorage.setItem("va_gender", g);
-          */
-
-        } catch (err) {
-          console.warn("Could not save class to localStorage:", err);
-        }
-
-        const userId = getUserIdFromQuery();
-        const qs = userId ? `?user=${encodeURIComponent(userId)}` : "";
-        window.location.href = `/game.html${qs}`;
-      }
-
-      function restorePreviousSelection() {
-        try {
-          const prev = localStorage.getItem(CLASS_KEY);
-          if (prev && classes.some(c => c.id === prev)) {
-            selectClass(prev);
-          }
-        } catch { /* ignore */ }
-      }
-
-      document.addEventListener("DOMContentLoaded", () => {
-        buildClassCards();
-        restorePreviousSelection();
-        if (confirmBtn) confirmBtn.addEventListener("click", saveAndEnter);
-      });
-    })();
-  </script>
+  <!-- Class pick logic (animation + localStorage + redirect) -->
   <script type="module" src="/src/classpick.ts"></script>
-
 </body>
 </html>
+

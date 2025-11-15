@@ -19,7 +19,7 @@ type ClassSpec = {
   role: string;
   flavor: string;
   tags: string[];
-  portrait: string;
+  portrait: string; // can be a single image OR a 9-frame spritesheet
   stats: ClassStats;
   desc: string;
 };
@@ -27,8 +27,9 @@ type ClassSpec = {
 const CLASS_KEY = "va_class";
 const CLASS_NAME_KEY = "va_class_name";
 
-
-
+/* ---------------------------------
+   Helpers
+---------------------------------- */
 function getUserIdFromQuery(): string | null {
   try {
     const p = new URLSearchParams(window.location.search);
@@ -38,6 +39,10 @@ function getUserIdFromQuery(): string | null {
   }
 }
 
+/* ---------------------------------
+   Class data
+   (point these to your real images)
+---------------------------------- */
 const classes: ClassSpec[] = [
   {
     id: "warrior",
@@ -46,7 +51,8 @@ const classes: ClassSpec[] = [
     role: "Frontline Tank / Bruiser",
     flavor: "Heavy armor, shield, and steady damage.",
     tags: ["Melee", "Tank", "Physical"],
-    portrait: "/guildbook/avatars/class-warrior.png", // TODO swap for your real art
+    // TODO: replace with your warrior sheet / art
+    portrait: "/guildbook/avatars/class-warrior.png",
     stats: { power: 70, defense: 85, speed: 55, control: 40, difficulty: 40 },
     desc: "Warriors hold the line with steel and stubborn will. They excel at soaking damage, protecting allies, and punishing foes who dare draw near.",
   },
@@ -57,7 +63,8 @@ const classes: ClassSpec[] = [
     role: "Off-Tank / Support",
     flavor: "Defensive stance with team buffs.",
     tags: ["Melee", "Support", "Defender"],
-    portrait: "/guildbook/avatars/class-shieldmaiden.png",
+    // ⬇️ use your 9-frame 256x256 sheet here
+    portrait: "/guildbook/avatars/shieldmaiden-spritesheet.png",
     stats: { power: 65, defense: 80, speed: 60, control: 55, difficulty: 50 },
     desc: "Shieldmaidens fight at the front with blade and board, granting protection and boons to allies while counterstriking enemies who overextend.",
   },
@@ -96,18 +103,112 @@ const classes: ClassSpec[] = [
   },
 ];
 
-// ---------- DOM refs ----------
+/* ---------------------------------
+   DOM refs
+---------------------------------- */
 const classList = document.getElementById("classList") as HTMLDivElement | null;
+
 const previewName = document.getElementById("previewClassName") as HTMLElement | null;
 const previewTags = document.getElementById("previewTags") as HTMLDivElement | null;
-const previewPortrait = document.getElementById("previewPortrait") as HTMLImageElement | null;
 const previewDesc = document.getElementById("previewDesc") as HTMLElement | null;
 const previewStats = document.getElementById("previewStats") as HTMLDivElement | null;
+
+const previewPortraitImg =
+  document.getElementById("previewPortrait") as HTMLImageElement | null;
+
+// Optional canvas (for animated spritesheet preview)
+const previewCanvas =
+  document.getElementById("previewCanvas") as HTMLCanvasElement | null;
+const previewCtx = previewCanvas ? previewCanvas.getContext("2d") : null;
+
 const confirmBtn = document.getElementById("confirmBtn") as HTMLButtonElement | null;
 
 let selectedId: ClassId | null = null;
 
-// ---------- Build cards ----------
+/* ---------------------------------
+   Optional sprite-sheet animation
+   Uses 9 frames, 3x3, 256x256 each.
+   If no canvas present, we just skip this
+   and use <img> as a static preview.
+---------------------------------- */
+const FRAME_W = 256;
+const FRAME_H = 256;
+const FRAMES = 9;
+const COLUMNS = 3;
+
+let animSheet: HTMLImageElement | null = null;
+let animFrame = 0;
+let animAccum = 0;
+let animLastTime = 0;
+let animRunning = false;
+
+function loadSheet(url: string): HTMLImageElement {
+  const img = new Image();
+  img.src = url;
+  img.crossOrigin = "anonymous";
+  return img;
+}
+
+function startPreviewAnimation(url: string): void {
+  if (!previewCanvas || !previewCtx) return;
+
+  animSheet = loadSheet(url);
+  animFrame = 0;
+  animAccum = 0;
+  animLastTime = performance.now();
+  if (!animRunning) {
+    animRunning = true;
+    requestAnimationFrame(stepAnim);
+  }
+}
+
+function stepAnim(timestamp: number): void {
+  if (!previewCanvas || !previewCtx || !animSheet) {
+    animRunning = false;
+    return;
+  }
+
+  const dt = (timestamp - animLastTime) / 1000;
+  animLastTime = timestamp;
+
+  animAccum += dt;
+  // animation speed: adjust this to taste
+  const FRAME_TIME = 0.12;
+  while (animAccum >= FRAME_TIME) {
+    animAccum -= FRAME_TIME;
+    animFrame = (animFrame + 1) % FRAMES;
+  }
+
+  // Clear canvas
+  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+  const col = animFrame % COLUMNS;
+  const row = Math.floor(animFrame / COLUMNS);
+
+  // Center hero in preview canvas
+  const destW = FRAME_W;
+  const destH = FRAME_H;
+  const dx = (previewCanvas.width - destW) / 2;
+  const dy = (previewCanvas.height - destH) / 2;
+
+  previewCtx.drawImage(
+    animSheet,
+    col * FRAME_W,
+    row * FRAME_H,
+    FRAME_W,
+    FRAME_H,
+    dx,
+    dy,
+    destW,
+    destH
+  );
+
+  requestAnimationFrame(stepAnim);
+}
+
+/* ---------------------------------
+   Build class cards
+---------------------------------- */
 function buildClassCards(): void {
   if (!classList) return;
   classList.innerHTML = "";
@@ -131,12 +232,14 @@ function buildClassCards(): void {
   }
 }
 
-// ---------- Select + preview ----------
+/* ---------------------------------
+   Select + preview a class
+---------------------------------- */
 function selectClass(id: ClassId): void {
   selectedId = id;
   if (!classList) return;
 
-  // highlight selected card
+  // Highlight selected card
   const cards = Array.from(classList.querySelectorAll<HTMLElement>(".class-card"));
   for (const card of cards) {
     const isSelected = card.dataset.id === id;
@@ -146,6 +249,7 @@ function selectClass(id: ClassId): void {
   const cls = classes.find((c) => c.id === id);
   if (!cls) return;
 
+  // Text info
   if (previewName) previewName.textContent = cls.name;
 
   if (previewTags) {
@@ -158,20 +262,14 @@ function selectClass(id: ClassId): void {
     }
   }
 
-  if (previewPortrait) {
-    previewPortrait.style.opacity = "1";
-    previewPortrait.style.filter = "drop-shadow(0 0 18px rgba(0,0,0,0.9))";
-    previewPortrait.src = cls.portrait;
-  }
-
   if (previewDesc) {
     previewDesc.textContent = cls.desc;
   }
 
+  // Stats
   if (previewStats) {
     previewStats.innerHTML = "";
     const { power, defense, speed, control, difficulty } = cls.stats;
-
     const entries: Array<[string, number]> = [
       ["Power", power],
       ["Defense", defense],
@@ -194,12 +292,22 @@ function selectClass(id: ClassId): void {
     }
   }
 
-  if (confirmBtn) {
-    confirmBtn.disabled = false;
+  // Image / animated preview
+  if (previewCanvas && previewCtx) {
+    // Canvas exists → animate sprite sheet
+    startPreviewAnimation(cls.portrait);
+  } else if (previewPortraitImg) {
+    // Fallback: just show the image
+    previewPortraitImg.style.opacity = "1";
+    previewPortraitImg.src = cls.portrait;
   }
+
+  if (confirmBtn) confirmBtn.disabled = false;
 }
 
-// ---------- Save + go to game ----------
+/* ---------------------------------
+   Save choice + go to game
+---------------------------------- */
 function saveAndEnter(): void {
   if (!selectedId) return;
 
@@ -210,14 +318,6 @@ function saveAndEnter(): void {
     if (cls) {
       localStorage.setItem(CLASS_NAME_KEY, cls.name);
     }
-
-    // OPTIONAL: auto-set va_gender based on class choice
-    // Uncomment if you want this behavior:
-    /*
-    const g = CLASS_GENDER[selectedId] || "male";
-    localStorage.setItem("va_gender", g);
-    */
-
   } catch (err) {
     console.warn("Could not save class to localStorage:", err);
   }
@@ -227,7 +327,9 @@ function saveAndEnter(): void {
   window.location.href = `/game.html${qs}`;
 }
 
-// ---------- Restore previous selection (if any) ----------
+/* ---------------------------------
+   Restore previous selection
+---------------------------------- */
 function restorePreviousSelection(): void {
   try {
     const prev = localStorage.getItem(CLASS_KEY) as ClassId | null;
@@ -239,7 +341,9 @@ function restorePreviousSelection(): void {
   }
 }
 
-// ---------- Init ----------
+/* ---------------------------------
+   Init
+---------------------------------- */
 function initClassPick(): void {
   buildClassCards();
   restorePreviousSelection();
@@ -253,3 +357,4 @@ function initClassPick(): void {
 }
 
 document.addEventListener("DOMContentLoaded", initClassPick);
+
