@@ -18,7 +18,7 @@
 
     body {
       margin:0;
-      padding:40px 24px;
+      padding:40px 24px 60px;
       background:#05070a;
       color:#f5efe0;
       font-family:"Cinzel",serif;
@@ -39,6 +39,7 @@
       margin:0 auto;
     }
 
+    /* Tabs row */
     .class-tabs {
       display:flex;
       gap:16px;
@@ -71,20 +72,20 @@
       background:radial-gradient(circle at top,rgba(255,255,255,0.12),rgba(0,0,0,0.95));
     }
 
+    /* Main preview + info layout */
     .main-grid {
       display:grid;
-      grid-template-columns:280px minmax(0,1fr);
+      grid-template-columns:320px minmax(0,1fr);
       gap:24px;
       align-items:flex-start;
     }
 
     @media (max-width:900px){
-      body { padding:20px 12px; }
+      body { padding:20px 12px 40px; }
       .main-grid { grid-template-columns:1fr; }
     }
 
-    .preview-box,
-    .info-box {
+    .card {
       background:rgba(255,255,255,0.03);
       border-radius:16px;
       border:1px solid rgba(200,169,107,0.35);
@@ -95,13 +96,16 @@
     .preview-inner {
       position:relative;
       width:100%;
-      height:260px;
+      height:320px;
       display:flex;
       align-items:center;
       justify-content:center;
-      background:radial-gradient(circle at top,rgba(255,255,255,0.06),rgba(0,0,0,0.95));
+      background:
+        radial-gradient(circle at top,rgba(255,255,255,0.08),rgba(0,0,0,0.98)),
+        url("/guildbook/maps/classpreviewbg.png") center/cover no-repeat;
       border-radius:12px;
       border:1px solid rgba(200,169,107,0.35);
+      overflow:hidden;
     }
 
     #previewPortrait {
@@ -109,9 +113,10 @@
       max-height:100%;
       display:block;
       object-fit:contain;
+      image-rendering:auto;
     }
 
-    .info-box h2 {
+    .info-title {
       margin:0 0 6px;
       font-size:22px;
     }
@@ -128,12 +133,30 @@
       margin-bottom:16px;
     }
 
+    .tag-row {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-bottom:12px;
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+
+    .tag {
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(200,169,107,0.4);
+      background:rgba(0,0,0,0.6);
+      color:var(--va-gold-soft);
+    }
+
     .stats {
       font-size:13px;
     }
 
     .stat-row {
-      margin-bottom:8px;
+      margin-bottom:9px;
     }
 
     .stat-label {
@@ -195,21 +218,24 @@
   <div class="layout">
     <h1 class="title">Choose Your Class</h1>
 
-    <!-- Tabs -->
+    <!-- Class tabs -->
     <div id="classTabs" class="class-tabs"></div>
 
-    <!-- Main content -->
     <div class="main-grid">
-      <div class="preview-box">
+      <!-- LEFT: animated portrait -->
+      <div class="card">
         <div class="preview-inner">
           <img id="previewPortrait" src="/logo/logo-512.png" alt="Class preview">
         </div>
       </div>
 
-      <div class="info-box">
-        <h2 id="pvName">Select a class</h2>
+      <!-- RIGHT: info/stats -->
+      <div class="card">
+        <h2 id="pvName" class="info-title">Select a class</h2>
         <p id="pvRole" class="info-role"></p>
         <p id="pvDesc" class="info-desc">Click a class tab above to preview the hero and stats.</p>
+
+        <div id="pvTags" class="tag-row"></div>
 
         <div id="pvStats" class="stats"></div>
       </div>
@@ -223,6 +249,7 @@
   <script type="module" src="/src/classpick.ts"></script>
 </body>
 </html>
+
 
 
 
