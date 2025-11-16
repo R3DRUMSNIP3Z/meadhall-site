@@ -19,15 +19,26 @@ type Battle = {
 
 // Map + sprites
 const bgUrl = "/guildbook/maps/dreadheimforestentrancebattle.png";
-function pickHeroSprite(): string {
-  const pick = (window as any).getHeroSprite as undefined | (() => string);
-  if (typeof pick === "function") return pick();
-  const g = localStorage.getItem("va_gender");
-  return g === "female"
-    ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
-    : "/guildbook/avatars/dreadheim-warrior.png";
+
+
+
+// ---- HERO + BOAR ANIMATION FRAME URLS ----
+function buildHeroFrameUrls(): string[] {
+  const gender = localStorage.getItem("va_gender") === "female" ? "shieldmaiden" : "warrior";
+  const prefix = gender === "shieldmaiden" ? "sm_" : "war_";
+  const base   = `/guildbook/avatars/${gender}`;
+  return Array.from({ length: 9 }, (_, i) =>
+    `${base}/${prefix}${String(i).padStart(3, "0")}.png`
+  );
 }
-let playerSpriteUrl = pickHeroSprite();
+
+// animated attack loop for diseased boar
+const BOAR_FRAME_URLS = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/enemies/diseasedboar/atk_${String(i).padStart(3, "0")}.png`
+);
+
+// this will be mutated when gender changes
+let HERO_FRAME_URLS = buildHeroFrameUrls();
 
 const OVERWORLD_URL = "/dreadheimmap.html";
 const LOBBY_URL = "/game.html";
@@ -54,7 +65,14 @@ function loadImage(src: string) {
 }
 
 let bg: HTMLImageElement|null = null;
-let playerImg: HTMLImageElement|null = null;
+
+// animated frames
+let playerFrames: HTMLImageElement[] = [];
+let enemyFrames: HTMLImageElement[]  = [];
+let playerFrameIndex = 0;
+let enemyFrameIndex  = 0;
+const FRAME_MS = 100;
+let frameTimer = 0;
 
 // ===== Simple HUD helpers =====
 const el = <T extends HTMLElement>(id: string)=>document.getElementById(id) as T;
@@ -361,11 +379,6 @@ function updateHUD(){
 }
 
 // ===== Loop & Render =====
-let enemyImg: HTMLImageElement|null = null;
-const enemyImgObj = new Image();
-enemyImgObj.src = "/guildbook/avatars/enemies/diseasedboar.png";
-enemyImg = enemyImgObj;
-
 let lastTs = 0;
 function getDtMs(ts: number) {
   if (!lastTs) { lastTs = ts; return 0; }
@@ -395,8 +408,8 @@ function render(){
   const pBaseX = 120,                      pBaseY = groundY - pH - 30;
   const eBaseX = window.innerWidth - eW - 120, eBaseY = groundY - eH;
 
-  /// meeting point (move slightly closer together)
-  const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.70; // 0.50 = middle, 0.56 = closer
+  // meeting point (move slightly closer together)
+  const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.70;
 
   // lunge triangle 0..1..0
   function triangle(t:number){ return t < 0.5 ? (t/0.5) : (1 - (t-0.5)/0.5); }
@@ -419,16 +432,22 @@ function render(){
     }
   }
 
-  // draw player
-  if (playerImg) ctx.drawImage(playerImg, pX, pY, pW, pH);
+  // draw player (animated)
+  const pImg = playerFrames.length
+    ? playerFrames[playerFrameIndex % playerFrames.length]
+    : null;
+  if (pImg) ctx.drawImage(pImg, pX, pY, pW, pH);
   else { ctx.fillStyle="#111"; ctx.fillRect(pX, pY, pW, pH); }
 
-  // draw enemy (facing left)
-  if (enemyImg && enemyImg.complete) {
+  // draw enemy boar (animated, facing left)
+  const eImg = enemyFrames.length
+    ? enemyFrames[enemyFrameIndex % enemyFrames.length]
+    : null;
+  if (eImg) {
     ctx.save();
     ctx.translate(eX + eW/2, eY + eH/2);
     ctx.scale(-1, 1);
-    ctx.drawImage(enemyImg, -eW/2, -eH/2, eW, eH);
+    ctx.drawImage(eImg, -eW/2, -eH/2, eW, eH);
     ctx.restore();
   } else {
     ctx.fillStyle = "rgba(10,10,10,.85)";
@@ -443,6 +462,15 @@ function gameLoop(ts: number) {
   if (shakeMs > 0) shakeMs = Math.max(0, shakeMs - dt);
   if (impactMs > 0) impactMs = Math.max(0, impactMs - dt);
   if (impactMs === 0) impactWho = null;
+
+  // advance animation frames
+  frameTimer += dt;
+  if (frameTimer >= FRAME_MS) {
+    frameTimer -= FRAME_MS;
+    if (playerFrames.length) playerFrameIndex = (playerFrameIndex + 1) % playerFrames.length;
+    if (enemyFrames.length)  enemyFrameIndex  = (enemyFrameIndex  + 1) % enemyFrames.length;
+  }
+
   render();
   requestAnimationFrame(gameLoop);
 }
@@ -450,22 +478,42 @@ function gameLoop(ts: number) {
 // ===== Live hero sprite updates when gender changes =====
 window.addEventListener("va-gender-changed", () => {
   try {
-    playerSpriteUrl = pickHeroSprite();
-    const next = new Image();
-    next.onload = () => { playerImg = next; };
-    next.src = playerSpriteUrl;
+    HERO_FRAME_URLS = buildHeroFrameUrls();
+    Promise.all(HERO_FRAME_URLS.map(loadImage))
+      .then(frames => {
+        playerFrames = frames;
+        playerFrameIndex = 0;
+      })
+      .catch(() => {});
   } catch {}
 });
 
 // ===== Boot =====
-Promise.all([loadImage(bgUrl), loadImage(playerSpriteUrl)])
-  .then(([b, p])=>{ bg=b; playerImg=p; requestAnimationFrame(gameLoop); })
+Promise.all([
+  loadImage(bgUrl),
+  ...HERO_FRAME_URLS.map(loadImage),
+  ...BOAR_FRAME_URLS.map(loadImage),
+])
+  .then((imgs) => {
+    let idx = 0;
+    bg = imgs[idx++];
+
+    const heroCount = HERO_FRAME_URLS.length;
+    playerFrames = imgs.slice(idx, idx + heroCount);
+    idx += heroCount;
+
+    const boarCount = BOAR_FRAME_URLS.length;
+    enemyFrames = imgs.slice(idx, idx + boarCount);
+
+    requestAnimationFrame(gameLoop);
+  })
   .catch(()=>{ requestAnimationFrame(gameLoop); });
 
 log("A hostile presence emerges from the forest...");
 updateHUD();
 paintSkillBar();
 decideTurnOrder();
+
 
 
 
