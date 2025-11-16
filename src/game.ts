@@ -513,8 +513,8 @@ function renderShop() {
 
     // TS-safe listeners
     line.addEventListener("mouseenter", (ev) => {
-      const me = ev as MouseEvent;
-      tipShow(me.clientX, me.clientY, tooltipHTML(item));
+      const meEvt = ev as MouseEvent;
+      tipShow(meEvt.clientX, meEvt.clientY, tooltipHTML(item));
     });
     line.addEventListener("mousemove",  (ev) => tipMove(ev as MouseEvent));
     line.addEventListener("mouseleave", () => tipHide());
@@ -774,5 +774,6 @@ boot().catch(e => log(e.message, "bad"));
 - dev.bagList() → inspect stored bag keys
 `);
 })();
+
 
 
