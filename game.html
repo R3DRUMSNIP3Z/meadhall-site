@@ -12,8 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
-
-  <style>
+<style>
   /* === Sparkle === */
   .va-sparkle {
     position: relative;
@@ -97,7 +96,16 @@
   }
   .muted { opacity:.85; } .ok { color:#8ad67a; } .bad { color:#f56; }
 
-  /* === EQUIPMENT SLOT BASICS (used by all layouts) === */
+  /* === Equipment Grid === */
+  .equip-grid {
+    display:grid;
+    grid-template-columns:repeat(3,112px);
+    grid-auto-rows:112px;
+    gap:14px;
+    justify-content:center;
+    align-content:start;
+    margin-top:8px;
+  }
   .slot {
     contain:strict !important;
     position:relative !important;
@@ -108,7 +116,9 @@
     color:#cbb17a; text-align:center;
     font-size:0; line-height:0;
   }
-  .slot-img {
+  .slot-box { position:absolute; left:50%; top:50%; width:88px; height:88px; transform:translate(-50%,-50%); pointer-events:none; }
+
+  .slot > .slot-img {
     position:absolute !important;
     left:50% !important;
     top:50% !important;
@@ -116,35 +126,48 @@
     width:88px !important;
     height:88px !important;
     object-fit:contain !important;
+    display:block !important;
     z-index:1;
     pointer-events:none !important;
+    backface-visibility:hidden;
   }
-  .rarity-frame {
+
+  .slot > .rarity-frame {
     position:absolute !important;
     inset:0 !important;
     width:100% !important;
     height:100% !important;
     object-fit:contain !important;
+    transform:none !important;
     z-index:2;
     pointer-events:none !important;
   }
-  .slot::after {
+
+  .equip-grid .slot::after {
     content: attr(data-name);
     position:absolute; left:0; right:0; bottom:0; height:18px;
     font-size:11px; line-height:18px; text-align:center;
     color:#997e38;
     background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.45));
     border-top:1px solid rgba(200,169,107,.22);
+    pointer-events:none;
   }
-  .slot[data-locked="true"] .rarity-frame { filter:grayscale(1) brightness(.85); }
-  .slot[data-locked="true"]::before {
+  .equip-grid .slot[data-name=""]::after,
+  .equip-grid .slot:not([data-name])::after { content:""; height:0; border-top:0; }
+
+  .equip-grid .slot[data-locked="true"] .rarity-frame { filter:grayscale(1) brightness(.85); }
+  .equip-grid .slot[data-locked="true"]::before {
     content:"🔒 " attr(data-req);
-    position:absolute; top:6px; left:6px;
+    position:absolute; top:6px; left:6px; height:18px;
     padding:0 8px; font-size:11px; line-height:18px; font-weight:700;
     color:#f3d7a4; background:rgba(122,29,29,.9);
     border:1px solid rgba(255,255,255,.15);
-    border-radius:10px; z-index:3;
+    border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.45);
+    z-index:3; pointer-events:none;
   }
+
+  .equip-grid .slot, .equip-grid .slot * { pointer-events:none !important; }
+  #vaTooltip, .va-tip { display:none !important; }
 
   .powertotal {
     margin-top:10px; text-align:center;
@@ -161,78 +184,37 @@
   }
   #backToProfile:hover { background:#252c32; filter:drop-shadow(0 0 4px rgba(212,169,77,.6)); }
 
-  /* === QUESTS MODAL === */
+  .toolbar { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .toolbar .spacer { flex:1 1 auto; }
+  .actions-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .actions-buttons { display:flex; gap:8px; flex-wrap:wrap; }
+  .soft { border:0; height:1px; background:linear-gradient(90deg,transparent,#3b3325,transparent); margin:6px 0 10px; }
+  .currency-icon { width:22px; height:22px; object-fit:contain; vertical-align:middle; margin-right:6px; filter:drop-shadow(0 0 4px rgba(212,169,77,.4)); }
+  #openQuests { background:linear-gradient(180deg,#1e1a12,#2b2416); color:#e6d5a9; border-color:#9b834d; }
+  #openQuests:hover { filter:drop-shadow(0 0 6px rgba(212,169,77,.7)); background:linear-gradient(180deg,#2b2416,#3a2e1c); }
+
+  /* === Quests Modal === */
   #questsOverlay{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:100000; }
   #questsModal{ width:min(720px,94vw); background:var(--card); border:1px solid #3b3325; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,.6); color:var(--gold); padding:14px; }
   .qm-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
   #qmTitle{ font-weight:900; font-size:1.2rem; }
   .qm-close{ background:#1b2228; border:1px solid #3b3325; color:var(--gold); border-radius:10px; padding:6px 10px; cursor:pointer; }
+  .qm-body{ border-top:1px solid #3b3325; border-bottom:1px solid #3b3325; padding:10px 0; }
+  .qm-sub{ margin:6px 0 12px; opacity:.9; }
+  .race-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
+  .race-card{ text-align:left; background:#0f1215; border:1px solid #3b3325; border-radius:12px; padding:12px; cursor:pointer; transition:.15s; }
+  .race-card:hover{ background:#141a1f; filter:drop-shadow(0 0 4px rgba(212,169,77,.5)); }
+  .race-card.selected{ outline:2px solid var(--gold); }
+  .race-name{ font-weight:800; margin-bottom:4px; }
+  .race-desc{ font-size:.95rem; opacity:.9; }
+  .qm-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+  .qm-foot{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding-top:8px; }
+  .qm-reward{ opacity:.95; }
+  .qm-status{ opacity:.85; }
 
   #heroTitle { display:flex; align-items:center; gap:8px; font-weight:900; }
   #heroBadge img, #heroBadge svg { height:34px; width:auto; display:block; filter:drop-shadow(0 0 6px rgba(212,169,77,.4)); }
-
-
-  /* ======================================================================= */
-  /* === WARTUNE-STYLE HERO LAYOUT (BIG CARD WITH LEFT/RIGHT/BOTTOM SLOTS) === */
-  /* ======================================================================= */
-
-  .hero-layout {
-    display: grid;
-    grid-template-columns: 120px minmax(240px,1fr) 120px;
-    grid-template-rows: auto auto;
-    gap: 12px 20px;
-    align-items: center;
-    margin-top: 12px;
-  }
-
-  /* Middle hero canvas with glowing circle */
-  .hero-center {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background:
-      radial-gradient(circle at center, rgba(90,80,50,.45), transparent 60%),
-      radial-gradient(circle at 50% 75%, rgba(20,15,10,.85), rgba(0,0,0,1));
-    border-radius: 20px;
-    border: 1px solid #3b3325;
-    box-shadow: 0 0 32px rgba(0,0,0,.65) inset, 0 0 26px rgba(0,0,0,.8);
-    padding: 10px;
-  }
-
-  .hero-center canvas {
-    width: 100%;
-    max-width: 240px;
-    aspect-ratio: 7/10;
-  }
-
-  /* Left & Right vertical slot groups */
-  .hero-sides {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .hero-sides .slot {
-    width: 90px !important;
-    height: 90px !important;
-  }
-
-  /* Bottom row (4 slots) */
-  .hero-bottom {
-    grid-column: 1 / 4;
-    display: flex;
-    justify-content: center;
-    gap: 14px;
-    margin-top: 8px;
-  }
-
-  .hero-bottom .slot {
-    width: 100px !important;
-    height: 100px !important;
-  }
-</style>
+  </style> 
 
 </head>
 
