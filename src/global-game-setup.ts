@@ -5,7 +5,7 @@ import { Inventory } from "./inventory";
 (window as any).Inventory = Inventory;
 
 /* =========================================================
-   USER‑SCOPED STORAGE HELPERS (matches Arena page scripts)
+   USER-SCOPED STORAGE HELPERS (matches Arena page scripts)
    ========================================================= */
 function __vaq_getUserId(): string | null {
   try {
@@ -25,21 +25,31 @@ const __UID = __vaq_getUserId() || "guest";
 const __userKey = (base: string) => `${base}__${__UID}`;
 
 /* =========================================================
-   GENDER + UNIVERSAL HERO SPRITE
+   CLASS + UNIVERSAL HERO SPRITE (no gender)
    ========================================================= */
-// Keep a per-user gender if present; fall back to the old global key
-if (!localStorage.getItem(__userKey("va_gender")) && !localStorage.getItem("va_gender")) {
-  localStorage.setItem("va_gender", "male");
-}
+
+// Per-user class key (e.g. "warrior", "shieldmaiden", "mage")
+const CLASS_KEY_BASE = "va_class";
+const CLASS_KEY = __userKey(CLASS_KEY_BASE);
 
 // Small helper so every place uses the same logic
-function __getCurrentGender(): "male" | "female" {
-  const g = localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender") || "male";
-  return g === "female" ? "female" : "male";
+function __getCurrentClass(): string {
+  const raw =
+    localStorage.getItem(CLASS_KEY) ||
+    localStorage.getItem(CLASS_KEY_BASE) ||
+    "";
+  const c = (raw || "").toLowerCase();
+
+  // Whitelist known classes; default to "warrior"
+  if (c === "shieldmaiden") return "shieldmaiden";
+  if (c === "mage") return "mage";
+  if (c === "rogue") return "rogue";
+  return "warrior";
 }
 
-const __gender = __getCurrentGender();
-document.body?.setAttribute("data-gender", __gender);
+const __heroClass = __getCurrentClass();
+// Optional CSS hook if you want per-class theming
+document.body?.setAttribute("data-class", __heroClass);
 
 /**
  * Legacy helper: returns a single "standing" frame for places
@@ -47,11 +57,15 @@ document.body?.setAttribute("data-gender", __gender);
  * Now uses the animated sprite sheets (IDLE_000) instead of the old PNGs.
  */
 (window as any).getHeroSprite = function (): string {
-  const g = __getCurrentGender();
-  const base = g === "female"
-    ? "/guildbook/avatars/Warrior_01__"
-    : "/guildbook/avatars/Viking_01__";
-  return `${base}IDLE_000.png`;   // e.g. /guildbook/avatars/Viking_01__IDLE_000.png
+  const cls = __getCurrentClass();
+
+  // Map classes to sprite prefixes
+  let base = "/guildbook/avatars/Viking_01__"; // default warrior-style
+  if (cls === "shieldmaiden") base = "/guildbook/avatars/Warrior_01__";
+  // Add more if you introduce new class sprite sheets:
+  // if (cls === "mage") base = "/guildbook/avatars/Mage_01__";
+
+  return `${base}IDLE_000.png`; // e.g. /guildbook/avatars/Viking_01__IDLE_000.png
 };
 
 /**
@@ -61,12 +75,14 @@ document.body?.setAttribute("data-gender", __gender);
  * Use this together with action + frame index to build full paths.
  */
 (window as any).getHeroSpriteBase = function (): string {
-  const g = __getCurrentGender();
-  return g === "female" ? "Warrior_01__" : "Viking_01__";
+  const cls = __getCurrentClass();
+  if (cls === "shieldmaiden") return "Warrior_01__";
+  // if (cls === "mage") return "Mage_01__";
+  return "Viking_01__";
 };
 
 /* =========================================================
-   KEYS / TYPES (user‑scoped; migrates from old globals)
+   KEYS / TYPES (user-scoped; migrates from old globals)
    ========================================================= */
 const VAQ_KEY_BASE  = "va_quests";
 const RACE_KEY_BASE = "va_race";
@@ -76,7 +92,7 @@ const VAQ_KEY  = __userKey(VAQ_KEY_BASE);
 const RACE_KEY = __userKey(RACE_KEY_BASE);
 const VARS_KEY = __userKey(VARS_KEY_BASE);
 
-// One-time migration from old global keys → user‑scoped
+// One-time migration from old global keys → user-scoped
 (function __migrateKeys(){
   try {
     if (!localStorage.getItem(VAQ_KEY) && localStorage.getItem(VAQ_KEY_BASE)) {
@@ -384,7 +400,7 @@ function qProgressAdd(id: string, delta: number) {
 /* =========================================================
    CATALOG LOADER (expects /guildbook/catalogquests.json)
    ========================================================= */
- type CatalogAction =
+type CatalogAction =
   | { type: "setVars"; set: Record<string, any> }
   | { type: "completeQuest"; nextId?: string; showParchmentSignature?: boolean; setVars?: Record<string, any> };
 
@@ -425,8 +441,6 @@ type Catalog = {
   rules?: CatalogRule[];
   quests: CatalogQuest[];
 };
-
-
 
 let CATALOG: Catalog | null = null;
 
@@ -561,7 +575,7 @@ function getQuestFromCatalog(id: string): CatalogQuest | null {
         ">×</button>
       </div>
     `;
-        const finish = () => {
+    const finish = () => {
       overlay.remove();
       cb?.();
     };
@@ -809,9 +823,8 @@ if (document.readyState === "loading") {
   } catch {}
 })();
 
-
 /* =========================================================
-   SFX
+   SFX (class-aware hero hurt; no gender storage)
    ========================================================= */
 const __vaSFX = {
   femaleHurt: new Audio("/guildbook/sfx/femalehurt.mp3"),
@@ -819,9 +832,28 @@ const __vaSFX = {
 };
 __vaSFX.femaleHurt.preload = "auto";
 __vaSFX.maleHurt.preload   = "auto";
-function __playFemaleHurt(): void { const a = __vaSFX.femaleHurt; a.currentTime = 0; a.volume = 0.9; a.play().catch(()=>{}); }
-function __playMaleHurt(): void   { const a = __vaSFX.maleHurt;   a.currentTime = 0; a.volume = 0.9; a.play().catch(()=>{}); }
-function __playHeroHurt(): void   { const g = localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender"); g === "female" ? __playFemaleHurt() : __playMaleHurt(); }
+
+function __playFemaleHurt(): void {
+  const a = __vaSFX.femaleHurt;
+  a.currentTime = 0;
+  a.volume = 0.9;
+  a.play().catch(()=>{});
+}
+function __playMaleHurt(): void {
+  const a = __vaSFX.maleHurt;
+  a.currentTime = 0;
+  a.volume = 0.9;
+  a.play().catch(()=>{});
+}
+
+// Hero hurt now depends on CLASS, not va_gender
+function __playHeroHurt(): void {
+  const cls = __getCurrentClass();
+  // Example: shieldmaiden uses "female" voice, others use "male"
+  if (cls === "shieldmaiden") __playFemaleHurt();
+  else __playMaleHurt();
+}
+
 (window as any).playFemaleHurt = __playFemaleHurt;
 (window as any).playMaleHurt   = __playMaleHurt;
 (window as any).playHeroHurt   = __playHeroHurt;
@@ -838,24 +870,31 @@ function __playDefeat(): void  { const a = __vaBattleSFX.fail;    a.currentTime 
 (window as any).playDefeat  = __playDefeat;
 
 /* =========================================================
-   GENDER-AWARE SKILL ICONS
+   CLASS-AWARE SKILL ICONS (no gender)
    ========================================================= */
 function currentSkillIconMap() {
-  const g = localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender") || "male";
-  const maleIcons: Record<string, string> = {
+  const cls = __getCurrentClass();
+
+  // You can swap these around however you like per class.
+  const warriorIcons: Record<string, string> = {
     basic:  "/guildbook/skillicons/drengrstrike.png",
     aoe:    "/guildbook/skillicons/whirlwinddance.png",
     buff:   "/guildbook/skillicons/odinsblessing.png",
     debuff: "/guildbook/skillicons/helsgrasp.png",
   };
-  const femaleIcons: Record<string, string> = {
+  const shieldmaidenIcons: Record<string, string> = {
     basic:  "/guildbook/skillicons/valkyrieslash.png",
     aoe:    "/guildbook/skillicons/ragnarokshowl.png",
     buff:   "/guildbook/skillicons/aegisoffreyja.png",
     debuff: "/guildbook/skillicons/cursebreaker.png",
   };
-  return g === "female" ? femaleIcons : maleIcons;
+
+  // Example mapping:
+  if (cls === "shieldmaiden") return shieldmaidenIcons;
+  // if (cls === "mage") return mageIcons;
+  return warriorIcons;
 }
+
 (window as any).getSkillIcon = function (key: string): string {
   const map = currentSkillIconMap();
   return map[key] || "";
@@ -889,6 +928,7 @@ function ensureSkillIconsOnPage() {
     }
   });
 }
+
 // Run icon ensure on load + whenever skillbar appears
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", ensureSkillIconsOnPage, { once: true });
@@ -898,11 +938,8 @@ if (document.readyState === "loading") {
 new MutationObserver(() => ensureSkillIconsOnPage())
   .observe(document.documentElement, { childList: true, subtree: true });
 
-window.addEventListener("va-gender-changed", (ev: any) => {
-  const g = (ev?.detail as string) || localStorage.getItem(__userKey("va_gender")) || localStorage.getItem("va_gender") || "male";
-  document.body?.setAttribute("data-gender", g);
-  ensureSkillIconsOnPage();
-});
+// NOTE: Removed va-gender-changed listener completely,
+// since we no longer store or react to gender changes.
 
 /* =========================================================
    INVENTORY + BAG + BADGE
@@ -1203,7 +1240,7 @@ document.addEventListener("keydown", (e) => {
   document.body.appendChild(overlay);
 
   function qReadLocal(): Quest[] {
-    try { return JSON.parse(localStorage.getItem(VAQ_KEY) || "[]") as Quest[]; } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(VAQ_KEY) || "[]" ) as Quest[]; } catch { return []; }
   }
   function qWriteLocal(qs: any[]) { localStorage.setItem(VAQ_KEY, JSON.stringify(qs)); }
   function setActiveQuest(id: string) {
@@ -1320,7 +1357,6 @@ function __vaq_performTravel(ev?: Event) {
   location.assign(dest);
 }
 
-
 /** Bind ALL travel buttons found on the page (idempotent via per-element flag) */
 function __vaq_bindTravelButtons() {
   const selectors = [
@@ -1404,6 +1440,7 @@ setInterval(() => {
   __vaq_renderBoxes();           // refresh widgets (including game HUD)
   __vaq_bindTravelButtons();     // late-added buttons also work
 }, 1500);
+
 
 
 
