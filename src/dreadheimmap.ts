@@ -23,9 +23,16 @@ const HERO_RIGHT_URLS = Array.from({ length: 9 }, (_, i) =>
 );
 
 //////////////////////////////
-// Bat animation frame URLs (pretty animated bat)
+// Boar + Bat animation frame URLs
 //////////////////////////////
-const BAT_FRAME_URLS = Array.from({ length: 9 }, (_, i) =>
+
+// Diseased boar attack cycle
+const BOAR_ATK_URLS = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/enemies/diseasedboar/atk_${i.toString().padStart(3, "0")}.png`
+);
+
+// Dreadheim bat fly cycle
+const BAT_FLY_URLS = Array.from({ length: 9 }, (_, i) =>
   `/guildbook/avatars/enemies/dreadheimbat/fly_${i.toString().padStart(3, "0")}.png`
 );
 
@@ -39,7 +46,6 @@ const ASSETS = {
     (window as any).getHeroSprite
       ? (window as any).getHeroSprite()
       : "/guildbook/avatars/dreadheim-warrior.png",
-  boar: "/guildbook/avatars/enemies/diseasedboar.png",
   meat: "/guildbook/loot/infectedboarmeat.png",
 } as const;
 
@@ -123,13 +129,16 @@ function load(src: string): Promise<HTMLImageElement> {
 }
 
 let bg: HTMLImageElement | null = null;
+
 // hero frames
 let heroIdleFrames: HTMLImageElement[] = [];
 let heroLeftFrames: HTMLImageElement[] = [];
 let heroRightFrames: HTMLImageElement[] = [];
 let heroFallbackImg: HTMLImageElement | null = null;
 
-let boarImg: HTMLImageElement | null = null;
+// boar + loot
+let boarFrames: HTMLImageElement[] = [];
+let boarFrameIndex = 0;
 let meatImg: HTMLImageElement | null = null;
 
 // Bats
@@ -143,8 +152,7 @@ type Bat = {
   maxSpeed: number; wanderTheta: number; wanderJitter: number; wanderRadius: number;
 };
 
-// make bats a bit bigger so they show nicely
-const BAT_SIZE = 96;
+const BAT_SIZE = 60;
 const FLOCK_COUNT = 9;
 const bats: Bat[] = [];
 
@@ -153,9 +161,9 @@ function randi(min: number, max: number) { return Math.floor(rand(min, max)); }
 
 function spawnBat() {
   const W = window.innerWidth, H = window.innerHeight;
-  const margin = 40;
+  const margin = 80;
   const x = rand(margin, W - margin);
-  const y = rand(margin, H - margin);
+  const y = rand(margin, H * 0.4); // keep them upper-ish
   const angle = rand(0, Math.PI * 2);
   const speed = rand(0.7, 1.6);
   const vx = Math.cos(angle) * speed;
@@ -165,11 +173,11 @@ function spawnBat() {
     x, y, w: BAT_SIZE, h: BAT_SIZE,
     vx, vy,
     dir: vx >= 0 ? 1 : -1,
-    frame: 0, lastFrame: 0, frameDelay: randi(70, 120),
+    frame: randi(0, BAT_FLY_URLS.length), lastFrame: 0, frameDelay: randi(60, 120),
     maxSpeed: 2.0,
     wanderTheta: rand(0, Math.PI * 2),
-    wanderJitter: 0.12,
-    wanderRadius: 0.28
+    wanderJitter: 0.10,
+    wanderRadius: 0.25
   });
 }
 function spawnFlock(n = FLOCK_COUNT) { for (let i = 0; i < n; i++) spawnBat(); }
@@ -487,22 +495,22 @@ function render() {
     ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
   }
 
-  // boar (flip when moving left)
-  if (boar.alive) {
-    const bx = boar.x, by = boar.y;
-    if (boarImg && boarImg.complete) {
-      ctx.save();
-      if (boar.dir < 0) {
-        ctx.translate(bx + boar.w / 2, by + boar.h / 2);
-        ctx.scale(-1, 1);
-        ctx.drawImage(boarImg, -boar.w / 2, -boar.h / 2, boar.w, boar.h);
-      } else {
-        ctx.drawImage(boarImg, bx, by, boar.w, boar.h);
-      }
-      ctx.restore();
+  // boar (animated, flip when moving left)
+  if (boar.alive && boarFrames.length) {
+    const bf = boarFrames[boarFrameIndex % boarFrames.length];
+    ctx.save();
+    if (boar.dir < 0) {
+      ctx.translate(boar.x + boar.w / 2, boar.y + boar.h / 2);
+      ctx.scale(-1, 1);
+      ctx.drawImage(bf, -boar.w / 2, -boar.h / 2, boar.w, boar.h);
     } else {
-      ctx.fillStyle = "rgba(10,10,10,.85)";
-      ctx.fillRect(bx, by, boar.w, boar.h);
+      ctx.drawImage(bf, boar.x, boar.y, boar.w, boar.h);
+    }
+    ctx.restore();
+
+    // simple boar animation tick
+    if (performance.now() % 100 < 16) {
+      boarFrameIndex = (boarFrameIndex + 1) % boarFrames.length;
     }
   }
 
@@ -564,25 +572,32 @@ function handleArrivalQuestProgress() {
 //////////////////////////////
 // Boot
 //////////////////////////////
-Promise.all([
-  load(ASSETS.bg),
-  load(ASSETS.boar),
-  load(ASSETS.meat),
-  ...BAT_FRAME_URLS.map(load),
-  ...HERO_IDLE_URLS.map(load),
-  ...HERO_LEFT_URLS.map(load),
-  ...HERO_RIGHT_URLS.map(load),
-])
+Promise.all(
+  [
+    ASSETS.bg,
+    ASSETS.meat,
+    ...BOAR_ATK_URLS,
+    ...BAT_FLY_URLS,
+    ...HERO_IDLE_URLS,
+    ...HERO_LEFT_URLS,
+    ...HERO_RIGHT_URLS,
+  ].map(load)
+)
   .then((imgs) => {
     let idx = 0;
+
     bg = imgs[idx++];
-    boarImg = imgs[idx++];
     meatImg = imgs[idx++];
 
-    const batCount = BAT_FRAME_URLS.length;
-    batFrames = imgs.slice(idx, idx + batCount);
-    idx += batCount;
+    // boar frames
+    boarFrames = imgs.slice(idx, idx + BOAR_ATK_URLS.length);
+    idx += BOAR_ATK_URLS.length;
 
+    // bat frames
+    batFrames = imgs.slice(idx, idx + BAT_FLY_URLS.length);
+    idx += BAT_FLY_URLS.length;
+
+    // hero frames
     const idleCount = HERO_IDLE_URLS.length;
     const leftCount = HERO_LEFT_URLS.length;
     const rightCount = HERO_RIGHT_URLS.length;
@@ -627,6 +642,7 @@ Promise.all([
   addEventListener("focus", nukeBadge);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) nukeBadge(); });
 })();
+
 
 
 
