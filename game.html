@@ -254,9 +254,16 @@
         <div class="row"><div>Gold</div><div id="gold">0</div></div>
 
         <div style="display:grid;grid-template-columns:120px 1fr;gap:12px;margin-top:12px;">
-          <div style="display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid #3b3325;border-radius:12px;padding:6px;">
-            <img id="avatar" alt="avatar" style="width:100%;max-width:110px;object-fit:contain;border-radius:10px;opacity:0">
-          </div>
+  <!-- Animated class avatar -->
+  <div style="display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid #3b3325;border-radius:12px;padding:6px;">
+    <canvas id="heroCanvas" width="140" height="200"
+      style="width:100%;max-width:110px;aspect-ratio:7/10;display:block;"></canvas>
+  </div>
+
+  <!-- keep avatar <img> as a hidden fallback / for future use -->
+  <img id="avatar" alt="avatar" style="display:none">
+
+
 
           <div class="equip-grid">
             <div class="slot" data-slot="helm" data-name="HELM"></div>

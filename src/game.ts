@@ -221,6 +221,106 @@ function getClassBaseAvatar(): string {
 }
 
 /* =========================================================
+   HERO CARD ANIMATION (idle on <canvas id="heroCanvas">)
+   ========================================================= */
+
+const heroCanvas = document.getElementById("heroCanvas") as HTMLCanvasElement | null;
+const heroCtx = heroCanvas ? heroCanvas.getContext("2d") : null;
+
+type ClassAnimConfig = {
+  idle: string[]; // list of frame image URLs
+};
+
+// helper to generate frame paths like sm_000.png → sm_008.png
+function makeSeq(basePath: string, prefix: string, count: number): string[] {
+  const frames: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const idx = String(i).padStart(3, "0");
+    frames.push(`${basePath}/${prefix}${idx}.png`);
+  }
+  return frames;
+}
+
+// tweak counts if any class has a different number of idle frames
+const CLASS_ANIMS: Record<ClassId, ClassAnimConfig> = {
+  warrior: {
+    idle: makeSeq("/guildbook/avatars/warrior", "war_", 9),
+  },
+  shieldmaiden: {
+    idle: makeSeq("/guildbook/avatars/shieldmaiden", "sm_", 9),
+  },
+  "rune-mage": {
+    idle: makeSeq("/guildbook/avatars/rune-mage", "rm_", 9),
+  },
+  berserker: {
+    idle: makeSeq("/guildbook/avatars/berserker", "b_", 9),
+  },
+  hunter: {
+    idle: makeSeq("/guildbook/avatars/hunter", "h_", 9),
+  },
+};
+
+function loadImg(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load " + src));
+    img.src = src;
+  });
+}
+
+let heroFrames: HTMLImageElement[] = [];
+let heroFrameIndex = 0;
+let heroLastTime = 0;
+const HERO_FPS = 8;
+
+async function setupHeroAnim() {
+  if (!heroCanvas || !heroCtx) return;
+
+  const cls = getCurrentClass() || "warrior";
+  const cfg = CLASS_ANIMS[cls];
+  if (!cfg) return;
+
+  try {
+    heroFrames = await Promise.all(cfg.idle.map(loadImg));
+  } catch (e) {
+    console.warn("Hero anim frames failed:", e);
+    return;
+  }
+
+  heroFrameIndex = 0;
+  heroLastTime = 0;
+  requestAnimationFrame(heroAnimLoop);
+}
+
+function heroAnimLoop(timestamp: number) {
+  if (!heroCanvas || !heroCtx || heroFrames.length === 0) return;
+
+  if (!heroLastTime) heroLastTime = timestamp;
+  const delta = timestamp - heroLastTime;
+  if (delta > 1000 / HERO_FPS) {
+    heroFrameIndex = (heroFrameIndex + 1) % heroFrames.length;
+    heroLastTime = timestamp;
+  }
+
+  const ctx = heroCtx;
+  const canvas = heroCanvas;
+  const img = heroFrames[heroFrameIndex];
+
+  const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+  const w = img.width * scale;
+  const h = img.height * scale;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // feet near the bottom so they "stand" on the card
+  const x = (canvas.width - w) / 2;
+  const y = canvas.height - h;
+  ctx.drawImage(img, x, y, w, h);
+
+  requestAnimationFrame(heroAnimLoop);
+}
+
+/* =========================================================
    ARENA: render character + stats + slots
    ========================================================= */
 async function renderArena() {
@@ -651,6 +751,8 @@ async function boot() {
   }
 
   await renderArena();
+  // start animated idle avatar on the hero canvas (if present)
+  setupHeroAnim();
 
   setInterval(async () => {
     try {
@@ -774,6 +876,7 @@ boot().catch(e => log(e.message, "bad"));
 - dev.bagList() → inspect stored bag keys
 `);
 })();
+
 
 
 
