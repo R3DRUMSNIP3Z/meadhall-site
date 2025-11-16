@@ -17,19 +17,42 @@ type Battle = {
   log: string[];
 };
 
-// Map + sprites
+// =====================================================
+//  MAP + SPRITES
+// =====================================================
 const bgUrl = "/guildbook/maps/dreadheimforestentrancebattle.png";
 
-
-
-// ---- HERO + BOAR ANIMATION FRAME URLS ----
-function buildHeroFrameUrls(): string[] {
+// ---- HERO IDLE + ATTACK ANIMATION FRAME URLS ----
+function buildHeroIdleUrls(): string[] {
   const gender = localStorage.getItem("va_gender") === "female" ? "shieldmaiden" : "warrior";
-  const prefix = gender === "shieldmaiden" ? "sm_" : "war_";
-  const base   = `/guildbook/avatars/${gender}`;
-  return Array.from({ length: 9 }, (_, i) =>
-    `${base}/${prefix}${String(i).padStart(3, "0")}.png`
-  );
+  if (gender === "shieldmaiden") {
+    const base = "/guildbook/avatars/shieldmaiden";
+    return Array.from({ length: 9 }, (_, i) =>
+      `${base}/sm_${String(i).padStart(3, "0")}.png`
+    );
+  } else {
+    const base = "/guildbook/avatars/warrior";
+    return Array.from({ length: 9 }, (_, i) =>
+      `${base}/war_${String(i).padStart(3, "0")}.png`
+    );
+  }
+}
+
+function buildHeroAttackUrls(): string[] {
+  const gender = localStorage.getItem("va_gender") === "female" ? "shieldmaiden" : "warrior";
+  if (gender === "shieldmaiden") {
+    // REAL attack anim for shieldmaiden
+    const base = "/guildbook/avatars/shieldmaiden";
+    return Array.from({ length: 9 }, (_, i) =>
+      `${base}/rightattack_${String(i).padStart(3, "0")}.png`
+    );
+  } else {
+    // PLACEHOLDER for other classes: reuse idle frames for now
+    const base = "/guildbook/avatars/warrior";
+    return Array.from({ length: 9 }, (_, i) =>
+      `${base}/war_${String(i).padStart(3, "0")}.png`
+    );
+  }
 }
 
 // animated attack loop for diseased boar
@@ -38,12 +61,15 @@ const BOAR_FRAME_URLS = Array.from({ length: 9 }, (_, i) =>
 );
 
 // this will be mutated when gender changes
-let HERO_FRAME_URLS = buildHeroFrameUrls();
+let HERO_IDLE_URLS = buildHeroIdleUrls();
+let HERO_ATTACK_URLS = buildHeroAttackUrls();
 
 const OVERWORLD_URL = "/dreadheimmap.html";
 const LOBBY_URL = "/game.html";
 
-// ===== Canvas & background render =====
+// =====================================================
+//  CANVAS
+// =====================================================
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 function fit() {
@@ -67,14 +93,23 @@ function loadImage(src: string) {
 let bg: HTMLImageElement|null = null;
 
 // animated frames
-let playerFrames: HTMLImageElement[] = [];
+type HeroAnimName = "idle" | "attack";
+
+let heroAnim: HeroAnimName = "idle";
+let heroIdleFrames: HTMLImageElement[] = [];
+let heroAttackFrames: HTMLImageElement[] = [];
+let heroFrameIndex = 0;
+let heroAnimTimer = 0; // ms remaining for attack anim
+
 let enemyFrames: HTMLImageElement[]  = [];
-let playerFrameIndex = 0;
 let enemyFrameIndex  = 0;
+
 const FRAME_MS = 100;
 let frameTimer = 0;
 
-// ===== Simple HUD helpers =====
+// =====================================================
+//  HUD HELPERS
+// =====================================================
 const el = <T extends HTMLElement>(id: string)=>document.getElementById(id) as T;
 const pHP = el<HTMLSpanElement>("pHP"), pHPMax = el<HTMLSpanElement>("pHPMax");
 const pRage = el<HTMLSpanElement>("pRage");
@@ -84,7 +119,9 @@ const eHPBar = el<HTMLDivElement>("eHPBar");
 const logBox = el<HTMLDivElement>("log");
 const overlay = el<HTMLDivElement>("overlay");
 
-// ===== Units =====
+// =====================================================
+//  UNITS
+// =====================================================
 const player: Unit = {
   name:"You", hp: 180, hpMax: 180,
   atk: 28, def: 10, spd: 12,
@@ -99,7 +136,9 @@ const enemy: Unit = {
   buffs:{}, debuffs:{}, alive:true
 };
 
-// ===== Skills =====
+// =====================================================
+//  SKILLS
+// =====================================================
 const skills = {
   basic: { name:"Drengr Strike",  cost:0,  cd:0,  desc:"+10 Rage builder",  use: () => hit(player, enemy, 1.0, {addRage:10}) },
   aoe:   { name:"Storm of Blades",cost:30, cd:2,  desc:"AOE (single for now)", use: () => hit(player, enemy, 1.2) },
@@ -109,7 +148,9 @@ const skills = {
 const cooldowns: Record<keyof typeof skills, number> = { basic:0, aoe:0, buff:0, debuff:0 };
 const unlocked: Record<keyof typeof skills, boolean> = { basic:true, aoe:false, buff:false, debuff:false };
 
-// --- Impact + camera shake + lunge state ---
+// =====================================================
+//  IMPACT / SHAKE / LUNGE
+// =====================================================
 let shakeMs = 0;
 let shakeMag = 8;
 let impactMs = 0;                 // timer for lunge (ms)
@@ -119,18 +160,20 @@ const SPRITE = { pW: 180, pH: 180, eW: 180, eH: 180 };
 
 function startImpact(who: "player" | "enemy") {
   impactWho = who;
-  impactMs = 320;   // longer to clearly reach target and return
+  impactMs = 320;
   shakeMs = 160;
 }
 function easeOutCubic(t: number) { return 1 - Math.pow(1 - t, 3); }
 
-// === SFX helpers ===
+// =====================================================
+//  SFX
+// =====================================================
 function playBoarHurt(): void {
   const el = document.getElementById("boarHurt") as HTMLAudioElement | null;
   if (!el) return;
-  el.currentTime = 0;   // restart if already playing
+  el.currentTime = 0;
   el.volume = 0.85;
-  el.play().catch(() => {}); // ignore autoplay promise errors
+  el.play().catch(() => {});
 }
 function playFemaleHurt(): void {
   const el = document.getElementById("femaleHurt") as HTMLAudioElement | null;
@@ -147,7 +190,9 @@ function playMaleHurt(): void {
   el.play().catch(() => {});
 }
 
-// ===== Battle Core =====
+// =====================================================
+//  BATTLE CORE
+// =====================================================
 const battle: Battle = { state:"intro", turn:"player", log:[] };
 
 function log(s: string){ battle.log.push(s); renderLog(); }
@@ -197,19 +242,29 @@ function tickAuras(u:Unit){
   }
 }
 
+// trigger hero attack anim (one full loop then back to idle)
+function triggerHeroAttackAnim() {
+  heroAnim = "attack";
+  heroFrameIndex = 0;
+  heroAnimTimer = HERO_ATTACK_URLS.length * FRAME_MS;
+}
+
 function hit(from: Unit, to: Unit, scale = 1.0, opts: { addRage?: number } = {}) {
   const dmg = damage(from, to, scale);
   to.hp = clamp(to.hp - dmg, 0, to.hpMax);
 
-  // === Play hurt sounds based on who was hit ===
+  // sounds
   if (to === enemy) {
-    // Boar is the target
     playBoarHurt();
   } else if (to === player) {
-    // Player is the target — choose male/female
     const gender = localStorage.getItem("va_gender");
     if (gender === "female") playFemaleHurt();
     else playMaleHurt();
+  }
+
+  // hero attack anim when player hits
+  if (from === player) {
+    triggerHeroAttackAnim();
   }
 
   if (opts.addRage) from.rage = clamp(from.rage + opts.addRage, 0, from.rageMax);
@@ -266,20 +321,17 @@ function endBattle(playerWon: boolean) {
   overlay.classList.add("show");
   overlay.textContent = playerWon ? "VICTORY" : "DEFEAT";
 
-  // --- Play end-of-battle sound
   try {
     if (playerWon) (window as any).playVictory?.();
     else (window as any).playDefeat?.();
   } catch {}
 
-  // Disable further skill input
   try { skillEls.forEach(d => d.style.pointerEvents = "none"); } catch {}
 
   if (playerWon) {
     try { localStorage.setItem("va_bf_boar_defeated", "1"); } catch {}
   }
 
-  // --- Add a "Leave Battle" button for BOTH outcomes
   const btn = document.createElement("button");
   btn.textContent = "Leave Battle";
   Object.assign(btn.style, {
@@ -302,30 +354,28 @@ function endBattle(playerWon: boolean) {
   btn.addEventListener("click", () => {
     btn.disabled = true;
     btn.textContent = "Leaving...";
-    const target = playerWon ? OVERWORLD_URL : LOBBY_URL; // win -> forest map, fail -> game.html
+    const target = playerWon ? OVERWORLD_URL : LOBBY_URL;
     window.location.href = target;
   });
 
   document.body.appendChild(btn);
 }
 
-
-
-// ===== UI wiring =====
+// =====================================================
+//  UI WIRING
+// =====================================================
 const skillEls = Array.from(document.querySelectorAll<HTMLDivElement>("#skillbar .skill"));
 
-// Map each skill to its icon (served from /public/guildbook/skillicons)
 const SKILL_ICON: Record<keyof typeof skills, string> = {
-  basic:  "/guildbook/skillicons/drengrstrike.png",   // Drengr Strike
-  aoe:    "/guildbook/skillicons/whirlwinddance.png", // Storm of Blades
-  buff:   "/guildbook/skillicons/odinsblessing.png",  // Odin’s Blessing
-  debuff: "/guildbook/skillicons/helsgrasp.png",      // Hel’s Curse
+  basic:  "/guildbook/skillicons/drengrstrike.png",
+  aoe:    "/guildbook/skillicons/whirlwinddance.png",
+  buff:   "/guildbook/skillicons/odinsblessing.png",
+  debuff: "/guildbook/skillicons/helsgrasp.png",
 };
 
-// Inject icons once so the buttons show images
 function ensureSkillIcons() {
   skillEls.forEach(div => {
-    if (div.querySelector("img.icon")) return; // already injected
+    if (div.querySelector("img.icon")) return;
     const key = div.dataset.skill as keyof typeof skills;
     if (!key) return;
     const img = document.createElement("img");
@@ -333,13 +383,12 @@ function ensureSkillIcons() {
     img.alt = skills[key]?.name || key;
     img.src = SKILL_ICON[key] || "";
     img.loading = "lazy";
-    img.onerror = () => { img.style.display = "none"; }; // hide if missing
+    img.onerror = () => { img.style.display = "none"; };
     div.insertBefore(img, div.firstChild);
   });
 }
 ensureSkillIcons();
 
-// Click handlers
 skillEls.forEach(div => {
   div.addEventListener("click", () => {
     if (battle.state !== "player") return;
@@ -355,7 +404,6 @@ function paintSkillBar() {
     div.classList.toggle("locked", !unlocked[key]);
     div.classList.toggle("oncd", cooldowns[key] > 0);
 
-    // subtle dim while on cooldown
     if (cooldowns[key] > 0) {
       div.style.opacity = "0.7";
       div.title = `${skills[key].name} — CD ${cooldowns[key]} turn(s)`;
@@ -366,7 +414,9 @@ function paintSkillBar() {
   });
 }
 
-// ===== HUD =====
+// =====================================================
+//  HUD
+// =====================================================
 function updateHUD(){
   pHP.textContent = String(player.hp);
   pHPMax.textContent = String(player.hpMax);
@@ -378,7 +428,9 @@ function updateHUD(){
   eHPBar.style.width = `${(enemy.hp/enemy.hpMax)*100}%`;
 }
 
-// ===== Loop & Render =====
+// =====================================================
+//  LOOP & RENDER
+// =====================================================
 let lastTs = 0;
 function getDtMs(ts: number) {
   if (!lastTs) { lastTs = ts; return 0; }
@@ -400,7 +452,6 @@ function render(){
   ctx.save();
   ctx.translate(sx, sy);
 
-  // sit just above the skillbar (~110px tall) so feet touch the stones
   const skillbarReserve = 110;
   const groundY = Math.round(window.innerHeight - skillbarReserve);
 
@@ -408,38 +459,39 @@ function render(){
   const pBaseX = 120,                      pBaseY = groundY - pH - 30;
   const eBaseX = window.innerWidth - eW - 120, eBaseY = groundY - eH;
 
-  // meeting point (move slightly closer together)
-  const meetX = pBaseX + (eBaseX - pBaseX - pW) * 0.70;
-
-  // lunge triangle 0..1..0
-  function triangle(t:number){ return t < 0.5 ? (t/0.5) : (1 - (t-0.5)/0.5); }
-
   let pX = pBaseX, pY = pBaseY;
   let eX = eBaseX, eY = eBaseY;
 
+  // === Lunge so they actually TOUCH ===
   if (impactMs > 0 && impactWho) {
-    const t = 1 - (impactMs / 320);
-    const f = easeOutCubic(triangle(t));
-    const pLunge = (meetX - pBaseX) * f;
-    const eLunge = (eBaseX - (meetX + 0)) * f; // positive
+    const tNorm = 1 - (impactMs / 320);
+    const f = easeOutCubic(tNorm <= 0 ? 0 : tNorm >= 1 ? 1 : tNorm);
 
     if (impactWho === "player") {
-      pX = pBaseX + pLunge;              // player runs in
-      eX = eBaseX + (-eLunge * 0.25);    // enemy tiny push
+      // hero runs almost into the boar
+      const targetPX = eBaseX - pW * 0.6;  // overlap ~40%
+      pX = pBaseX + (targetPX - pBaseX) * f;
+      eX = eBaseX + 20 * f;               // tiny knockback to the right
     } else {
-      eX = eBaseX - eLunge;              // enemy runs in (toward left)
-      pX = pBaseX - (pLunge * 0.25);     // player tiny push
+      // boar charges into hero
+      const targetEX = pBaseX + pW * 0.3; // overlap a bit into hero
+      eX = eBaseX - (eBaseX - targetEX) * f;
+      pX = pBaseX - 15 * f;               // tiny knockback to the left
     }
   }
 
-  // draw player (animated)
-  const pImg = playerFrames.length
-    ? playerFrames[playerFrameIndex % playerFrames.length]
+  // choose hero frame based on current anim
+  const heroFrames = (heroAnim === "attack" && heroAttackFrames.length)
+    ? heroAttackFrames
+    : heroIdleFrames;
+
+  const pImg = heroFrames.length
+    ? heroFrames[heroFrameIndex % heroFrames.length]
     : null;
   if (pImg) ctx.drawImage(pImg, pX, pY, pW, pH);
   else { ctx.fillStyle="#111"; ctx.fillRect(pX, pY, pW, pH); }
 
-  // draw enemy boar (animated, facing left)
+  // animated enemy boar (facing left)
   const eImg = enemyFrames.length
     ? enemyFrames[enemyFrameIndex % enemyFrames.length]
     : null;
@@ -463,44 +515,75 @@ function gameLoop(ts: number) {
   if (impactMs > 0) impactMs = Math.max(0, impactMs - dt);
   if (impactMs === 0) impactWho = null;
 
+  // hero attack timer
+  if (heroAnim === "attack") {
+    heroAnimTimer -= dt;
+    if (heroAnimTimer <= 0) {
+      heroAnim = "idle";
+      heroFrameIndex = 0;
+    }
+  }
+
   // advance animation frames
   frameTimer += dt;
   if (frameTimer >= FRAME_MS) {
     frameTimer -= FRAME_MS;
-    if (playerFrames.length) playerFrameIndex = (playerFrameIndex + 1) % playerFrames.length;
-    if (enemyFrames.length)  enemyFrameIndex  = (enemyFrameIndex  + 1) % enemyFrames.length;
+    // hero
+    const heroFrames = (heroAnim === "attack" && heroAttackFrames.length)
+      ? heroAttackFrames
+      : heroIdleFrames;
+    if (heroFrames.length) heroFrameIndex = (heroFrameIndex + 1) % heroFrames.length;
+    // enemy
+    if (enemyFrames.length) enemyFrameIndex = (enemyFrameIndex + 1) % enemyFrames.length;
   }
 
   render();
   requestAnimationFrame(gameLoop);
 }
 
-// ===== Live hero sprite updates when gender changes =====
+// =====================================================
+//  LIVE GENDER CHANGE (rebuild hero sets)
+// =====================================================
 window.addEventListener("va-gender-changed", () => {
   try {
-    HERO_FRAME_URLS = buildHeroFrameUrls();
-    Promise.all(HERO_FRAME_URLS.map(loadImage))
+    HERO_IDLE_URLS = buildHeroIdleUrls();
+    HERO_ATTACK_URLS = buildHeroAttackUrls();
+    Promise.all([
+      ...HERO_IDLE_URLS.map(loadImage),
+      ...HERO_ATTACK_URLS.map(loadImage),
+    ])
       .then(frames => {
-        playerFrames = frames;
-        playerFrameIndex = 0;
+        const idleCount = HERO_IDLE_URLS.length;
+        heroIdleFrames = frames.slice(0, idleCount);
+        heroAttackFrames = frames.slice(idleCount);
+        heroAnim = "idle";
+        heroFrameIndex = 0;
       })
       .catch(() => {});
   } catch {}
 });
 
-// ===== Boot =====
+// =====================================================
+//  BOOT
+// =====================================================
 Promise.all([
   loadImage(bgUrl),
-  ...HERO_FRAME_URLS.map(loadImage),
+  ...HERO_IDLE_URLS.map(loadImage),
+  ...HERO_ATTACK_URLS.map(loadImage),
   ...BOAR_FRAME_URLS.map(loadImage),
 ])
   .then((imgs) => {
     let idx = 0;
     bg = imgs[idx++];
 
-    const heroCount = HERO_FRAME_URLS.length;
-    playerFrames = imgs.slice(idx, idx + heroCount);
-    idx += heroCount;
+    const idleCount = HERO_IDLE_URLS.length;
+    const attackCount = HERO_ATTACK_URLS.length;
+
+    heroIdleFrames = imgs.slice(idx, idx + idleCount);
+    idx += idleCount;
+
+    heroAttackFrames = imgs.slice(idx, idx + attackCount);
+    idx += attackCount;
 
     const boarCount = BOAR_FRAME_URLS.length;
     enemyFrames = imgs.slice(idx, idx + boarCount);
@@ -513,6 +596,7 @@ log("A hostile presence emerges from the forest...");
 updateHUD();
 paintSkillBar();
 decideTurnOrder();
+
 
 
 
