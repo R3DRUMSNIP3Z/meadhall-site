@@ -1,6 +1,6 @@
 //* ===============================//
 // Valhalla Ascending — src/game.ts//
-// (Arena + Quests HUD + Shop)     //
+// (Arena only — shop removed)     //
 // ===============================*//
 
 type Slot =
@@ -20,7 +20,6 @@ type Me = {
   defense: number;
   speed: number;
   points?: number;
-  // no gender – class is stored client-side in localStorage
   slots?: Partial<Record<Slot, string>>;
   gearPower?: number;
   battleRating?: number;
@@ -28,42 +27,13 @@ type Me = {
   diamonds?: number;
 };
 
-type ShopItem = {
-  id: string;
-  name: string;
-  stat: "power" | "defense" | "speed";
-  boost: number;
-  cost: number;
-  costDiamonds?: number;
-  costDiamond?: number;
-  slot?: Slot;
-  levelReq?: number;
-  rarity?: "normal" | "epic" | "legendary";
-  imageUrl?: string;
-  // set IDs double as class-locked sets (e.g. drengr = Warrior, skjaldmey = Shieldmaiden)
-  set?: "drengr" | "skjaldmey";
-};
-
-type ApiMe   = { me: Me };
-type ApiShop = { items: ShopItem[] };
-type FightResult = {
-  me: Me;
-  result: {
-    win: boolean;
-    opponent: { id: string; name: string; level: number };
-    deltaGold: number;
-    deltaXP: number;
-  };
-};
+type ApiMe = { me: Me };
 
 /* ---------- config ---------- */
 const apiBase =
   (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content?.trim() || "";
 
-// class pick key (from classpick.ts)
-const CLASS_KEY = "va_class";
-
-/* ---------- user id helpers ---------- */
+/* ---------- user id ---------- */
 const LS_KEY = "mh_user";
 function getUserId(): string | null {
   try {
@@ -94,72 +64,10 @@ function log(msg: string, cls?: string) {
   logBox.prepend(p);
 }
 
-/* ---------- tooltip (used by shop; harmless on arena) ---------- */
-let tipEl = document.getElementById("vaTooltip") as HTMLDivElement | null;
-if (!tipEl) {
-  tipEl = document.createElement("div");
-  tipEl.id = "vaTooltip";
-  tipEl.style.cssText =
-    "position:fixed;display:none;z-index:9999;min-width:220px;max-width:320px;padding:10px;border-radius:10px;border:1px solid rgba(212,169,77,.35);background:#101317;color:#d4a94d;box-shadow:0 8px 30px rgba(0,0,0,.45);font-family:Cinzel,serif;font-size:.95rem";
-  document.body.appendChild(tipEl);
-}
-function tipShow(x: number, y: number, html: string) {
-  if (!tipEl) return;
-  tipEl.innerHTML = html;
-  tipEl.style.display = "block";
-  const pad = 12, w = tipEl.offsetWidth || 260, h = tipEl.offsetHeight || 120;
-  tipEl.style.left = Math.min(innerWidth - w - pad, x + 16) + "px";
-  tipEl.style.top  = Math.min(innerHeight - h - pad, y + 16) + "px";
-}
-function tipMove(ev: MouseEvent) {
-  if (!tipEl || tipEl.style.display === "none") return;
-  tipShow(ev.clientX, ev.clientY, tipEl.innerHTML);
-}
-function tipHide() { if (tipEl) tipEl.style.display = "none"; }
-addEventListener("scroll", tipHide);
-addEventListener("resize", tipHide);
-
-/* ---------- misc ---------- */
-function resolveImg(u?: string): string {
-  if (!u) return "";
-  if (/^https?:\/\//i.test(u)) return u;
-  if (u.startsWith("/")) return u;
-  return u;
-}
+/* ---------- API ---------- */
 function stripHtml(s: string) {
   return String(s || "").replace(/<[^>]*>/g, "").trim();
 }
-
-/* ---------- global state ---------- */
-const state = {
-  me: null as Me | null,
-  goldItems: [] as ShopItem[],
-  brisingrItems: [] as ShopItem[],
-  activeTab: "all" as "all" | Slot | "brisingr",
-};
-
-const itemCache = new Map<string, ShopItem>();
-let itemIndex: Record<string, ShopItem> = Object.create(null);
-async function preloadItemIndex() {
-  try {
-    const r = await api<ApiShop>("/api/game/shop");
-    const list = r.items || [];
-    itemIndex = Object.fromEntries(list.map(it => [it.id, it]));
-    for (const it of list) itemCache.set(it.id, it);
-  } catch {
-    itemIndex = Object.create(null);
-  }
-}
-
-/* rarity frames */
-const rarityFrame: Record<string, string> = {
-  normal: "/guildbook/frames/normal-frame.svg",
-  epic: "/guildbook/frames/epic-frame.svg",
-  legendary: "/guildbook/frames/legendary-frame.svg",
-  diamond: "/guildbook/frames/diamond-frame.svg",
-};
-
-/* ---------- fetch wrapper ---------- */
 async function api<T = any>(path: string, opts: RequestInit = {}) {
   const r = await fetch(apiBase + path, {
     ...opts,
@@ -169,160 +77,123 @@ async function api<T = any>(path: string, opts: RequestInit = {}) {
       ...(opts.headers || {}),
     },
   });
-  if (!r.ok) {
-    let t = "";
-    try { t = await r.text(); } catch {}
-    throw new Error(stripHtml(t) || r.statusText);
-  }
+  if (!r.ok) throw new Error(stripHtml(await r.text()));
   return r.json() as Promise<T>;
 }
 
-/* ---------- unlocks ---------- */
-const SLOT_UNLOCK: Record<Slot, number> = {
-  helm: 5, shoulders: 8, chest: 10, gloves: 12, boots: 15,
-  ring: 18, wings: 22, pet: 24, sylph: 28, weapon: 1,
-};
-const PVP_UNLOCK = 25;
-
-/* ---------- BR ---------- */
-function clientBattleRating(m: Me): number {
-  if (typeof m.battleRating === "number") return m.battleRating;
-  return Math.max(0, m.power) + Math.max(0, m.defense) + Math.max(0, m.speed);
-}
-
 /* =========================================================
-   CLASS HELPERS (no gender)
+   CLASS HELPERS
    ========================================================= */
+const CLASS_KEY = "va_class";
+
 function getCurrentClass(): ClassId | null {
-  try {
-    const raw = localStorage.getItem(CLASS_KEY) as ClassId | null;
-    return raw || null;
-  } catch {
-    return null;
-  }
+  return (localStorage.getItem(CLASS_KEY) as ClassId | null) || null;
 }
 
 function getClassBaseAvatar(): string {
   const c = getCurrentClass();
   switch (c) {
-    case "warrior":
-      return "/guildbook/avatars/warrior/war_000.png";
-    case "shieldmaiden":
-      return "/guildbook/avatars/shieldmaiden/sm_000.png";
-    case "rune-mage":
-      return "/guildbook/avatars/rune-mage/rm_000.png";
-    case "berserker":
-      return "/guildbook/avatars/berserker/b_000.png";
-    case "hunter":
-      return "/guildbook/avatars/hunter/h_000.png";
-    default:
-      return "/guildbook/avatars/warrior/war_000.png";
+    case "warrior":      return "/guildbook/avatars/warrior/war_000.png";
+    case "shieldmaiden": return "/guildbook/avatars/shieldmaiden/sm_000.png";
+    case "rune-mage":    return "/guildbook/avatars/rune-mage/rm_000.png";
+    case "berserker":    return "/guildbook/avatars/berserker/b_000.png";
+    case "hunter":       return "/guildbook/avatars/hunter/h_000.png";
+    default:             return "/guildbook/avatars/warrior/war_000.png";
   }
 }
 
 /* =========================================================
-   HERO CARD ANIMATION (idle on <canvas id="heroCanvas">)
+   HERO CANVAS ANIMATION
    ========================================================= */
-
 const heroCanvas = document.getElementById("heroCanvas") as HTMLCanvasElement | null;
 const heroCtx = heroCanvas ? heroCanvas.getContext("2d") : null;
 
-type ClassAnimConfig = {
-  idle: string[]; // list of frame image URLs
-};
-
-// helper to generate frame paths like sm_000.png → sm_008.png
-function makeSeq(basePath: string, prefix: string, count: number): string[] {
-  const frames: string[] = [];
+function makeSeq(base: string, prefix: string, count: number) {
+  const arr: string[] = [];
   for (let i = 0; i < count; i++) {
-    const idx = String(i).padStart(3, "0");
-    frames.push(`${basePath}/${prefix}${idx}.png`);
+    arr.push(`${base}/${prefix}${String(i).padStart(3, "0")}.png`);
   }
-  return frames;
+  return arr;
 }
 
-// tweak counts if any class has a different number of idle frames
-const CLASS_ANIMS: Record<ClassId, ClassAnimConfig> = {
-  warrior: {
-    idle: makeSeq("/guildbook/avatars/warrior", "war_", 9),
-  },
-  shieldmaiden: {
-    idle: makeSeq("/guildbook/avatars/shieldmaiden", "sm_", 9),
-  },
-  "rune-mage": {
-    idle: makeSeq("/guildbook/avatars/rune-mage", "rm_", 9),
-  },
-  berserker: {
-    idle: makeSeq("/guildbook/avatars/berserker", "b_", 9),
-  },
-  hunter: {
-    idle: makeSeq("/guildbook/avatars/hunter", "h_", 9),
-  },
+const CLASS_ANIMS = {
+  warrior:      { idle: makeSeq("/guildbook/avatars/warrior",      "war_", 9) },
+  shieldmaiden: { idle: makeSeq("/guildbook/avatars/shieldmaiden", "sm_", 9) },
+  "rune-mage":  { idle: makeSeq("/guildbook/avatars/rune-mage",    "rm_", 9) },
+  berserker:    { idle: makeSeq("/guildbook/avatars/berserker",    "b_", 9) },
+  hunter:       { idle: makeSeq("/guildbook/avatars/hunter",       "h_", 9) },
 };
-
-function loadImg(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Failed to load " + src));
-    img.src = src;
-  });
-}
 
 let heroFrames: HTMLImageElement[] = [];
 let heroFrameIndex = 0;
 let heroLastTime = 0;
 const HERO_FPS = 8;
 
+function loadImg(src: string): Promise<HTMLImageElement> {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => rej();
+    img.src = src;
+  });
+}
+
 async function setupHeroAnim() {
   if (!heroCanvas || !heroCtx) return;
 
   const cls = getCurrentClass() || "warrior";
-  const cfg = CLASS_ANIMS[cls];
-  if (!cfg) return;
-
+  const paths = CLASS_ANIMS[cls].idle;
   try {
-    heroFrames = await Promise.all(cfg.idle.map(loadImg));
-  } catch (e) {
-    console.warn("Hero anim frames failed:", e);
-    return;
-  }
+    heroFrames = await Promise.all(paths.map(loadImg));
+  } catch {}
 
-  heroFrameIndex = 0;
   heroLastTime = 0;
+  heroFrameIndex = 0;
   requestAnimationFrame(heroAnimLoop);
 }
 
-function heroAnimLoop(timestamp: number) {
-  if (!heroCanvas || !heroCtx || heroFrames.length === 0) return;
+function heroAnimLoop(t: number) {
+  if (!heroCanvas || !heroCtx || !heroFrames.length) return;
+  if (!heroLastTime) heroLastTime = t;
 
-  if (!heroLastTime) heroLastTime = timestamp;
-  const delta = timestamp - heroLastTime;
-  if (delta > 1000 / HERO_FPS) {
+  if (t - heroLastTime > 1000 / HERO_FPS) {
     heroFrameIndex = (heroFrameIndex + 1) % heroFrames.length;
-    heroLastTime = timestamp;
+    heroLastTime = t;
   }
 
-  const ctx = heroCtx;
-  const canvas = heroCanvas;
   const img = heroFrames[heroFrameIndex];
+  heroCtx.clearRect(0, 0, heroCanvas.width, heroCanvas.height);
 
-  const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+  const scale = Math.min(heroCanvas.width / img.width, heroCanvas.height / img.height);
   const w = img.width * scale;
   const h = img.height * scale;
+  const x = (heroCanvas.width - w) / 2;
+  const y = heroCanvas.height - h;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  // feet near the bottom so they "stand" on the card
-  const x = (canvas.width - w) / 2;
-  const y = canvas.height - h;
-  ctx.drawImage(img, x, y, w, h);
-
+  heroCtx.drawImage(img, x, y, w, h);
   requestAnimationFrame(heroAnimLoop);
 }
 
 /* =========================================================
-   ARENA: render character + stats + slots
+   AVATAR & STATS RENDER
    ========================================================= */
+
+function clientBattleRating(m: Me): number {
+  return (m.power ?? 0) + (m.defense ?? 0) + (m.speed ?? 0);
+}
+
+function updateAvatar() {
+  const avatar = document.getElementById("avatar") as HTMLImageElement | null;
+  if (!avatar) return;
+
+  const base = getClassBaseAvatar();
+  avatar.src = base;
+}
+
+/* =========================================================
+   ARENA RENDER
+   ========================================================= */
+
 async function renderArena() {
   const m = state.me;
   if (!m) return;
@@ -337,140 +208,59 @@ async function renderArena() {
 
   const need = m.level * 100;
   safeSetText("xpVal", `${m.xp} / ${need}`);
+
   const xpBar = safeEl<HTMLSpanElement>("xpBar");
-  if (xpBar) xpBar.style.width = Math.min(100, Math.floor((m.xp / need) * 100)) + "%";
+  if (xpBar) xpBar.style.width = Math.min(100, (m.xp / need) * 100) + "%";
 
-  const slotBoxes = Array.from(document.querySelectorAll<HTMLDivElement>(".slot"));
-  for (const box of slotBoxes) {
-    const slot = box.dataset.slot as Slot;
-    const needed = SLOT_UNLOCK[slot];
-    const eqId = m.slots?.[slot];
+  safeSetText("battleRating", "BATTLE RATING " + clientBattleRating(m));
 
-    const label = (box.getAttribute("data-name") || slot || "").toUpperCase();
-    box.setAttribute("data-name", label);
-
-    if (m.level < needed) {
-      box.setAttribute("data-locked", "true");
-      box.setAttribute("data-req", `Lv ${needed}`);
-      box.innerHTML = '<span class="slot-box" aria-hidden="true"></span>';
-      continue;
-    } else {
-      box.removeAttribute("data-locked");
-      box.removeAttribute("data-req");
-    }
-
-    box.innerHTML = '<span class="slot-box" aria-hidden="true"></span>';
-    if (!eqId) continue;
-
-    const it = itemIndex[eqId] || itemCache.get(eqId);
-    if (!it) continue;
-
-    const img = document.createElement("img");
-    img.className = "slot-img";
-    img.src = resolveImg(it.imageUrl);
-    img.alt = it.name || slot;
-    box.appendChild(img);
-
-    const rarity = (it.rarity || "normal").toLowerCase();
-    const frameUrl = resolveImg(rarityFrame[rarity] || rarityFrame.normal);
-    const frame = document.createElement("img");
-    frame.className = "rarity-frame";
-    frame.src = frameUrl;
-    frame.alt = "";
-    box.appendChild(frame);
-  }
-
-  safeSetText("battleRating", `BATTLE RATING ${clientBattleRating(m)}`);
-
-  const fightBtn = safeEl<HTMLButtonElement>("fightRandom");
-  if (fightBtn) fightBtn.disabled = m.level < PVP_UNLOCK;
-
-  const hasPts = (m.points ?? 0) > 0;
-  allocButtonsEnabled(hasPts);
-
-  updateAvatar(m);
+  updateAvatar();
 }
 
-function hasFullSet(me: Me, setId: "drengr" | "skjaldmey") {
-  const need: Slot[] = ["weapon","helm","shoulders","chest","gloves","boots","ring","wings","pet","sylph"];
-  const slots = me.slots || {};
-  return need.every(s => (slots[s] || "").startsWith(setId + "-"));
-}
+/* =========================================================
+   ALLOCATION
+   ========================================================= */
 
-/**
- * Avatar now driven by CLASS + set:
- * - Base: picked class idle portrait
- * - Full Drengr set → boydrengr.png
- * - Full Skjaldmey set → girlskjaldmey.png
- */
-function updateAvatar(m: Me) {
-  const avatar = document.getElementById("avatar") as HTMLImageElement | null;
-  if (!avatar) return;
-
-  const baseSrc = getClassBaseAvatar();
-  let nextSrc = baseSrc;
-
-  if (hasFullSet(m, "drengr")) nextSrc = "/guildbook/boydrengr.png";
-  else if (hasFullSet(m, "skjaldmey")) nextSrc = "/guildbook/girlskjaldmey.png";
-
-  if (avatar.getAttribute("data-src") === nextSrc || avatar.src.endsWith(nextSrc)) return;
-
-  avatar.style.opacity = "0";
-  setTimeout(() => {
-    const done = () => { avatar.style.opacity = "1"; avatar.setAttribute("data-src", nextSrc); };
-    avatar.onload = done;
-    avatar.onerror = () => { avatar.src = baseSrc; done(); };
-    avatar.src = nextSrc;
-    try { localStorage.setItem("va_avatar_src", nextSrc); } catch {}
-  }, 60);
-}
-
-/* ---------- Allocation UI ---------- */
 let allocInput: HTMLInputElement | null = null;
-let btnAllocPow: HTMLButtonElement | null = null;
-let btnAllocDef: HTMLButtonElement | null = null;
-let btnAllocSpd: HTMLButtonElement | null = null;
+let btnPow: HTMLButtonElement | null = null;
+let btnDef: HTMLButtonElement | null = null;
+let btnSpd: HTMLButtonElement | null = null;
 
 function ensureAllocUI() {
-  const trainSpeedBtn = safeEl<HTMLButtonElement>("trainSpeed");
-  if (!trainSpeedBtn) return;
-  const row = trainSpeedBtn.closest(".row") as HTMLElement | null;
-  if (!row) return;
   if (document.getElementById("allocControls")) return;
+
+  const row = safeEl("trainSpeed")?.closest(".row") as HTMLElement | null;
+  if (!row) return;
 
   const wrap = document.createElement("div");
   wrap.id = "allocControls";
   wrap.className = "row";
   wrap.style.marginTop = "6px";
   wrap.innerHTML = `
-    <div class="muted">ALLOCATE<br>POINTS</div>
+    <div class="muted">ALLOC<br>PTS</div>
     <div style="display:flex;gap:8px;align-items:center">
       <input id="allocAmount" type="number" min="1" value="1"
-        style="width:70px;padding:6px;border-radius:8px;border:1px solid #3b3325;background:#0e1216;color:#d4a94d">
-      <button id="btnAllocPower">+ Power</button>
-      <button id="btnAllocDefense">+ Defense</button>
-      <button id="btnAllocSpeed">+ Speed</button>
+        style="width:60px;padding:6px;border-radius:8px;border:1px solid #3b3325;background:#0b0f12;color:#d4a94d">
+      <button id="allocPow">Power</button>
+      <button id="allocDef">Defense</button>
+      <button id="allocSpd">Speed</button>
     </div>
   `;
   row.after(wrap);
 
-  allocInput = document.getElementById("allocAmount") as HTMLInputElement;
-  btnAllocPow = document.getElementById("btnAllocPower") as HTMLButtonElement;
-  btnAllocDef = document.getElementById("btnAllocDefense") as HTMLButtonElement;
-  btnAllocSpd = document.getElementById("btnAllocSpeed") as HTMLButtonElement;
+  allocInput = safeEl("allocAmount");
+  btnPow = safeEl("allocPow");
+  btnDef = safeEl("allocDef");
+  btnSpd = safeEl("allocSpd");
 
-  btnAllocPow.onclick = () => allocate("power");
-  btnAllocDef.onclick = () => allocate("defense");
-  btnAllocSpd.onclick = () => allocate("speed");
+  btnPow!.onclick = () => allocate("power");
+  btnDef!.onclick = () => allocate("defense");
+  btnSpd!.onclick = () => allocate("speed");
 }
-function allocButtonsEnabled(enabled: boolean) {
-  btnAllocPow && (btnAllocPow.disabled = !enabled);
-  btnAllocDef && (btnAllocDef.disabled = !enabled);
-  btnAllocSpd && (btnAllocSpd.disabled = !enabled);
-}
+
 async function allocate(stat: "power"|"defense"|"speed") {
   if (!allocInput) return;
-  const amt = Math.max(1, Math.floor(Number(allocInput.value || "1")));
+  const amt = Math.max(1, Number(allocInput.value || "1"));
   try {
     const r = await api<ApiMe>("/api/game/allocate", {
       method: "POST",
@@ -478,404 +268,77 @@ async function allocate(stat: "power"|"defense"|"speed") {
     });
     state.me = r.me;
     await renderArena();
-
-    // keep quest HUD/widgets in sync on arena pages
-    try {
-      (window as any).VAQ?.renderHUD?.();
-      (window as any).__vaq_renderBoxes?.();
-    } catch {}
-
-    log(`Allocated ${amt} → ${stat}`, "ok");
-  } catch (err: any) {
-    log("Allocate error: " + err.message, "bad");
+    log(`Allocated ${amt} to ${stat}`, "ok");
+  } catch (e: any) {
+    log("Allocate error: " + e.message, "bad");
   }
-}
-
-/* ---------- RENAME ---------- */
-function hookRename() {
-  const btn = safeEl<HTMLButtonElement>("renameBtn");
-  if (!btn) return;
-  btn.onclick = async () => {
-    const current = state.me?.name || "";
-    const name = prompt("Enter your hero name:", current || "");
-    if (!name) return;
-    try {
-      const r = await api<ApiMe>("/api/game/rename", {
-        method: "POST",
-        body: JSON.stringify({ name }),
-      });
-      state.me = r.me;
-      await renderArena();
-    } catch (e: any) {
-      log("Rename error: " + e.message, "bad");
-    }
-  };
 }
 
 /* =========================================================
-   SHOP: tabs + render + buys (class-locked sets)
+   TRAINING
    ========================================================= */
 
-const shopBox = document.getElementById("shop");
-const goldEl  = document.getElementById("gold");
-const brWrap  = document.getElementById("brBalance");
-const brIcon  = document.getElementById("brIcon") as HTMLImageElement | null;
-const brCount = document.getElementById("brCount");
-brIcon?.addEventListener("error", () => { (brIcon as HTMLImageElement).src = "/guildbook/Currency/Brisingr.png"; });
+const cooldowns: Record<"power"|"defense"|"speed", number> = { power:0, defense:0, speed:0 };
 
-function onShopPage(): boolean { return !!shopBox; }
+async function train(stat: "power"|"defense"|"speed") {
+  const now = Date.now();
+  if (now < cooldowns[stat]) return;
 
-// class-lock rules:
-//   drengr    → Warrior-only
-//   skjaldmey → Shieldmaiden-only
-function classMismatch(item: ShopItem): boolean {
-  const cls = getCurrentClass();
-  if (!item.set || !cls) return false;
-
-  if (item.set === "drengr")    return cls !== "warrior";
-  if (item.set === "skjaldmey") return cls !== "shieldmaiden";
-
-  return false;
-}
-
-function classLockLabel(setId?: string): string {
-  if (!setId) return "";
-  if (setId === "drengr") return " (Warrior-only)";
-  if (setId === "skjaldmey") return " (Shieldmaiden-only)";
-  return "";
-}
-
-function currentItems(): ShopItem[] {
-  if (state.activeTab === "brisingr") return state.brisingrItems;
-  if (state.activeTab === "all")      return state.goldItems;
-  return state.goldItems.filter(i => i.slot === state.activeTab);
-}
-function tooltipHTML(item: ShopItem) {
-  const rarity = (item.rarity || "normal");
-  const stat = `+${item.boost} ${item.stat}`;
-  const setTag = item.set ? ` <span style="opacity:.8">[${item.set}]</span>` : "";
-  const slot = item.slot ? item.slot : "unknown";
-  return `
-    <div style="font-weight:900;margin-bottom:6px">${item.name}${setTag} <span style="opacity:.8">(${rarity})</span></div>
-    <div style="display:flex;justify-content:space-between"><span>Slot</span><span style="opacity:.85">${String(slot).toUpperCase()}</span></div>
-    <div style="display:flex;justify-content:space-between"><span>Stats</span><span style="opacity:.85">${stat}</span></div>
-  `;
-}
-function renderShop() {
-  if (!onShopPage()) return;
-  const me = state.me!;
-  const items = currentItems();
-  const equipped = new Set(Object.values(me?.slots || {}));
-  (shopBox as HTMLElement).innerHTML = "";
-  const onBr = state.activeTab === "brisingr";
-  brWrap && brWrap.classList.toggle("show", onBr);
-
-  for (const item of items) {
-    if (equipped.has(item.id)) continue;
-
-    const locked = !!(item.levelReq && me.level < item.levelReq);
-    const cMismatch = classMismatch(item);
-    const disabled = locked || cMismatch;
-    const reason = cMismatch ? "Class-locked" : (locked ? "Locked" : "Buy");
-
-    const rarity = (item.rarity || "normal").toLowerCase();
-    const frameUrl = resolveImg(rarityFrame[rarity] || rarityFrame.normal);
-
-    const line = document.createElement("div");
-    line.className = "shop-item";
-    line.innerHTML = `
-      <div class="shop-left">
-        <span class="shop-thumb">
-          <img class="shop-img" src="${item.imageUrl || ""}" alt="${item.name}">
-          <img class="shop-frame ${onBr ? "shop-frame--diamond" : ""}" src="${frameUrl}" alt="">
-        </span>
-        <div>
-          <div class="shop-title">
-            ${item.name}
-            ${item.slot ? ` <span style="opacity:.8">[${String(item.slot).toUpperCase()}]</span>` : ""}
-            ${item.levelReq ? ` <span style="opacity:.8">(Lv ${item.levelReq}+)</span>` : ""}
-            ${classLockLabel(item.set)}
-          </div>
-          <div class="shop-sub">+${item.boost} ${item.stat}</div>
-        </div>
-      </div>
-      <div class="shop-right">
-        <div class="shop-price">
-          ${
-            onBr
-              ? `<img class="br-icon" src="/guildbook/Currency/Br%C3%ADsingr.png" onerror="this.src='/guildbook/Currency/Brisingr.png'"><span>${item.costDiamonds ?? item.costDiamond ?? item.cost ?? 0}</span>`
-              : `<img class="gold-icon" src="/guildbook/Currency/gold-coin.png" alt="g" onerror="this.style.display='none'"><span>${item.cost}g</span>`
-          }
-        </div>
-        <button data-id="${item.id}" ${disabled ? "disabled" : ""}>${reason}</button>
-      </div>
-    `;
-
-    // TS-safe listeners
-    line.addEventListener("mouseenter", (ev) => {
-      const meEvt = ev as MouseEvent;
-      tipShow(meEvt.clientX, meEvt.clientY, tooltipHTML(item));
-    });
-    line.addEventListener("mousemove",  (ev) => tipMove(ev as MouseEvent));
-    line.addEventListener("mouseleave", () => tipHide());
-
-    (shopBox as HTMLElement).appendChild(line);
-  }
-}
-function hookShopTabs() {
-  if (!onShopPage()) return;
-  const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>(".tab-btn"));
-  if (!tabs.length) return;
-  tabs.forEach(btn => {
-    btn.addEventListener("click", () => {
-      tabs.forEach(b => b.setAttribute("aria-selected", "false"));
-      btn.setAttribute("aria-selected", "true");
-      state.activeTab = (btn.dataset.tab as any) || "all";
-      renderShop();
-    });
-  });
-}
-async function refreshShopLists() {
+  cooldowns[stat] = now + 3000;
   try {
-    const meRes = await api<ApiMe>("/api/game/me"); state.me = meRes.me;
-    const shopRes = await api<ApiShop>("/api/game/shop"); state.goldItems = shopRes.items || [];
-    try {
-      const r = await api<ApiShop>("/api/game/brisingr-shop");
-      state.brisingrItems = r.items || [];
-    } catch {
-      state.brisingrItems = [];
-    }
-  } catch {}
-  renderShop();
-}
-function hookShopBuy() {
-  if (!onShopPage() || !shopBox) return;
-  shopBox.addEventListener("click", async (ev) => {
-    const btn = (ev.target as HTMLElement).closest("button") as HTMLButtonElement | null;
-    if (!btn || btn.disabled) return;
-    const id = btn.getAttribute("data-id");
-    if (!id) return;
-    btn.disabled = true;
-
-    try {
-      if (state.activeTab === "brisingr") {
-        const res = await api<ApiMe>("/api/game/brisingr/buy", {
-          method: "POST",
-          body: JSON.stringify({ itemId: id }),
-        });
-        state.me = res.me || state.me;
-        updateBalancesUI();
-        await refreshShopLists();
-      } else {
-        const res = await api<ApiMe>("/api/game/shop/buy", {
-          method: "POST",
-          body: JSON.stringify({ itemId: id }),
-        });
-        state.me = res.me;
-        updateBalancesUI();
-        await refreshShopLists();
-      }
-    } catch (e:any) {
-      alert(String(e?.message || e));
-    } finally {
-      btn.disabled = false;
-    }
-  }, { passive: true });
-}
-function updateBalancesUI() {
-  if (!onShopPage()) return;
-  const m = state.me!;
-  if (goldEl) goldEl.textContent = String(m.gold ?? 0);
-  const br = (m.brisingr ?? m.diamonds ?? 0) as number;
-  if (brCount) brCount.textContent = String(br);
+    const r = await api<ApiMe>("/api/game/train", {
+      method: "POST",
+      body: JSON.stringify({ stat }),
+    });
+    state.me = r.me;
+    await renderArena();
+    log(`Trained ${stat}`, "ok");
+  } catch (e: any) {
+    log("Train error: " + e.message, "bad");
+  }
 }
 
 /* =========================================================
-   BOOTSTRAP
+   GLOBAL STATE (shop removed)
    ========================================================= */
+
+const state = {
+  me: null as Me | null,
+};
+
+/* =========================================================
+   BOOTSTRAP (no shop calls)
+   ========================================================= */
+
 async function boot() {
-  if (!userId) {
-    log("No user found. Open profile/login first or add ?user=<id> to the URL.", "bad");
-    return;
-  }
+  if (!userId) return log("No user found.", "bad");
 
   const meRes = await api<ApiMe>("/api/game/me");
   state.me = meRes.me;
 
-  await preloadItemIndex();
-
-  // no genderPick – class comes from classpick page
-
   ensureAllocUI();
-  hookRename();
-
-  const btnTrainPow = safeEl<HTMLButtonElement>("trainPower");
-  const btnTrainDef = safeEl<HTMLButtonElement>("trainDefense");
-  const btnTrainSpd = safeEl<HTMLButtonElement>("trainSpeed");
-  const btnTick     = safeEl<HTMLButtonElement>("tickNow");
-  const btnFight    = safeEl<HTMLButtonElement>("fightRandom");
-
-  btnTrainPow && (btnTrainPow.onclick = () => train("power"));
-  btnTrainDef && (btnTrainDef.onclick = () => train("defense"));
-  btnTrainSpd && (btnTrainSpd.onclick = () => train("speed"));
-  btnTick     && (btnTick.onclick = async () => {
-    try {
-      const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
-      state.me = r.me; await renderArena(); log("Idle tick processed");
-    } catch (e:any) { log("Tick error: " + e.message, "bad"); }
-  });
-  btnFight && (btnFight.onclick = async () => {
-    try {
-      const r = await api<FightResult>("/api/pvp/fight", {
-        method: "POST",
-        body: JSON.stringify({ mode: "random" })
-      });
-      state.me = r.me; await renderArena();
-      log(`${r.result.win ? "Victory!" : "Defeat."} vs ${r.result.opponent.name} ΔGold ${r.result.deltaGold}, ΔXP ${r.result.deltaXP}`);
-    } catch (err: any) { log("Fight error: " + err.message, "bad"); }
-  });
-
-  if (onShopPage()) {
-    updateBalancesUI();
-    try {
-      const shopRes = await api<ApiShop>("/api/game/shop");
-      state.goldItems = shopRes.items || [];
-    } catch { state.goldItems = []; }
-    try {
-      const br = await api<ApiShop>("/api/game/brisingr-shop");
-      state.brisingrItems = br.items || [];
-    } catch { state.brisingrItems = []; }
-    hookShopTabs();
-    hookShopBuy();
-    renderShop();
-  }
-
+  updateAvatar();
   await renderArena();
-  // start animated idle avatar on the hero canvas (if present)
-  setupHeroAnim();
 
+  // Wiring
+  safeEl("trainPower")?.addEventListener("click", () => train("power"));
+  safeEl("trainDefense")?.addEventListener("click", () => train("defense"));
+  safeEl("trainSpeed")?.addEventListener("click", () => train("speed"));
+
+  // Idle tick every 10s
   setInterval(async () => {
     try {
       const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
       state.me = r.me;
-      updateBalancesUI();
       await renderArena();
-      if (onShopPage()) renderShop();
     } catch {}
   }, 10000);
+
+  setupHeroAnim();
 }
 
-/* ---------- training ---------- */
-const cooldowns: Record<"power"|"defense"|"speed", number> = { power: 0, defense: 0, speed: 0 };
-async function train(stat: "power"|"defense"|"speed") {
-  const now = Date.now();
-  if (now < cooldowns[stat]) return;
-  cooldowns[stat] = now + 3000;
-  try {
-    const r = await api<ApiMe>("/api/game/train", { method: "POST", body: JSON.stringify({ stat }) });
-    state.me = r.me; await renderArena(); log(`Trained ${stat} (+1)`, "ok");
-  } catch (err: any) { log("Train error: " + err.message, "bad"); }
-}
-
-/* ---------- start ---------- */
 boot().catch(e => log(e.message, "bad"));
 
-/* =========================================================
-   Dev console helpers
-   ========================================================= */
-(() => {
-  const DEV_KEY = localStorage.getItem("DEV_KEY") || "valhalla-dev";
-  const initialUid = userId;
-
-  async function call<T = any>(path: string, body?: any): Promise<T> {
-    const activeUser = initialUid || getUserId();
-    if (!activeUser) throw new Error("No user (log in first).");
-    const r = await fetch(apiBase + path, {
-      method: body ? "POST" : "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": activeUser,
-        "x-dev-key": DEV_KEY,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  }
-
-  const dev = {
-    me: () => call("/api/dev/me"),
-    reset: () => call("/api/dev/reset"),
-    setKey: (k: string) => { localStorage.setItem("DEV_KEY", k); (dev as any)._key = k; return "✅ DEV_KEY set"; },
-    _key: DEV_KEY,
-
-    level: (n: number) => call("/api/dev/level", { level: n }),
-    gold: (nOrOpts: number | { add?: number; set?: number }) =>
-      typeof nOrOpts === "number"
-        ? call("/api/dev/gold", { add: nOrOpts })
-        : call("/api/dev/gold", nOrOpts),
-    xp: (add: number) => call("/api/dev/xp", { add }),
-    points: (add: number) => call("/api/dev/points", { add }),
-
-    brisingr: (nOrOpts: number | { add?: number; set?: number }) =>
-      typeof nOrOpts === "number"
-        ? call("/api/dev/brisingr", { add: nOrOpts })
-        : call("/api/dev/brisingr", nOrOpts),
-
-    item: (id: string) => call("/api/dev/item", { itemId: id }),
-    slots: (slots: Record<string, string>) => call("/api/dev/slots", { slots }),
-    equipSet: (setId: string) => call("/api/dev/equip-set", { setId }),
-    drengr: () => call("/api/dev/drengr"),
-
-    maxOut: async () => { await dev.level(30); await dev.gold({ set: 9999 }); await dev.points(300); await dev.brisingr({ set: 9999 }); return dev.me(); },
-    rich: () => dev.gold({ add: 10000 }),
-    bless: () => dev.points(100),
-    ascend: () => dev.level(50),
-
-    helm: (id = "drengr-helm") => dev.item(id),
-    chest: (id = "drengr-chest") => dev.item(id),
-    weapon: (id = "drengr-weapon") => dev.item(id),
-
-    nukeBag: () => {
-      const uid = (getUserId && getUserId()) || "guest";
-      const prefixes = [`va_bag__${uid}`, `va_inventory__${uid}`, `va_inv__${uid}`];
-      for (const key of prefixes) { try { localStorage.removeItem(key); } catch {} }
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const k = localStorage.key(i);
-        if (k && prefixes.some(p => k.startsWith(p))) { localStorage.removeItem(k); }
-      }
-      return "🧹 Bag inventory cleared.";
-    },
-    bagList: () => {
-      const uid = (getUserId && getUserId()) || "guest";
-      const out: Record<string, any> = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.includes(`__${uid}`) && (k.includes("va_bag") || k.includes("va_inv")))) {
-          try { out[k] = JSON.parse(localStorage.getItem(k) || ""); }
-          catch { out[k] = localStorage.getItem(k); }
-        }
-      }
-      return out;
-    },
-  };
-
-  (window as any).dev = dev;
-
-  console.log("%cwindow.dev ready!", "color:#39ff14");
-  console.log(`
-🛠️ Dev Console Commands:
-- dev.me() → see your stats
-- dev.level(25), dev.gold(1000), dev.points(50)
-- dev.brisingr(500) → add 500 Brísingr
-- dev.item("drengr-helm") → instantly equip
-- dev.equipSet("skjaldmey") → full set
-- dev.maxOut() → god mode
-- dev.reset() → wipe state
-- dev.nukeBag() → clear bag inventory
-- dev.bagList() → inspect stored bag keys
-`);
-})();
 
 
 
