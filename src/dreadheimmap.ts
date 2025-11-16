@@ -23,6 +23,13 @@ const HERO_RIGHT_URLS = Array.from({ length: 9 }, (_, i) =>
 );
 
 //////////////////////////////
+// Bat animation frame URLs (pretty animated bat)
+//////////////////////////////
+const BAT_FRAME_URLS = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/enemies/dreadheimbat/fly_${i.toString().padStart(3, "0")}.png`
+);
+
+//////////////////////////////
 // Assets / Config
 //////////////////////////////
 const ASSETS = {
@@ -34,9 +41,6 @@ const ASSETS = {
       : "/guildbook/avatars/dreadheim-warrior.png",
   boar: "/guildbook/avatars/enemies/diseasedboar.png",
   meat: "/guildbook/loot/infectedboarmeat.png",
-  bat1: "/guildbook/avatars/enemies/dreadheimbat.png",
-  bat2: "/guildbook/avatars/enemies/dreadheimbat2.png",
-  bat3: "/guildbook/avatars/enemies/dreadheimbat3.png",
 } as const;
 
 // Edge exits
@@ -139,7 +143,8 @@ type Bat = {
   maxSpeed: number; wanderTheta: number; wanderJitter: number; wanderRadius: number;
 };
 
-const BAT_SIZE = 30;
+// make bats a bit bigger so they show nicely
+const BAT_SIZE = 96;
 const FLOCK_COUNT = 9;
 const bats: Bat[] = [];
 
@@ -160,7 +165,7 @@ function spawnBat() {
     x, y, w: BAT_SIZE, h: BAT_SIZE,
     vx, vy,
     dir: vx >= 0 ? 1 : -1,
-    frame: 0, lastFrame: 0, frameDelay: randi(90, 140),
+    frame: 0, lastFrame: 0, frameDelay: randi(70, 120),
     maxSpeed: 2.0,
     wanderTheta: rand(0, Math.PI * 2),
     wanderJitter: 0.12,
@@ -401,8 +406,8 @@ function step() {
   for (let i = 0; i < bats.length; i++) {
     const b = bats[i];
 
-    if (batFrames.length === 3 && now - b.lastFrame > b.frameDelay) {
-      b.frame = (b.frame + 1) % 3;
+    if (batFrames.length && now - b.lastFrame > b.frameDelay) {
+      b.frame = (b.frame + 1) % batFrames.length;
       b.lastFrame = now;
     }
 
@@ -455,9 +460,9 @@ function render() {
   if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
 
   // bats behind the hero
-  if (batFrames.length === 3) {
+  if (batFrames.length) {
     for (const b of bats) {
-      const img = batFrames[b.frame];
+      const img = batFrames[b.frame % batFrames.length];
       ctx.save();
       if (b.dir < 0) {
         ctx.translate(b.x + b.w / 2, b.y + b.h / 2);
@@ -563,25 +568,26 @@ Promise.all([
   load(ASSETS.bg),
   load(ASSETS.boar),
   load(ASSETS.meat),
-  load(ASSETS.bat1),
-  load(ASSETS.bat2),
-  load(ASSETS.bat3),
+  ...BAT_FRAME_URLS.map(load),
   ...HERO_IDLE_URLS.map(load),
   ...HERO_LEFT_URLS.map(load),
   ...HERO_RIGHT_URLS.map(load),
 ])
   .then((imgs) => {
-    const baseCount = 6; // bg, boar, meat, bat1, bat2, bat3
-    bg = imgs[0];
-    boarImg = imgs[1];
-    meatImg = imgs[2];
-    batFrames = [imgs[3], imgs[4], imgs[5]];
+    let idx = 0;
+    bg = imgs[idx++];
+    boarImg = imgs[idx++];
+    meatImg = imgs[idx++];
+
+    const batCount = BAT_FRAME_URLS.length;
+    batFrames = imgs.slice(idx, idx + batCount);
+    idx += batCount;
 
     const idleCount = HERO_IDLE_URLS.length;
     const leftCount = HERO_LEFT_URLS.length;
     const rightCount = HERO_RIGHT_URLS.length;
 
-    const heroImgs = imgs.slice(baseCount);
+    const heroImgs = imgs.slice(idx);
     heroIdleFrames = heroImgs.slice(0, idleCount);
     heroLeftFrames = heroImgs.slice(idleCount, idleCount + leftCount);
     heroRightFrames = heroImgs.slice(idleCount + leftCount, idleCount + leftCount + rightCount);
@@ -621,6 +627,7 @@ Promise.all([
   addEventListener("focus", nukeBadge);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) nukeBadge(); });
 })();
+
 
 
 
