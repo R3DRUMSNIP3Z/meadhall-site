@@ -22,20 +22,37 @@ type ClassSpec = {
   stats: ClassStats;
 };
 
-const CLASS_KEY = "va_class";
-const CLASS_NAME_KEY = "va_class_name";
-const HERO_NAME_KEY = "va_hero_name";
+// ---- user-scoped keys (match global-game-setup pattern) ----
 
-/* -------- helpers -------- */
+function getScopedUserId(): string | null {
+  try {
+    const raw = localStorage.getItem("mh_user");
+    if (raw) {
+      const obj = JSON.parse(raw);
+      return obj?.id || obj?._id || obj?.user?.id || null;
+    }
+  } catch {}
 
-function getUserIdFromQuery(): string | null {
   try {
     const p = new URLSearchParams(window.location.search);
     return p.get("user");
   } catch {
-    return null;
+    // ignore
   }
+  return null;
 }
+
+const UID = getScopedUserId() || "guest";
+
+const CLASS_KEY_BASE = "va_class";
+const CLASS_NAME_KEY_BASE = "va_class_name";
+const HERO_NAME_KEY_BASE = "va_hero_name";
+const LAST_LOC_KEY_BASE = "va_last_location";
+
+const CLASS_KEY = `${CLASS_KEY_BASE}__${UID}`;
+const CLASS_NAME_KEY = `${CLASS_NAME_KEY_BASE}__${UID}`;
+const HERO_NAME_KEY = `${HERO_NAME_KEY_BASE}__${UID}`;
+const LAST_LOC_KEY = `${LAST_LOC_KEY_BASE}__${UID}`;
 
 /* -------- frame lists (9 each) -------- */
 
@@ -255,19 +272,40 @@ btnSelect?.addEventListener("click", () => {
     console.warn("Could not save class/hero selection:", err);
   }
 
-  const uid = getUserIdFromQuery();
-  const qs = uid ? `?user=${encodeURIComponent(uid)}` : "";
-
-  // First game scene
+  // After picking, go to the first game scene.
+  // Next time, they will be sent to LAST_LOC_KEY instead.
+  const qs = window.location.search || "";
   window.location.href = `/game.html${qs}`;
 });
 
 /* -------- init -------- */
 
 function init() {
+  // 🔒 1. If this user ALREADY has a class, skip this screen
+  let existingClass = "";
+  try {
+    existingClass =
+      localStorage.getItem(CLASS_KEY) ||
+      localStorage.getItem(CLASS_KEY_BASE) || // old global key, just in case
+      "";
+  } catch {}
+
+  if (existingClass) {
+    try {
+      const last = localStorage.getItem(LAST_LOC_KEY) || "/game.html";
+      const url = last.startsWith("/") ? last : `/game.html`;
+      window.location.href = url + (window.location.search || "");
+      return;
+    } catch {
+      window.location.href = `/game.html${window.location.search || ""}`;
+      return;
+    }
+  }
+
+  // 🔓 No class yet → show the picker
   buildTabs();
 
-  // Pre-fill hero name if they came back
+  // Pre-fill hero name if they came back and typed something before
   try {
     const saved = localStorage.getItem(HERO_NAME_KEY);
     if (heroNameInput && saved) heroNameInput.value = saved;
@@ -278,6 +316,7 @@ function init() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
 
 
 

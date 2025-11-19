@@ -23,6 +23,20 @@ function __vaq_getUserId(): string | null {
 }
 const __UID = __vaq_getUserId() || "guest";
 const __userKey = (base: string) => `${base}__${__UID}`;
+// Remember last visited VA page per user (used by class picker to resume)
+const LAST_LOC_KEY_BASE = "va_last_location";
+const LAST_LOC_KEY = __userKey(LAST_LOC_KEY_BASE);
+
+(function __rememberLastLocation() {
+  try {
+    // Store path + query, e.g. "/dreadheimmap.html?user=123"
+    const where = window.location.pathname + window.location.search;
+    localStorage.setItem(LAST_LOC_KEY, where);
+  } catch {
+    // ignore
+  }
+})();
+
 
 /* =========================================================
    CLASS + UNIVERSAL HERO SPRITE (no gender)
