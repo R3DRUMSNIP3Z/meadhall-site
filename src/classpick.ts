@@ -47,12 +47,31 @@ const UID = getScopedUserId() || "guest";
 const CLASS_KEY_BASE = "va_class";
 const CLASS_NAME_KEY_BASE = "va_class_name";
 const HERO_NAME_KEY_BASE = "va_hero_name";
-const LAST_LOC_KEY_BASE = "va_last_location";
 
 const CLASS_KEY = `${CLASS_KEY_BASE}__${UID}`;
 const CLASS_NAME_KEY = `${CLASS_NAME_KEY_BASE}__${UID}`;
 const HERO_NAME_KEY = `${HERO_NAME_KEY_BASE}__${UID}`;
-const LAST_LOC_KEY = `${LAST_LOC_KEY_BASE}__${UID}`;
+
+// Global “last visited scene” (set from game.ts, maps, etc.)
+const LAST_SCENE_KEY = "va_last_scene";
+
+function getLastScene(): string {
+  try {
+    const p = localStorage.getItem(LAST_SCENE_KEY);
+    if (p && p.startsWith("/")) return p;
+  } catch {}
+  // Fallback if nothing saved yet
+  return "/game.html";
+}
+
+// Small migration: if old unscoped class exists, copy to scoped key
+(function migrateClassKey() {
+  try {
+    if (!localStorage.getItem(CLASS_KEY) && localStorage.getItem(CLASS_KEY_BASE)) {
+      localStorage.setItem(CLASS_KEY, localStorage.getItem(CLASS_KEY_BASE) as string);
+    }
+  } catch {}
+})();
 
 /* -------- frame lists (9 each) -------- */
 
@@ -265,15 +284,21 @@ btnSelect?.addEventListener("click", () => {
   const heroName = rawName || currentClass.name;
 
   try {
+    // Per-user keys
     localStorage.setItem(CLASS_KEY, currentClass.id);
     localStorage.setItem(CLASS_NAME_KEY, currentClass.name);
     localStorage.setItem(HERO_NAME_KEY, heroName);
+
+    // Also keep the old unscoped keys around for any legacy code
+    localStorage.setItem(CLASS_KEY_BASE, currentClass.id);
+    localStorage.setItem(CLASS_NAME_KEY_BASE, currentClass.name);
+    localStorage.setItem(HERO_NAME_KEY_BASE, heroName);
   } catch (err) {
     console.warn("Could not save class/hero selection:", err);
   }
 
-  // After picking, go to the first game scene.
-  // Next time, they will be sent to LAST_LOC_KEY instead.
+  // After picking, go to the arena for the first time.
+  // Later, returning to the site will use va_last_scene instead.
   const qs = window.location.search || "";
   window.location.href = `/game.html${qs}`;
 });
@@ -281,33 +306,28 @@ btnSelect?.addEventListener("click", () => {
 /* -------- init -------- */
 
 function init() {
-  // 🔒 1. If this user ALREADY has a class, skip this screen
-  let existingClass = "";
+  // --- If a class is already picked, skip this page ---
   try {
-    existingClass =
-      localStorage.getItem(CLASS_KEY) ||
-      localStorage.getItem(CLASS_KEY_BASE) || // old global key, just in case
-      "";
+    const existing =
+      (localStorage.getItem(CLASS_KEY) as ClassId | null) ||
+      (localStorage.getItem(CLASS_KEY_BASE) as ClassId | null);
+
+    if (existing) {
+      const dest = getLastScene();          // where you last were
+      const qs = window.location.search || ""; // preserve ?user=...
+      window.location.href = dest + qs;
+      return; // don't build UI
+    }
   } catch {}
 
-  if (existingClass) {
-    try {
-      const last = localStorage.getItem(LAST_LOC_KEY) || "/game.html";
-      const url = last.startsWith("/") ? last : `/game.html`;
-      window.location.href = url + (window.location.search || "");
-      return;
-    } catch {
-      window.location.href = `/game.html${window.location.search || ""}`;
-      return;
-    }
-  }
-
-  // 🔓 No class yet → show the picker
+  // --- Normal first-time setup ---
   buildTabs();
 
-  // Pre-fill hero name if they came back and typed something before
+  // Pre-fill hero name if they somehow came back before class was saved
   try {
-    const saved = localStorage.getItem(HERO_NAME_KEY);
+    const saved =
+      localStorage.getItem(HERO_NAME_KEY) ||
+      localStorage.getItem(HERO_NAME_KEY_BASE);
     if (heroNameInput && saved) heroNameInput.value = saved;
   } catch {}
 
@@ -316,6 +336,7 @@ function init() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
 
 
 

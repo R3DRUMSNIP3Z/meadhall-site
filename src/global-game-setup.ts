@@ -106,6 +106,19 @@ const VAQ_KEY  = __userKey(VAQ_KEY_BASE);
 const RACE_KEY = __userKey(RACE_KEY_BASE);
 const VARS_KEY = __userKey(VARS_KEY_BASE);
 
+const LAST_SCENE_KEY = "va_last_scene";
+
+(function __rememberScene() {
+  try {
+    const path = location.pathname || "/";
+    // Don’t save ClassPick / auth pages as the “last scene”
+    if (!/classpick/i.test(path) && !/login|signin|signup/i.test(path)) {
+      localStorage.setItem(LAST_SCENE_KEY, path);
+    }
+  } catch {}
+})();
+
+
 // One-time migration from old global keys → user-scoped
 (function __migrateKeys(){
   try {

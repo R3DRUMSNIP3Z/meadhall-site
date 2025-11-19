@@ -28,6 +28,16 @@ type Me = {
 };
 
 type ApiMe = { me: Me };
+const HERO_NAME_KEY = "va_hero_name";
+
+function getHeroNameFromLocal(me: Me | null): string {
+  try {
+    const raw = localStorage.getItem(HERO_NAME_KEY);
+    if (raw && raw.trim()) return raw.trim();
+  } catch {}
+  return (me?.name && me.name.trim()) || "Unknown";
+}
+
 
 /* ---------- config ---------- */
 const apiBase =
@@ -206,7 +216,11 @@ async function renderArena() {
   const m = state.me;
   if (!m) return;
 
-  safeSetText("heroName", m.name || "Unknown");
+  const heroName = getHeroNameFromLocal(m);
+safeSetText("heroName", heroName);
+
+// keep state.me.name in sync so Dev tools / backend see it
+m.name = heroName;
   safeSetText("level", String(m.level));
   safeSetText("gold", String(m.gold));
   safeSetText("strength", String(m.power));
