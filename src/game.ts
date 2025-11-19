@@ -343,7 +343,6 @@ function stopIdleTick() {
    ========================================================= */
 
 (function installDevTools() {
-  // small bail-out if you ever want to disable dev in prod
   const DEV_FLAG = true;
   if (!DEV_FLAG) return;
 
@@ -452,6 +451,61 @@ function stopIdleTick() {
     log("/where (show path + last_location key)", "ok");
   }
 
+  // --- shared helpers so VADev & text console use same logic ---
+  function devSet(statKey: string, value: number) {
+    if (!state.me) { log("No hero loaded yet.", "bad"); return; }
+    const field = (statKey || "").toLowerCase();
+    const map: Record<string, keyof Me> = {
+      gold: "gold",
+      level: "level",
+      xp: "xp",
+      points: "points",
+      pow: "power",
+      power: "power",
+      def: "defense",
+      defense: "defense",
+      spd: "speed",
+      speed: "speed",
+      bris: "brisingr",
+      brisingr: "brisingr",
+      dia: "diamonds",
+      diamonds: "diamonds",
+    };
+    const key = map[field];
+    if (!key) {
+      log("Unknown stat. Use gold, level, xp, points, power, defense, speed, brisingr, diamonds.", "bad");
+      return;
+    }
+    devSetLocalStat(key, value);
+  }
+
+  function devAdd(statKey: string, delta: number) {
+    if (!state.me) { log("No hero loaded yet.", "bad"); return; }
+    const field = (statKey || "").toLowerCase();
+    const map: Record<string, keyof Me> = {
+      gold: "gold",
+      level: "level",
+      xp: "xp",
+      points: "points",
+      pow: "power",
+      power: "power",
+      def: "defense",
+      defense: "defense",
+      spd: "speed",
+      speed: "speed",
+      bris: "brisingr",
+      brisingr: "brisingr",
+      dia: "diamonds",
+      diamonds: "diamonds",
+    };
+    const key = map[field];
+    if (!key) {
+      log("Unknown stat. Use gold, level, xp, points, power, defense, speed, brisingr, diamonds.", "bad");
+      return;
+    }
+    devAddLocalStat(key, delta);
+  }
+
   function handleDevCommand(raw: string) {
     const txt = raw.trim();
     if (!txt) return;
@@ -473,70 +527,22 @@ function stopIdleTick() {
         break;
 
       case "set": {
-        const field = (arg1 || "").toLowerCase();
         const val = Number(arg2);
-        if (!field || Number.isNaN(val)) {
+        if (!arg1 || Number.isNaN(val)) {
           log("Usage: /set gold 99999", "bad");
           break;
         }
-        if (!state.me) { log("No hero loaded yet.", "bad"); break; }
-
-        const map: Record<string, keyof Me> = {
-          gold: "gold",
-          level: "level",
-          xp: "xp",
-          points: "points",
-          pow: "power",
-          power: "power",
-          def: "defense",
-          defense: "defense",
-          spd: "speed",
-          speed: "speed",
-          bris: "brisingr",
-          brisingr: "brisingr",
-          dia: "diamonds",
-          diamonds: "diamonds",
-        };
-        const key = map[field];
-        if (!key) {
-          log("Unknown stat. Use gold, level, xp, points, power, defense, speed, brisingr, diamonds.", "bad");
-          break;
-        }
-        devSetLocalStat(key, val);
+        devSet(arg1, val);
         break;
       }
 
       case "add": {
-        const field = (arg1 || "").toLowerCase();
         const delta = Number(arg2);
-        if (!field || Number.isNaN(delta)) {
+        if (!arg1 || Number.isNaN(delta)) {
           log("Usage: /add gold 5000", "bad");
           break;
         }
-        if (!state.me) { log("No hero loaded yet.", "bad"); break; }
-
-        const map: Record<string, keyof Me> = {
-          gold: "gold",
-          level: "level",
-          xp: "xp",
-          points: "points",
-          pow: "power",
-          power: "power",
-          def: "defense",
-          defense: "defense",
-          spd: "speed",
-          speed: "speed",
-          bris: "brisingr",
-          brisingr: "brisingr",
-          dia: "diamonds",
-          diamonds: "diamonds",
-        };
-        const key = map[field];
-        if (!key) {
-          log("Unknown stat. Use gold, level, xp, points, power, defense, speed, brisingr, diamonds.", "bad");
-          break;
-        }
-        devAddLocalStat(key, delta);
+        devAdd(arg1, delta);
         break;
       }
 
@@ -602,6 +608,56 @@ function stopIdleTick() {
     }
   });
 
+  // --- Expose VADev in the browser console ---
+  const VADev = {
+    help: devHelp,
+    set: devSet,
+    add: devAdd,
+    class: devSetClass,
+    resetClass: devResetClass,
+    resetQuests: devResetQuests,
+    tick(mode: "on" | "off") {
+      if (mode === "off") {
+        stopIdleTick();
+        log("Dev: idle tick stopped via VADev.tick().", "ok");
+      } else {
+        startIdleTick();
+        log("Dev: idle tick started via VADev.tick().", "ok");
+      }
+    },
+    where: devWhere,
+  };
+
+  (window as any).VADev = VADev;
+
+  // Pretty console help
+  try {
+    console.log(
+      "%cValhalla Ascending DEV console ready.",
+      "color:#ffeaa0;font-weight:bold;font-size:12px;"
+    );
+    console.log("Use %cVADev%c helpers or the on-screen /commands.", "color:#ffeaa0", "color:inherit");
+    console.table?.([
+      { command: "VADev.help()", desc: "Log dev command list into the in-game log" },
+      { command: 'VADev.set("gold", 99999)', desc: "Set a stat directly" },
+      { command: 'VADev.add("level", 5)', desc: "Add to a stat" },
+      { command: 'VADev.class("shieldmaiden")', desc: "Force class" },
+      { command: "VADev.resetClass()", desc: "Clear class + hero name" },
+      { command: "VADev.resetQuests()", desc: "Wipe quests/vars/race" },
+      { command: 'VADev.tick("off")', desc: "Stop idle backend tick" },
+      { command: "VADev.where()", desc: "Show current + last location" },
+    ]);
+    console.log(
+      "Text console examples: %c/set gold 99999%c, %c/add gold 5000%c, %c/reset quests%c",
+      "color:#ffeaa0",
+      "color:inherit",
+      "color:#ffeaa0",
+      "color:inherit",
+      "color:#ffeaa0",
+      "color:inherit"
+    );
+  } catch {}
+
   log("Dev console ready. Press Ctrl+Shift+D or type /help", "ok");
 })();
 
@@ -624,13 +680,14 @@ async function boot() {
   safeEl("trainDefense")?.addEventListener("click", () => train("defense"));
   safeEl("trainSpeed")?.addEventListener("click", () => train("speed"));
 
-  // Idle tick every 10s (can be toggled via /tick off)
+  // Idle tick every 10s (can be toggled via /tick off or VADev.tick("off"))
   startIdleTick();
 
   setupHeroAnim();
 }
 
 boot().catch(e => log(e.message, "bad"));
+
 
 
 
