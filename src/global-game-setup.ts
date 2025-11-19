@@ -59,11 +59,12 @@ function __getCurrentClass(): HeroClassId {
 
   // Whitelist known classes; default to "warrior"
   if (c === "shieldmaiden") return "shieldmaiden";
-  if (c === "mage" || c === "rune-mage") return "rune-mage";
+  if (c === "rune-mage")    return "rune-mage";
   if (c === "berserker")    return "berserker";
   if (c === "hunter")       return "hunter";
   return "warrior";
 }
+
 
 
 
@@ -201,11 +202,30 @@ function __va_getHeroAnimUrls(kind: HeroAnimKind): string[] {
 
 (window as any).getHeroAnimSpec = function () {
   return {
-    idle:      __va_getHeroAnimUrls("idle"),
-    walkLeft:  __va_getHeroAnimUrls("walkLeft"),
-    walkRight: __va_getHeroAnimUrls("walkRight"),
+    idle:        __va_getHeroAnimUrls("idle"),
+    idleFront:   __va_getHeroAnimUrls("idleFront"),
+    idleBack:    __va_getHeroAnimUrls("idleBack"),
+    idleLeft:    __va_getHeroAnimUrls("idleLeft"),
+    idleRight:   __va_getHeroAnimUrls("idleRight"),
+
+    walkLeft:    __va_getHeroAnimUrls("walkLeft"),
+    walkRight:   __va_getHeroAnimUrls("walkRight"),
+    walkFront:   __va_getHeroAnimUrls("walkFront"),
+    walkBack:    __va_getHeroAnimUrls("walkBack"),
+
+    attackFront: __va_getHeroAnimUrls("attackFront"),
+    attackBack:  __va_getHeroAnimUrls("attackBack"),
+    attackLeft:  __va_getHeroAnimUrls("attackLeft"),
+    attackRight: __va_getHeroAnimUrls("attackRight"),
+
+    // (jump anims are there too if you want later)
+    jumpFront:   __va_getHeroAnimUrls("jumpFront"),
+    jumpBack:    __va_getHeroAnimUrls("jumpBack"),
+    jumpLeft:    __va_getHeroAnimUrls("jumpLeft"),
+    jumpRight:   __va_getHeroAnimUrls("jumpRight"),
   };
 };
+
 
 
 

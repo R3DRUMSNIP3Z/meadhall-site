@@ -32,6 +32,12 @@ const HERO_RIGHT_URLS: string[] =
     `/guildbook/avatars/shieldmaiden/rightwalk_${i.toString().padStart(3, "0")}.png`
   );
 
+// NEW: attack frames (fall back to walk if class has no attack yet)
+const HERO_ATK_LEFT_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("attackLeft") ?? HERO_LEFT_URLS;
+
+const HERO_ATK_RIGHT_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("attackRight") ?? HERO_RIGHT_URLS;
 
 //////////////////////////////
 // Boar + Bat animation frame URLs
@@ -145,6 +151,8 @@ let bg: HTMLImageElement | null = null;
 let heroIdleFrames: HTMLImageElement[] = [];
 let heroLeftFrames: HTMLImageElement[] = [];
 let heroRightFrames: HTMLImageElement[] = [];
+let heroAtkLeftFrames: HTMLImageElement[] = [];
+let heroAtkRightFrames: HTMLImageElement[] = [];
 let heroFallbackImg: HTMLImageElement | null = null;
 
 // boar + loot
@@ -204,13 +212,20 @@ const hero = {
   w: HERO_W, h: HERO_H,
   vx: 0, vy: 0,
   onGround: true,
-  anim: "idle" as "idle" | "walk",
+  anim: "idle" as "idle" | "walk" | "attack",
   facing: "right" as "left" | "right",
   frameIndex: 0,
 };
 
 const HERO_FRAME_MS = 100;
 let lastHeroFrameTime = performance.now();
+
+// attack timing
+const HERO_ATTACK_TOTAL_MS = 600; // one swing duration (ms)
+let heroAttackElapsed = 0;
+
+// for dt
+let lastStepTime = performance.now();
 
 const BOAR_DEAD = () => localStorage.getItem("va_bf_boar_defeated") === "1";
 const LOOT_TAKEN = () => localStorage.getItem("va_loot_infectedboarmeat") === "1";
@@ -279,6 +294,18 @@ window.addEventListener("keydown", (e) => {
 });
 
 //////////////////////////////
+// ATTACK INPUT (left mouse button)
+//////////////////////////////
+canvas.addEventListener("mousedown", (e) => {
+  if (e.button !== 0) return; // only left click
+
+  // start attack animation
+  hero.anim = "attack";
+  hero.frameIndex = 0;
+  heroAttackElapsed = 0;
+});
+
+//////////////////////////////
 // Click: engage boar or pick loot
 //////////////////////////////
 canvas.addEventListener("click", (e) => {
@@ -335,6 +362,9 @@ function toast(msg: string) {
 // Helper: pick current hero frame list
 //////////////////////////////
 function getHeroFrameList(): HTMLImageElement[] {
+  if (hero.anim === "attack") {
+    return hero.facing === "left" ? heroAtkLeftFrames : heroAtkRightFrames;
+  }
   if (hero.anim === "walk") {
     return hero.facing === "left" ? heroLeftFrames : heroRightFrames;
   }
@@ -345,29 +375,45 @@ function getHeroFrameList(): HTMLImageElement[] {
 // Update
 //////////////////////////////
 function step() {
+  // dt
+  const nowStep = performance.now();
+  const dt = nowStep - lastStepTime;
+  lastStepTime = nowStep;
+
   // horizontal intent
   let vx = 0;
   if (keys.has("ArrowLeft") || keys.has("a") || keys.has("A")) {
     vx -= SPEED;
-    hero.anim = "walk";
+    if (hero.anim !== "attack") hero.anim = "walk";
     hero.facing = "left";
   }
   if (keys.has("ArrowRight") || keys.has("d") || keys.has("D")) {
     vx += SPEED;
-    hero.anim = "walk";
+    if (hero.anim !== "attack") hero.anim = "walk";
     hero.facing = "right";
   }
-  if (vx === 0) {
+  if (vx === 0 && hero.anim !== "attack") {
     hero.anim = "idle";
   }
   hero.vx = vx;
 
   // hero animation timing
-  const nowAnim = performance.now();
+  const nowAnim = nowStep;
   const frames = getHeroFrameList();
   if (frames.length && nowAnim - lastHeroFrameTime >= HERO_FRAME_MS) {
     lastHeroFrameTime = nowAnim;
     hero.frameIndex = (hero.frameIndex + 1) % frames.length;
+  }
+
+  // attack duration: auto-return to idle/walk
+  if (hero.anim === "attack") {
+    heroAttackElapsed += dt;
+    const atkFrames = hero.facing === "left" ? heroAtkLeftFrames : heroAtkRightFrames;
+    if (!atkFrames.length || heroAttackElapsed >= HERO_ATTACK_TOTAL_MS) {
+      heroAttackElapsed = 0;
+      hero.frameIndex = 0;
+      hero.anim = vx !== 0 ? "walk" : "idle";
+    }
   }
 
   // edge exits (before position update so hugging wall warps)
@@ -592,6 +638,8 @@ Promise.all(
     ...HERO_IDLE_URLS,
     ...HERO_LEFT_URLS,
     ...HERO_RIGHT_URLS,
+    ...HERO_ATK_LEFT_URLS,
+    ...HERO_ATK_RIGHT_URLS,
   ].map(load)
 )
   .then((imgs) => {
@@ -612,11 +660,25 @@ Promise.all(
     const idleCount = HERO_IDLE_URLS.length;
     const leftCount = HERO_LEFT_URLS.length;
     const rightCount = HERO_RIGHT_URLS.length;
+    const atkLeftCount = HERO_ATK_LEFT_URLS.length;
+    const atkRightCount = HERO_ATK_RIGHT_URLS.length;
 
     const heroImgs = imgs.slice(idx);
     heroIdleFrames = heroImgs.slice(0, idleCount);
     heroLeftFrames = heroImgs.slice(idleCount, idleCount + leftCount);
-    heroRightFrames = heroImgs.slice(idleCount + leftCount, idleCount + leftCount + rightCount);
+    heroRightFrames = heroImgs.slice(
+      idleCount + leftCount,
+      idleCount + leftCount + rightCount
+    );
+    heroAtkLeftFrames = heroImgs.slice(
+      idleCount + leftCount + rightCount,
+      idleCount + leftCount + rightCount + atkLeftCount
+    );
+    heroAtkRightFrames = heroImgs.slice(
+      idleCount + leftCount + rightCount + atkLeftCount,
+      idleCount + leftCount + rightCount + atkLeftCount + atkRightCount
+    );
+
     heroFallbackImg = heroIdleFrames[0] || null;
 
     // Spawn ambience
@@ -653,6 +715,7 @@ Promise.all(
   addEventListener("focus", nukeBadge);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) nukeBadge(); });
 })();
+
 
 
 
