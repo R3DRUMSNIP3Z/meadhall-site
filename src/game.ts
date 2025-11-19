@@ -84,10 +84,18 @@ async function api<T = any>(path: string, opts: RequestInit = {}) {
 /* =========================================================
    CLASS HELPERS
    ========================================================= */
-const CLASS_KEY = "va_class";
+const CLASS_KEY_BASE = "va_class";
+const CLASS_KEY_USER = (() => {
+  const uid = userId || "guest";
+  return `${CLASS_KEY_BASE}__${uid}`;
+})();
 
 function getCurrentClass(): ClassId | null {
-  return (localStorage.getItem(CLASS_KEY) as ClassId | null) || null;
+  // prefer per-user, then global
+  const raw =
+    (localStorage.getItem(CLASS_KEY_USER) as ClassId | null) ||
+    (localStorage.getItem(CLASS_KEY_BASE) as ClassId | null);
+  return (raw as ClassId | null) || null;
 }
 
 function getClassBaseAvatar(): string {
@@ -307,6 +315,297 @@ const state = {
 };
 
 /* =========================================================
+   IDLE TICK (separate so dev can toggle)
+   ========================================================= */
+
+let tickTimer: number | undefined;
+
+function startIdleTick() {
+  if (tickTimer != null) return;
+  tickTimer = window.setInterval(async () => {
+    try {
+      const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
+      state.me = r.me;
+      await renderArena();
+    } catch {}
+  }, 10000);
+}
+
+function stopIdleTick() {
+  if (tickTimer != null) {
+    window.clearInterval(tickTimer);
+    tickTimer = undefined;
+  }
+}
+
+/* =========================================================
+   DEV TOOLS (class reset, quest reset, stats, etc.)
+   ========================================================= */
+
+(function installDevTools() {
+  // small bail-out if you ever want to disable dev in prod
+  const DEV_FLAG = true;
+  if (!DEV_FLAG) return;
+
+  const uid = userId || "guest";
+
+  const devPanelId = "vaDevPanel";
+  if (document.getElementById(devPanelId)) return;
+
+  const panel = document.createElement("div");
+  panel.id = devPanelId;
+  panel.style.cssText = `
+    position:fixed; left:16px; top:16px; z-index:99999;
+    padding:6px 8px; border-radius:10px;
+    background:rgba(0,0,0,.65); color:#ffeaa0;
+    font:11px/1.4 ui-sans-serif,system-ui;
+    display:flex; align-items:center; gap:4px;
+  `;
+  panel.innerHTML = `
+    <span style="opacity:.8;">DEV</span>
+    <input id="vaDevInput" type="text"
+      placeholder="/help"
+      style="min-width:180px; padding:4px 6px; border-radius:8px;
+             border:1px solid rgba(212,169,77,.55);
+             background:#0b0f12; color:#ffeaa0; font-size:11px;">
+  `;
+  document.body.appendChild(panel);
+
+  const input = panel.querySelector<HTMLInputElement>("#vaDevInput");
+  if (!input) return;
+
+  function devSetLocalStat(stat: keyof Me, value: number) {
+    if (!state.me) return;
+    (state.me as any)[stat] = value;
+    renderArena();
+    log(`Dev: set ${stat} = ${value}`, "ok");
+  }
+
+  function devAddLocalStat(stat: keyof Me, delta: number) {
+    if (!state.me) return;
+    const cur = (state.me as any)[stat] ?? 0;
+    const next = Number(cur) + delta;
+    (state.me as any)[stat] = next;
+    renderArena();
+    log(`Dev: ${stat} ${delta >= 0 ? "+" : ""}${delta} → ${next}`, "ok");
+  }
+
+  function devResetClass() {
+    const keys = [
+      "va_class",
+      `va_class__${uid}`,
+      "va_class_name",
+      `va_class_name__${uid}`,
+      "va_hero_name",
+      `va_hero_name__${uid}`,
+    ];
+    keys.forEach(k => localStorage.removeItem(k));
+    log("Dev: class reset. Go back to class select to choose again.", "ok");
+  }
+
+  function devResetQuests() {
+    const bases = ["va_quests", "va_vars", "va_race"];
+    for (const base of bases) {
+      localStorage.removeItem(base);
+      localStorage.removeItem(`${base}__${uid}`);
+    }
+    try {
+      (window as any).VAQ?.writeQuests?.([]);
+      (window as any).VAQ?.renderHUD?.();
+      window.dispatchEvent(new CustomEvent("va-quest-updated"));
+    } catch {}
+    log("Dev: quests & vars reset (will re-seed on next page).", "ok");
+  }
+
+  function devSetClass(id: string) {
+    const v = id.toLowerCase();
+    const allowed: ClassId[] = ["warrior", "shieldmaiden", "rune-mage", "berserker", "hunter"];
+    if (!allowed.includes(v as ClassId)) {
+      log("Dev: invalid class. Use warrior/shieldmaiden/rune-mage/berserker/hunter", "bad");
+      return;
+    }
+    localStorage.setItem(`va_class__${uid}`, v);
+    localStorage.setItem("va_class", v);
+    log(`Dev: class set → ${v}`, "ok");
+    updateAvatar();
+    setupHeroAnim();
+  }
+
+  function devWhere() {
+    const path = window.location.pathname + window.location.search;
+    const lastKey = `va_last_location__${uid}`;
+    const stored = localStorage.getItem(lastKey) || "(none)";
+    log(`Dev: here = ${path}`, "ok");
+    log(`Dev: last_location (${lastKey}) = ${stored}`, "ok");
+  }
+
+  function devHelp() {
+    log("Dev cmds:", "ok");
+    log("/help", "ok");
+    log("/set gold 99999 | /add gold 5000", "ok");
+    log("/set level 50 | /set xp 1234 | /set points 50", "ok");
+    log("/set power 500 /set defense 500 /set speed 500", "ok");
+    log("/class warrior|shieldmaiden|rune-mage|berserker|hunter", "ok");
+    log("/reset class  (clear class & hero name)", "ok");
+    log("/reset quests (wipe quest chain/vars/race)", "ok");
+    log("/tick off|on (idle backend tick)", "ok");
+    log("/where (show path + last_location key)", "ok");
+  }
+
+  function handleDevCommand(raw: string) {
+    const txt = raw.trim();
+    if (!txt) return;
+
+    if (!txt.startsWith("/") && !txt.startsWith("dev ")) {
+      log("Dev: commands should start with / (e.g. /help)", "bad");
+      return;
+    }
+
+    const clean = txt.startsWith("/") ? txt.slice(1) : txt.replace(/^dev\s+/i, "");
+    const parts = clean.split(/\s+/);
+    const cmd = (parts[0] || "").toLowerCase();
+    const arg1 = parts[1];
+    const arg2 = parts[2];
+
+    switch (cmd) {
+      case "help":
+        devHelp();
+        break;
+
+      case "set": {
+        const field = (arg1 || "").toLowerCase();
+        const val = Number(arg2);
+        if (!field || Number.isNaN(val)) {
+          log("Usage: /set gold 99999", "bad");
+          break;
+        }
+        if (!state.me) { log("No hero loaded yet.", "bad"); break; }
+
+        const map: Record<string, keyof Me> = {
+          gold: "gold",
+          level: "level",
+          xp: "xp",
+          points: "points",
+          pow: "power",
+          power: "power",
+          def: "defense",
+          defense: "defense",
+          spd: "speed",
+          speed: "speed",
+          bris: "brisingr",
+          brisingr: "brisingr",
+          dia: "diamonds",
+          diamonds: "diamonds",
+        };
+        const key = map[field];
+        if (!key) {
+          log("Unknown stat. Use gold, level, xp, points, power, defense, speed, brisingr, diamonds.", "bad");
+          break;
+        }
+        devSetLocalStat(key, val);
+        break;
+      }
+
+      case "add": {
+        const field = (arg1 || "").toLowerCase();
+        const delta = Number(arg2);
+        if (!field || Number.isNaN(delta)) {
+          log("Usage: /add gold 5000", "bad");
+          break;
+        }
+        if (!state.me) { log("No hero loaded yet.", "bad"); break; }
+
+        const map: Record<string, keyof Me> = {
+          gold: "gold",
+          level: "level",
+          xp: "xp",
+          points: "points",
+          pow: "power",
+          power: "power",
+          def: "defense",
+          defense: "defense",
+          spd: "speed",
+          speed: "speed",
+          bris: "brisingr",
+          brisingr: "brisingr",
+          dia: "diamonds",
+          diamonds: "diamonds",
+        };
+        const key = map[field];
+        if (!key) {
+          log("Unknown stat. Use gold, level, xp, points, power, defense, speed, brisingr, diamonds.", "bad");
+          break;
+        }
+        devAddLocalStat(key, delta);
+        break;
+      }
+
+      case "class":
+        if (!arg1) {
+          log("Usage: /class warrior|shieldmaiden|rune-mage|berserker|hunter", "bad");
+        } else {
+          devSetClass(arg1);
+        }
+        break;
+
+      case "reset":
+        if ((arg1 || "").toLowerCase() === "class") {
+          devResetClass();
+        } else if ((arg1 || "").toLowerCase() === "quests") {
+          devResetQuests();
+        } else {
+          log("Usage: /reset class | /reset quests", "bad");
+        }
+        break;
+
+      case "tick": {
+        const mode = (arg1 || "").toLowerCase();
+        if (mode === "off") {
+          stopIdleTick();
+          log("Dev: idle tick stopped.", "ok");
+        } else if (mode === "on") {
+          startIdleTick();
+          log("Dev: idle tick started.", "ok");
+        } else {
+          log("Usage: /tick off | /tick on", "bad");
+        }
+        break;
+      }
+
+      case "where":
+        devWhere();
+        break;
+
+      default:
+        log(`Dev: unknown cmd "${cmd}". Try /help`, "bad");
+        break;
+    }
+  }
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const val = input.value;
+      input.value = "";
+      handleDevCommand(val);
+    } else if (e.key === "Escape") {
+      input.blur();
+    }
+  });
+
+  // Quick shortcut to focus dev input: Ctrl+Shift+D
+  window.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "d") {
+      e.preventDefault();
+      input.focus();
+      input.select();
+    }
+  });
+
+  log("Dev console ready. Press Ctrl+Shift+D or type /help", "ok");
+})();
+
+/* =========================================================
    BOOTSTRAP (no shop calls)
    ========================================================= */
 
@@ -325,19 +624,14 @@ async function boot() {
   safeEl("trainDefense")?.addEventListener("click", () => train("defense"));
   safeEl("trainSpeed")?.addEventListener("click", () => train("speed"));
 
-  // Idle tick every 10s
-  setInterval(async () => {
-    try {
-      const r = await api<ApiMe>("/api/game/tick", { method: "POST" });
-      state.me = r.me;
-      await renderArena();
-    } catch {}
-  }, 10000);
+  // Idle tick every 10s (can be toggled via /tick off)
+  startIdleTick();
 
   setupHeroAnim();
 }
 
 boot().catch(e => log(e.message, "bad"));
+
 
 
 
