@@ -46,8 +46,11 @@ const LAST_LOC_KEY = __userKey(LAST_LOC_KEY_BASE);
 const CLASS_KEY_BASE = "va_class";
 const CLASS_KEY = __userKey(CLASS_KEY_BASE);
 
+type HeroClassId = "warrior" | "shieldmaiden" | "rune-mage" | "berserker" | "hunter";
+
+
 // Small helper so every place uses the same logic
-function __getCurrentClass(): string {
+function __getCurrentClass(): HeroClassId {
   const raw =
     localStorage.getItem(CLASS_KEY) ||
     localStorage.getItem(CLASS_KEY_BASE) ||
@@ -56,10 +59,13 @@ function __getCurrentClass(): string {
 
   // Whitelist known classes; default to "warrior"
   if (c === "shieldmaiden") return "shieldmaiden";
-  if (c === "mage") return "mage";
-  if (c === "rogue") return "rogue";
+  if (c === "mage" || c === "rune-mage") return "rune-mage";
+  if (c === "berserker")    return "berserker";
+  if (c === "hunter")       return "hunter";
   return "warrior";
 }
+
+
 
 const __heroClass = __getCurrentClass();
 // Optional CSS hook if you want per-class theming
@@ -94,6 +100,114 @@ document.body?.setAttribute("data-class", __heroClass);
   // if (cls === "mage") return "Mage_01__";
   return "Viking_01__";
 };
+
+/* =========================================================
+   CLASS-AWARE HERO ANIMATION URLS (idle / walkLeft / walkRight)
+   ========================================================= */
+
+/* =========================================================
+   CLASS-AWARE HERO ANIMATION URLS (idle / walk / atk / jump)
+   ========================================================= */
+
+type HeroAnimKind =
+  | "idle" | "idleFront" | "idleBack" | "idleLeft" | "idleRight"
+  | "walkLeft" | "walkRight" | "walkFront" | "walkBack"
+  | "attackFront" | "attackBack" | "attackLeft" | "attackRight"
+  | "jumpFront" | "jumpBack" | "jumpLeft" | "jumpRight";
+
+function __va_makeSeq(prefix: string, count = 9): string[] {
+  const arr: string[] = [];
+  for (let i = 0; i < count; i++) {
+    arr.push(`${prefix}${i.toString().padStart(3, "0")}.png`);
+  }
+  return arr;
+}
+
+/**
+ * Per-class animation URL config.
+ * Folders / names match your file structure.
+ */
+const HERO_ANIM_URLS: Record<HeroClassId, Partial<Record<HeroAnimKind, string[]>>> = {
+  warrior: {
+    idle:      __va_makeSeq("/guildbook/avatars/warrior/war_"),
+    walkLeft:  __va_makeSeq("/guildbook/avatars/warrior/walkleft_"),
+    walkRight: __va_makeSeq("/guildbook/avatars/warrior/walkright_"),
+    // You can fill in warrior attack/jump later when you have them
+  },
+
+  shieldmaiden: {
+    idle:      __va_makeSeq("/guildbook/avatars/shieldmaiden/sm_"),
+    walkLeft:  __va_makeSeq("/guildbook/avatars/shieldmaiden/leftwalk_"),
+    walkRight: __va_makeSeq("/guildbook/avatars/shieldmaiden/rightwalk_"),
+  },
+
+  // 🔮 RUNE-MAGE – full set wired to your files
+  "rune-mage": {
+    // IDLE
+    idle:      __va_makeSeq("/guildbook/avatars/rune-mage/rm_"),        // front idle
+    idleFront: __va_makeSeq("/guildbook/avatars/rune-mage/rm_"),        // rm_000–008
+    idleBack:  __va_makeSeq("/guildbook/avatars/rune-mage/idleback_"),
+    idleLeft:  __va_makeSeq("/guildbook/avatars/rune-mage/idleleft_"),
+    idleRight: __va_makeSeq("/guildbook/avatars/rune-mage/idleright_"),
+
+    // WALK
+    walkLeft:   __va_makeSeq("/guildbook/avatars/rune-mage/walkleft_"),
+    walkRight:  __va_makeSeq("/guildbook/avatars/rune-mage/walkright_"),
+    walkFront:  __va_makeSeq("/guildbook/avatars/rune-mage/walkfront_"),
+    walkBack:   __va_makeSeq("/guildbook/avatars/rune-mage/walkback_"),
+
+    // ATTACK
+    attackLeft:   __va_makeSeq("/guildbook/avatars/rune-mage/atkleft_"),
+    attackRight:  __va_makeSeq("/guildbook/avatars/rune-mage/atkright_"),
+    attackFront:  __va_makeSeq("/guildbook/avatars/rune-mage/atkfront_"),
+    attackBack:   __va_makeSeq("/guildbook/avatars/rune-mage/backatk_"),
+
+    // JUMP
+    jumpFront: __va_makeSeq("/guildbook/avatars/rune-mage/jumpfront_"),
+    jumpBack:  __va_makeSeq("/guildbook/avatars/rune-mage/jumpback_"),
+    jumpLeft:  __va_makeSeq("/guildbook/avatars/rune-mage/jumpleft_"),
+    jumpRight: __va_makeSeq("/guildbook/avatars/rune-mage/jumpright_"),
+  },
+
+  berserker: {
+    idle:      __va_makeSeq("/guildbook/avatars/berserker/b_"),
+    walkLeft:  __va_makeSeq("/guildbook/avatars/berserker/walkleft_"),
+    walkRight: __va_makeSeq("/guildbook/avatars/berserker/walkright_"),
+  },
+
+  hunter: {
+    idle:      __va_makeSeq("/guildbook/avatars/hunter/h_"),
+    walkLeft:  __va_makeSeq("/guildbook/avatars/hunter/walkleft_"),
+    walkRight: __va_makeSeq("/guildbook/avatars/hunter/walkright_"),
+  },
+};
+
+/** Core helper: get current class’s URLs for a given anim kind. */
+function __va_getHeroAnimUrls(kind: HeroAnimKind): string[] {
+  const cls = __getCurrentClass();
+  const table = HERO_ANIM_URLS[cls] || HERO_ANIM_URLS["warrior"];
+  const fromClass = table?.[kind];
+  if (fromClass && fromClass.length) return fromClass;
+
+  // fallback from warrior if specific anim missing for this class
+  const fallback = HERO_ANIM_URLS["warrior"]?.[kind];
+  return fallback && fallback.length ? fallback : [];
+}
+
+/** Public helpers for maps / other pages */
+(window as any).getHeroAnimUrls = function (kind: HeroAnimKind): string[] {
+  return __va_getHeroAnimUrls(kind);
+};
+
+(window as any).getHeroAnimSpec = function () {
+  return {
+    idle:      __va_getHeroAnimUrls("idle"),
+    walkLeft:  __va_getHeroAnimUrls("walkLeft"),
+    walkRight: __va_getHeroAnimUrls("walkRight"),
+  };
+};
+
+
 
 /* =========================================================
    KEYS / TYPES (user-scoped; migrates from old globals)

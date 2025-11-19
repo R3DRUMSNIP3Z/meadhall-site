@@ -10,17 +10,28 @@ if (!canvas) throw new Error("#map canvas not found");
 const ctx = canvas.getContext("2d")!;
 
 //////////////////////////////
-// Hero animation frame URLs (Shieldmaiden 0–8)
+// Hero animation frame URLs (class-aware)
+// Uses global getHeroAnimUrls helper, falls back to Shieldmaiden frames.
 //////////////////////////////
-const HERO_IDLE_URLS = Array.from({ length: 9 }, (_, i) =>
-  `/guildbook/avatars/shieldmaiden/sm_${i.toString().padStart(3, "0")}.png`
-);
-const HERO_LEFT_URLS = Array.from({ length: 9 }, (_, i) =>
-  `/guildbook/avatars/shieldmaiden/leftwalk_${i.toString().padStart(3, "0")}.png`
-);
-const HERO_RIGHT_URLS = Array.from({ length: 9 }, (_, i) =>
-  `/guildbook/avatars/shieldmaiden/rightwalk_${i.toString().padStart(3, "0")}.png`
-);
+
+const HERO_IDLE_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("idle") ??
+  Array.from({ length: 9 }, (_, i) =>
+    `/guildbook/avatars/shieldmaiden/sm_${i.toString().padStart(3, "0")}.png`
+  );
+
+const HERO_LEFT_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("walkLeft") ??
+  Array.from({ length: 9 }, (_, i) =>
+    `/guildbook/avatars/shieldmaiden/leftwalk_${i.toString().padStart(3, "0")}.png`
+  );
+
+const HERO_RIGHT_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("walkRight") ??
+  Array.from({ length: 9 }, (_, i) =>
+    `/guildbook/avatars/shieldmaiden/rightwalk_${i.toString().padStart(3, "0")}.png`
+  );
+
 
 //////////////////////////////
 // Boar + Bat animation frame URLs
