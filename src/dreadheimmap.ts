@@ -47,6 +47,13 @@ const HERO_ATK_RIGHT_URLS: string[] =
 const BOAR_ATK_URLS = Array.from({ length: 9 }, (_, i) =>
   `/guildbook/avatars/enemies/diseasedboar/atk_${i.toString().padStart(3, "0")}.png`
 );
+// Rune mage projectile (9-frame animation)
+const RUNE_PROJECTILE_URLS = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/rune-mage/projectiles/frame_${i
+    .toString()
+    .padStart(3, "0")}.png`
+);
+
 
 // Dreadheim bat fly cycle
 const BAT_FLY_URLS = Array.from({ length: 9 }, (_, i) =>
@@ -202,6 +209,52 @@ function spawnBat() {
 function spawnFlock(n = FLOCK_COUNT) { for (let i = 0; i < n; i++) spawnBat(); }
 
 //////////////////////////////
+// Rune Projectiles
+//////////////////////////////
+
+type RuneProjectile = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  vx: number;
+  vy: number;
+  life: number;
+  frame: number;
+};
+
+const RUNE_W = 60;
+const RUNE_H = 60;
+const RUNE_SPEED = 12;
+const RUNE_LIFETIME_MS = 900;
+const RUNE_FRAME_MS = 70;
+
+let runeFrames: HTMLImageElement[] = [];
+const runeProjectiles: RuneProjectile[] = [];
+let lastRuneFrameTime = performance.now();
+
+function spawnRuneProjectile() {
+  if (!runeFrames.length) return;
+
+  const dir = hero.facing === "right" ? 1 : -1;
+
+  const startX = hero.x + hero.w / 2 + dir * 12;
+  const startY = hero.y + hero.h * 0.45;
+
+  runeProjectiles.push({
+    x: startX,
+    y: startY,
+    w: RUNE_W,
+    h: RUNE_H,
+    vx: dir * RUNE_SPEED,
+    vy: 0,
+    life: RUNE_LIFETIME_MS,
+    frame: 0,
+  });
+}
+
+
+//////////////////////////////
 // Entities
 //////////////////////////////
 let groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
@@ -303,6 +356,9 @@ canvas.addEventListener("mousedown", (e) => {
   hero.anim = "attack";
   hero.frameIndex = 0;
   heroAttackElapsed = 0;
+    // spawn rune in attack direction
+  spawnRuneProjectile();
+
 });
 
 //////////////////////////////
@@ -515,7 +571,35 @@ function step() {
     if (b.y > H + pad) b.y = -pad;
     if (b.y < -pad)    b.y = H + pad;
   }
+    // rune projectile update + animation
+  if (runeProjectiles.length && nowStep - lastRuneFrameTime >= RUNE_FRAME_MS) {
+    lastRuneFrameTime = nowStep;
+    for (const p of runeProjectiles) {
+      p.frame = (p.frame + 1) % Math.max(1, runeFrames.length);
+    }
+  }
+
+  for (let i = runeProjectiles.length - 1; i >= 0; i--) {
+    const p = runeProjectiles[i];
+
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= dt;
+
+    const offscreen =
+      p.x + p.w < 0 ||
+      p.x > window.innerWidth ||
+      p.y + p.h < 0 ||
+      p.y > window.innerHeight;
+
+    if (p.life <= 0 || offscreen) {
+      runeProjectiles.splice(i, 1);
+    }
+  }
+
 }
+ 
+
 
 //////////////////////////////
 // Render
@@ -551,6 +635,32 @@ function render() {
     ctx.fillStyle = "#333";
     ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
   }
+
+    // rune projectiles
+  for (const p of runeProjectiles) {
+    const frameImg =
+      runeFrames.length > 0
+        ? runeFrames[p.frame % runeFrames.length]
+        : null;
+
+    if (frameImg) {
+      ctx.save();
+      if (p.vx < 0) {
+        ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
+        ctx.scale(-1, 1);
+        ctx.drawImage(frameImg, -p.w / 2, -p.h / 2, p.w, p.h);
+      } else {
+        ctx.drawImage(frameImg, p.x, p.y, p.w, p.h);
+      }
+      ctx.restore();
+    } else {
+      ctx.fillStyle = "#4cf";
+      ctx.beginPath();
+      ctx.arc(p.x + p.w / 2, p.y + p.h / 2, Math.min(p.w, p.h) / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
 
   // boar (animated, flip when moving left)
   if (boar.alive && boarFrames.length) {
@@ -640,6 +750,7 @@ Promise.all(
     ...HERO_RIGHT_URLS,
     ...HERO_ATK_LEFT_URLS,
     ...HERO_ATK_RIGHT_URLS,
+    ...RUNE_PROJECTILE_URLS,
   ].map(load)
 )
   .then((imgs) => {
@@ -663,7 +774,12 @@ Promise.all(
     const atkLeftCount = HERO_ATK_LEFT_URLS.length;
     const atkRightCount = HERO_ATK_RIGHT_URLS.length;
 
-    const heroImgs = imgs.slice(idx);
+    const heroTotal =
+      idleCount + leftCount + rightCount + atkLeftCount + atkRightCount;
+
+    const heroImgs = imgs.slice(idx, idx + heroTotal);
+    idx += heroTotal;
+
     heroIdleFrames = heroImgs.slice(0, idleCount);
     heroLeftFrames = heroImgs.slice(idleCount, idleCount + leftCount);
     heroRightFrames = heroImgs.slice(
@@ -679,12 +795,14 @@ Promise.all(
       idleCount + leftCount + rightCount + atkLeftCount + atkRightCount
     );
 
+    // rune frames
+    runeFrames = imgs.slice(idx, idx + RUNE_PROJECTILE_URLS.length);
+    idx += RUNE_PROJECTILE_URLS.length;
+
     heroFallbackImg = heroIdleFrames[0] || null;
 
-    // Spawn ambience
     spawnFlock(FLOCK_COUNT);
 
-    // Quest arrival progress + HUD
     handleArrivalQuestProgress();
 
     refreshBounds();
@@ -696,6 +814,7 @@ Promise.all(
     refreshBounds();
     loop();
   });
+
 
 //////////////////////////////
 // (Optional) Badge cleanup — if a previous page left it visible
