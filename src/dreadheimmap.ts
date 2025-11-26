@@ -109,7 +109,7 @@ const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
 const GRAVITY = 0.8;
 const JUMP_VELOCITY = -16;
-const HERO_W = 96, HERO_H = 125;
+const HERO_W = 96, HERO_H = 150;
 const BOAR_W = 110, BOAR_H = 90;
 
 const ENGAGE_DIST = 120; // auto-start battle
