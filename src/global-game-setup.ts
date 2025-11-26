@@ -1592,6 +1592,289 @@ if (document.readyState === "loading") {
 }
 loadCatalog().catch(()=>{});
 
+/* =========================================================
+   DEV: UI DRAG + RESIZE (LOCAL LAYOUT EDITOR)
+   - Press F5 in DEV to toggle edit mode
+   - Works only on localhost or ?devui=1 / ?dev=1
+   - Only affects elements with data-dev-edit="1" AND an id
+   ========================================================= */
+
+type DevLayoutEntry = {
+  left: number;
+  top: number;
+  width?: number;
+  height?: number;
+};
+type DevLayoutStore = { [id: string]: DevLayoutEntry };
+
+const DEV_LAYOUT_KEY_BASE = "va_dev_layout_v1";
+const DEV_LAYOUT_KEY = __userKey(DEV_LAYOUT_KEY_BASE);
+
+let __devLayoutCache: DevLayoutStore | null = null;
+let __devModeOn = false;
+
+function __dev_isEnv(): boolean {
+  // Dev only: localhost or ?devui=1 / ?dev=1
+  if (location.hostname === "localhost" || location.hostname === "127.0.0.1") return true;
+  const q = new URLSearchParams(location.search);
+  return q.has("devui") || q.has("dev");
+}
+
+function __dev_loadLayout(): DevLayoutStore {
+  if (__devLayoutCache) return __devLayoutCache;
+  try {
+    const raw = localStorage.getItem(DEV_LAYOUT_KEY);
+    __devLayoutCache = raw ? JSON.parse(raw) : {};
+  } catch {
+    __devLayoutCache = {};
+  }
+  return __devLayoutCache!;
+}
+function __dev_saveLayout() {
+  if (!__devLayoutCache) return;
+  try { localStorage.setItem(DEV_LAYOUT_KEY, JSON.stringify(__devLayoutCache)); } catch {}
+}
+
+function __dev_applySaved(el: HTMLElement) {
+  const id = el.id;
+  if (!id) return;
+  const store = __dev_loadLayout();
+  const e = store[id];
+  if (!e) return;
+
+  const cs = getComputedStyle(el);
+  if (cs.position === "static" || !el.style.position) {
+    el.style.position = "absolute";
+  }
+
+  el.style.left = e.left + "px";
+  el.style.top = e.top + "px";
+  if (e.width != null) el.style.width = e.width + "px";
+  if (e.height != null) el.style.height = e.height + "px";
+}
+
+/* ---------- drag + resize state ---------- */
+
+type DevDrag = {
+  el: HTMLElement;
+  startX: number;
+  startY: number;
+  startLeft: number;
+  startTop: number;
+};
+type DevResize = {
+  el: HTMLElement;
+  startX: number;
+  startY: number;
+  startW: number;
+  startH: number;
+};
+
+let __devDrag: DevDrag | null = null;
+let __devResize: DevResize | null = null;
+
+function __dev_onMove(ev: PointerEvent) {
+  if (__devDrag) {
+    const dx = ev.clientX - __devDrag.startX;
+    const dy = ev.clientY - __devDrag.startY;
+    const left = __devDrag.startLeft + dx;
+    const top = __devDrag.startTop + dy;
+    __devDrag.el.style.left = left + "px";
+    __devDrag.el.style.top = top + "px";
+  } else if (__devResize) {
+    const dx = ev.clientX - __devResize.startX;
+    const dy = ev.clientY - __devResize.startY;
+    const w = Math.max(20, __devResize.startW + dx);
+    const h = Math.max(20, __devResize.startH + dy);
+    __devResize.el.style.width = w + "px";
+    __devResize.el.style.height = h + "px";
+  }
+}
+
+function __dev_end(ev?: PointerEvent) {
+  if (!__devModeOn) { __devDrag = null; __devResize = null; return; }
+
+  const store = __dev_loadLayout();
+
+  function persist(el: HTMLElement) {
+    const id = el.id; if (!id) return;
+    const rect = el.getBoundingClientRect();
+    const left = parseFloat(el.style.left || rect.left.toString());
+    const top  = parseFloat(el.style.top  || rect.top.toString());
+    const entry: DevLayoutEntry = { left, top };
+    if (el.style.width)  entry.width  = parseFloat(el.style.width);
+    if (el.style.height) entry.height = parseFloat(el.style.height);
+    store[id] = entry;
+  }
+
+  if (__devDrag)  persist(__devDrag.el);
+  if (__devResize) persist(__devResize.el);
+  __dev_saveLayout();
+
+  if (ev && ev.pointerId != null) {
+    try {
+      if (__devDrag) __devDrag.el.releasePointerCapture(ev.pointerId);
+      if (__devResize) __devResize.el.releasePointerCapture(ev.pointerId);
+    } catch {}
+  }
+  __devDrag = null;
+  __devResize = null;
+}
+
+function __dev_makeEditable(el: HTMLElement) {
+  if (el.classList.contains("va-dev-edit-target")) return;
+
+  el.classList.add("va-dev-edit-target");
+
+  const cs = getComputedStyle(el);
+  if (cs.position === "static" || !el.style.position) {
+    el.style.position = "absolute";
+  }
+
+  // DRAG
+  el.addEventListener("pointerdown", (ev) => {
+    if (!__devModeOn) return;
+    const target = ev.target as HTMLElement;
+    if (target && target.classList.contains("va-dev-resize-handle")) return;
+
+    ev.preventDefault();
+    try { el.setPointerCapture(ev.pointerId); } catch {}
+
+    const rect = el.getBoundingClientRect();
+    const left = parseFloat(el.style.left || rect.left.toString());
+    const top  = parseFloat(el.style.top  || rect.top.toString());
+
+    __devDrag = {
+      el,
+      startX: ev.clientX,
+      startY: ev.clientY,
+      startLeft: isNaN(left) ? rect.left : left,
+      startTop:  isNaN(top)  ? rect.top  : top,
+    };
+  });
+
+  // RESIZE HANDLE
+  let handle = el.querySelector<HTMLElement>(".va-dev-resize-handle");
+  if (!handle) {
+    handle = document.createElement("div");
+    handle.className = "va-dev-resize-handle";
+    el.appendChild(handle);
+  }
+
+  handle.addEventListener("pointerdown", (ev) => {
+    if (!__devModeOn) return;
+    ev.stopPropagation();
+    ev.preventDefault();
+    try { handle!.setPointerCapture(ev.pointerId); } catch {}
+
+    const rect = el.getBoundingClientRect();
+    const w = parseFloat(el.style.width  || rect.width.toString())  || rect.width;
+    const h = parseFloat(el.style.height || rect.height.toString()) || rect.height;
+
+    __devResize = {
+      el,
+      startX: ev.clientX,
+      startY: ev.clientY,
+      startW: w,
+      startH: h,
+    };
+  });
+}
+
+function __dev_enable() {
+  if (__devModeOn) return;
+  __devModeOn = true;
+  document.body.classList.add("va-dev-mode");
+
+  __dev_loadLayout();
+
+  // inject CSS once
+  if (!document.getElementById("vaDevLayoutCSS")) {
+    const s = document.createElement("style");
+    s.id = "vaDevLayoutCSS";
+    s.textContent = `
+      body.va-dev-mode .va-dev-edit-target {
+        outline: 1px dashed rgba(0,255,255,0.9);
+        box-shadow: 0 0 8px rgba(0,255,255,0.5);
+        cursor: move;
+      }
+      .va-dev-resize-handle {
+        position:absolute;
+        width:10px; height:10px;
+        right:-5px; bottom:-5px;
+        border-radius:2px;
+        border:1px solid rgba(0,255,255,0.9);
+        background:rgba(0,255,255,0.7);
+        cursor:se-resize;
+        z-index:99999;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  // apply to all dev-edit elements
+  document
+    .querySelectorAll<HTMLElement>("[data-dev-edit='1']")
+    .forEach((el) => {
+      if (!el.id) {
+        console.warn("[VA DEV] data-dev-edit=1 element needs an id:", el);
+        return;
+      }
+      __dev_applySaved(el);
+      __dev_makeEditable(el);
+    });
+
+  window.addEventListener("pointermove", __dev_onMove);
+  window.addEventListener("pointerup", __dev_end);
+  window.addEventListener("pointercancel", __dev_end);
+
+  console.log("[VA DEV] UI layout editor ENABLED");
+}
+
+function __dev_disable() {
+  if (!__devModeOn) return;
+  __devModeOn = false;
+  document.body.classList.remove("va-dev-mode");
+  __devDrag = null;
+  __devResize = null;
+  window.removeEventListener("pointermove", __dev_onMove);
+  window.removeEventListener("pointerup", __dev_end);
+  window.removeEventListener("pointercancel", __dev_end);
+  console.log("[VA DEV] UI layout editor DISABLED");
+}
+
+// Public helper to inspect current layout in console if you want
+(window as any).VA_DEV_LAYOUT = {
+  dump() {
+    console.log("[VA DEV] layout dump", __dev_loadLayout());
+  },
+  clear() {
+    __devLayoutCache = {};
+    try { localStorage.removeItem(DEV_LAYOUT_KEY); } catch {}
+    console.log("[VA DEV] layout cleared");
+  },
+};
+
+(function __installDevLayoutEditor() {
+  if (!__dev_isEnv()) return; // do nothing in prod
+
+  window.addEventListener(
+    "keydown",
+    (ev) => {
+      // Plain F5 toggles dev layout mode instead of reload (dev only)
+      if (ev.key === "F5" && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey) {
+        ev.preventDefault();
+        if (__devModeOn) __dev_disable();
+        else __dev_enable();
+      }
+    },
+    { passive: false }
+  );
+
+  console.log("[VA DEV] UI layout editor ready. Press F5 to toggle (dev env only).");
+})();
+
+
 /* Gentle quest tick (inventory → vars → rules → HUD) */
 setInterval(() => {
   scanInventoryForQuestVars();   // sets wizardParchmentSigned if scroll exists

@@ -54,6 +54,14 @@ const WIZARD_FRAME_URLS = Array.from({ length: 9 }, (_, i) =>
     .padStart(3, "0")}.png`
 );
 
+// Animated cauldron frames (16 frames)
+const CAULDRON_FRAME_URLS = Array.from({ length: 16 }, (_, i) =>
+  `/guildbook/props/wizardshouseprops/frame_${i
+    .toString()
+    .padStart(3, "0")}.png`
+);
+
+
 /* =========================================================
    ASSETS / TRAVEL
    ========================================================= */
@@ -114,6 +122,9 @@ const NPC_W = 144,
 const NPC_X_RATIO = 0.5;
 const NPC_BACK_OFFSET_RATIO = 0.06;
 const TALK_DISTANCE = 110;
+// Cauldron (front-left-ish)
+const CAULDRON_W = 180;
+const CAULDRON_H = 180;
 
 /* =========================================================
    DPR & RESIZE
@@ -162,6 +173,11 @@ let wizardFrames: HTMLImageElement[] = [];
 let wizardFrameIndex = 0;
 const WIZARD_FRAME_MS = 400;
 let lastWizardFrameTime = performance.now();
+// cauldron anim frames
+let cauldronFrames: HTMLImageElement[] = [];
+let cauldronFrameIndex = 0;
+const CAULDRON_FRAME_MS = 120;
+let lastCauldronFrameTime = performance.now();
 
 /* =========================================================
    WORLD STATE
@@ -181,14 +197,21 @@ const hero = {
 };
 
 const npc = { x: 0, y: 0, w: NPC_W, h: NPC_H };
+const cauldron = { x: 0, y: 0, w: CAULDRON_W, h: CAULDRON_H };
 
 function layoutHouse() {
   const vw = window.innerWidth,
     vh = window.innerHeight;
   groundY = Math.round(vh * WALKWAY_TOP_RATIO);
+
   npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
   npc.y = Math.round(groundY - npc.h - vh * NPC_BACK_OFFSET_RATIO);
+
+  // cauldron a bit left of the wizard, on the same floor line
+  cauldron.x = Math.round(vw * 0.32) - Math.floor(cauldron.w / 2);
+  cauldron.y = groundY - cauldron.h + 10;
 }
+
 function refreshBounds() {
   layoutHouse();
 }
@@ -826,12 +849,20 @@ function step() {
     }
   }
 
-  // wizard animation timer
+    // wizard animation timer
   if (wizardFrames.length && nowStep - lastWizardFrameTime >= WIZARD_FRAME_MS) {
     lastWizardFrameTime = nowStep;
     wizardFrameIndex =
       (wizardFrameIndex + 1) % Math.max(1, wizardFrames.length);
   }
+
+  // cauldron animation timer
+  if (cauldronFrames.length && nowStep - lastCauldronFrameTime >= CAULDRON_FRAME_MS) {
+    lastCauldronFrameTime = nowStep;
+    cauldronFrameIndex =
+      (cauldronFrameIndex + 1) % Math.max(1, cauldronFrames.length);
+  }
+
 }
 
 /* =========================================================
@@ -883,8 +914,9 @@ function render() {
     );
   }
 
-  const heroFeet = hero.y + hero.h;
+    const heroFeet = hero.y + hero.h;
   const npcFeet = npc.y + npc.h;
+  const cauldronFeet = cauldron.y + cauldron.h;
 
   const frames = getHeroFrameList();
   const heroImg =
@@ -897,22 +929,28 @@ function render() {
       ? wizardFrames[wizardFrameIndex]
       : null;
 
-  if (heroFeet < npcFeet) {
-    if (heroImg)
-      ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
-    if (wizardImg)
-      ctx.drawImage(wizardImg, npc.x, npc.y, npc.w, npc.h);
-  } else {
-    if (wizardImg)
-      ctx.drawImage(wizardImg, npc.x, npc.y, npc.w, npc.h);
-    if (heroImg)
-      ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
+  const cauldronImg =
+    cauldronFrames.length && cauldronFrameIndex < cauldronFrames.length
+      ? cauldronFrames[cauldronFrameIndex]
+      : null;
+
+  type DrawEnt = { z: number; img: HTMLImageElement | null; x: number; y: number; w: number; h: number };
+  const ents: DrawEnt[] = [];
+
+  if (heroImg) ents.push({ z: heroFeet, img: heroImg, x: hero.x, y: hero.y, w: hero.w, h: hero.h });
+  if (wizardImg) ents.push({ z: npcFeet, img: wizardImg, x: npc.x, y: npc.y, w: npc.w, h: npc.h });
+  if (cauldronImg) ents.push({ z: cauldronFeet, img: cauldronImg, x: cauldron.x, y: cauldron.y, w: cauldron.w, h: cauldron.h });
+
+  ents.sort((a, b) => a.z - b.z);
+  for (const e of ents) {
+    if (e.img) ctx.drawImage(e.img, e.x, e.y, e.w, e.h);
   }
 
   if (!heroImg) {
     ctx.fillStyle = "#333";
     ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
   }
+
 
   // rune projectiles (draw on top)
   for (const p of runeProjectiles) {
@@ -1005,6 +1043,8 @@ Promise.all(
     ...HERO_ATK_RIGHT_URLS,
     ...RUNE_PROJECTILE_URLS,
     ...WIZARD_FRAME_URLS,
+    ...CAULDRON_FRAME_URLS,
+
   ].map(load)
 )
   .then((imgs) => {
@@ -1054,6 +1094,10 @@ Promise.all(
     idx += WIZARD_FRAME_URLS.length;
 
     heroFallbackImg = heroIdleFrames[0] || null;
+
+    // cauldron frames
+    cauldronFrames = imgs.slice(idx, idx + CAULDRON_FRAME_URLS.length);
+    idx += CAULDRON_FRAME_URLS.length;
 
     refreshBounds();
     showExitHint();
