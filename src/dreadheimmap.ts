@@ -40,20 +40,20 @@ const HERO_ATK_RIGHT_URLS: string[] =
   (window as any).getHeroAnimUrls?.("attackRight") ?? HERO_RIGHT_URLS;
 
 //////////////////////////////
-// Boar + Bat animation frame URLs
+// Boar + Bat + Rune animation frame URLs
 //////////////////////////////
 
 // Diseased boar attack cycle
 const BOAR_ATK_URLS = Array.from({ length: 9 }, (_, i) =>
   `/guildbook/avatars/enemies/diseasedboar/atk_${i.toString().padStart(3, "0")}.png`
 );
+
 // Rune mage projectile (9-frame animation)
 const RUNE_PROJECTILE_URLS = Array.from({ length: 9 }, (_, i) =>
   `/guildbook/avatars/rune-mage/projectiles/frame_${i
     .toString()
     .padStart(3, "0")}.png`
 );
-
 
 // Dreadheim bat fly cycle
 const BAT_FLY_URLS = Array.from({ length: 9 }, (_, i) =>
@@ -116,8 +116,10 @@ const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
 const GRAVITY = 0.8;
 const JUMP_VELOCITY = -16;
-const HERO_W = 96, HERO_H = 150;
-const BOAR_W = 110, BOAR_H = 90;
+const HERO_W = 96;
+const HERO_H = 150;
+const BOAR_W = 110;
+const BOAR_H = 90;
 
 const ENGAGE_DIST = 120; // auto-start battle
 const ALERT_DIST = 320;  // slow chase radius
@@ -125,7 +127,7 @@ const CHASE_SPEED = 1.2;
 const PATROL_SPEED = 1.8;
 
 //////////////////////////////
-// DPI / Resiz
+// DPI / Resize
 //////////////////////////////
 function fitCanvas() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -176,6 +178,7 @@ type Bat = {
   vx: number; vy: number; dir: Dir;
   frame: number; lastFrame: number; frameDelay: number;
   maxSpeed: number; wanderTheta: number; wanderJitter: number; wanderRadius: number;
+  alive: boolean;
 };
 
 const BAT_SIZE = 60;
@@ -203,10 +206,14 @@ function spawnBat() {
     maxSpeed: 2.0,
     wanderTheta: rand(0, Math.PI * 2),
     wanderJitter: 0.10,
-    wanderRadius: 0.25
+    wanderRadius: 0.25,
+    alive: true,
   });
 }
-function spawnFlock(n = FLOCK_COUNT) { for (let i = 0; i < n; i++) spawnBat(); }
+
+function spawnFlock(n = FLOCK_COUNT) {
+  for (let i = 0; i < n; i++) spawnBat();
+}
 
 //////////////////////////////
 // Rune Projectiles
@@ -224,13 +231,12 @@ type RuneProjectile = {
 };
 
 const RUNE_W = 25;
-const RUNE_COOLDOWN_MS = 600;   // 0.6s between rune casts
-let lastRuneCastTime = 0;
-
 const RUNE_H = 25;
 const RUNE_SPEED = 12;
 const RUNE_LIFETIME_MS = 900;
 const RUNE_FRAME_MS = 70;
+const RUNE_COOLDOWN_MS = 600;   // 0.6s between rune casts
+let lastRuneCastTime = 0;
 
 let runeFrames: HTMLImageElement[] = [];
 const runeProjectiles: RuneProjectile[] = [];
@@ -266,8 +272,6 @@ function spawnRuneProjectile(targetX: number, targetY: number) {
     frame: 0,
   });
 }
-
-
 
 //////////////////////////////
 // Entities
@@ -369,7 +373,7 @@ canvas.addEventListener("mousedown", (e) => {
 
   const now = performance.now();
   if (now - lastRuneCastTime < RUNE_COOLDOWN_MS) {
-    // still on cooldown – play swing if you want, but no projectile
+    // still on cooldown – no projectile
     return;
   }
   lastRuneCastTime = now;
@@ -387,7 +391,6 @@ canvas.addEventListener("mousedown", (e) => {
   // spawn rune toward mouse
   spawnRuneProjectile(mx, my);
 });
-
 
 //////////////////////////////
 // Click: engage boar or pick loot
@@ -554,6 +557,7 @@ function step() {
 
   for (let i = 0; i < bats.length; i++) {
     const b = bats[i];
+    if (!b.alive) continue; // dead bats do nothing
 
     if (batFrames.length && now - b.lastFrame > b.frameDelay) {
       b.frame = (b.frame + 1) % batFrames.length;
@@ -599,7 +603,8 @@ function step() {
     if (b.y > H + pad) b.y = -pad;
     if (b.y < -pad)    b.y = H + pad;
   }
-    // rune projectile update + animation
+
+  // rune projectile update + animation
   if (runeProjectiles.length && nowStep - lastRuneFrameTime >= RUNE_FRAME_MS) {
     lastRuneFrameTime = nowStep;
     for (const p of runeProjectiles) {
@@ -610,9 +615,28 @@ function step() {
   for (let i = runeProjectiles.length - 1; i >= 0; i--) {
     const p = runeProjectiles[i];
 
+    // move projectile
     p.x += p.vx;
     p.y += p.vy;
     p.life -= dt;
+
+    // check collision with bats
+    let hit = false;
+    for (const b of bats) {
+      if (!b.alive) continue;
+
+      const overlap =
+        p.x < b.x + b.w &&
+        p.x + p.w > b.x &&
+        p.y < b.y + b.h &&
+        p.y + p.h > b.y;
+
+      if (overlap) {
+        b.alive = false;   // bat is "killed"
+        hit = true;
+        break;
+      }
+    }
 
     const offscreen =
       p.x + p.w < 0 ||
@@ -620,14 +644,11 @@ function step() {
       p.y + p.h < 0 ||
       p.y > window.innerHeight;
 
-    if (p.life <= 0 || offscreen) {
+    if (hit || p.life <= 0 || offscreen) {
       runeProjectiles.splice(i, 1);
     }
   }
-
 }
- 
-
 
 //////////////////////////////
 // Render
@@ -639,6 +660,8 @@ function render() {
   // bats behind the hero
   if (batFrames.length) {
     for (const b of bats) {
+      if (!b.alive) continue; // don't draw dead bats
+
       const img = batFrames[b.frame % batFrames.length];
       ctx.save();
       if (b.dir < 0) {
@@ -664,7 +687,7 @@ function render() {
     ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
   }
 
-    // rune projectiles
+  // rune projectiles
   for (const p of runeProjectiles) {
     const frameImg =
       runeFrames.length > 0
@@ -688,7 +711,6 @@ function render() {
       ctx.fill();
     }
   }
-
 
   // boar (animated, flip when moving left)
   if (boar.alive && boarFrames.length) {
@@ -796,32 +818,32 @@ Promise.all(
     idx += BAT_FLY_URLS.length;
 
     // hero frames
-    const idleCount = HERO_IDLE_URLS.length;
-    const leftCount = HERO_LEFT_URLS.length;
-    const rightCount = HERO_RIGHT_URLS.length;
-    const atkLeftCount = HERO_ATK_LEFT_URLS.length;
-    const atkRightCount = HERO_ATK_RIGHT_URLS.length;
+const idleCount = HERO_IDLE_URLS.length;
+const leftCount = HERO_LEFT_URLS.length;
+const rightCount = HERO_RIGHT_URLS.length;
+const atkLeftCount = HERO_ATK_LEFT_URLS.length;
+const atkRightCount = HERO_ATK_RIGHT_URLS.length;
 
-    const heroTotal =
-      idleCount + leftCount + rightCount + atkLeftCount + atkRightCount;
+const heroTotal =
+  idleCount + leftCount + rightCount + atkLeftCount + atkRightCount;
 
-    const heroImgs = imgs.slice(idx, idx + heroTotal);
-    idx += heroTotal;
+const heroImgs = imgs.slice(idx, idx + heroTotal);
+idx += heroTotal;
 
-    heroIdleFrames = heroImgs.slice(0, idleCount);
-    heroLeftFrames = heroImgs.slice(idleCount, idleCount + leftCount);
-    heroRightFrames = heroImgs.slice(
-      idleCount + leftCount,
-      idleCount + leftCount + rightCount
-    );
-    heroAtkLeftFrames = heroImgs.slice(
-      idleCount + leftCount + rightCount,
-      idleCount + leftCount + rightCount + atkLeftCount
-    );
-    heroAtkRightFrames = heroImgs.slice(
-      idleCount + leftCount + rightCount + atkLeftCount,
-      idleCount + leftCount + rightCount + atkLeftCount + atkRightCount
-    );
+heroIdleFrames = heroImgs.slice(0, idleCount);
+heroLeftFrames = heroImgs.slice(idleCount, idleCount + leftCount);
+heroRightFrames = heroImgs.slice(
+  idleCount + leftCount,
+  idleCount + leftCount + rightCount
+);
+heroAtkLeftFrames = heroImgs.slice(
+  idleCount + leftCount + rightCount,
+  idleCount + leftCount + rightCount + atkLeftCount
+);
+heroAtkRightFrames = heroImgs.slice(
+  idleCount + leftCount + rightCount + atkLeftCount,
+  idleCount + leftCount + rightCount + atkLeftCount + atkRightCount
+);
 
     // rune frames
     runeFrames = imgs.slice(idx, idx + RUNE_PROJECTILE_URLS.length);
@@ -843,7 +865,6 @@ Promise.all(
     loop();
   });
 
-
 //////////////////////////////
 // (Optional) Badge cleanup — if a previous page left it visible
 //////////////////////////////
@@ -862,6 +883,7 @@ Promise.all(
   addEventListener("focus", nukeBadge);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) nukeBadge(); });
 })();
+
 
 
 
