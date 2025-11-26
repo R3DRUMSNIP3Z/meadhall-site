@@ -8,7 +8,6 @@ const ctx = canvas.getContext("2d")!;
 
 /* =========================================================
    HERO ANIM + RUNE PROJECTILE ASSETS
-   (same system as forest/perimeters)
    ========================================================= */
 
 // Hero animation frame URLs (class-aware)
@@ -21,13 +20,17 @@ const HERO_IDLE_URLS: string[] =
 const HERO_LEFT_URLS: string[] =
   (window as any).getHeroAnimUrls?.("walkLeft") ??
   Array.from({ length: 9 }, (_, i) =>
-    `/guildbook/avatars/shieldmaiden/leftwalk_${i.toString().padStart(3, "0")}.png`
+    `/guildbook/avatars/shieldmaiden/leftwalk_${i
+      .toString()
+      .padStart(3, "0")}.png`
   );
 
 const HERO_RIGHT_URLS: string[] =
   (window as any).getHeroAnimUrls?.("walkRight") ??
   Array.from({ length: 9 }, (_, i) =>
-    `/guildbook/avatars/shieldmaiden/rightwalk_${i.toString().padStart(3, "0")}.png`
+    `/guildbook/avatars/shieldmaiden/rightwalk_${i
+      .toString()
+      .padStart(3, "0")}.png`
   );
 
 // Attack frames (falls back to walk if class has no attack yet)
@@ -44,11 +47,19 @@ const RUNE_PROJECTILE_URLS = Array.from({ length: 9 }, (_, i) =>
     .padStart(3, "0")}.png`
 );
 
+// Animated wizard NPC frames
+const WIZARD_FRAME_URLS = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/npcs/dreadheim-wizard/frame_${i
+    .toString()
+    .padStart(3, "0")}.png`
+);
+
 /* =========================================================
    ASSETS / TRAVEL
    ========================================================= */
 const ASSETS = {
   bg: "/guildbook/props/dreadheimhouseinside.png",
+  // fallback single-frame wizard (in case anim missing)
   npc: "/guildbook/npcs/dreadheim-wizard.png",
   scroll: "/guildbook/loot/questscroll.png",
 
@@ -145,7 +156,7 @@ function load(src: string): Promise<HTMLImageElement> {
 }
 
 let bg: HTMLImageElement | null = null;
-let npcImg: HTMLImageElement | null = null;
+let npcFallbackImg: HTMLImageElement | null = null;
 let heroFallbackImg: HTMLImageElement | null = null;
 
 // hero animation frames
@@ -157,6 +168,12 @@ let heroAtkRightFrames: HTMLImageElement[] = [];
 
 // rune projectile frames
 let runeFrames: HTMLImageElement[] = [];
+
+// wizard anim frames
+let wizardFrames: HTMLImageElement[] = [];
+let wizardFrameIndex = 0;
+const WIZARD_FRAME_MS = 120;
+let lastWizardFrameTime = performance.now();
 
 /* =========================================================
    WORLD STATE
@@ -593,7 +610,7 @@ function showExitHint() {
 }
 
 /* =========================================================
-   RUNE PROJECTILES (same feel as forest/perimeters)
+   RUNE PROJECTILES
    ========================================================= */
 type RuneProjectile = {
   x: number;
@@ -678,7 +695,7 @@ canvas.addEventListener("mousedown", (e) => {
 });
 
 /* =========================================================
-   STEP (MOVEMENT + ANIM + RUNES)
+   HERO ANIM HELPERS
    ========================================================= */
 function getHeroFrameList(): HTMLImageElement[] {
   if (hero.anim === "attack") {
@@ -690,6 +707,9 @@ function getHeroFrameList(): HTMLImageElement[] {
   return heroIdleFrames;
 }
 
+/* =========================================================
+   STEP (MOVEMENT + ANIM + RUNES + WIZARD ANIM)
+   ========================================================= */
 function step() {
   // dt
   const nowStep = performance.now();
@@ -817,6 +837,13 @@ function step() {
       runeProjectiles.splice(i, 1);
     }
   }
+
+  // wizard animation timer
+  if (wizardFrames.length && nowStep - lastWizardFrameTime >= WIZARD_FRAME_MS) {
+    lastWizardFrameTime = nowStep;
+    wizardFrameIndex =
+      (wizardFrameIndex + 1) % Math.max(1, wizardFrames.length);
+  }
 }
 
 /* =========================================================
@@ -868,7 +895,6 @@ function render() {
     );
   }
 
-  // NPC / hero draw order (who is in front)
   const heroFeet = hero.y + hero.h;
   const npcFeet = npc.y + npc.h;
 
@@ -878,12 +904,19 @@ function render() {
       ? frames[hero.frameIndex]
       : heroFallbackImg;
 
+  const wizardImg =
+    wizardFrames.length && wizardFrameIndex < wizardFrames.length
+      ? wizardFrames[wizardFrameIndex]
+      : npcFallbackImg;
+
   if (heroFeet < npcFeet) {
     if (heroImg)
       ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
-    if (npcImg) ctx.drawImage(npcImg, npc.x, npc.y, npc.w, npc.h);
+    if (wizardImg)
+      ctx.drawImage(wizardImg, npc.x, npc.y, npc.w, npc.h);
   } else {
-    if (npcImg) ctx.drawImage(npcImg, npc.x, npc.y, npc.w, npc.h);
+    if (wizardImg)
+      ctx.drawImage(wizardImg, npc.x, npc.y, npc.w, npc.h);
     if (heroImg)
       ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
   }
@@ -976,8 +1009,8 @@ window.addEventListener("va-gender-changed", () => {
 Promise.all(
   [
     ASSETS.bg,
-    ASSETS.npc,
-    ASSETS.hero,
+    ASSETS.npc,   // npcFallback
+    ASSETS.hero,  // heroStatic
     ASSETS.scroll,
     ...HERO_IDLE_URLS,
     ...HERO_LEFT_URLS,
@@ -985,14 +1018,15 @@ Promise.all(
     ...HERO_ATK_LEFT_URLS,
     ...HERO_ATK_RIGHT_URLS,
     ...RUNE_PROJECTILE_URLS,
+    ...WIZARD_FRAME_URLS,
   ].map(load)
 )
   .then((imgs) => {
     let idx = 0;
 
     bg = imgs[idx++];
-    npcImg = imgs[idx++];
-    const heroStatic = imgs[idx++]; // static hero fallback
+    npcFallbackImg = imgs[idx++];
+    const heroStatic = imgs[idx++];
     scrollImg = imgs[idx++];
 
     // hero anim frames
@@ -1031,6 +1065,10 @@ Promise.all(
     runeFrames = imgs.slice(idx, idx + RUNE_PROJECTILE_URLS.length);
     idx += RUNE_PROJECTILE_URLS.length;
 
+    // wizard frames
+    wizardFrames = imgs.slice(idx, idx + WIZARD_FRAME_URLS.length);
+    idx += WIZARD_FRAME_URLS.length;
+
     heroFallbackImg = heroIdleFrames[0] || heroStatic || null;
 
     refreshBounds();
@@ -1043,6 +1081,7 @@ Promise.all(
     showExitHint();
     loop();
   });
+
 
 
 
