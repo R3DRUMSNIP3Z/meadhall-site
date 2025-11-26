@@ -224,6 +224,9 @@ type RuneProjectile = {
 };
 
 const RUNE_W = 60;
+const RUNE_COOLDOWN_MS = 600;   // 0.6s between rune casts
+let lastRuneCastTime = 0;
+
 const RUNE_H = 60;
 const RUNE_SPEED = 12;
 const RUNE_LIFETIME_MS = 900;
@@ -364,19 +367,27 @@ window.addEventListener("keydown", (e) => {
 canvas.addEventListener("mousedown", (e) => {
   if (e.button !== 0) return; // only left click
 
+  const now = performance.now();
+  if (now - lastRuneCastTime < RUNE_COOLDOWN_MS) {
+    // still on cooldown – play swing if you want, but no projectile
+    return;
+  }
+  lastRuneCastTime = now;
+
   // start attack animation
   hero.anim = "attack";
   hero.frameIndex = 0;
   heroAttackElapsed = 0;
-    // spawn rune in attack direction
-const rect = canvas.getBoundingClientRect();
-const mx = e.clientX - rect.left;
-const my = e.clientY - rect.top;
 
-// spawn rune toward mouse
-spawnRuneProjectile(mx, my);
+  // where on the canvas the mouse clicked
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
 
+  // spawn rune toward mouse
+  spawnRuneProjectile(mx, my);
 });
+
 
 //////////////////////////////
 // Click: engage boar or pick loot
