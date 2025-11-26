@@ -25,8 +25,43 @@
 <body>
   <canvas id="map"></canvas>
 
+  <!-- DEV LAYOUT HANDLES (DOM → canvas bridge) -->
+  <div id="devWizard"
+       data-dev-edit="1"
+       style="
+         position:fixed;
+         left:50%; top:32%;
+         width:144px; height:252px;
+         pointer-events:none;
+         z-index:99999;
+       ">
+  </div>
+
+  <div id="devCauldron"
+       data-dev-edit="1"
+       style="
+         position:fixed;
+         left:32%; top:60%;
+         width:180px; height:180px;
+         pointer-events:none;
+         z-index:99999;
+       ">
+  </div>
+
+  <div id="devScroll"
+       data-dev-edit="1"
+       style="
+         position:fixed;
+         left:60%; top:72%;
+         width:48px; height:48px;
+         pointer-events:none;
+         z-index:99999;
+       ">
+  </div>
+
   <!-- IMPORTANT: load global setup FIRST so getHeroSprite() exists -->
   <script type="module" src="/src/global-game-setup.ts"></script>
   <script type="module" src="/src/dreadheimhouse.ts"></script>
 </body>
+
 </html>

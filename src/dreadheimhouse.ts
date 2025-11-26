@@ -199,13 +199,35 @@ const hero = {
 const npc = { x: 0, y: 0, w: NPC_W, h: NPC_H };
 const cauldron = { x: 0, y: 0, w: CAULDRON_W, h: CAULDRON_H };
 
+type RectTarget = { x: number; y: number; w: number; h: number };
+
+function applyDevLayoutFromHandle(handleId: string, target: RectTarget) {
+  const el = document.getElementById(handleId) as HTMLElement | null;
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  target.x = r.left;
+  target.y = r.top;
+  target.w = r.width;
+  target.h = r.height;
+}
+
+
 function layoutHouse() {
   const vw = window.innerWidth,
-    vh = window.innerHeight;
+        vh = window.innerHeight;
   groundY = Math.round(vh * WALKWAY_TOP_RATIO);
 
   npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
   npc.y = Math.round(groundY - npc.h - vh * NPC_BACK_OFFSET_RATIO);
+
+  // default cauldron placement (fallback if no dev handles)
+  cauldron.x = Math.round(vw * 0.32) - Math.floor(cauldron.w / 2);
+  cauldron.y = groundY - cauldron.h + 10;
+
+  // scroll default
+  scrollLoot.x = 620;
+  scrollLoot.y = 760;
+
 
   // cauldron a bit left of the wizard, on the same floor line
   cauldron.x = Math.round(vw * 0.32) - Math.floor(cauldron.w / 2);
@@ -213,8 +235,16 @@ function layoutHouse() {
 }
 
 function refreshBounds() {
+  // base layout
   layoutHouse();
+
+  // if dev handles exist, they win
+  applyDevLayoutFromHandle("devWizard", npc);
+  applyDevLayoutFromHandle("devCauldron", cauldron);
+  applyDevLayoutFromHandle("devScroll", scrollLoot as any);
 }
+
+
 window.addEventListener("resize", refreshBounds);
 
 /* =========================================================
