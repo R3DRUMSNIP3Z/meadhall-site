@@ -1594,9 +1594,9 @@ loadCatalog().catch(()=>{});
 
 /* =========================================================
    DEV: UI DRAG + RESIZE (LOCAL LAYOUT EDITOR)
-   - Press F5 in DEV to toggle edit mode
-   - Works only on localhost or ?devui=1 / ?dev=1
+   - Press F6 to toggle edit mode
    - Only affects elements with data-dev-edit="1" AND an id
+   - Saves per-user layout in localStorage
    ========================================================= */
 
 type DevLayoutEntry = {
@@ -1613,11 +1613,9 @@ const DEV_LAYOUT_KEY = __userKey(DEV_LAYOUT_KEY_BASE);
 let __devLayoutCache: DevLayoutStore | null = null;
 let __devModeOn = false;
 
+// For now: ALWAYS allow dev layout (no localhost / ?dev gate needed)
 function __dev_isEnv(): boolean {
-  // Dev only: localhost or ?devui=1 / ?dev=1
-  if (location.hostname === "localhost" || location.hostname === "127.0.0.1") return true;
-  const q = new URLSearchParams(location.search);
-  return q.has("devui") || q.has("dev");
+  return true;
 }
 
 function __dev_loadLayout(): DevLayoutStore {
@@ -1632,7 +1630,9 @@ function __dev_loadLayout(): DevLayoutStore {
 }
 function __dev_saveLayout() {
   if (!__devLayoutCache) return;
-  try { localStorage.setItem(DEV_LAYOUT_KEY, JSON.stringify(__devLayoutCache)); } catch {}
+  try {
+    localStorage.setItem(DEV_LAYOUT_KEY, JSON.stringify(__devLayoutCache));
+  } catch {}
 }
 
 function __dev_applySaved(el: HTMLElement) {
@@ -1643,8 +1643,9 @@ function __dev_applySaved(el: HTMLElement) {
   if (!e) return;
 
   const cs = getComputedStyle(el);
-  if (cs.position === "static" || !el.style.position) {
-    el.style.position = "absolute";
+  // default to fixed so it behaves like your other HUD stuff
+  if ((cs.position === "static" || !el.style.position)) {
+    el.style.position = "fixed";
   }
 
   el.style.left = e.left + "px";
@@ -1692,22 +1693,27 @@ function __dev_onMove(ev: PointerEvent) {
 }
 
 function __dev_end(ev?: PointerEvent) {
-  if (!__devModeOn) { __devDrag = null; __devResize = null; return; }
+  if (!__devModeOn) {
+    __devDrag = null;
+    __devResize = null;
+    return;
+  }
 
   const store = __dev_loadLayout();
 
   function persist(el: HTMLElement) {
-    const id = el.id; if (!id) return;
+    const id = el.id;
+    if (!id) return;
     const rect = el.getBoundingClientRect();
     const left = parseFloat(el.style.left || rect.left.toString());
-    const top  = parseFloat(el.style.top  || rect.top.toString());
+    const top = parseFloat(el.style.top || rect.top.toString());
     const entry: DevLayoutEntry = { left, top };
-    if (el.style.width)  entry.width  = parseFloat(el.style.width);
+    if (el.style.width) entry.width = parseFloat(el.style.width);
     if (el.style.height) entry.height = parseFloat(el.style.height);
     store[id] = entry;
   }
 
-  if (__devDrag)  persist(__devDrag.el);
+  if (__devDrag) persist(__devDrag.el);
   if (__devResize) persist(__devResize.el);
   __dev_saveLayout();
 
@@ -1728,7 +1734,8 @@ function __dev_makeEditable(el: HTMLElement) {
 
   const cs = getComputedStyle(el);
   if (cs.position === "static" || !el.style.position) {
-    el.style.position = "absolute";
+    // fixed works better for your “nothing moves on scroll” rule
+    el.style.position = "fixed";
   }
 
   // DRAG
@@ -1738,18 +1745,20 @@ function __dev_makeEditable(el: HTMLElement) {
     if (target && target.classList.contains("va-dev-resize-handle")) return;
 
     ev.preventDefault();
-    try { el.setPointerCapture(ev.pointerId); } catch {}
+    try {
+      el.setPointerCapture(ev.pointerId);
+    } catch {}
 
     const rect = el.getBoundingClientRect();
     const left = parseFloat(el.style.left || rect.left.toString());
-    const top  = parseFloat(el.style.top  || rect.top.toString());
+    const top = parseFloat(el.style.top || rect.top.toString());
 
     __devDrag = {
       el,
       startX: ev.clientX,
       startY: ev.clientY,
       startLeft: isNaN(left) ? rect.left : left,
-      startTop:  isNaN(top)  ? rect.top  : top,
+      startTop: isNaN(top) ? rect.top : top,
     };
   });
 
@@ -1765,11 +1774,15 @@ function __dev_makeEditable(el: HTMLElement) {
     if (!__devModeOn) return;
     ev.stopPropagation();
     ev.preventDefault();
-    try { handle!.setPointerCapture(ev.pointerId); } catch {}
+    try {
+      handle!.setPointerCapture(ev.pointerId);
+    } catch {}
 
     const rect = el.getBoundingClientRect();
-    const w = parseFloat(el.style.width  || rect.width.toString())  || rect.width;
-    const h = parseFloat(el.style.height || rect.height.toString()) || rect.height;
+    const w =
+      parseFloat(el.style.width || rect.width.toString()) || rect.width;
+    const h =
+      parseFloat(el.style.height || rect.height.toString()) || rect.height;
 
     __devResize = {
       el,
@@ -1797,6 +1810,8 @@ function __dev_enable() {
         outline: 1px dashed rgba(0,255,255,0.9);
         box-shadow: 0 0 8px rgba(0,255,255,0.5);
         cursor: move;
+        pointer-events: auto !important; /* override pointer-events:none on dev targets */
+        z-index: 99999;
       }
       .va-dev-resize-handle {
         position:absolute;
@@ -1806,7 +1821,7 @@ function __dev_enable() {
         border:1px solid rgba(0,255,255,0.9);
         background:rgba(0,255,255,0.7);
         cursor:se-resize;
-        z-index:99999;
+        z-index:999999;
       }
     `;
     document.head.appendChild(s);
@@ -1850,18 +1865,20 @@ function __dev_disable() {
   },
   clear() {
     __devLayoutCache = {};
-    try { localStorage.removeItem(DEV_LAYOUT_KEY); } catch {}
+    try {
+      localStorage.removeItem(DEV_LAYOUT_KEY);
+    } catch {}
     console.log("[VA DEV] layout cleared");
   },
 };
 
 (function __installDevLayoutEditor() {
-  if (!__dev_isEnv()) return; // do nothing in prod
+  if (!__dev_isEnv()) return; // currently always true
 
   window.addEventListener(
     "keydown",
     (ev) => {
-      // Plain F5 toggles dev layout mode instead of reload (dev only)
+      // Plain F6 toggles dev layout mode
       if (ev.key === "F6" && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey) {
         ev.preventDefault();
         if (__devModeOn) __dev_disable();
@@ -1871,7 +1888,7 @@ function __dev_disable() {
     { passive: false }
   );
 
-  console.log("[VA DEV] UI layout editor ready. Press F6 to toggle (dev env only).");
+  console.log("[VA DEV] UI layout editor ready. Press F6 to toggle.");
 })();
 
 
