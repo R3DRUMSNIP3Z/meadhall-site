@@ -227,7 +227,7 @@ const RUNE_W = 25;
 const RUNE_COOLDOWN_MS = 600;   // 0.6s between rune casts
 let lastRuneCastTime = 0;
 
-const RUNE_H = 60;
+const RUNE_H = 25;
 const RUNE_SPEED = 12;
 const RUNE_LIFETIME_MS = 900;
 const RUNE_FRAME_MS = 70;
