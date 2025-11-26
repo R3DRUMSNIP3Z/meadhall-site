@@ -59,18 +59,7 @@ const WIZARD_FRAME_URLS = Array.from({ length: 9 }, (_, i) =>
    ========================================================= */
 const ASSETS = {
   bg: "/guildbook/props/dreadheimhouseinside.png",
-  // fallback single-frame wizard (in case anim missing)
-  npc: "/guildbook/npcs/dreadheim-wizard.png",
   scroll: "/guildbook/loot/questscroll.png",
-
-  hero: (() => {
-    const pick = (window as any).getHeroSprite as undefined | (() => string);
-    if (typeof pick === "function") return pick();
-    const g = localStorage.getItem("va_gender");
-    return g === "female"
-      ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
-      : "/guildbook/avatars/dreadheim-warrior.png";
-  })(),
 } as const;
 
 const EXIT_URL = "/dreadheimperimeters.html";
@@ -156,8 +145,6 @@ function load(src: string): Promise<HTMLImageElement> {
 }
 
 let bg: HTMLImageElement | null = null;
-let npcFallbackImg: HTMLImageElement | null = null;
-let heroFallbackImg: HTMLImageElement | null = null;
 
 // hero animation frames
 let heroIdleFrames: HTMLImageElement[] = [];
@@ -165,6 +152,7 @@ let heroLeftFrames: HTMLImageElement[] = [];
 let heroRightFrames: HTMLImageElement[] = [];
 let heroAtkLeftFrames: HTMLImageElement[] = [];
 let heroAtkRightFrames: HTMLImageElement[] = [];
+let heroFallbackImg: HTMLImageElement | null = null;
 
 // rune projectile frames
 let runeFrames: HTMLImageElement[] = [];
@@ -907,7 +895,7 @@ function render() {
   const wizardImg =
     wizardFrames.length && wizardFrameIndex < wizardFrames.length
       ? wizardFrames[wizardFrameIndex]
-      : npcFallbackImg;
+      : null;
 
   if (heroFeet < npcFeet) {
     if (heroImg)
@@ -1009,8 +997,6 @@ window.addEventListener("va-gender-changed", () => {
 Promise.all(
   [
     ASSETS.bg,
-    ASSETS.npc,   // npcFallback
-    ASSETS.hero,  // heroStatic
     ASSETS.scroll,
     ...HERO_IDLE_URLS,
     ...HERO_LEFT_URLS,
@@ -1025,8 +1011,6 @@ Promise.all(
     let idx = 0;
 
     bg = imgs[idx++];
-    npcFallbackImg = imgs[idx++];
-    const heroStatic = imgs[idx++];
     scrollImg = imgs[idx++];
 
     // hero anim frames
@@ -1069,7 +1053,7 @@ Promise.all(
     wizardFrames = imgs.slice(idx, idx + WIZARD_FRAME_URLS.length);
     idx += WIZARD_FRAME_URLS.length;
 
-    heroFallbackImg = heroIdleFrames[0] || heroStatic || null;
+    heroFallbackImg = heroIdleFrames[0] || null;
 
     refreshBounds();
     showExitHint();
@@ -1081,6 +1065,7 @@ Promise.all(
     showExitHint();
     loop();
   });
+
 
 
 
