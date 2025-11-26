@@ -223,7 +223,7 @@ type RuneProjectile = {
   frame: number;
 };
 
-const RUNE_W = 60;
+const RUNE_W = 25;
 const RUNE_COOLDOWN_MS = 600;   // 0.6s between rune casts
 let lastRuneCastTime = 0;
 
