@@ -160,7 +160,7 @@ let runeFrames: HTMLImageElement[] = [];
 // wizard anim frames
 let wizardFrames: HTMLImageElement[] = [];
 let wizardFrameIndex = 0;
-const WIZARD_FRAME_MS = 120;
+const WIZARD_FRAME_MS = 300;
 let lastWizardFrameTime = performance.now();
 
 /* =========================================================
