@@ -106,7 +106,7 @@ const WALK_BAND_PX = 48;
 const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
 const HERO_W = 96,
-  HERO_H = 96;
+  HERO_H = 150;
 
 // NPC (center-back)
 const NPC_W = 144,
