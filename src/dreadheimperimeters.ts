@@ -30,7 +30,7 @@ const WALKWAY_TOP_RATIO = 0.83;
 const SPEED = 4;
 const GRAVITY = 0.8;
 const JUMP_VELOCITY = -16;
-const HERO_W = 96, HERO_H = 96;
+const HERO_W = 96, HERO_H = 125;
 
 // ===== DPR & resize =====
 function fitCanvas() {
