@@ -118,7 +118,7 @@ const CHASE_SPEED = 1.2;
 const PATROL_SPEED = 1.8;
 
 //////////////////////////////
-// DPI / Resize
+// DPI / Resiz
 //////////////////////////////
 function fitCanvas() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
