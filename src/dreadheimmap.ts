@@ -55,7 +55,7 @@ const RUNE_PROJECTILE_URLS = Array.from({ length: 9 }, (_, i) =>
     .padStart(3, "0")}.png`
 );
 
-// Infected bat blood (9-frame animation)
+// Infected Bat’s Blood (animated loot icon)
 const BAT_BLOOD_URLS = Array.from({ length: 9 }, (_, i) =>
   `/guildbook/loot/infectedbatsblood/frame_${i
     .toString()
@@ -148,7 +148,7 @@ function fitCanvas() {
 fitCanvas();
 window.addEventListener("resize", fitCanvas);
 
-////////////////////////////// 
+//////////////////////////////
 // Image loading
 //////////////////////////////
 function load(src: string): Promise<HTMLImageElement> {
@@ -192,14 +192,14 @@ type Bat = {
 const BAT_SIZE = 60;
 const FLOCK_COUNT = 9;
 const BAT_RESPAWN_MS = 30_000; // 30 seconds
-const BAT_BLOOD_ICON = BAT_BLOOD_URLS[0];
+const BAT_BLOOD_ICON = "/guildbook/loot/infectedbatsblood/frame_000.png";
 
 const bats: Bat[] = [];
 
 function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
 function randi(min: number, max: number) { return Math.floor(rand(min, max)); }
 
-function randomizeBat(b: Bat) {
+function spawnBat(): Bat {
   const W = window.innerWidth, H = window.innerHeight;
   const margin = 80;
   const x = rand(margin, W - margin);
@@ -209,33 +209,22 @@ function randomizeBat(b: Bat) {
   const vx = Math.cos(angle) * speed;
   const vy = Math.sin(angle) * speed;
 
-  b.x = x;
-  b.y = y;
-  b.w = BAT_SIZE;
-  b.h = BAT_SIZE;
-  b.vx = vx;
-  b.vy = vy;
-  b.dir = vx >= 0 ? 1 : -1;
-  b.frame = randi(0, BAT_FLY_URLS.length);
-  b.lastFrame = 0;
-  b.frameDelay = randi(60, 120);
-  b.maxSpeed = 2.0;
-  b.wanderTheta = rand(0, Math.PI * 2);
-  b.wanderJitter = 0.10;
-  b.wanderRadius = 0.25;
-}
-
-function spawnBat() {
-  const b: Bat = {
-    x: 0, y: 0, w: BAT_SIZE, h: BAT_SIZE,
-    vx: 0, vy: 0, dir: 1,
-    frame: 0, lastFrame: 0, frameDelay: 80,
-    maxSpeed: 2.0, wanderTheta: 0, wanderJitter: 0.10, wanderRadius: 0.25,
+  const bat: Bat = {
+    x, y, w: BAT_SIZE, h: BAT_SIZE,
+    vx, vy,
+    dir: vx >= 0 ? 1 : -1,
+    frame: randi(0, BAT_FLY_URLS.length),
+    lastFrame: 0,
+    frameDelay: randi(60, 120),
+    maxSpeed: 2.0,
+    wanderTheta: rand(0, Math.PI * 2),
+    wanderJitter: 0.10,
+    wanderRadius: 0.25,
     alive: true,
     respawnAt: null,
   };
-  randomizeBat(b);
-  bats.push(b);
+  bats.push(bat);
+  return bat;
 }
 
 function spawnFlock(n = FLOCK_COUNT) {
@@ -269,9 +258,9 @@ let runeFrames: HTMLImageElement[] = [];
 const runeProjectiles: RuneProjectile[] = [];
 let lastRuneFrameTime = performance.now();
 
-// Bat blood loot animation
-let batBloodFrames: HTMLImageElement[] = [];
-
+//////////////////////////////
+// Bat Blood Loot
+//////////////////////////////
 type BatBloodLoot = {
   x: number;
   y: number;
@@ -279,10 +268,21 @@ type BatBloodLoot = {
   alive: boolean;
 };
 
+let batBloodFrames: HTMLImageElement[] = [];
 const batBloodLoots: BatBloodLoot[] = [];
 let lastBatBloodFrameTime = performance.now();
 const BAT_BLOOD_FRAME_MS = 80;
 const BAT_BLOOD_SIZE = 42;
+const BAT_BLOOD_FALL_SPEED = 0.4; // pixels per ms
+
+function spawnBatBloodLoot(cx: number, cy: number) {
+  batBloodLoots.push({
+    x: cx - BAT_BLOOD_SIZE / 2,
+    y: cy - BAT_BLOOD_SIZE / 2,
+    frame: 0,
+    alive: true,
+  });
+}
 
 function spawnRuneProjectile(targetX: number, targetY: number) {
   if (!runeFrames.length) return;
@@ -600,11 +600,24 @@ function step() {
   for (let i = 0; i < bats.length; i++) {
     const b = bats[i];
 
+    // respawn dead bats after timer
     if (!b.alive) {
       if (b.respawnAt !== null && now >= b.respawnAt) {
+        const W = window.innerWidth, H = window.innerHeight;
+        const margin = 80;
+        b.x = rand(margin, W - margin);
+        b.y = rand(margin, H * 0.4);
+        const angle = rand(0, Math.PI * 2);
+        const speed = rand(0.7, 1.6);
+        b.vx = Math.cos(angle) * speed;
+        b.vy = Math.sin(angle) * speed;
+        b.dir = b.vx >= 0 ? 1 : -1;
+        b.frame = randi(0, BAT_FLY_URLS.length);
+        b.lastFrame = now;
+        b.frameDelay = randi(60, 120);
+        b.wanderTheta = rand(0, Math.PI * 2);
         b.alive = true;
         b.respawnAt = null;
-        randomizeBat(b);
       }
       continue; // dead bats don't move until respawn
     }
@@ -624,13 +637,13 @@ function step() {
     for (let j = 0; j < bats.length; j++) {
       if (i === j) continue;
       const o = bats[j];
-      const dx = b.x - o.x;
-      const dy = b.y - o.y;
-      const d2 = dx * dx + dy * dy;
+      const dx2 = b.x - o.x;
+      const dy2 = b.y - o.y;
+      const d2 = dx2 * dx2 + dy2 * dy2;
       if (d2 > 0 && d2 < SEP_RADIUS * SEP_RADIUS) {
         const d = Math.sqrt(d2);
-        sepX += dx / d;
-        sepY += dy / d;
+        sepX += dx2 / d;
+        sepY += dy2 / d;
       }
     }
     b.vx += sepX * SEP_FORCE;
@@ -662,15 +675,14 @@ function step() {
     }
   }
 
+  // move projectiles + hit detection
   for (let i = runeProjectiles.length - 1; i >= 0; i--) {
     const p = runeProjectiles[i];
 
-    // move projectile
     p.x += p.vx;
     p.y += p.vy;
     p.life -= dt;
 
-    // check collision with bats
     let hit = false;
     for (const b of bats) {
       if (!b.alive) continue;
@@ -685,13 +697,8 @@ function step() {
         b.alive = false;
         b.respawnAt = performance.now() + BAT_RESPAWN_MS;
 
-        // spawn animated blood drop
-        batBloodLoots.push({
-          x: b.x + b.w / 2 - BAT_BLOOD_SIZE / 2,
-          y: b.y + b.h / 2 - BAT_BLOOD_SIZE / 2,
-          frame: 0,
-          alive: true,
-        });
+        // spawn falling bat blood bottle at bat's position
+        spawnBatBloodLoot(b.x + b.w / 2, b.y + b.h / 2);
 
         hit = true;
         break;
@@ -709,7 +716,7 @@ function step() {
     }
   }
 
-  // animate bat blood drops
+  // animate bat blood frames
   const nowBlood = performance.now();
   if (batBloodLoots.length && nowBlood - lastBatBloodFrameTime >= BAT_BLOOD_FRAME_MS) {
     lastBatBloodFrameTime = nowBlood;
@@ -717,6 +724,19 @@ function step() {
       drop.frame = batBloodFrames.length
         ? (drop.frame + 1) % batBloodFrames.length
         : 0;
+    }
+  }
+
+  // make bottles fall to the ground
+  for (const drop of batBloodLoots) {
+    const bottom = drop.y + BAT_BLOOD_SIZE;
+    const ground = groundY; // same ground line as hero’s feet
+
+    if (bottom < ground) {
+      drop.y += BAT_BLOOD_FALL_SPEED * dt;
+      if (drop.y + BAT_BLOOD_SIZE > ground) {
+        drop.y = ground - BAT_BLOOD_SIZE;
+      }
     }
   }
 
@@ -781,6 +801,14 @@ function render() {
     ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
   }
 
+  // bat blood bottles (in front of hero)
+  if (batBloodFrames.length) {
+    for (const drop of batBloodLoots) {
+      const fImg = batBloodFrames[drop.frame % batBloodFrames.length];
+      ctx.drawImage(fImg, drop.x, drop.y, BAT_BLOOD_SIZE, BAT_BLOOD_SIZE);
+    }
+  }
+
   // rune projectiles
   for (const p of runeProjectiles) {
     const frameImg =
@@ -803,21 +831,6 @@ function render() {
       ctx.beginPath();
       ctx.arc(p.x + p.w / 2, p.y + p.h / 2, Math.min(p.w, p.h) / 2, 0, Math.PI * 2);
       ctx.fill();
-    }
-  }
-
-  // draw animated bat blood loot
-  for (const drop of batBloodLoots) {
-    if (!batBloodFrames.length) continue;
-    const frameImg = batBloodFrames[drop.frame % batBloodFrames.length];
-    if (frameImg) {
-      ctx.drawImage(
-        frameImg,
-        drop.x,
-        drop.y,
-        BAT_BLOOD_SIZE,
-        BAT_BLOOD_SIZE
-      );
     }
   }
 
@@ -966,7 +979,9 @@ Promise.all(
     heroFallbackImg = heroIdleFrames[0] || null;
 
     spawnFlock(FLOCK_COUNT);
+
     handleArrivalQuestProgress();
+
     refreshBounds();
     loop();
   })
@@ -995,6 +1010,7 @@ Promise.all(
   addEventListener("focus", nukeBadge);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) nukeBadge(); });
 })();
+
 
 
 
