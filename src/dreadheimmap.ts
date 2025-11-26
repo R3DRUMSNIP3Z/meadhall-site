@@ -233,25 +233,37 @@ let runeFrames: HTMLImageElement[] = [];
 const runeProjectiles: RuneProjectile[] = [];
 let lastRuneFrameTime = performance.now();
 
-function spawnRuneProjectile() {
+function spawnRuneProjectile(targetX: number, targetY: number) {
   if (!runeFrames.length) return;
 
-  const dir = hero.facing === "right" ? 1 : -1;
-
-  const startX = hero.x + hero.w / 2 + dir * 12;
+  const startX = hero.x + hero.w / 2;
   const startY = hero.y + hero.h * 0.45;
+
+  // direction vector from hero to mouse
+  let dx = targetX - startX;
+  let dy = targetY - startY;
+
+  // normalize
+  const dist = Math.hypot(dx, dy) || 1;
+  dx /= dist;
+  dy /= dist;
+
+  // apply speed
+  const vx = dx * RUNE_SPEED;
+  const vy = dy * RUNE_SPEED;
 
   runeProjectiles.push({
     x: startX,
     y: startY,
     w: RUNE_W,
     h: RUNE_H,
-    vx: dir * RUNE_SPEED,
-    vy: 0,
+    vx,
+    vy,
     life: RUNE_LIFETIME_MS,
     frame: 0,
   });
 }
+
 
 
 //////////////////////////////
@@ -357,7 +369,12 @@ canvas.addEventListener("mousedown", (e) => {
   hero.frameIndex = 0;
   heroAttackElapsed = 0;
     // spawn rune in attack direction
-  spawnRuneProjectile();
+const rect = canvas.getBoundingClientRect();
+const mx = e.clientX - rect.left;
+const my = e.clientY - rect.top;
+
+// spawn rune toward mouse
+spawnRuneProjectile(mx, my);
 
 });
 
