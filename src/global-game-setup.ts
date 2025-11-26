@@ -1862,7 +1862,7 @@ function __dev_disable() {
     "keydown",
     (ev) => {
       // Plain F5 toggles dev layout mode instead of reload (dev only)
-      if (ev.key === "F5" && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey) {
+      if (ev.key === "F6" && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey) {
         ev.preventDefault();
         if (__devModeOn) __dev_disable();
         else __dev_enable();
@@ -1871,7 +1871,7 @@ function __dev_disable() {
     { passive: false }
   );
 
-  console.log("[VA DEV] UI layout editor ready. Press F5 to toggle (dev env only).");
+  console.log("[VA DEV] UI layout editor ready. Press F6 to toggle (dev env only).");
 })();
 
 
