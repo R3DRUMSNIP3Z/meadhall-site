@@ -7,6 +7,44 @@ if (!canvas) throw new Error("#map canvas not found");
 const ctx = canvas.getContext("2d")!;
 
 /* =========================================================
+   HERO ANIM + RUNE PROJECTILE ASSETS
+   (same system as forest/perimeters)
+   ========================================================= */
+
+// Hero animation frame URLs (class-aware)
+const HERO_IDLE_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("idle") ??
+  Array.from({ length: 9 }, (_, i) =>
+    `/guildbook/avatars/shieldmaiden/sm_${i.toString().padStart(3, "0")}.png`
+  );
+
+const HERO_LEFT_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("walkLeft") ??
+  Array.from({ length: 9 }, (_, i) =>
+    `/guildbook/avatars/shieldmaiden/leftwalk_${i.toString().padStart(3, "0")}.png`
+  );
+
+const HERO_RIGHT_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("walkRight") ??
+  Array.from({ length: 9 }, (_, i) =>
+    `/guildbook/avatars/shieldmaiden/rightwalk_${i.toString().padStart(3, "0")}.png`
+  );
+
+// Attack frames (falls back to walk if class has no attack yet)
+const HERO_ATK_LEFT_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("attackLeft") ?? HERO_LEFT_URLS;
+
+const HERO_ATK_RIGHT_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("attackRight") ?? HERO_RIGHT_URLS;
+
+// Rune mage projectile (9-frame animation)
+const RUNE_PROJECTILE_URLS = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/avatars/rune-mage/projectiles/frame_${i
+    .toString()
+    .padStart(3, "0")}.png`
+);
+
+/* =========================================================
    ASSETS / TRAVEL
    ========================================================= */
 const ASSETS = {
@@ -36,7 +74,6 @@ const scrollLoot = {
   h: 48,
   visible: false,
 };
-
 
 /* =========================================================
    QUEST CATALOG LOADER
@@ -68,10 +105,12 @@ async function getQuestFromCatalog(qid: string): Promise<any | null> {
 const WALK_BAND_PX = 48;
 const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
-const HERO_W = 96, HERO_H = 96;
+const HERO_W = 96,
+  HERO_H = 96;
 
 // NPC (center-back)
-const NPC_W = 144, NPC_H = 252;
+const NPC_W = 144,
+  NPC_H = 252;
 const NPC_X_RATIO = 0.5;
 const NPC_BACK_OFFSET_RATIO = 0.06;
 const TALK_DISTANCE = 110;
@@ -80,8 +119,9 @@ const TALK_DISTANCE = 110;
    DPR & RESIZE
    ========================================================= */
 function fitCanvas() {
-  const dpr = Math.max(1, (window.devicePixelRatio || 1));
-  const w = window.innerWidth, h = window.innerHeight;
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const w = window.innerWidth,
+    h = window.innerHeight;
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
   canvas.style.width = w + "px";
@@ -106,7 +146,17 @@ function load(src: string): Promise<HTMLImageElement> {
 
 let bg: HTMLImageElement | null = null;
 let npcImg: HTMLImageElement | null = null;
-let heroImg: HTMLImageElement | null = null;
+let heroFallbackImg: HTMLImageElement | null = null;
+
+// hero animation frames
+let heroIdleFrames: HTMLImageElement[] = [];
+let heroLeftFrames: HTMLImageElement[] = [];
+let heroRightFrames: HTMLImageElement[] = [];
+let heroAtkLeftFrames: HTMLImageElement[] = [];
+let heroAtkRightFrames: HTMLImageElement[] = [];
+
+// rune projectile frames
+let runeFrames: HTMLImageElement[] = [];
 
 /* =========================================================
    WORLD STATE
@@ -116,18 +166,27 @@ let groundY = Math.round(window.innerHeight * WALKWAY_TOP_RATIO);
 const hero = {
   x: Math.round(window.innerWidth * 0.2),
   y: groundY - HERO_H,
-  w: HERO_W, h: HERO_H,
+  w: HERO_W,
+  h: HERO_H,
+  vx: 0,
+  vy: 0,
+  anim: "idle" as "idle" | "walk" | "attack",
+  facing: "right" as "left" | "right",
+  frameIndex: 0,
 };
 
 const npc = { x: 0, y: 0, w: NPC_W, h: NPC_H };
 
 function layoutHouse() {
-  const vw = window.innerWidth, vh = window.innerHeight;
+  const vw = window.innerWidth,
+    vh = window.innerHeight;
   groundY = Math.round(vh * WALKWAY_TOP_RATIO);
   npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
   npc.y = Math.round(groundY - npc.h - vh * NPC_BACK_OFFSET_RATIO);
 }
-function refreshBounds() { layoutHouse(); }
+function refreshBounds() {
+  layoutHouse();
+}
 window.addEventListener("resize", refreshBounds);
 
 /* =========================================================
@@ -144,8 +203,12 @@ let transitioning = false;
 function fadeTo(seconds = 0.25, after?: () => void) {
   const f = document.createElement("div");
   Object.assign(f.style, {
-    position: "fixed", inset: "0", background: "black", opacity: "0",
-    transition: `opacity ${seconds}s ease`, zIndex: "999999",
+    position: "fixed",
+    inset: "0",
+    background: "black",
+    opacity: "0",
+    transition: `opacity ${seconds}s ease`,
+    zIndex: "999999",
   } as CSSStyleDeclaration);
   document.body.appendChild(f);
   requestAnimationFrame(() => (f.style.opacity = "1"));
@@ -166,14 +229,19 @@ function showDialogue(lines: string[], ms = 0) {
   dlg = document.createElement("div");
   Object.assign(dlg.style, {
     position: "fixed",
-    left: "50%", bottom: "10%", transform: "translateX(-50%)",
-    maxWidth: "70ch", padding: "12px 16px",
+    left: "50%",
+    bottom: "10%",
+    transform: "translateX(-50%)",
+    maxWidth: "70ch",
+    padding: "12px 16px",
     background: "rgba(0,0,0,.6)",
     border: "1px solid rgba(255,255,255,.15)",
-    borderRadius: "12px", color: "#fff",
+    borderRadius: "12px",
+    color: "#fff",
     font: "14px/1.4 ui-sans-serif,system-ui",
-    backdropFilter: "blur(4px)", cursor: "pointer",
-    zIndex: "999999"
+    backdropFilter: "blur(4px)",
+    cursor: "pointer",
+    zIndex: "999999",
   } as CSSStyleDeclaration);
 
   let idx = 0;
@@ -183,7 +251,11 @@ function showDialogue(lines: string[], ms = 0) {
   };
   dlg.addEventListener("click", () => {
     idx++;
-    if (idx >= lines.length) { dlg?.remove(); dlg = null; return; }
+    if (idx >= lines.length) {
+      dlg?.remove();
+      dlg = null;
+      return;
+    }
     render();
   });
   render();
@@ -248,11 +320,16 @@ function ensureCatDialogEl(): HTMLDivElement {
   `;
   document.body.appendChild(el);
   catDialogEl = el as HTMLDivElement;
-  (el.querySelector("#vaCatClose") as HTMLButtonElement).onclick = () => closeCatDialogue();
+  (el.querySelector("#vaCatClose") as HTMLButtonElement).onclick = () =>
+    closeCatDialogue();
   return catDialogEl!;
 }
-function openCatDialogue() { ensureCatDialogEl().style.display = "flex"; }
-function closeCatDialogue() { if (catDialogEl) catDialogEl.style.display = "none"; }
+function openCatDialogue() {
+  ensureCatDialogEl().style.display = "flex";
+}
+function closeCatDialogue() {
+  if (catDialogEl) catDialogEl.style.display = "none";
+}
 
 function renderCatNode(q: CatalogQuest, nodeId: string, onDone?: () => void) {
   const el = ensureCatDialogEl();
@@ -260,8 +337,12 @@ function renderCatNode(q: CatalogQuest, nodeId: string, onDone?: () => void) {
   const choices = el.querySelector("#vaCatChoices") as HTMLElement;
   const header = el.querySelector("#vaCatHeader") as HTMLElement;
 
-  const node = q.dialogue.find(n => n.id === nodeId);
-  if (!node) { closeCatDialogue(); onDone?.(); return; }
+  const node = q.dialogue.find((n) => n.id === nodeId);
+  if (!node) {
+    closeCatDialogue();
+    onDone?.();
+    return;
+  }
 
   header.textContent = q.title || "Dialogue";
   body.innerHTML = `
@@ -274,7 +355,7 @@ function renderCatNode(q: CatalogQuest, nodeId: string, onDone?: () => void) {
   if (node.action === "completeQuest") {
     try {
       const inv: any = (window as any).Inventory;
-      for (const it of (q.rewards?.items || [])) {
+      for (const it of q.rewards?.items || []) {
         const qty = Math.max(1, Number(it?.qty ?? 1));
         const name = it?.name || it?.id || "item";
         const icon = (it as any).icon || (it as any).image || "";
@@ -291,7 +372,11 @@ function renderCatNode(q: CatalogQuest, nodeId: string, onDone?: () => void) {
   }
 
   const goNext = (next?: string) => {
-    if (!next) { closeCatDialogue(); onDone?.(); return; }
+    if (!next) {
+      closeCatDialogue();
+      onDone?.();
+      return;
+    }
     renderCatNode(q, next, onDone);
   };
 
@@ -326,14 +411,15 @@ function runCatalogDialogue(q: CatalogQuest, onDone?: () => void) {
 /* =========================================================
    CLICK / HOVER → NPC DIALOGUE
    ========================================================= */
-function cssPointFromEvent(ev: MouseEvent) {
+function cssPointFromEvent(ev: MouseEvent | PointerEvent) {
   const rect = canvas.getBoundingClientRect();
   const x = ev.clientX - rect.left;
   const y = ev.clientY - rect.top;
   return { x, y };
 }
 function isOverNPC(x: number, y: number): boolean {
-  const padX = 24, padY = 16;
+  const padX = 24,
+    padY = 16;
   return (
     x >= npc.x - padX &&
     x <= npc.x + npc.w + padX &&
@@ -386,7 +472,9 @@ async function startWizardDialogue() {
         (window as any).VAQ?.renderHUD?.();
       } catch {}
       finally {
-        setTimeout(() => { wizardLocked = false; }, 300);
+        setTimeout(() => {
+          wizardLocked = false;
+        }, 300);
       }
     });
     return;
@@ -396,7 +484,9 @@ async function startWizardDialogue() {
   if (typeof (window as any).showParchmentSignature === "function") {
     (window as any).showParchmentSignature("wizardscroll");
   }
-  setTimeout(() => { wizardLocked = false; }, 300);
+  setTimeout(() => {
+    wizardLocked = false;
+  }, 300);
 }
 
 /* =========================================================
@@ -432,26 +522,34 @@ function showParchmentSignature() {
 
   document.body.appendChild(paper);
   const signZone = paper.querySelector("#signZone") as HTMLElement;
-  const closeBtn = paper.querySelector("#closeParchment") as HTMLButtonElement;
+  const closeBtn = paper.querySelector(
+    "#closeParchment"
+  ) as HTMLButtonElement;
 
   const name = getPlayerName();
-  signZone.addEventListener("click", () => {
-    signZone.textContent = name;
-    setTimeout(() => {
-      paper.remove();
-      finishWizardQuest();
-    }, 1200);
-  }, { once: true });
+  signZone.addEventListener(
+    "click",
+    () => {
+      signZone.textContent = name;
+      setTimeout(() => {
+        paper.remove();
+        finishWizardQuest();
+      }, 1200);
+    },
+    { once: true }
+  );
 
   closeBtn.addEventListener("click", () => {
     paper.remove();
-    setTimeout(() => { wizardLocked = false; }, 200);
+    setTimeout(() => {
+      wizardLocked = false;
+    }, 200);
   });
 }
 (window as any).showParchmentSignature = showParchmentSignature;
 
 /* =========================================================
-   FINISH WIZARD QUEST — ⭐ FIX HERE
+   FINISH WIZARD QUEST
    ========================================================= */
 function finishWizardQuest() {
   try {
@@ -461,15 +559,20 @@ function finishWizardQuest() {
     window.dispatchEvent(new CustomEvent("va-quest-updated"));
   } catch {}
 
-  //// ⭐ ADDED — MAKE SCROLL DROP
+  // Make scroll appear
   scrollLoot.visible = true;
 
-  showDialogue([
-    'Old Seer: "Your mark is sealed, and your path begins anew."',
-    'Old Seer: "Now go — before the witch grows impatient."',
-  ], 4500);
+  showDialogue(
+    [
+      'Old Seer: "Your mark is sealed, and your path begins anew."',
+      'Old Seer: "Now go — before the witch grows impatient."',
+    ],
+    4500
+  );
 
-  setTimeout(() => { wizardLocked = false; }, 1200);
+  setTimeout(() => {
+    wizardLocked = false;
+  }, 1200);
 }
 
 /* =========================================================
@@ -486,54 +589,189 @@ function showExitHint() {
   `;
   h.textContent = "Walk ↓ to leave the house • Press E near the wizard to talk";
   document.body.appendChild(h);
-  setTimeout(()=>h.remove(), 5000);
+  setTimeout(() => h.remove(), 5000);
 }
 
 /* =========================================================
-   STEP (MOVEMENT)
+   RUNE PROJECTILES (same feel as forest/perimeters)
    ========================================================= */
-function step() {
-  let dx = 0, dy = 0;
-  const left  = keys.has("ArrowLeft")  || keys.has("a") || keys.has("A");
-  const right = keys.has("ArrowRight") || keys.has("d") || keys.has("D");
-  const up    = keys.has("ArrowUp")    || keys.has("w") || keys.has("W");
-  const down  = keys.has("ArrowDown")  || keys.has("s") || keys.has("S");
+type RuneProjectile = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  vx: number;
+  vy: number;
+  life: number;
+  frame: number;
+};
 
-  if (left)  dx -= 1;
+const RUNE_W = 25;
+const RUNE_H = 25;
+const RUNE_SPEED = 12;
+const RUNE_LIFETIME_MS = 900;
+const RUNE_FRAME_MS = 70;
+const RUNE_COOLDOWN_MS = 600;
+let lastRuneCastTime = 0;
+
+const runeProjectiles: RuneProjectile[] = [];
+let lastRuneFrameTime = performance.now();
+
+function spawnRuneProjectile(targetX: number, targetY: number) {
+  if (!runeFrames.length) return;
+
+  const startX = hero.x + hero.w / 2;
+  const startY = hero.y + hero.h * 0.45;
+
+  let dx = targetX - startX;
+  let dy = targetY - startY;
+  const dist = Math.hypot(dx, dy) || 1;
+  dx /= dist;
+  dy /= dist;
+
+  const vx = dx * RUNE_SPEED;
+  const vy = dy * RUNE_SPEED;
+
+  runeProjectiles.push({
+    x: startX,
+    y: startY,
+    w: RUNE_W,
+    h: RUNE_H,
+    vx,
+    vy,
+    life: RUNE_LIFETIME_MS,
+    frame: 0,
+  });
+}
+
+/* =========================================================
+   HERO ANIM TIMERS
+   ========================================================= */
+const HERO_FRAME_MS = 100;
+let lastHeroFrameTime = performance.now();
+const HERO_ATTACK_TOTAL_MS = 600;
+let heroAttackElapsed = 0;
+
+// for dt
+let lastStepTime = performance.now();
+
+/* =========================================================
+   ATTACK INPUT (left mouse button)
+   ========================================================= */
+canvas.addEventListener("mousedown", (e) => {
+  if (e.button !== 0) return;
+
+  const now = performance.now();
+  if (now - lastRuneCastTime < RUNE_COOLDOWN_MS) return;
+  lastRuneCastTime = now;
+
+  // start attack animation
+  hero.anim = "attack";
+  hero.frameIndex = 0;
+  heroAttackElapsed = 0;
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  spawnRuneProjectile(mx, my);
+});
+
+/* =========================================================
+   STEP (MOVEMENT + ANIM + RUNES)
+   ========================================================= */
+function getHeroFrameList(): HTMLImageElement[] {
+  if (hero.anim === "attack") {
+    return hero.facing === "left" ? heroAtkLeftFrames : heroAtkRightFrames;
+  }
+  if (hero.anim === "walk") {
+    return hero.facing === "left" ? heroLeftFrames : heroRightFrames;
+  }
+  return heroIdleFrames;
+}
+
+function step() {
+  // dt
+  const nowStep = performance.now();
+  const dt = nowStep - lastStepTime;
+  lastStepTime = nowStep;
+
+  // movement intent
+  let dx = 0,
+    dy = 0;
+  const left = keys.has("ArrowLeft") || keys.has("a") || keys.has("A");
+  const right = keys.has("ArrowRight") || keys.has("d") || keys.has("D");
+  const up = keys.has("ArrowUp") || keys.has("w") || keys.has("W");
+  const down = keys.has("ArrowDown") || keys.has("s") || keys.has("S");
+
+  if (left) dx -= 1;
   if (right) dx += 1;
-  if (up)    dy -= 1;
-  if (down)  dy += 1;
+  if (up) dy -= 1;
+  if (down) dy += 1;
 
   if (dx !== 0 || dy !== 0) {
     const len = Math.hypot(dx, dy);
     dx = (dx / len) * SPEED;
     dy = (dy / len) * SPEED;
+
+    if (hero.anim !== "attack") hero.anim = "walk";
+    if (dx < 0) hero.facing = "left";
+    else if (dx > 0) hero.facing = "right";
+  } else if (hero.anim !== "attack") {
+    hero.anim = "idle";
   }
+
+  hero.vx = dx;
+  hero.vy = dy;
 
   hero.x += dx;
   hero.y += dy;
 
   const leftBound = 0;
   const rightBound = window.innerWidth - hero.w;
-  const floorTop = Math.round(window.innerHeight * WALKWAY_TOP_RATIO) - hero.h;
+  const floorTop =
+    Math.round(window.innerHeight * WALKWAY_TOP_RATIO) - hero.h;
   const ceiling = Math.max(0, floorTop - WALK_BAND_PX);
 
-  if (hero.x < leftBound)  hero.x = leftBound;
+  if (hero.x < leftBound) hero.x = leftBound;
   if (hero.x > rightBound) hero.x = rightBound;
-  if (hero.y < ceiling)    hero.y = ceiling;
-  if (hero.y > floorTop)   hero.y = floorTop;
+  if (hero.y < ceiling) hero.y = ceiling;
+  if (hero.y > floorTop) hero.y = floorTop;
 
+  // walk down out of house
   if (down && hero.y >= floorTop - 0.5) {
     warpTo(EXIT_URL);
     return;
   }
 
+  // hero animation timing
+  const nowAnim = nowStep;
+  const frames = getHeroFrameList();
+  if (frames.length && nowAnim - lastHeroFrameTime >= HERO_FRAME_MS) {
+    lastHeroFrameTime = nowAnim;
+    hero.frameIndex = (hero.frameIndex + 1) % frames.length;
+  }
+
+  // attack duration
+  if (hero.anim === "attack") {
+    heroAttackElapsed += dt;
+    const atkFrames =
+      hero.facing === "left" ? heroAtkLeftFrames : heroAtkRightFrames;
+    if (!atkFrames.length || heroAttackElapsed >= HERO_ATTACK_TOTAL_MS) {
+      heroAttackElapsed = 0;
+      hero.frameIndex = 0;
+      hero.anim =
+        hero.vx !== 0 || hero.vy !== 0 ? "walk" : "idle";
+    }
+  }
+
+  // near-NPC "Press E" hint + talk
   const heroCenterX = hero.x + hero.w / 2;
-  const npcCenterX  = npc.x + npc.w / 2;
+  const npcCenterX = npc.x + npc.w / 2;
   const dxCenter = Math.abs(heroCenterX - npcCenterX);
   const touchingNPC =
     dxCenter < TALK_DISTANCE &&
-    Math.abs((hero.y + hero.h) - (npc.y + npc.h)) < 80;
+    Math.abs(hero.y + hero.h - (npc.y + npc.h)) < 80;
 
   if (touchingNPC && !document.getElementById("eHint")) {
     const h = document.createElement("div");
@@ -553,12 +791,37 @@ function step() {
   if (touchingNPC && (keys.has("e") || keys.has("E"))) {
     startWizardDialogue();
   }
+
+  // rune frame animation
+  if (runeProjectiles.length && nowStep - lastRuneFrameTime >= RUNE_FRAME_MS) {
+    lastRuneFrameTime = nowStep;
+    for (const p of runeProjectiles) {
+      p.frame = (p.frame + 1) % Math.max(1, runeFrames.length);
+    }
+  }
+
+  // rune motion + lifetime
+  for (let i = runeProjectiles.length - 1; i >= 0; i--) {
+    const p = runeProjectiles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= dt;
+
+    const offscreen =
+      p.x + p.w < 0 ||
+      p.x > window.innerWidth ||
+      p.y + p.h < 0 ||
+      p.y > window.innerHeight;
+
+    if (offscreen || p.life <= 0) {
+      runeProjectiles.splice(i, 1);
+    }
+  }
 }
 
 /* =========================================================
-   ⭐ SCROLL PICKUP FIX
+   SCROLL PICKUP
    ========================================================= */
-
 canvas.addEventListener("pointerdown", (ev) => {
   if (!scrollLoot.visible) return;
 
@@ -571,7 +834,7 @@ canvas.addEventListener("pointerdown", (ev) => {
     y <= scrollLoot.y + scrollLoot.h
   ) {
     try {
-      const inv:any = (window as any).Inventory;
+      const inv: any = (window as any).Inventory;
       inv?.add?.(
         "wizardscroll",
         "Wizard's Scroll",
@@ -586,14 +849,14 @@ canvas.addEventListener("pointerdown", (ev) => {
   }
 });
 
-
 /* =========================================================
    RENDER
    ========================================================= */
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
+  if (bg)
+    ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
 
   if (scrollLoot.visible && scrollImg) {
     ctx.drawImage(
@@ -605,27 +868,71 @@ function render() {
     );
   }
 
+  // NPC / hero draw order (who is in front)
   const heroFeet = hero.y + hero.h;
-  const npcFeet  = npc.y + npc.h;
+  const npcFeet = npc.y + npc.h;
+
+  const frames = getHeroFrameList();
+  const heroImg =
+    frames.length && hero.frameIndex < frames.length
+      ? frames[hero.frameIndex]
+      : heroFallbackImg;
 
   if (heroFeet < npcFeet) {
-    if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
+    if (heroImg)
+      ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
     if (npcImg) ctx.drawImage(npcImg, npc.x, npc.y, npc.w, npc.h);
   } else {
     if (npcImg) ctx.drawImage(npcImg, npc.x, npc.y, npc.w, npc.h);
-    if (heroImg) ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
+    if (heroImg)
+      ctx.drawImage(heroImg, hero.x, hero.y, hero.w, hero.h);
   }
 
   if (!heroImg) {
     ctx.fillStyle = "#333";
     ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
   }
+
+  // rune projectiles (draw on top)
+  for (const p of runeProjectiles) {
+    const frameImg =
+      runeFrames.length > 0
+        ? runeFrames[p.frame % runeFrames.length]
+        : null;
+
+    if (frameImg) {
+      ctx.save();
+      if (p.vx < 0) {
+        ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
+        ctx.scale(-1, 1);
+        ctx.drawImage(frameImg, -p.w / 2, -p.h / 2, p.w, p.h);
+      } else {
+        ctx.drawImage(frameImg, p.x, p.y, p.w, p.h);
+      }
+      ctx.restore();
+    } else {
+      ctx.fillStyle = "#4cf";
+      ctx.beginPath();
+      ctx.arc(
+        p.x + p.w / 2,
+        p.y + p.h / 2,
+        Math.min(p.w, p.h) / 2,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    }
+  }
 }
 
 /* =========================================================
    LOOP
    ========================================================= */
-function loop() { step(); render(); requestAnimationFrame(loop); }
+function loop() {
+  step();
+  render();
+  requestAnimationFrame(loop);
+}
 
 /* =========================================================
    LIVE HERO SPRITE UPDATES
@@ -633,13 +940,17 @@ function loop() { step(); render(); requestAnimationFrame(loop); }
 window.addEventListener("va-gender-changed", () => {
   try {
     const pick = (window as any).getHeroSprite as undefined | (() => string);
-    const next = (typeof pick === "function")
-      ? pick()
-      : (localStorage.getItem("va_gender") === "female"
-          ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
-          : "/guildbook/avatars/dreadheim-warrior.png");
+    const next =
+      typeof pick === "function"
+        ? pick()
+        : localStorage.getItem("va_gender") === "female"
+        ? "/guildbook/avatars/dreadheim-shieldmaiden.png"
+        : "/guildbook/avatars/dreadheim-warrior.png";
+
     const img = new Image();
-    img.onload = () => { heroImg = img; };
+    img.onload = () => {
+      heroFallbackImg = img;
+    };
     img.src = next;
   } catch {}
 });
@@ -656,23 +967,71 @@ window.addEventListener("va-gender-changed", () => {
       VAQ?.renderHUD?.();
       console.log("Wizard quest reset + set active");
     } catch {}
-  }
+  },
 };
 
 /* =========================================================
    BOOT
    ========================================================= */
-Promise.all([
-  load(ASSETS.bg),
-  load(ASSETS.npc),
-  load(ASSETS.hero),
-  load(ASSETS.scroll),
-])
-  .then(([b, n, h, s]) => {
-    bg = b;
-    npcImg = n;
-    heroImg = h;
-    scrollImg = s;
+Promise.all(
+  [
+    ASSETS.bg,
+    ASSETS.npc,
+    ASSETS.hero,
+    ASSETS.scroll,
+    ...HERO_IDLE_URLS,
+    ...HERO_LEFT_URLS,
+    ...HERO_RIGHT_URLS,
+    ...HERO_ATK_LEFT_URLS,
+    ...HERO_ATK_RIGHT_URLS,
+    ...RUNE_PROJECTILE_URLS,
+  ].map(load)
+)
+  .then((imgs) => {
+    let idx = 0;
+
+    bg = imgs[idx++];
+    npcImg = imgs[idx++];
+    const heroStatic = imgs[idx++]; // static hero fallback
+    scrollImg = imgs[idx++];
+
+    // hero anim frames
+    const idleCount = HERO_IDLE_URLS.length;
+    const leftCount = HERO_LEFT_URLS.length;
+    const rightCount = HERO_RIGHT_URLS.length;
+    const atkLeftCount = HERO_ATK_LEFT_URLS.length;
+    const atkRightCount = HERO_ATK_RIGHT_URLS.length;
+
+    const heroTotal =
+      idleCount +
+      leftCount +
+      rightCount +
+      atkLeftCount +
+      atkRightCount;
+
+    const heroImgs = imgs.slice(idx, idx + heroTotal);
+    idx += heroTotal;
+
+    heroIdleFrames = heroImgs.slice(0, idleCount);
+    heroLeftFrames = heroImgs.slice(idleCount, idleCount + leftCount);
+    heroRightFrames = heroImgs.slice(
+      idleCount + leftCount,
+      idleCount + leftCount + rightCount
+    );
+    heroAtkLeftFrames = heroImgs.slice(
+      idleCount + leftCount + rightCount,
+      idleCount + leftCount + rightCount + atkLeftCount
+    );
+    heroAtkRightFrames = heroImgs.slice(
+      idleCount + leftCount + rightCount + atkLeftCount,
+      idleCount + leftCount + rightCount + atkLeftCount + atkRightCount
+    );
+
+    // rune frames
+    runeFrames = imgs.slice(idx, idx + RUNE_PROJECTILE_URLS.length);
+    idx += RUNE_PROJECTILE_URLS.length;
+
+    heroFallbackImg = heroIdleFrames[0] || heroStatic || null;
 
     refreshBounds();
     showExitHint();
@@ -681,6 +1040,7 @@ Promise.all([
   .catch((err) => {
     console.warn("House load fallback:", err);
     refreshBounds();
+    showExitHint();
     loop();
   });
 
