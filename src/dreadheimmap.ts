@@ -55,6 +55,13 @@ const RUNE_PROJECTILE_URLS = Array.from({ length: 9 }, (_, i) =>
     .padStart(3, "0")}.png`
 );
 
+// Infected bat blood (9-frame animation)
+const BAT_BLOOD_URLS = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/loot/infectedbatsblood/frame_${i
+    .toString()
+    .padStart(3, "0")}.png`
+);
+
 // Dreadheim bat fly cycle
 const BAT_FLY_URLS = Array.from({ length: 9 }, (_, i) =>
   `/guildbook/avatars/enemies/dreadheimbat/fly_${i.toString().padStart(3, "0")}.png`
@@ -141,7 +148,7 @@ function fitCanvas() {
 fitCanvas();
 window.addEventListener("resize", fitCanvas);
 
-//////////////////////////////
+////////////////////////////// 
 // Image loading
 //////////////////////////////
 function load(src: string): Promise<HTMLImageElement> {
@@ -179,16 +186,20 @@ type Bat = {
   frame: number; lastFrame: number; frameDelay: number;
   maxSpeed: number; wanderTheta: number; wanderJitter: number; wanderRadius: number;
   alive: boolean;
+  respawnAt: number | null;   // when this bat should respawn (ms timestamp) or null
 };
 
 const BAT_SIZE = 60;
 const FLOCK_COUNT = 9;
+const BAT_RESPAWN_MS = 30_000; // 30 seconds
+const BAT_BLOOD_ICON = BAT_BLOOD_URLS[0];
+
 const bats: Bat[] = [];
 
 function rand(min: number, max: number) { return Math.random() * (max - min) + min; }
 function randi(min: number, max: number) { return Math.floor(rand(min, max)); }
 
-function spawnBat() {
+function randomizeBat(b: Bat) {
   const W = window.innerWidth, H = window.innerHeight;
   const margin = 80;
   const x = rand(margin, W - margin);
@@ -198,17 +209,33 @@ function spawnBat() {
   const vx = Math.cos(angle) * speed;
   const vy = Math.sin(angle) * speed;
 
-  bats.push({
-    x, y, w: BAT_SIZE, h: BAT_SIZE,
-    vx, vy,
-    dir: vx >= 0 ? 1 : -1,
-    frame: randi(0, BAT_FLY_URLS.length), lastFrame: 0, frameDelay: randi(60, 120),
-    maxSpeed: 2.0,
-    wanderTheta: rand(0, Math.PI * 2),
-    wanderJitter: 0.10,
-    wanderRadius: 0.25,
+  b.x = x;
+  b.y = y;
+  b.w = BAT_SIZE;
+  b.h = BAT_SIZE;
+  b.vx = vx;
+  b.vy = vy;
+  b.dir = vx >= 0 ? 1 : -1;
+  b.frame = randi(0, BAT_FLY_URLS.length);
+  b.lastFrame = 0;
+  b.frameDelay = randi(60, 120);
+  b.maxSpeed = 2.0;
+  b.wanderTheta = rand(0, Math.PI * 2);
+  b.wanderJitter = 0.10;
+  b.wanderRadius = 0.25;
+}
+
+function spawnBat() {
+  const b: Bat = {
+    x: 0, y: 0, w: BAT_SIZE, h: BAT_SIZE,
+    vx: 0, vy: 0, dir: 1,
+    frame: 0, lastFrame: 0, frameDelay: 80,
+    maxSpeed: 2.0, wanderTheta: 0, wanderJitter: 0.10, wanderRadius: 0.25,
     alive: true,
-  });
+    respawnAt: null,
+  };
+  randomizeBat(b);
+  bats.push(b);
 }
 
 function spawnFlock(n = FLOCK_COUNT) {
@@ -241,6 +268,21 @@ let lastRuneCastTime = 0;
 let runeFrames: HTMLImageElement[] = [];
 const runeProjectiles: RuneProjectile[] = [];
 let lastRuneFrameTime = performance.now();
+
+// Bat blood loot animation
+let batBloodFrames: HTMLImageElement[] = [];
+
+type BatBloodLoot = {
+  x: number;
+  y: number;
+  frame: number;
+  alive: boolean;
+};
+
+const batBloodLoots: BatBloodLoot[] = [];
+let lastBatBloodFrameTime = performance.now();
+const BAT_BLOOD_FRAME_MS = 80;
+const BAT_BLOOD_SIZE = 42;
 
 function spawnRuneProjectile(targetX: number, targetY: number) {
   if (!runeFrames.length) return;
@@ -550,14 +592,22 @@ function step() {
     }
   }
 
-  // bat flock: wander + separation + wrap
+  // bat flock: wander + separation + wrap + respawn
   const now = performance.now();
   const SEP_RADIUS = 80;
   const SEP_FORCE = 0.04;
 
   for (let i = 0; i < bats.length; i++) {
     const b = bats[i];
-    if (!b.alive) continue; // dead bats do nothing
+
+    if (!b.alive) {
+      if (b.respawnAt !== null && now >= b.respawnAt) {
+        b.alive = true;
+        b.respawnAt = null;
+        randomizeBat(b);
+      }
+      continue; // dead bats don't move until respawn
+    }
 
     if (batFrames.length && now - b.lastFrame > b.frameDelay) {
       b.frame = (b.frame + 1) % batFrames.length;
@@ -632,7 +682,17 @@ function step() {
         p.y + p.h > b.y;
 
       if (overlap) {
-        b.alive = false;   // bat is "killed"
+        b.alive = false;
+        b.respawnAt = performance.now() + BAT_RESPAWN_MS;
+
+        // spawn animated blood drop
+        batBloodLoots.push({
+          x: b.x + b.w / 2 - BAT_BLOOD_SIZE / 2,
+          y: b.y + b.h / 2 - BAT_BLOOD_SIZE / 2,
+          frame: 0,
+          alive: true,
+        });
+
         hit = true;
         break;
       }
@@ -646,6 +706,40 @@ function step() {
 
     if (hit || p.life <= 0 || offscreen) {
       runeProjectiles.splice(i, 1);
+    }
+  }
+
+  // animate bat blood drops
+  const nowBlood = performance.now();
+  if (batBloodLoots.length && nowBlood - lastBatBloodFrameTime >= BAT_BLOOD_FRAME_MS) {
+    lastBatBloodFrameTime = nowBlood;
+    for (const drop of batBloodLoots) {
+      drop.frame = batBloodFrames.length
+        ? (drop.frame + 1) % batBloodFrames.length
+        : 0;
+    }
+  }
+
+  // pick up bat blood
+  for (let i = batBloodLoots.length - 1; i >= 0; i--) {
+    const drop = batBloodLoots[i];
+
+    const overlap =
+      hero.x < drop.x + BAT_BLOOD_SIZE &&
+      hero.x + hero.w > drop.x &&
+      hero.y < drop.y + BAT_BLOOD_SIZE &&
+      hero.y + hero.h > drop.y;
+
+    if (overlap) {
+      (window as any).Inventory?.add?.(
+        "infectedbatsblood",
+        "Infected Bat's Blood",
+        BAT_BLOOD_ICON,
+        1
+      );
+
+      toast("You collect: Infected Bat's Blood");
+      batBloodLoots.splice(i, 1);
     }
   }
 }
@@ -709,6 +803,21 @@ function render() {
       ctx.beginPath();
       ctx.arc(p.x + p.w / 2, p.y + p.h / 2, Math.min(p.w, p.h) / 2, 0, Math.PI * 2);
       ctx.fill();
+    }
+  }
+
+  // draw animated bat blood loot
+  for (const drop of batBloodLoots) {
+    if (!batBloodFrames.length) continue;
+    const frameImg = batBloodFrames[drop.frame % batBloodFrames.length];
+    if (frameImg) {
+      ctx.drawImage(
+        frameImg,
+        drop.x,
+        drop.y,
+        BAT_BLOOD_SIZE,
+        BAT_BLOOD_SIZE
+      );
     }
   }
 
@@ -801,6 +910,7 @@ Promise.all(
     ...HERO_ATK_LEFT_URLS,
     ...HERO_ATK_RIGHT_URLS,
     ...RUNE_PROJECTILE_URLS,
+    ...BAT_BLOOD_URLS,
   ].map(load)
 )
   .then((imgs) => {
@@ -818,43 +928,45 @@ Promise.all(
     idx += BAT_FLY_URLS.length;
 
     // hero frames
-const idleCount = HERO_IDLE_URLS.length;
-const leftCount = HERO_LEFT_URLS.length;
-const rightCount = HERO_RIGHT_URLS.length;
-const atkLeftCount = HERO_ATK_LEFT_URLS.length;
-const atkRightCount = HERO_ATK_RIGHT_URLS.length;
+    const idleCount = HERO_IDLE_URLS.length;
+    const leftCount = HERO_LEFT_URLS.length;
+    const rightCount = HERO_RIGHT_URLS.length;
+    const atkLeftCount = HERO_ATK_LEFT_URLS.length;
+    const atkRightCount = HERO_ATK_RIGHT_URLS.length;
 
-const heroTotal =
-  idleCount + leftCount + rightCount + atkLeftCount + atkRightCount;
+    const heroTotal =
+      idleCount + leftCount + rightCount + atkLeftCount + atkRightCount;
 
-const heroImgs = imgs.slice(idx, idx + heroTotal);
-idx += heroTotal;
+    const heroImgs = imgs.slice(idx, idx + heroTotal);
+    idx += heroTotal;
 
-heroIdleFrames = heroImgs.slice(0, idleCount);
-heroLeftFrames = heroImgs.slice(idleCount, idleCount + leftCount);
-heroRightFrames = heroImgs.slice(
-  idleCount + leftCount,
-  idleCount + leftCount + rightCount
-);
-heroAtkLeftFrames = heroImgs.slice(
-  idleCount + leftCount + rightCount,
-  idleCount + leftCount + rightCount + atkLeftCount
-);
-heroAtkRightFrames = heroImgs.slice(
-  idleCount + leftCount + rightCount + atkLeftCount,
-  idleCount + leftCount + rightCount + atkLeftCount + atkRightCount
-);
+    heroIdleFrames = heroImgs.slice(0, idleCount);
+    heroLeftFrames = heroImgs.slice(idleCount, idleCount + leftCount);
+    heroRightFrames = heroImgs.slice(
+      idleCount + leftCount,
+      idleCount + leftCount + rightCount
+    );
+    heroAtkLeftFrames = heroImgs.slice(
+      idleCount + leftCount + rightCount,
+      idleCount + leftCount + rightCount + atkLeftCount
+    );
+    heroAtkRightFrames = heroImgs.slice(
+      idleCount + leftCount + rightCount + atkLeftCount,
+      idleCount + leftCount + rightCount + atkLeftCount + atkRightCount
+    );
 
     // rune frames
     runeFrames = imgs.slice(idx, idx + RUNE_PROJECTILE_URLS.length);
     idx += RUNE_PROJECTILE_URLS.length;
 
+    // bat blood frames
+    batBloodFrames = imgs.slice(idx, idx + BAT_BLOOD_URLS.length);
+    idx += BAT_BLOOD_URLS.length;
+
     heroFallbackImg = heroIdleFrames[0] || null;
 
     spawnFlock(FLOCK_COUNT);
-
     handleArrivalQuestProgress();
-
     refreshBounds();
     loop();
   })
