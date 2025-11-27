@@ -5,11 +5,9 @@
       "name": "Minor Health Potion",
       "desc": "Restores a small amount of health when used.",
       "brewable": true,
-
       "resultId": "health_potion",
       "resultName": "Minor Health Potion",
       "resultIcon": "/guildbook/props/wizardshouseprops/healthpotion1.gif",
-
       "ingredients": [
         {
           "id": "infectedbatsblood",
@@ -22,25 +20,10 @@
           "qty": 1
         }
       ]
-    },
-
-    {
-      "id": "mana_potion",
-      "name": "Minor Mana Potion",
-      "desc": "Placeholder – recipe not yet discovered.",
-      "brewable": false,
-      "ingredients": []
-    },
-
-    {
-      "id": "stamina_potion",
-      "name": "Minor Stamina Draught",
-      "desc": "Placeholder – recipe not yet discovered.",
-      "brewable": false,
-      "ingredients": []
     }
   ]
 }
+
 
 
 
