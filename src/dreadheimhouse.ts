@@ -530,7 +530,7 @@ function layoutHouse() {
   // Cauldron in a fixed spot: right-center back
   cauldron.w = CAULDRON_W;
   cauldron.h = CAULDRON_H;
-  cauldron.x = Math.round(vw * 0.10) - Math.floor(cauldron.w / 2);
+  cauldron.x = Math.round(vw * 0.06) - Math.floor(cauldron.w / 2);
   cauldron.y = groundY - cauldron.h - 80;
 
   // Scroll stays in the lower area (your original coords)
