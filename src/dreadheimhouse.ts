@@ -1,5 +1,5 @@
 // /src/dreadheimhouse.ts
-// --- Dreadheim • House Interior (free 4-direction movement + NPC + exit) ---
+// --- Dreadheim • House Interior (free 4-direction movement + NPC + exit + cauldron) ---
 // Requires /src/global-game-setup.ts to be loaded BEFORE this script.
 
 const canvas = document.getElementById("map") as HTMLCanvasElement;
@@ -107,6 +107,107 @@ async function getQuestFromCatalog(qid: string): Promise<any | null> {
 }
 
 /* =========================================================
+   POTION CATALOG LOADER (for cauldron)
+   ========================================================= */
+const POTIONS_CATALOG_PATH = "/guildbook/catalogpotions.json";
+
+type PotionIngredient = {
+  id: string;
+  name: string;
+  qty: number;
+};
+
+type PotionRecipe = {
+  id: string;
+  name: string;
+  desc?: string;
+  brewable?: boolean;
+  resultId: string;
+  resultName: string;
+  resultIcon?: string;
+  ingredients: PotionIngredient[];
+};
+
+let __potionsCatalog: { potions: PotionRecipe[] } | null = null;
+
+async function loadPotionsCatalog(): Promise<{ potions: PotionRecipe[] } | null> {
+  if (__potionsCatalog) return __potionsCatalog;
+  try {
+    const r = await fetch(POTIONS_CATALOG_PATH, { cache: "no-store" });
+    if (!r.ok) throw new Error(r.statusText);
+    __potionsCatalog = await r.json();
+    return __potionsCatalog;
+  } catch (err) {
+    console.warn("[Cauldron] failed to load potions catalog", err);
+    __potionsCatalog = null;
+    return null;
+  }
+}
+
+async function getPotionById(id: string): Promise<PotionRecipe | null> {
+  const cat = await loadPotionsCatalog();
+  if (!cat || !Array.isArray(cat.potions)) return null;
+  return cat.potions.find((p) => p.id === id) || null;
+}
+
+/* =========================================================
+   INVENTORY HELPERS (best-effort, matches your Inventory)
+   ========================================================= */
+function invGetQty(id: string): number {
+  try {
+    const inv: any = (window as any).Inventory;
+    if (!inv) return 0;
+
+    if (typeof inv.getQuantity === "function") return inv.getQuantity(id);
+    if (typeof inv.getQty === "function") return inv.getQty(id);
+    if (typeof inv.count === "function") return inv.count(id);
+
+    // fallback if items map exists
+    const items = inv.items || inv._items || {};
+    const entry = items[id];
+    if (entry && typeof entry.qty === "number") return entry.qty;
+  } catch {}
+  return 0;
+}
+
+function invSpendIngredients(ings: PotionIngredient[]): boolean {
+  try {
+    const inv: any = (window as any).Inventory;
+    if (!inv) return false;
+
+    // if there is a bulk "spend" helper
+    if (typeof inv.spend === "function") {
+      const ok = inv.spend(
+        ings.map((i) => ({ id: i.id, qty: i.qty }))
+      );
+      return !!ok;
+    }
+
+    // otherwise, try remove(id, qty) for each
+    if (typeof inv.remove === "function") {
+      for (const ing of ings) {
+        inv.remove(ing.id, ing.qty);
+      }
+      return true;
+    }
+  } catch (err) {
+    console.warn("[Cauldron] invSpendIngredients error", err);
+  }
+  return false;
+}
+
+function invGiveResult(resultId: string, resultName: string, resultIcon?: string) {
+  try {
+    const inv: any = (window as any).Inventory;
+    if (typeof inv?.add === "function") {
+      inv.add(resultId, resultName, resultIcon || "", 1);
+    }
+  } catch (err) {
+    console.warn("[Cauldron] invGiveResult error", err);
+  }
+}
+
+/* =========================================================
    WORLD CONFIG
    ========================================================= */
 const WALK_BAND_PX = 48;
@@ -206,17 +307,19 @@ function layoutHouse() {
 
   groundY = Math.round(vh * WALKWAY_TOP_RATIO);
 
-  // wizard at back
+  // wizard center-back
+  npc.w = NPC_W;
+  npc.h = NPC_H;
   npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
   npc.y = Math.round(groundY - npc.h - vh * NPC_BACK_OFFSET_RATIO);
 
-  // your chosen cauldron placement (right side, a bit higher)
+  // cauldron – your chosen placement
   cauldron.w = CAULDRON_W;
   cauldron.h = CAULDRON_H;
   cauldron.x = Math.round(vw * 0.8) - Math.floor(cauldron.w / 2);
   cauldron.y = groundY - cauldron.h - 75;
 
-  // scroll default (you can tweak later if needed)
+  // default scroll position (this is in screen coords)
   scrollLoot.x = 620;
   scrollLoot.y = 760;
 }
@@ -307,7 +410,7 @@ function showDialogue(lines: string[], ms = 0) {
 }
 
 /* =========================================================
-   CATALOG DIALOGUE RUNNER
+   CATALOG DIALOGUE RUNNER (wizard quest)
    ========================================================= */
 type CatalogNode = {
   id: string;
@@ -451,7 +554,7 @@ function runCatalogDialogue(q: CatalogQuest, onDone?: () => void) {
 }
 
 /* =========================================================
-   CLICK / HOVER → NPC DIALOGUE
+   CLICK / HOVER HELPERS
    ========================================================= */
 function cssPointFromEvent(ev: MouseEvent | PointerEvent) {
   const rect = canvas.getBoundingClientRect();
@@ -469,14 +572,14 @@ function isOverNPC(x: number, y: number): boolean {
     y <= npc.y + npc.h + padY
   );
 }
-canvas.addEventListener("pointermove", (ev) => {
-  const { x, y } = cssPointFromEvent(ev);
-  canvas.style.cursor = isOverNPC(x, y) ? "pointer" : "default";
-});
-canvas.addEventListener("pointerdown", async (ev) => {
-  const { x, y } = cssPointFromEvent(ev);
-  if (isOverNPC(x, y)) startWizardDialogue();
-});
+function isOverCauldron(x: number, y: number): boolean {
+  return (
+    x >= cauldron.x &&
+    x <= cauldron.x + cauldron.w &&
+    y >= cauldron.y &&
+    y <= cauldron.y + cauldron.h
+  );
+}
 
 /* =========================================================
    PLAYER NAME
@@ -500,7 +603,7 @@ function getPlayerName(): string {
 let wizardLocked = false;
 
 async function startWizardDialogue() {
-  if (wizardLocked || cauldronUIOpen) return;
+  if (wizardLocked) return;
   wizardLocked = true;
 
   const q = await getQuestFromCatalog("q_find_dreadheim_wizard");
@@ -512,8 +615,7 @@ async function startWizardDialogue() {
           (window as any).showParchmentSignature("wizardscroll");
         }
         (window as any).VAQ?.renderHUD?.();
-      } catch {}
-      finally {
+      } catch {} finally {
         setTimeout(() => {
           wizardLocked = false;
         }, 300);
@@ -630,9 +732,191 @@ function showExitHint() {
     z-index:9999;
   `;
   h.textContent =
-    "Walk ↓ to leave the house • Press E near the wizard to talk • Press E near the cauldron to brew";
+    "Walk ↓ to leave the house • Press E near the wizard to talk • Click the cauldron to brew";
   document.body.appendChild(h);
   setTimeout(() => h.remove(), 5000);
+}
+
+/* =========================================================
+   CAULDRON UI (show ingredients + brew)
+   ========================================================= */
+let cauldronOverlay: HTMLDivElement | null = null;
+
+async function openCauldronUI() {
+  const recipe = await getPotionById("health_potion");
+  if (!recipe || recipe.brewable === false) {
+    showDialogue(
+      ['The cauldron bubbles faintly. "No recipe has been set yet..."'],
+      2500
+    );
+    return;
+  }
+
+  if (cauldronOverlay) {
+    cauldronOverlay.style.display = "flex";
+    updateCauldronIngredients(recipe);
+    return;
+  }
+
+  const wrap = document.createElement("div");
+  wrap.style.cssText = `
+    position:fixed; inset:0; z-index:100001;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.65); backdrop-filter:blur(3px);
+  `;
+
+  wrap.innerHTML = `
+    <div style="
+      width:min(520px, 100vw - 32px);
+      background:#0b1016; color:#f5e1c5;
+      border-radius:16px; border:1px solid rgba(212,169,77,.35);
+      box-shadow:0 24px 60px rgba(0,0,0,.7);
+      padding:16px 18px; display:flex; flex-direction:column; gap:10px;
+      font-family: ui-sans-serif, system-ui;
+    ">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <div>
+          <div style="font-size:18px; font-weight:800;">${recipe.name}</div>
+          <div style="font-size:12px; opacity:.8;">${recipe.desc ?? "A simple brew."}</div>
+        </div>
+        <button id="cauldronClose" style="
+          border:none; border-radius:999px;
+          width:28px; height:28px;
+          cursor:pointer; background:rgba(0,0,0,.6); color:#f5e1c5;
+          font-size:15px;
+        ">×</button>
+      </div>
+
+      <div style="
+        border-radius:12px;
+        border:1px solid rgba(212,169,77,.25);
+        padding:10px 12px;
+        background: radial-gradient(circle at top, rgba(40,60,80,.7), #05070b);
+      ">
+        <div style="font-size:13px; text-transform:uppercase; letter-spacing:.06em; opacity:.8; margin-bottom:4px;">
+          Required Ingredients
+        </div>
+        <div id="cauldronIngredients" style="display:flex; flex-direction:column; gap:6px;"></div>
+      </div>
+
+      <div id="cauldronMessage" style="min-height:18px; font-size:13px; opacity:.95;"></div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:4px;">
+        <button id="cauldronBrew" style="
+          padding:8px 14px; border-radius:999px;
+          border:1px solid rgba(160,235,160,.7);
+          background:linear-gradient(135deg, #356b3a, #58a860);
+          color:#f5ffe9; cursor:pointer; font-weight:600; font-size:14px;
+        ">
+          Brew Potion
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(wrap);
+  cauldronOverlay = wrap;
+
+  const closeBtn = wrap.querySelector(
+    "#cauldronClose"
+  ) as HTMLButtonElement | null;
+  closeBtn?.addEventListener("click", () => {
+    if (cauldronOverlay) cauldronOverlay.style.display = "none";
+  });
+
+  const brewBtn = wrap.querySelector(
+    "#cauldronBrew"
+  ) as HTMLButtonElement | null;
+  brewBtn?.addEventListener("click", () => handleBrewClick(recipe));
+
+  updateCauldronIngredients(recipe);
+}
+
+function updateCauldronIngredients(recipe: PotionRecipe) {
+  if (!cauldronOverlay) return;
+  const list = cauldronOverlay.querySelector(
+    "#cauldronIngredients"
+  ) as HTMLElement | null;
+  const msg = cauldronOverlay.querySelector(
+    "#cauldronMessage"
+  ) as HTMLElement | null;
+  if (!list) return;
+
+  list.innerHTML = "";
+  let allEnough = true;
+
+  for (const ing of recipe.ingredients || []) {
+    const have = invGetQty(ing.id);
+    const enough = have >= ing.qty;
+    if (!enough) allEnough = false;
+
+    const row = document.createElement("div");
+    row.style.cssText = `
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:14px; padding:4px 6px;
+      border-radius:8px;
+      background:rgba(0,0,0,.45);
+    `;
+    row.innerHTML = `
+      <div>${ing.name}</div>
+      <div style="font-variant-numeric:tabular-nums;">
+        <span style="opacity:.95;">${have}</span>
+        <span style="opacity:.6;"> / ${ing.qty}</span>
+      </div>
+    `;
+    row.style.color = enough ? "#b8f5a2" : "#f5b3b3";
+    list.appendChild(row);
+  }
+
+  if (msg) {
+    if (recipe.ingredients?.length === 0) {
+      msg.textContent = "This brew has no ingredients yet.";
+      msg.style.color = "#e7d7ab";
+    } else if (allEnough) {
+      msg.textContent = "The cauldron glows softly. You have everything you need.";
+      msg.style.color = "#b8f5a2";
+    } else {
+      msg.textContent = "You don’t have the right materials to brew this.";
+      msg.style.color = "#f5b3b3";
+    }
+  }
+}
+
+function handleBrewClick(recipe: PotionRecipe) {
+  if (!cauldronOverlay) return;
+  const msg = cauldronOverlay.querySelector(
+    "#cauldronMessage"
+  ) as HTMLElement | null;
+
+  const missing = recipe.ingredients.filter(
+    (ing) => invGetQty(ing.id) < ing.qty
+  );
+  if (missing.length) {
+    if (msg) {
+      msg.textContent = "You don’t have the right materials to brew this.";
+      msg.style.color = "#f5b3b3";
+    }
+    return;
+  }
+
+  // Spend ingredients
+  const spent = invSpendIngredients(recipe.ingredients);
+  if (!spent) {
+    if (msg) {
+      msg.textContent =
+        "Something goes wrong. The ingredients refuse to bind… (check Inventory API)";
+      msg.style.color = "#f2d38b";
+    }
+    return;
+  }
+
+  // Give result
+  invGiveResult(recipe.resultId, recipe.resultName, recipe.resultIcon);
+
+  if (msg) {
+    msg.textContent = `${recipe.resultName} brewed successfully!`;
+    msg.style.color = "#b8f5a2";
+  }
 }
 
 /* =========================================================
@@ -702,6 +986,15 @@ let lastStepTime = performance.now();
    ATTACK INPUT (left mouse button)
    ========================================================= */
 canvas.addEventListener("mousedown", (e) => {
+  // left click for runes, but also use left click to interact with cauldron if over it
+  const { x, y } = cssPointFromEvent(e);
+
+  // cauldron click → open UI
+  if (isOverCauldron(x, y)) {
+    openCauldronUI();
+    return;
+  }
+
   if (e.button !== 0) return;
 
   const now = performance.now();
@@ -721,6 +1014,58 @@ canvas.addEventListener("mousedown", (e) => {
 });
 
 /* =========================================================
+   NPC HOVER / CLICK (wizard)
+   ========================================================= */
+canvas.addEventListener("pointermove", (ev) => {
+  const { x, y } = cssPointFromEvent(ev);
+  if (isOverNPC(x, y) || isOverCauldron(x, y)) {
+    canvas.style.cursor = "pointer";
+  } else {
+    canvas.style.cursor = "default";
+  }
+});
+
+canvas.addEventListener("pointerdown", async (ev) => {
+  const { x, y } = cssPointFromEvent(ev);
+
+  // wizard click
+  if (isOverNPC(x, y)) {
+    startWizardDialogue();
+    return;
+  }
+});
+
+/* =========================================================
+   SCROLL PICKUP
+   ========================================================= */
+canvas.addEventListener("pointerdown", (ev) => {
+  if (!scrollLoot.visible) return;
+
+  const { x, y } = cssPointFromEvent(ev);
+
+  if (
+    x >= scrollLoot.x &&
+    x <= scrollLoot.x + scrollLoot.w &&
+    y >= scrollLoot.y &&
+    y <= scrollLoot.y + scrollLoot.h
+  ) {
+    try {
+      const inv: any = (window as any).Inventory;
+      inv?.add?.(
+        "wizardscroll",
+        "Wizard's Scroll",
+        "/guildbook/loot/questscroll.png",
+        1
+      );
+    } catch {}
+
+    scrollLoot.visible = false;
+
+    showDialogue(["You picked up the Wizard’s Scroll."], 2000);
+  }
+});
+
+/* =========================================================
    HERO ANIM HELPERS
    ========================================================= */
 function getHeroFrameList(): HTMLImageElement[] {
@@ -734,146 +1079,7 @@ function getHeroFrameList(): HTMLImageElement[] {
 }
 
 /* =========================================================
-   CAULDRON BREWING UI
-   ========================================================= */
-let cauldronUIOpen = false;
-let cauldronEl: HTMLDivElement | null = null;
-
-type CauldronRecipe = {
-  id: string;
-  name: string;
-  desc: string;
-  resultId: string;
-  resultName: string;
-  resultIcon: string;
-};
-
-const CAULDRON_RECIPES: CauldronRecipe[] = [
-  {
-    id: "minor_heal",
-    name: "Brew Minor Healing Draught",
-    desc: "A simple potion that restores a small amount of vitality.",
-    resultId: "potion_minor_heal",
-    resultName: "Minor Healing Draught",
-    resultIcon: "/guildbook/loot/potion_red_small.png",
-  },
-];
-
-function closeCauldronUI() {
-  cauldronUIOpen = false;
-  if (cauldronEl) {
-    cauldronEl.remove();
-    cauldronEl = null;
-  }
-}
-
-function brewRecipe(r: CauldronRecipe) {
-  try {
-    const inv: any = (window as any).Inventory;
-    if (inv && typeof inv.add === "function") {
-      inv.add(r.resultId, r.resultName, r.resultIcon, 1);
-    }
-  } catch {}
-
-  showDialogue(
-    [`You brew a ${r.resultName}. The cauldron bubbles approvingly.`],
-    2500
-  );
-  closeCauldronUI();
-}
-
-function openCauldronUI() {
-  if (cauldronUIOpen) return;
-  cauldronUIOpen = true;
-
-  const wrap = document.createElement("div");
-  wrap.style.cssText = `
-    position:fixed; inset:0; z-index:100000;
-    display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.7); backdrop-filter:blur(3px);
-  `;
-
-  const inner = document.createElement("div");
-  inner.style.cssText = `
-    width:min(520px, 100% - 32px);
-    background:#101318;
-    border-radius:16px;
-    border:1px solid rgba(175,125,52,.5);
-    box-shadow:0 30px 60px rgba(0,0,0,.65);
-    padding:14px 16px;
-    color:#e7d7ab;
-    font-family:ui-sans-serif,system-ui;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-  `;
-  inner.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px">
-      <div style="font-weight:800; font-size:18px; letter-spacing:.06em; text-transform:uppercase;">
-        Dreadheim Cauldron
-      </div>
-      <button id="cauldronCloseBtn" style="
-        border-radius:999px; border:1px solid rgba(175,125,52,.55);
-        background:#171b22; color:#e7d7ab;
-        padding:4px 10px; cursor:pointer; font-size:12px;
-      ">Close</button>
-    </div>
-    <div style="font-size:13px; opacity:.9;">
-      The air is thick with herbs and ash. Strange fumes curl from the cauldron’s rim, waiting for your command.
-    </div>
-    <div id="cauldronRecipes" style="display:flex; flex-direction:column; gap:8px; margin-top:4px;"></div>
-  `;
-
-  wrap.appendChild(inner);
-  document.body.appendChild(wrap);
-  cauldronEl = wrap;
-
-  const closeBtn = inner.querySelector(
-    "#cauldronCloseBtn"
-  ) as HTMLButtonElement | null;
-  closeBtn?.addEventListener("click", closeCauldronUI);
-
-  const list = inner.querySelector("#cauldronRecipes") as HTMLElement;
-
-  for (const r of CAULDRON_RECIPES) {
-    const row = document.createElement("div");
-    row.style.cssText = `
-      display:flex; align-items:center; justify-content:space-between;
-      gap:10px; padding:8px 10px;
-      border-radius:10px;
-      background:rgba(12,16,20,.9);
-      border:1px solid rgba(175,125,52,.35);
-    `;
-    row.innerHTML = `
-      <div style="display:flex; flex-direction:column; gap:2px; max-width:70%;">
-        <div style="font-weight:700; font-size:14px;">${r.name}</div>
-        <div style="font-size:12px; opacity:.85;">${r.desc}</div>
-      </div>
-      <button class="cauldronBrewBtn" data-id="${r.id}" style="
-        padding:6px 10px;
-        border-radius:10px;
-        border:1px solid rgba(175,125,52,.7);
-        background:#1c222b;
-        color:#e7d7ab;
-        font-size:12px;
-        cursor:pointer;
-        white-space:nowrap;
-      ">Brew</button>
-    `;
-    list.appendChild(row);
-  }
-
-  list.querySelectorAll<HTMLButtonElement>(".cauldronBrewBtn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.dataset.id;
-      const recipe = CAULDRON_RECIPES.find((r) => r.id === id);
-      if (recipe) brewRecipe(recipe);
-    });
-  });
-}
-
-/* =========================================================
-   STEP (MOVEMENT + ANIM + RUNES + WIZARD & CAULDRON ANIM)
+   STEP (MOVEMENT + ANIM + RUNES + WIZARD/CAULDRON ANIM)
    ========================================================= */
 function step() {
   // dt
@@ -924,7 +1130,7 @@ function step() {
   if (hero.y > floorTop) hero.y = floorTop;
 
   // walk down out of house
-  if (down && hero.y >= floorTop - 0.5 && !cauldronUIOpen) {
+  if (down && hero.y >= floorTop - 0.5) {
     warpTo(EXIT_URL);
     return;
   }
@@ -949,19 +1155,15 @@ function step() {
     }
   }
 
-  const heroFeet = hero.y + hero.h;
-  const npcFeet = npc.y + npc.h;
-  const cauldronFeet = cauldron.y + cauldron.h;
-
   // near-NPC "Press E" hint + talk
   const heroCenterX = hero.x + hero.w / 2;
   const npcCenterX = npc.x + npc.w / 2;
   const dxCenter = Math.abs(heroCenterX - npcCenterX);
   const touchingNPC =
     dxCenter < TALK_DISTANCE &&
-    Math.abs(heroFeet - npcFeet) < 80;
+    Math.abs(hero.y + hero.h - (npc.y + npc.h)) < 80;
 
-  if (touchingNPC && !document.getElementById("eHint") && !cauldronUIOpen) {
+  if (touchingNPC && !document.getElementById("eHint")) {
     const h = document.createElement("div");
     h.id = "eHint";
     h.style.cssText = `
@@ -971,42 +1173,13 @@ function step() {
       border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(4px);
       z-index:9999; pointer-events:none;
     `;
-    h.textContent = "Press E to talk to the Wizard";
+    h.textContent = "Press E to talk to the Wizard • Click the cauldron to brew";
     document.body.appendChild(h);
     setTimeout(() => h.remove(), 1500);
   }
 
-  if (touchingNPC && (keys.has("e") || keys.has("E")) && !cauldronUIOpen) {
+  if (touchingNPC && (keys.has("e") || keys.has("E"))) {
     startWizardDialogue();
-  }
-
-  // near-cauldron detection
-  const cauldronCenterX = cauldron.x + cauldron.w / 2;
-  const dxCauldron = Math.abs(heroCenterX - cauldronCenterX);
-  const touchingCauldron =
-    dxCauldron < cauldron.w * 0.6 && Math.abs(heroFeet - cauldronFeet) < 90;
-
-  if (
-    touchingCauldron &&
-    !document.getElementById("cauldronHint") &&
-    !cauldronUIOpen
-  ) {
-    const h = document.createElement("div");
-    h.id = "cauldronHint";
-    h.style.cssText = `
-      position:fixed; left:50%; bottom:52px; transform:translateX(-50%);
-      color:#fff; opacity:.95; font:13px ui-sans-serif,system-ui;
-      background:rgba(0,0,0,.65); padding:6px 10px; border-radius:8px;
-      border:1px solid rgba(255,255,255,.18); backdrop-filter:blur(4px);
-      z-index:9999; pointer-events:none;
-    `;
-    h.textContent = "Press E to use the Cauldron";
-    document.body.appendChild(h);
-    setTimeout(() => h.remove(), 1500);
-  }
-
-  if (touchingCauldron && (keys.has("e") || keys.has("E"))) {
-    openCauldronUI();
   }
 
   // rune frame animation
@@ -1043,10 +1216,7 @@ function step() {
   }
 
   // cauldron animation timer
-  if (
-    cauldronFrames.length &&
-    nowStep - lastCauldronFrameTime >= CAULDRON_FRAME_MS
-  ) {
+  if (cauldronFrames.length && nowStep - lastCauldronFrameTime >= CAULDRON_FRAME_MS) {
     lastCauldronFrameTime = nowStep;
     cauldronFrameIndex =
       (cauldronFrameIndex + 1) % Math.max(1, cauldronFrames.length);
@@ -1054,42 +1224,13 @@ function step() {
 }
 
 /* =========================================================
-   SCROLL PICKUP
-   ========================================================= */
-canvas.addEventListener("pointerdown", (ev) => {
-  if (!scrollLoot.visible) return;
-
-  const { x, y } = cssPointFromEvent(ev);
-
-  if (
-    x >= scrollLoot.x &&
-    x <= scrollLoot.x + scrollLoot.w &&
-    y >= scrollLoot.y &&
-    y <= scrollLoot.y + scrollLoot.h
-  ) {
-    try {
-      const inv: any = (window as any).Inventory;
-      inv?.add?.(
-        "wizardscroll",
-        "Wizard's Scroll",
-        "/guildbook/loot/questscroll.png",
-        1
-      );
-    } catch {}
-
-    scrollLoot.visible = false;
-
-    showDialogue(['You picked up the Wizard’s Scroll.'], 2000);
-  }
-});
-
-/* =========================================================
    RENDER
    ========================================================= */
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
+  if (bg)
+    ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
 
   if (scrollLoot.visible && scrollImg) {
     ctx.drawImage(
@@ -1172,7 +1313,9 @@ function render() {
   // rune projectiles (draw on top)
   for (const p of runeProjectiles) {
     const frameImg =
-      runeFrames.length > 0 ? runeFrames[p.frame % runeFrames.length] : null;
+      runeFrames.length > 0
+        ? runeFrames[p.frame % runeFrames.length]
+        : null;
 
     if (frameImg) {
       ctx.save();
@@ -1213,7 +1356,9 @@ function loop() {
    ========================================================= */
 window.addEventListener("va-gender-changed", () => {
   try {
-    const pick = (window as any).getHeroSprite as undefined | (() => string);
+    const pick = (window as any).getHeroSprite as
+      | undefined
+      | (() => string);
     const next =
       typeof pick === "function"
         ? pick()
@@ -1307,11 +1452,11 @@ Promise.all(
     wizardFrames = imgs.slice(idx, idx + WIZARD_FRAME_URLS.length);
     idx += WIZARD_FRAME_URLS.length;
 
-    heroFallbackImg = heroIdleFrames[0] || null;
-
     // cauldron frames
     cauldronFrames = imgs.slice(idx, idx + CAULDRON_FRAME_URLS.length);
     idx += CAULDRON_FRAME_URLS.length;
+
+    heroFallbackImg = heroIdleFrames[0] || null;
 
     refreshBounds();
     showExitHint();
@@ -1323,6 +1468,7 @@ Promise.all(
     showExitHint();
     loop();
   });
+
 
 
 
