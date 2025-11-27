@@ -122,7 +122,7 @@ const NPC_X_RATIO = 0.5;
 const NPC_BACK_OFFSET_RATIO = 0.06;
 const TALK_DISTANCE = 110;
 
-// Cauldron (front-left-ish)
+// Cauldron
 const CAULDRON_W = 180;
 const CAULDRON_H = 180;
 
@@ -200,37 +200,25 @@ const hero = {
 const npc = { x: 0, y: 0, w: NPC_W, h: NPC_H };
 const cauldron = { x: 0, y: 0, w: CAULDRON_W, h: CAULDRON_H };
 
-/* =========================================================
-   LAYOUT (CODE-ONLY POSITIONS)
-   ========================================================= */
 function layoutHouse() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // floor line
   groundY = Math.round(vh * WALKWAY_TOP_RATIO);
 
-  // hero spawn (left-front)
-  hero.x = Math.round(vw * 0.18);
-  hero.y = groundY - hero.h;
-
-  // wizard – floating center-back
-  npc.w = NPC_W;
-  npc.h = NPC_H;
+  // wizard at back
   npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
   npc.y = Math.round(groundY - npc.h - vh * NPC_BACK_OFFSET_RATIO);
 
-  // cauldron – front-left
+  // your chosen cauldron placement (right side, a bit higher)
   cauldron.w = CAULDRON_W;
   cauldron.h = CAULDRON_H;
-  cauldron.x = Math.round(vw * 0.80) - Math.floor(cauldron.w / 2);
-  cauldron.y = groundY - cauldron.h  - 75;
+  cauldron.x = Math.round(vw * 0.8) - Math.floor(cauldron.w / 2);
+  cauldron.y = groundY - cauldron.h - 75;
 
-  // scroll – near fireplace on the right
-  scrollLoot.w = 48;
-  scrollLoot.h = 48;
-  scrollLoot.x = Math.round(vw * 0.65);
-  scrollLoot.y = groundY - scrollLoot.h - 20;
+  // scroll default (you can tweak later if needed)
+  scrollLoot.x = 620;
+  scrollLoot.y = 760;
 }
 
 function refreshBounds() {
@@ -374,8 +362,8 @@ function ensureCatDialogEl(): HTMLDivElement {
   `;
   document.body.appendChild(el);
   catDialogEl = el as HTMLDivElement;
-  (el.querySelector("#vaCatClose") as HTMLButtonElement).onclick =
-    () => closeCatDialogue();
+  (el.querySelector("#vaCatClose") as HTMLButtonElement).onclick = () =>
+    closeCatDialogue();
   return catDialogEl!;
 }
 function openCatDialogue() {
@@ -400,11 +388,7 @@ function renderCatNode(q: CatalogQuest, nodeId: string, onDone?: () => void) {
 
   header.textContent = q.title || "Dialogue";
   body.innerHTML = `
-    ${
-      node.speaker
-        ? `<div style="opacity:.9;font-weight:800;margin-bottom:4px">${node.speaker}</div>`
-        : ""
-    }
+    ${node.speaker ? `<div style="opacity:.9;font-weight:800;margin-bottom:4px">${node.speaker}</div>` : ""}
     <div>${node.text}</div>
   `;
   choices.innerHTML = "";
@@ -516,7 +500,7 @@ function getPlayerName(): string {
 let wizardLocked = false;
 
 async function startWizardDialogue() {
-  if (wizardLocked) return;
+  if (wizardLocked || cauldronUIOpen) return;
   wizardLocked = true;
 
   const q = await getQuestFromCatalog("q_find_dreadheim_wizard");
@@ -645,7 +629,8 @@ function showExitHint() {
     border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(4px); pointer-events:none;
     z-index:9999;
   `;
-  h.textContent = "Walk ↓ to leave the house • Press E near the wizard to talk";
+  h.textContent =
+    "Walk ↓ to leave the house • Press E near the wizard to talk • Press E near the cauldron to brew";
   document.body.appendChild(h);
   setTimeout(() => h.remove(), 5000);
 }
@@ -749,7 +734,146 @@ function getHeroFrameList(): HTMLImageElement[] {
 }
 
 /* =========================================================
-   STEP (MOVEMENT + ANIM + RUNES + WIZARD/CAULDRON ANIM)
+   CAULDRON BREWING UI
+   ========================================================= */
+let cauldronUIOpen = false;
+let cauldronEl: HTMLDivElement | null = null;
+
+type CauldronRecipe = {
+  id: string;
+  name: string;
+  desc: string;
+  resultId: string;
+  resultName: string;
+  resultIcon: string;
+};
+
+const CAULDRON_RECIPES: CauldronRecipe[] = [
+  {
+    id: "minor_heal",
+    name: "Brew Minor Healing Draught",
+    desc: "A simple potion that restores a small amount of vitality.",
+    resultId: "potion_minor_heal",
+    resultName: "Minor Healing Draught",
+    resultIcon: "/guildbook/loot/potion_red_small.png",
+  },
+];
+
+function closeCauldronUI() {
+  cauldronUIOpen = false;
+  if (cauldronEl) {
+    cauldronEl.remove();
+    cauldronEl = null;
+  }
+}
+
+function brewRecipe(r: CauldronRecipe) {
+  try {
+    const inv: any = (window as any).Inventory;
+    if (inv && typeof inv.add === "function") {
+      inv.add(r.resultId, r.resultName, r.resultIcon, 1);
+    }
+  } catch {}
+
+  showDialogue(
+    [`You brew a ${r.resultName}. The cauldron bubbles approvingly.`],
+    2500
+  );
+  closeCauldronUI();
+}
+
+function openCauldronUI() {
+  if (cauldronUIOpen) return;
+  cauldronUIOpen = true;
+
+  const wrap = document.createElement("div");
+  wrap.style.cssText = `
+    position:fixed; inset:0; z-index:100000;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.7); backdrop-filter:blur(3px);
+  `;
+
+  const inner = document.createElement("div");
+  inner.style.cssText = `
+    width:min(520px, 100% - 32px);
+    background:#101318;
+    border-radius:16px;
+    border:1px solid rgba(175,125,52,.5);
+    box-shadow:0 30px 60px rgba(0,0,0,.65);
+    padding:14px 16px;
+    color:#e7d7ab;
+    font-family:ui-sans-serif,system-ui;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  `;
+  inner.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px">
+      <div style="font-weight:800; font-size:18px; letter-spacing:.06em; text-transform:uppercase;">
+        Dreadheim Cauldron
+      </div>
+      <button id="cauldronCloseBtn" style="
+        border-radius:999px; border:1px solid rgba(175,125,52,.55);
+        background:#171b22; color:#e7d7ab;
+        padding:4px 10px; cursor:pointer; font-size:12px;
+      ">Close</button>
+    </div>
+    <div style="font-size:13px; opacity:.9;">
+      The air is thick with herbs and ash. Strange fumes curl from the cauldron’s rim, waiting for your command.
+    </div>
+    <div id="cauldronRecipes" style="display:flex; flex-direction:column; gap:8px; margin-top:4px;"></div>
+  `;
+
+  wrap.appendChild(inner);
+  document.body.appendChild(wrap);
+  cauldronEl = wrap;
+
+  const closeBtn = inner.querySelector(
+    "#cauldronCloseBtn"
+  ) as HTMLButtonElement | null;
+  closeBtn?.addEventListener("click", closeCauldronUI);
+
+  const list = inner.querySelector("#cauldronRecipes") as HTMLElement;
+
+  for (const r of CAULDRON_RECIPES) {
+    const row = document.createElement("div");
+    row.style.cssText = `
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; padding:8px 10px;
+      border-radius:10px;
+      background:rgba(12,16,20,.9);
+      border:1px solid rgba(175,125,52,.35);
+    `;
+    row.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:2px; max-width:70%;">
+        <div style="font-weight:700; font-size:14px;">${r.name}</div>
+        <div style="font-size:12px; opacity:.85;">${r.desc}</div>
+      </div>
+      <button class="cauldronBrewBtn" data-id="${r.id}" style="
+        padding:6px 10px;
+        border-radius:10px;
+        border:1px solid rgba(175,125,52,.7);
+        background:#1c222b;
+        color:#e7d7ab;
+        font-size:12px;
+        cursor:pointer;
+        white-space:nowrap;
+      ">Brew</button>
+    `;
+    list.appendChild(row);
+  }
+
+  list.querySelectorAll<HTMLButtonElement>(".cauldronBrewBtn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.id;
+      const recipe = CAULDRON_RECIPES.find((r) => r.id === id);
+      if (recipe) brewRecipe(recipe);
+    });
+  });
+}
+
+/* =========================================================
+   STEP (MOVEMENT + ANIM + RUNES + WIZARD & CAULDRON ANIM)
    ========================================================= */
 function step() {
   // dt
@@ -800,7 +924,7 @@ function step() {
   if (hero.y > floorTop) hero.y = floorTop;
 
   // walk down out of house
-  if (down && hero.y >= floorTop - 0.5) {
+  if (down && hero.y >= floorTop - 0.5 && !cauldronUIOpen) {
     warpTo(EXIT_URL);
     return;
   }
@@ -825,15 +949,19 @@ function step() {
     }
   }
 
+  const heroFeet = hero.y + hero.h;
+  const npcFeet = npc.y + npc.h;
+  const cauldronFeet = cauldron.y + cauldron.h;
+
   // near-NPC "Press E" hint + talk
   const heroCenterX = hero.x + hero.w / 2;
   const npcCenterX = npc.x + npc.w / 2;
   const dxCenter = Math.abs(heroCenterX - npcCenterX);
   const touchingNPC =
     dxCenter < TALK_DISTANCE &&
-    Math.abs(hero.y + hero.h - (npc.y + npc.h)) < 80;
+    Math.abs(heroFeet - npcFeet) < 80;
 
-  if (touchingNPC && !document.getElementById("eHint")) {
+  if (touchingNPC && !document.getElementById("eHint") && !cauldronUIOpen) {
     const h = document.createElement("div");
     h.id = "eHint";
     h.style.cssText = `
@@ -848,8 +976,37 @@ function step() {
     setTimeout(() => h.remove(), 1500);
   }
 
-  if (touchingNPC && (keys.has("e") || keys.has("E"))) {
+  if (touchingNPC && (keys.has("e") || keys.has("E")) && !cauldronUIOpen) {
     startWizardDialogue();
+  }
+
+  // near-cauldron detection
+  const cauldronCenterX = cauldron.x + cauldron.w / 2;
+  const dxCauldron = Math.abs(heroCenterX - cauldronCenterX);
+  const touchingCauldron =
+    dxCauldron < cauldron.w * 0.6 && Math.abs(heroFeet - cauldronFeet) < 90;
+
+  if (
+    touchingCauldron &&
+    !document.getElementById("cauldronHint") &&
+    !cauldronUIOpen
+  ) {
+    const h = document.createElement("div");
+    h.id = "cauldronHint";
+    h.style.cssText = `
+      position:fixed; left:50%; bottom:52px; transform:translateX(-50%);
+      color:#fff; opacity:.95; font:13px ui-sans-serif,system-ui;
+      background:rgba(0,0,0,.65); padding:6px 10px; border-radius:8px;
+      border:1px solid rgba(255,255,255,.18); backdrop-filter:blur(4px);
+      z-index:9999; pointer-events:none;
+    `;
+    h.textContent = "Press E to use the Cauldron";
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), 1500);
+  }
+
+  if (touchingCauldron && (keys.has("e") || keys.has("E"))) {
+    openCauldronUI();
   }
 
   // rune frame animation
@@ -886,8 +1043,10 @@ function step() {
   }
 
   // cauldron animation timer
-  if (cauldronFrames.length &&
-      nowStep - lastCauldronFrameTime >= CAULDRON_FRAME_MS) {
+  if (
+    cauldronFrames.length &&
+    nowStep - lastCauldronFrameTime >= CAULDRON_FRAME_MS
+  ) {
     lastCauldronFrameTime = nowStep;
     cauldronFrameIndex =
       (cauldronFrameIndex + 1) % Math.max(1, cauldronFrames.length);
@@ -930,8 +1089,7 @@ canvas.addEventListener("pointerdown", (ev) => {
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (bg)
-    ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
+  if (bg) ctx.drawImage(bg, 0, 0, window.innerWidth, window.innerHeight);
 
   if (scrollLoot.visible && scrollImg) {
     ctx.drawImage(
@@ -1014,9 +1172,7 @@ function render() {
   // rune projectiles (draw on top)
   for (const p of runeProjectiles) {
     const frameImg =
-      runeFrames.length > 0
-        ? runeFrames[p.frame % runeFrames.length]
-        : null;
+      runeFrames.length > 0 ? runeFrames[p.frame % runeFrames.length] : null;
 
     if (frameImg) {
       ctx.save();
@@ -1119,11 +1275,7 @@ Promise.all(
     const atkRightCount = HERO_ATK_RIGHT_URLS.length;
 
     const heroTotal =
-      idleCount +
-      leftCount +
-      rightCount +
-      atkLeftCount +
-      atkRightCount;
+      idleCount + leftCount + rightCount + atkLeftCount + atkRightCount;
 
     const heroImgs = imgs.slice(idx, idx + heroTotal);
     idx += heroTotal;
@@ -1140,7 +1292,11 @@ Promise.all(
     );
     heroAtkRightFrames = heroImgs.slice(
       idleCount + leftCount + rightCount + atkLeftCount,
-      idleCount + leftCount + rightCount + atkLeftCount + atkRightCount
+      idleCount +
+        leftCount +
+        rightCount +
+        atkLeftCount +
+        atkRightCount
     );
 
     // rune frames
@@ -1151,11 +1307,11 @@ Promise.all(
     wizardFrames = imgs.slice(idx, idx + WIZARD_FRAME_URLS.length);
     idx += WIZARD_FRAME_URLS.length;
 
+    heroFallbackImg = heroIdleFrames[0] || null;
+
     // cauldron frames
     cauldronFrames = imgs.slice(idx, idx + CAULDRON_FRAME_URLS.length);
     idx += CAULDRON_FRAME_URLS.length;
-
-    heroFallbackImg = heroIdleFrames[0] || null;
 
     refreshBounds();
     showExitHint();
