@@ -10,13 +10,13 @@
       "resultIcon": "/guildbook/props/wizardshouseprops/healthpotion1.gif",
       "ingredients": [
         {
-          "id": "red_herb",
-          "name": "Red Herb",
+          "id": "infectedbatsblood",
+          "name": "Infected Bat's Blood",
           "qty": 2
         },
         {
-          "id": "clear_water",
-          "name": "Clear Spring Water",
+          "id": "infectedboarmeat",
+          "name": "Infected Boar Meat",
           "qty": 1
         }
       ]
@@ -27,9 +27,6 @@
       "name": "Minor Mana Potion",
       "desc": "Placeholder – recipe not yet discovered.",
       "brewable": false,
-      "resultId": "mana_potion",
-      "resultName": "Minor Mana Potion",
-      "resultIcon": "/guildbook/props/wizardshouseprops/healthpotion1.gif",
       "ingredients": []
     },
 
@@ -38,12 +35,10 @@
       "name": "Minor Stamina Draught",
       "desc": "Placeholder – recipe not yet discovered.",
       "brewable": false,
-      "resultId": "stamina_potion",
-      "resultName": "Minor Stamina Draught",
-      "resultIcon": "/guildbook/props/wizardshouseprops/healthpotion1.gif",
       "ingredients": []
     }
   ]
 }
+
 
 
