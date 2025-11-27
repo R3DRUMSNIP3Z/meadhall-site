@@ -154,7 +154,7 @@ const unlocked: Record<keyof typeof skills, boolean> = { basic:true, aoe:false, 
 type SimpleInvItem = { id: string; name: string; icon: string; qty: number };
 
 // Make this match your brewed potion (resultId / id)
-const POTION_ITEM_ID = "potion_heal_50";
+const POTION_ITEM_ID = "health_potion";
 const POTION_HEAL_AMOUNT = 50;
 
 function readInventoryItems(): SimpleInvItem[] {
