@@ -267,7 +267,7 @@ function layoutHouse() {
   // default cauldron placement
   cauldron.w = CAULDRON_W;
   cauldron.h = CAULDRON_H;
-  cauldron.x = Math.round(vw * 0.8) - Math.floor(cauldron.w / 2);
+  cauldron.x = Math.round(vw * 0.80) - Math.floor(cauldron.w / 2);
   cauldron.y = groundY - cauldron.h - 75;
 
   scrollLoot.x = 620;
