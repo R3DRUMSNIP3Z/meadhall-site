@@ -5,9 +5,11 @@
       "name": "Minor Health Potion",
       "desc": "Restores a small amount of health when used.",
       "brewable": true,
+
       "resultId": "health_potion",
       "resultName": "Minor Health Potion",
       "resultIcon": "/guildbook/props/wizardshouseprops/healthpotion1.gif",
+
       "ingredients": [
         {
           "id": "infectedbatsblood",
@@ -39,6 +41,7 @@
     }
   ]
 }
+
 
 
 
