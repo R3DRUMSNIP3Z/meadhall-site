@@ -224,7 +224,7 @@ function layoutHouse() {
   cauldron.w = CAULDRON_W;
   cauldron.h = CAULDRON_H;
   cauldron.x = Math.round(vw * 0.80) - Math.floor(cauldron.w / 2);
-  cauldron.y = groundY - cauldron.h + 10;
+  cauldron.y = groundY - cauldron.h  - 100;
 
   // scroll – near fireplace on the right
   scrollLoot.w = 48;
