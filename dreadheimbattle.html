@@ -115,32 +115,91 @@ sorry tht wasnt the right html this one is <!doctype html>
   color: #ffeaa0;
   text-shadow: 0 1px 3px rgba(0,0,0,.75);
 }
-.battle-potion-btn {
-  position: fixed;
-  right: 24px;
-  bottom: 120px;
-  padding: 8px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(212,169,77,.6);
-  background: radial-gradient(circle at top, #252018, #121317);
-  color: #f6e3b3;
+/* Layout: skills + potion panel side by side */
+#skillbar {
+  position:fixed; left:0; right:0; bottom:0;
+  display:flex; gap:16px; justify-content:center; align-items:flex-end;
+  padding:12px 16px; background:rgba(0,0,0,.55); backdrop-filter: blur(4px);
+  border-top:1px solid rgba(255,255,255,.08);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  user-select:none;
+}
+
+/* Potion panel next to skills */
+.potion-panel {
+  min-width: 160px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(212,169,77,.4);
+  background: radial-gradient(circle at top, #231d14, #101318);
+  color: #f3e3b5;
+  box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   font-family: 'Cinzel', serif;
+}
+
+.potion-title {
   font-size: 13px;
-  letter-spacing: 0.03em;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0,0,0,.65);
-  text-shadow: 0 1px 3px rgba(0,0,0,.8);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: .9;
+  border-bottom: 1px solid rgba(212,169,77,.25);
+  padding-bottom: 2px;
 }
 
-.battle-potion-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 28px rgba(0,0,0,.75);
+.potion-slot {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 6px;
+  border-radius: 9px;
+  background: rgba(0,0,0,.45);
 }
 
-.battle-potion-btn:active {
-  transform: translateY(1px);
-  box-shadow: 0 4px 16px rgba(0,0,0,.6);
+.potion-slot img {
+  width:30px;
+  height:30px;
+  object-fit:contain;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,.65));
+  visibility:hidden; /* shown when a potion is equipped */
 }
+
+#potionSlotName {
+  font-size: 12px;
+  color:#f9e9c4;
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+}
+
+.potion-actions {
+  display:flex;
+  gap:6px;
+  margin-top:2px;
+}
+
+.potion-actions button {
+  flex:1;
+  padding:4px 6px;
+  border-radius: 9px;
+  border:1px solid rgba(212,169,77,.5);
+  background:#151921;
+  color:#f3e3b5;
+  font-size:11px;
+  font-family: 'Cinzel', serif;
+  cursor:pointer;
+  box-shadow: 0 3px 10px rgba(0,0,0,.45);
+}
+
+.potion-actions button:disabled {
+  opacity:.45;
+  cursor:not-allowed;
+}
+
+.potion-actions button:hover:not(:disabled) {
+  background:#222731;
+}
+
 
 
 
@@ -165,18 +224,27 @@ sorry tht wasnt the right html this one is <!doctype html>
   <!-- Battle Log -->
   <div id="log"></div>
 
-    <!-- Skill Bar (appears in battle) -->
+      <!-- Skill Bar (appears in battle) -->
   <div id="skillbar">
     <div class="skill" data-skill="basic"><div class="name">Drengr<br/>Strike</div></div>
     <div class="skill locked" data-skill="aoe"><div class="name">Storm of<br/>Blades</div></div>
     <div class="skill locked" data-skill="buff"><div class="name">Odin’s<br/>Blessing</div></div>
     <div class="skill locked" data-skill="debuff"><div class="name">Hel’s<br/>Curse</div></div>
+
+    <!-- Potion panel: sits to the RIGHT of the skills -->
+    <div id="potionPanel" class="potion-panel">
+      <div class="potion-title">Potion</div>
+      <div class="potion-slot">
+        <img id="potionSlotIcon" alt="" />
+        <span id="potionSlotName">None equipped</span>
+      </div>
+      <div class="potion-actions">
+        <button id="potionEquipBtn" type="button">Equip</button>
+        <button id="potionUseBtn" type="button" disabled>Use</button>
+      </div>
+    </div>
   </div>
 
-  <!-- Use Potion button (heals 50 HP, uses your turn) -->
-  <button id="potionBtn" class="battle-potion-btn">
-    🧪 Use Potion
-  </button>
 
   <!-- Result overlay -->
   <div id="overlay"></div>
