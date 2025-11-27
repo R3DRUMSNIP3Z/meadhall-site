@@ -112,12 +112,12 @@ async function getQuestFromCatalog(qid: string): Promise<any | null> {
 const WALK_BAND_PX = 48;
 const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
-const HERO_W = 96;
-const HERO_H = 200;
+const HERO_W = 96,
+  HERO_H = 200;
 
 // NPC (center-back)
-const NPC_W = 144;
-const NPC_H = 252;
+const NPC_W = 144,
+  NPC_H = 252;
 const NPC_X_RATIO = 0.5;
 const NPC_BACK_OFFSET_RATIO = 0.06;
 const TALK_DISTANCE = 110;
@@ -131,8 +131,8 @@ const CAULDRON_H = 180;
    ========================================================= */
 function fitCanvas() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const w = window.innerWidth,
+    h = window.innerHeight;
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
   canvas.style.width = w + "px";
@@ -200,44 +200,41 @@ const hero = {
 const npc = { x: 0, y: 0, w: NPC_W, h: NPC_H };
 const cauldron = { x: 0, y: 0, w: CAULDRON_W, h: CAULDRON_H };
 
-type RectTarget = { x: number; y: number; w: number; h: number };
-
-function applyDevLayoutFromHandle(handleId: string, target: RectTarget) {
-  const el = document.getElementById(handleId) as HTMLElement | null;
-  if (!el) return;
-  const r = el.getBoundingClientRect();
-  target.x = r.left;
-  target.y = r.top;
-  target.w = r.width;
-  target.h = r.height;
-}
-
+/* =========================================================
+   LAYOUT (CODE-ONLY POSITIONS)
+   ========================================================= */
 function layoutHouse() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
+  // floor line
   groundY = Math.round(vh * WALKWAY_TOP_RATIO);
 
+  // hero spawn (left-front)
+  hero.x = Math.round(vw * 0.18);
+  hero.y = groundY - hero.h;
+
+  // wizard – floating center-back
+  npc.w = NPC_W;
+  npc.h = NPC_H;
   npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
   npc.y = Math.round(groundY - npc.h - vh * NPC_BACK_OFFSET_RATIO);
 
-  // default cauldron placement (fallback if no dev handles)
+  // cauldron – front-left
+  cauldron.w = CAULDRON_W;
+  cauldron.h = CAULDRON_H;
   cauldron.x = Math.round(vw * 0.32) - Math.floor(cauldron.w / 2);
   cauldron.y = groundY - cauldron.h + 10;
 
-  // scroll default (fallback)
-  scrollLoot.x = 620;
-  scrollLoot.y = 760;
+  // scroll – near fireplace on the right
+  scrollLoot.w = 48;
+  scrollLoot.h = 48;
+  scrollLoot.x = Math.round(vw * 0.65);
+  scrollLoot.y = groundY - scrollLoot.h - 20;
 }
 
 function refreshBounds() {
-  // base layout
   layoutHouse();
-
-  // if dev handles exist, they win
-  applyDevLayoutFromHandle("devWizard", npc);
-  applyDevLayoutFromHandle("devCauldron", cauldron);
-  applyDevLayoutFromHandle("devScroll", scrollLoot as any);
 }
 
 window.addEventListener("resize", refreshBounds);
@@ -403,7 +400,11 @@ function renderCatNode(q: CatalogQuest, nodeId: string, onDone?: () => void) {
 
   header.textContent = q.title || "Dialogue";
   body.innerHTML = `
-    ${node.speaker ? `<div style="opacity:.9;font-weight:800;margin-bottom:4px">${node.speaker}</div>` : ""}
+    ${
+      node.speaker
+        ? `<div style="opacity:.9;font-weight:800;margin-bottom:4px">${node.speaker}</div>`
+        : ""
+    }
     <div>${node.text}</div>
   `;
   choices.innerHTML = "";
@@ -475,8 +476,8 @@ function cssPointFromEvent(ev: MouseEvent | PointerEvent) {
   return { x, y };
 }
 function isOverNPC(x: number, y: number): boolean {
-  const padX = 24;
-  const padY = 16;
+  const padX = 24,
+    padY = 16;
   return (
     x >= npc.x - padX &&
     x <= npc.x + npc.w + padX &&
@@ -527,7 +528,8 @@ async function startWizardDialogue() {
           (window as any).showParchmentSignature("wizardscroll");
         }
         (window as any).VAQ?.renderHUD?.();
-      } catch {} finally {
+      } catch {}
+      finally {
         setTimeout(() => {
           wizardLocked = false;
         }, 300);
@@ -756,8 +758,8 @@ function step() {
   lastStepTime = nowStep;
 
   // movement intent
-  let dx = 0;
-  let dy = 0;
+  let dx = 0,
+    dy = 0;
   const left = keys.has("ArrowLeft") || keys.has("a") || keys.has("A");
   const right = keys.has("ArrowRight") || keys.has("d") || keys.has("D");
   const up = keys.has("ArrowUp") || keys.has("w") || keys.has("W");
@@ -884,10 +886,8 @@ function step() {
   }
 
   // cauldron animation timer
-  if (
-    cauldronFrames.length &&
-    nowStep - lastCauldronFrameTime >= CAULDRON_FRAME_MS
-  ) {
+  if (cauldronFrames.length &&
+      nowStep - lastCauldronFrameTime >= CAULDRON_FRAME_MS) {
     lastCauldronFrameTime = nowStep;
     cauldronFrameIndex =
       (cauldronFrameIndex + 1) % Math.max(1, cauldronFrames.length);
@@ -1057,9 +1057,7 @@ function loop() {
    ========================================================= */
 window.addEventListener("va-gender-changed", () => {
   try {
-    const pick = (window as any).getHeroSprite as
-      | undefined
-      | (() => string);
+    const pick = (window as any).getHeroSprite as undefined | (() => string);
     const next =
       typeof pick === "function"
         ? pick()
@@ -1153,11 +1151,11 @@ Promise.all(
     wizardFrames = imgs.slice(idx, idx + WIZARD_FRAME_URLS.length);
     idx += WIZARD_FRAME_URLS.length;
 
-    heroFallbackImg = heroIdleFrames[0] || null;
-
     // cauldron frames
     cauldronFrames = imgs.slice(idx, idx + CAULDRON_FRAME_URLS.length);
     idx += CAULDRON_FRAME_URLS.length;
+
+    heroFallbackImg = heroIdleFrames[0] || null;
 
     refreshBounds();
     showExitHint();
@@ -1169,6 +1167,7 @@ Promise.all(
     showExitHint();
     loop();
   });
+
 
 
 
