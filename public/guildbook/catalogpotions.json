@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "potions": [
+    {
+      "id": "health_potion",
+      "name": "Health Potion",
+      "desc": "A bright red brew that restores vitality.",
+      "brewable": true,
+      "resultId": "potion_health",
+      "resultName": "Health Potion",
+      "resultIcon": "/guildbook/loot/potion_red_small.png",
+      "ingredients": [
+        { "id": "herb_red", "name": "Red Marsh Herb", "qty": 2 },
+        { "id": "vial_water", "name": "Clear Water", "qty": 1 }
+      ]
+    },
+
+
+    {
+      "id": "placeholder_1",
+      "name": "Unknown Brew I",
+      "desc": "A strange mixture with no known effect.",
+      "brewable": false
+    },
+    {
+      "id": "placeholder_2",
+      "name": "Unknown Brew II",
+      "desc": "A mysterious concoction lacking ingredients.",
+      "brewable": false
+    },
+    {
+      "id": "placeholder_3",
+      "name": "Unknown Brew III",
+      "desc": "An incomplete recipe waiting for discovery.",
+      "brewable": false
+    }
+  ]
+}
+
