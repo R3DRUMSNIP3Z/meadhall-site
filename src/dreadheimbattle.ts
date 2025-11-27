@@ -149,6 +149,85 @@ const cooldowns: Record<keyof typeof skills, number> = { basic:0, aoe:0, buff:0,
 const unlocked: Record<keyof typeof skills, boolean> = { basic:true, aoe:false, buff:false, debuff:false };
 
 // =====================================================
+//  POTION / INVENTORY BRIDGE
+// =====================================================
+type SimpleInvItem = { id: string; name: string; icon: string; qty: number };
+
+// Make this match your brewed potion (resultId / id)
+const POTION_ITEM_ID = "potion_heal_50";
+const POTION_HEAL_AMOUNT = 50;
+
+function readInventoryItems(): SimpleInvItem[] {
+  try {
+    const inv: any = (window as any).Inventory;
+    const arr = inv?.get?.();
+    if (Array.isArray(arr)) return arr as SimpleInvItem[];
+  } catch {}
+  return [];
+}
+
+function countItem(inv: SimpleInvItem[], id: string): number {
+  let sum = 0;
+  for (const it of inv) {
+    if (it.id === id) sum += Number(it.qty || 0);
+  }
+  return sum;
+}
+
+function consumePotionFromInventory(id: string, qty: number): boolean {
+  try {
+    const inv: any = (window as any).Inventory;
+    const removeById = inv?.removeById as ((id: string, qty: number) => void) | undefined;
+    if (!removeById) return false;
+    removeById(id, qty);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function canUseHealthPotion() {
+  if (!player.alive) return { ok:false, why:"dead" as const };
+  if (player.hp >= player.hpMax) return { ok:false, why:"full" as const };
+  const inv = readInventoryItems();
+  const have = countItem(inv, POTION_ITEM_ID);
+  if (have <= 0) return { ok:false, why:"none" as const };
+  return { ok:true, why:null as null };
+}
+
+function useHealthPotion() {
+  if (battle.state !== "player" || battle.turn !== "player") return;
+
+  const check = canUseHealthPotion();
+  if (!check.ok) {
+    if (check.why === "full") log("You are already at full health.");
+    else if (check.why === "none") log("You have no Health Potions to drink.");
+    return;
+  }
+
+  const healed = Math.min(POTION_HEAL_AMOUNT, player.hpMax - player.hp);
+  if (!consumePotionFromInventory(POTION_ITEM_ID, 1)) {
+    log("You fumble for a potion, but your bag won’t cooperate. (Inventory error)");
+    return;
+  }
+
+  player.hp += healed;
+  if (player.hp > player.hpMax) player.hp = player.hpMax;
+
+  log(`You drink a Health Potion and recover ${healed} HP.`);
+  updateHUD();
+
+  // Using a potion spends your turn → enemy acts
+  if (!enemy.alive) {
+    endBattle(true);
+  } else {
+    battle.turn = "enemy";
+    battle.state = "enemy";
+    setTimeout(enemyAct, 650);
+  }
+}
+
+// =====================================================
 //  IMPACT / SHAKE / LUNGE
 // =====================================================
 let shakeMs = 0;
@@ -284,10 +363,10 @@ function decCooldowns(){
 }
 
 function canUse(key: keyof typeof skills){
-  if (!unlocked[key]) return {ok:false, why:"locked"};
-  if (cooldowns[key] > 0) return {ok:false, why:"cd"};
-  if (player.rage < skills[key].cost) return {ok:false, why:"rage"};
-  return {ok:true, why:""};
+  if (!unlocked[key]) return {ok:false, why:"locked"} as const;
+  if (cooldowns[key] > 0) return {ok:false, why:"cd"} as const;
+  if (player.rage < skills[key].cost) return {ok:false, why:"rage"} as const;
+  return {ok:true, why:""} as const;
 }
 
 function useSkill(key: keyof typeof skills){
@@ -365,6 +444,15 @@ function endBattle(playerWon: boolean) {
 //  UI WIRING
 // =====================================================
 const skillEls = Array.from(document.querySelectorAll<HTMLDivElement>("#skillbar .skill"));
+
+// OPTIONAL: potion button (if present in DOM)
+const potionBtn = document.getElementById("potionBtn") as HTMLButtonElement | null;
+if (potionBtn) {
+  potionBtn.addEventListener("click", () => {
+    if (battle.state !== "player") return;
+    useHealthPotion();
+  });
+}
 
 const SKILL_ICON: Record<keyof typeof skills, string> = {
   basic:  "/guildbook/skillicons/drengrstrike.png",
@@ -596,6 +684,8 @@ log("A hostile presence emerges from the forest...");
 updateHUD();
 paintSkillBar();
 decideTurnOrder();
+
+
 
 
 
