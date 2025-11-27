@@ -430,6 +430,29 @@ function stopIdleTick() {
     log("Dev: quests & vars reset (will re-seed on next page).", "ok");
   }
 
+  // 🔹 NEW: clear inventory helper
+  function devResetInventory() {
+    try {
+      const keys = [
+        "va_inventory",
+        `va_inventory__${uid}`,
+        "va_bag",
+        `va_bag__${uid}`,
+      ];
+      for (const k of keys) localStorage.removeItem(k);
+
+      const Inv = (window as any).Inventory;
+      if (Inv?.clear) Inv.clear();
+      else if (Inv?.reset) Inv.reset();
+      else if (Inv?.setItems) Inv.setItems([]);
+
+      window.dispatchEvent(new CustomEvent("va-inventory-changed"));
+      log("Dev: inventory cleared.", "ok");
+    } catch (e: any) {
+      log("Dev: inventory clear failed: " + (e?.message || e), "bad");
+    }
+  }
+
   function devSetClass(id: string) {
     const v = id.toLowerCase();
     const allowed: ClassId[] = ["warrior", "shieldmaiden", "rune-mage", "berserker", "hunter"];
@@ -461,6 +484,7 @@ function stopIdleTick() {
     log("/class warrior|shieldmaiden|rune-mage|berserker|hunter", "ok");
     log("/reset class  (clear class & hero name)", "ok");
     log("/reset quests (wipe quest chain/vars/race)", "ok");
+    log("/reset inv    (empty inventory)", "ok");          // 🔹 NEW
     log("/tick off|on (idle backend tick)", "ok");
     log("/where (show path + last_location key)", "ok");
   }
@@ -568,15 +592,19 @@ function stopIdleTick() {
         }
         break;
 
-      case "reset":
-        if ((arg1 || "").toLowerCase() === "class") {
+      case "reset": {
+        const which = (arg1 || "").toLowerCase();
+        if (which === "class") {
           devResetClass();
-        } else if ((arg1 || "").toLowerCase() === "quests") {
+        } else if (which === "quests") {
           devResetQuests();
+        } else if (which === "inv" || which === "inventory") {   // 🔹 NEW
+          devResetInventory();
         } else {
-          log("Usage: /reset class | /reset quests", "bad");
+          log("Usage: /reset class | /reset quests | /reset inv", "bad");
         }
         break;
+      }
 
       case "tick": {
         const mode = (arg1 || "").toLowerCase();
@@ -630,6 +658,7 @@ function stopIdleTick() {
     class: devSetClass,
     resetClass: devResetClass,
     resetQuests: devResetQuests,
+    resetInventory: devResetInventory,        // 🔹 NEW
     tick(mode: "on" | "off") {
       if (mode === "off") {
         stopIdleTick();
@@ -644,7 +673,6 @@ function stopIdleTick() {
 
   (window as any).VADev = VADev;
 
-  // Pretty console help
   try {
     console.log(
       "%cValhalla Ascending DEV console ready.",
@@ -658,22 +686,15 @@ function stopIdleTick() {
       { command: 'VADev.class("shieldmaiden")', desc: "Force class" },
       { command: "VADev.resetClass()", desc: "Clear class + hero name" },
       { command: "VADev.resetQuests()", desc: "Wipe quests/vars/race" },
+      { command: "VADev.resetInventory()", desc: "Empty inventory (local + UI)" }, // 🔹 NEW
       { command: 'VADev.tick("off")', desc: "Stop idle backend tick" },
       { command: "VADev.where()", desc: "Show current + last location" },
     ]);
-    console.log(
-      "Text console examples: %c/set gold 99999%c, %c/add gold 5000%c, %c/reset quests%c",
-      "color:#ffeaa0",
-      "color:inherit",
-      "color:#ffeaa0",
-      "color:inherit",
-      "color:#ffeaa0",
-      "color:inherit"
-    );
   } catch {}
 
   log("Dev console ready. Press Ctrl+Shift+D or type /help", "ok");
 })();
+
 
 /* =========================================================
    BOOTSTRAP (no shop calls)
