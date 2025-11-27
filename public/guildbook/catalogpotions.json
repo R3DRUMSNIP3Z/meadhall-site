@@ -1,39 +1,49 @@
 {
-  "version": 1,
   "potions": [
     {
       "id": "health_potion",
-      "name": "Health Potion",
-      "desc": "A bright red brew that restores vitality.",
+      "name": "Minor Health Potion",
+      "desc": "Restores a small amount of health when used.",
       "brewable": true,
-      "resultId": "potion_health",
-      "resultName": "Health Potion",
-      "resultIcon": "/guildbook/loot/potion_red_small.png",
+      "resultId": "health_potion",
+      "resultName": "Minor Health Potion",
+      "resultIcon": "/guildbook/props/wizardshouseprops/healthpotion1.gif",
       "ingredients": [
-        { "id": "herb_red", "name": "Red Marsh Herb", "qty": 2 },
-        { "id": "vial_water", "name": "Clear Water", "qty": 1 }
+        {
+          "id": "red_herb",
+          "name": "Red Herb",
+          "qty": 2
+        },
+        {
+          "id": "clear_water",
+          "name": "Clear Spring Water",
+          "qty": 1
+        }
       ]
     },
 
+    {
+      "id": "mana_potion",
+      "name": "Minor Mana Potion",
+      "desc": "Placeholder – recipe not yet discovered.",
+      "brewable": false,
+      "resultId": "mana_potion",
+      "resultName": "Minor Mana Potion",
+      "resultIcon": "/guildbook/props/wizardshouseprops/healthpotion1.gif",
+      "ingredients": []
+    },
 
     {
-      "id": "placeholder_1",
-      "name": "Unknown Brew I",
-      "desc": "A strange mixture with no known effect.",
-      "brewable": false
-    },
-    {
-      "id": "placeholder_2",
-      "name": "Unknown Brew II",
-      "desc": "A mysterious concoction lacking ingredients.",
-      "brewable": false
-    },
-    {
-      "id": "placeholder_3",
-      "name": "Unknown Brew III",
-      "desc": "An incomplete recipe waiting for discovery.",
-      "brewable": false
+      "id": "stamina_potion",
+      "name": "Minor Stamina Draught",
+      "desc": "Placeholder – recipe not yet discovered.",
+      "brewable": false,
+      "resultId": "stamina_potion",
+      "resultName": "Minor Stamina Draught",
+      "resultIcon": "/guildbook/props/wizardshouseprops/healthpotion1.gif",
+      "ingredients": []
     }
   ]
 }
+
 
