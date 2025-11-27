@@ -61,7 +61,6 @@ const CAULDRON_FRAME_URLS = Array.from({ length: 16 }, (_, i) =>
     .padStart(3, "0")}.png`
 );
 
-
 /* =========================================================
    ASSETS / TRAVEL
    ========================================================= */
@@ -113,15 +112,16 @@ async function getQuestFromCatalog(qid: string): Promise<any | null> {
 const WALK_BAND_PX = 48;
 const WALKWAY_TOP_RATIO = 0.86;
 const SPEED = 4;
-const HERO_W = 96,
-  HERO_H = 200;
+const HERO_W = 96;
+const HERO_H = 200;
 
 // NPC (center-back)
-const NPC_W = 144,
-  NPC_H = 252;
+const NPC_W = 144;
+const NPC_H = 252;
 const NPC_X_RATIO = 0.5;
 const NPC_BACK_OFFSET_RATIO = 0.06;
 const TALK_DISTANCE = 110;
+
 // Cauldron (front-left-ish)
 const CAULDRON_W = 180;
 const CAULDRON_H = 180;
@@ -131,8 +131,8 @@ const CAULDRON_H = 180;
    ========================================================= */
 function fitCanvas() {
   const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const w = window.innerWidth,
-    h = window.innerHeight;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
   canvas.width = Math.floor(w * dpr);
   canvas.height = Math.floor(h * dpr);
   canvas.style.width = w + "px";
@@ -173,6 +173,7 @@ let wizardFrames: HTMLImageElement[] = [];
 let wizardFrameIndex = 0;
 const WIZARD_FRAME_MS = 400;
 let lastWizardFrameTime = performance.now();
+
 // cauldron anim frames
 let cauldronFrames: HTMLImageElement[] = [];
 let cauldronFrameIndex = 0;
@@ -211,10 +212,10 @@ function applyDevLayoutFromHandle(handleId: string, target: RectTarget) {
   target.h = r.height;
 }
 
-
 function layoutHouse() {
-  const vw = window.innerWidth,
-        vh = window.innerHeight;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
   groundY = Math.round(vh * WALKWAY_TOP_RATIO);
 
   npc.x = Math.round(vw * NPC_X_RATIO) - Math.floor(npc.w / 2);
@@ -224,14 +225,9 @@ function layoutHouse() {
   cauldron.x = Math.round(vw * 0.32) - Math.floor(cauldron.w / 2);
   cauldron.y = groundY - cauldron.h + 10;
 
-  // scroll default
+  // scroll default (fallback)
   scrollLoot.x = 620;
   scrollLoot.y = 760;
-
-
-  // cauldron a bit left of the wizard, on the same floor line
-  cauldron.x = Math.round(vw * 0.32) - Math.floor(cauldron.w / 2);
-  cauldron.y = groundY - cauldron.h + 10;
 }
 
 function refreshBounds() {
@@ -243,7 +239,6 @@ function refreshBounds() {
   applyDevLayoutFromHandle("devCauldron", cauldron);
   applyDevLayoutFromHandle("devScroll", scrollLoot as any);
 }
-
 
 window.addEventListener("resize", refreshBounds);
 
@@ -319,7 +314,11 @@ function showDialogue(lines: string[], ms = 0) {
   render();
   document.body.appendChild(dlg);
 
-  if (ms > 0) setTimeout(() => { dlg?.remove(); dlg = null; }, ms);
+  if (ms > 0)
+    setTimeout(() => {
+      dlg?.remove();
+      dlg = null;
+    }, ms);
 }
 
 /* =========================================================
@@ -378,8 +377,8 @@ function ensureCatDialogEl(): HTMLDivElement {
   `;
   document.body.appendChild(el);
   catDialogEl = el as HTMLDivElement;
-  (el.querySelector("#vaCatClose") as HTMLButtonElement).onclick = () =>
-    closeCatDialogue();
+  (el.querySelector("#vaCatClose") as HTMLButtonElement).onclick =
+    () => closeCatDialogue();
   return catDialogEl!;
 }
 function openCatDialogue() {
@@ -476,8 +475,8 @@ function cssPointFromEvent(ev: MouseEvent | PointerEvent) {
   return { x, y };
 }
 function isOverNPC(x: number, y: number): boolean {
-  const padX = 24,
-    padY = 16;
+  const padX = 24;
+  const padY = 16;
   return (
     x >= npc.x - padX &&
     x <= npc.x + npc.w + padX &&
@@ -528,8 +527,7 @@ async function startWizardDialogue() {
           (window as any).showParchmentSignature("wizardscroll");
         }
         (window as any).VAQ?.renderHUD?.();
-      } catch {}
-      finally {
+      } catch {} finally {
         setTimeout(() => {
           wizardLocked = false;
         }, 300);
@@ -749,7 +747,7 @@ function getHeroFrameList(): HTMLImageElement[] {
 }
 
 /* =========================================================
-   STEP (MOVEMENT + ANIM + RUNES + WIZARD ANIM)
+   STEP (MOVEMENT + ANIM + RUNES + WIZARD/CAULDRON ANIM)
    ========================================================= */
 function step() {
   // dt
@@ -758,8 +756,8 @@ function step() {
   lastStepTime = nowStep;
 
   // movement intent
-  let dx = 0,
-    dy = 0;
+  let dx = 0;
+  let dy = 0;
   const left = keys.has("ArrowLeft") || keys.has("a") || keys.has("A");
   const right = keys.has("ArrowRight") || keys.has("d") || keys.has("D");
   const up = keys.has("ArrowUp") || keys.has("w") || keys.has("W");
@@ -821,8 +819,7 @@ function step() {
     if (!atkFrames.length || heroAttackElapsed >= HERO_ATTACK_TOTAL_MS) {
       heroAttackElapsed = 0;
       hero.frameIndex = 0;
-      hero.anim =
-        hero.vx !== 0 || hero.vy !== 0 ? "walk" : "idle";
+      hero.anim = hero.vx !== 0 || hero.vy !== 0 ? "walk" : "idle";
     }
   }
 
@@ -879,7 +876,7 @@ function step() {
     }
   }
 
-    // wizard animation timer
+  // wizard animation timer
   if (wizardFrames.length && nowStep - lastWizardFrameTime >= WIZARD_FRAME_MS) {
     lastWizardFrameTime = nowStep;
     wizardFrameIndex =
@@ -887,12 +884,14 @@ function step() {
   }
 
   // cauldron animation timer
-  if (cauldronFrames.length && nowStep - lastCauldronFrameTime >= CAULDRON_FRAME_MS) {
+  if (
+    cauldronFrames.length &&
+    nowStep - lastCauldronFrameTime >= CAULDRON_FRAME_MS
+  ) {
     lastCauldronFrameTime = nowStep;
     cauldronFrameIndex =
       (cauldronFrameIndex + 1) % Math.max(1, cauldronFrames.length);
   }
-
 }
 
 /* =========================================================
@@ -921,7 +920,7 @@ canvas.addEventListener("pointerdown", (ev) => {
 
     scrollLoot.visible = false;
 
-    showDialogue(["You picked up the Wizard’s Scroll."], 2000);
+    showDialogue(['You picked up the Wizard’s Scroll.'], 2000);
   }
 });
 
@@ -944,7 +943,7 @@ function render() {
     );
   }
 
-    const heroFeet = hero.y + hero.h;
+  const heroFeet = hero.y + hero.h;
   const npcFeet = npc.y + npc.h;
   const cauldronFeet = cauldron.y + cauldron.h;
 
@@ -964,12 +963,43 @@ function render() {
       ? cauldronFrames[cauldronFrameIndex]
       : null;
 
-  type DrawEnt = { z: number; img: HTMLImageElement | null; x: number; y: number; w: number; h: number };
+  type DrawEnt = {
+    z: number;
+    img: HTMLImageElement | null;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  };
   const ents: DrawEnt[] = [];
 
-  if (heroImg) ents.push({ z: heroFeet, img: heroImg, x: hero.x, y: hero.y, w: hero.w, h: hero.h });
-  if (wizardImg) ents.push({ z: npcFeet, img: wizardImg, x: npc.x, y: npc.y, w: npc.w, h: npc.h });
-  if (cauldronImg) ents.push({ z: cauldronFeet, img: cauldronImg, x: cauldron.x, y: cauldron.y, w: cauldron.w, h: cauldron.h });
+  if (heroImg)
+    ents.push({
+      z: heroFeet,
+      img: heroImg,
+      x: hero.x,
+      y: hero.y,
+      w: hero.w,
+      h: hero.h,
+    });
+  if (wizardImg)
+    ents.push({
+      z: npcFeet,
+      img: wizardImg,
+      x: npc.x,
+      y: npc.y,
+      w: npc.w,
+      h: npc.h,
+    });
+  if (cauldronImg)
+    ents.push({
+      z: cauldronFeet,
+      img: cauldronImg,
+      x: cauldron.x,
+      y: cauldron.y,
+      w: cauldron.w,
+      h: cauldron.h,
+    });
 
   ents.sort((a, b) => a.z - b.z);
   for (const e of ents) {
@@ -980,7 +1010,6 @@ function render() {
     ctx.fillStyle = "#333";
     ctx.fillRect(hero.x, hero.y, hero.w, hero.h);
   }
-
 
   // rune projectiles (draw on top)
   for (const p of runeProjectiles) {
@@ -1028,7 +1057,9 @@ function loop() {
    ========================================================= */
 window.addEventListener("va-gender-changed", () => {
   try {
-    const pick = (window as any).getHeroSprite as undefined | (() => string);
+    const pick = (window as any).getHeroSprite as
+      | undefined
+      | (() => string);
     const next =
       typeof pick === "function"
         ? pick()
@@ -1074,7 +1105,6 @@ Promise.all(
     ...RUNE_PROJECTILE_URLS,
     ...WIZARD_FRAME_URLS,
     ...CAULDRON_FRAME_URLS,
-
   ].map(load)
 )
   .then((imgs) => {
@@ -1139,6 +1169,8 @@ Promise.all(
     showExitHint();
     loop();
   });
+
+
 
 
 
