@@ -531,7 +531,7 @@ function layoutHouse() {
   cauldron.w = CAULDRON_W;
   cauldron.h = CAULDRON_H;
   cauldron.x = Math.round(vw * 0.7) - Math.floor(cauldron.w / 2);
-  cauldron.y = groundY - cauldron.h - 60;
+  cauldron.y = groundY - cauldron.h - 100;
 
   // Scroll stays in the lower area (your original coords)
   scrollLoot.w = 48;
