@@ -162,10 +162,87 @@ async function loadYggFile(): Promise<YggFile> {
   }
 }
 
+/* ---------- CLASS SKILL ICONS FOR ALL CLASSES (Lisa) ---------- */
+
+const warriorIcons: Record<string, string> = {
+  basic:  "/guildbook/skillicons/drengrstrike.png",
+  aoe:    "/guildbook/skillicons/whirlwinddance.png",
+  buff:   "/guildbook/skillicons/odinsblessing.png",
+  debuff: "/guildbook/skillicons/helsgrasp.png",
+};
+
+const shieldmaidenIcons: Record<string, string> = {
+  basic:  "/guildbook/skillicons/valkyrieslash.png",
+  aoe:    "/guildbook/skillicons/ragnarokshowl.png",
+  buff:   "/guildbook/skillicons/aegisoffreyja.png",
+  debuff: "/guildbook/skillicons/cursebreaker.png",
+};
+
+const runemageIcons: Record<string, string> = {
+  basic:  "/guildbook/skillicons/raudrbolt.png",
+  aoe:    "/guildbook/skillicons/ginnungagapnova.png",
+  buff:   "/guildbook/skillicons/eikthyrnirshield.png",
+  debuff: "/guildbook/skillicons/nidhoggrhex.png",
+};
+
+const berserkerIcons: Record<string, string> = {
+  basic:  "/guildbook/skillicons/feralslash.png",
+  aoe:    "/guildbook/skillicons/ragequake.png",
+  buff:   "/guildbook/skillicons/ulfhamrtrance.png",
+  debuff: "/guildbook/skillicons/bloodhowl.png",
+};
+
+const hunterIcons: Record<string, string> = {
+  basic:  "/guildbook/skillicons/piercingshot.png",
+  aoe:    "/guildbook/skillicons/frostbitevolley.png",
+  buff:   "/guildbook/skillicons/skadisfocus.png",
+  debuff: "/guildbook/skillicons/wintersgrasp.png",
+};
+
+/**
+ * Unified icon map per class → per skill slot.
+ * This lets every class (warrior, shieldmaiden, rune-mage, berserker, hunter)
+ * get the right icon for basic/aoe/buff/debuff, even if the JSON file
+ * has placeholder icons.
+ */
+const CLASS_SKILL_ICONS: Record<ClassId, Record<SkillSlotId, string>> = {
+  warrior: {
+    basic:  warriorIcons.basic,
+    aoe:    warriorIcons.aoe,
+    buff:   warriorIcons.buff,
+    debuff: warriorIcons.debuff,
+  },
+  shieldmaiden: {
+    basic:  shieldmaidenIcons.basic,
+    aoe:    shieldmaidenIcons.aoe,
+    buff:   shieldmaidenIcons.buff,
+    debuff: shieldmaidenIcons.debuff,
+  },
+  "rune-mage": {
+    basic:  runemageIcons.basic,
+    aoe:    runemageIcons.aoe,
+    buff:   runemageIcons.buff,
+    debuff: runemageIcons.debuff,
+  },
+  berserker: {
+    basic:  berserkerIcons.basic,
+    aoe:    berserkerIcons.aoe,
+    buff:   berserkerIcons.buff,
+    debuff: berserkerIcons.debuff,
+  },
+  hunter: {
+    basic:  hunterIcons.basic,
+    aoe:    hunterIcons.aoe,
+    buff:   hunterIcons.buff,
+    debuff: hunterIcons.debuff,
+  },
+};
+
 /**
  * Compute which Yggdrasil skills are unlocked for the current hero
  * based on their class + level, and expose them on window.VAYggdrasil
- * so the battle scene can use them.
+ * so the battle scene / UI can use them. Icons are forced to the
+ * per-class ones above so all classes have the right artwork.
  */
 async function refreshYggForCurrentHero(): Promise<void> {
   const me = state.me;
@@ -180,14 +257,24 @@ async function refreshYggForCurrentHero(): Promise<void> {
   }
 
   const allSkills = block.skills || [];
-  const unlocked = allSkills.filter(sk => me.level >= (sk.unlockedAtLevel ?? 1));
+  const classIcons = CLASS_SKILL_ICONS[cls];
+
+  // apply icons per class/slot
+  const allWithIcons = allSkills.map((sk) => ({
+    ...sk,
+    icon: classIcons?.[sk.id] || sk.icon,
+  }));
+
+  const unlocked = allWithIcons.filter(
+    (sk) => me.level >= (sk.unlockedAtLevel ?? 1)
+  );
 
   (window as any).VAYggdrasil = {
     classId: cls,
     pathName: block.pathName,
     level: me.level,
     skills: unlocked,
-    allSkills,
+    allSkills: allWithIcons,
   };
 
   log(
@@ -804,6 +891,7 @@ async function boot() {
 }
 
 boot().catch(e => log(e.message, "bad"));
+
 
 
 

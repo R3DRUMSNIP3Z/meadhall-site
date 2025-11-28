@@ -1036,13 +1036,13 @@ function __playDefeat(): void  { const a = __vaBattleSFX.fail;    a.currentTime 
 function currentSkillIconMap() {
   const cls = __getCurrentClass();
 
-  // You can swap these around however you like per class.
   const warriorIcons: Record<string, string> = {
     basic:  "/guildbook/skillicons/drengrstrike.png",
     aoe:    "/guildbook/skillicons/whirlwinddance.png",
     buff:   "/guildbook/skillicons/odinsblessing.png",
     debuff: "/guildbook/skillicons/helsgrasp.png",
   };
+
   const shieldmaidenIcons: Record<string, string> = {
     basic:  "/guildbook/skillicons/valkyrieslash.png",
     aoe:    "/guildbook/skillicons/ragnarokshowl.png",
@@ -1050,11 +1050,36 @@ function currentSkillIconMap() {
     debuff: "/guildbook/skillicons/cursebreaker.png",
   };
 
-  // Example mapping:
+  const runemageIcons: Record<string, string> = {
+    basic:  "/guildbook/skillicons/raudrbolt.png",
+    aoe:    "/guildbook/skillicons/ginnungagapnova.png",
+    buff:   "/guildbook/skillicons/eikthyrnirshield.png",
+    debuff: "/guildbook/skillicons/nidhoggrhex.png",
+  };
+
+  const berserkerIcons: Record<string, string> = {
+    basic:  "/guildbook/skillicons/feralslash.png",
+    aoe:    "/guildbook/skillicons/ragequake.png",
+    buff:   "/guildbook/skillicons/ulfhamrtrance.png",
+    debuff: "/guildbook/skillicons/bloodhowl.png",
+  };
+
+  const hunterIcons: Record<string, string> = {
+    basic:  "/guildbook/skillicons/piercingshot.png",
+    aoe:    "/guildbook/skillicons/frostbitevolley.png",
+    buff:   "/guildbook/skillicons/skadisfocus.png",
+    debuff: "/guildbook/skillicons/wintersgrasp.png",
+  };
+
   if (cls === "shieldmaiden") return shieldmaidenIcons;
-  // if (cls === "mage") return mageIcons;
+  if (cls === "rune-mage")    return runemageIcons;
+  if (cls === "berserker")    return berserkerIcons;
+  if (cls === "hunter")       return hunterIcons;
+
+  // default
   return warriorIcons;
 }
+
 
 (window as any).getSkillIcon = function (key: string): string {
   const map = currentSkillIconMap();
