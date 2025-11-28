@@ -143,7 +143,7 @@ type YggFile = {
   classes: Record<ClassId, YggClassBlock>;
 };
 
-const YGG_FILE_PATH = "/guildbook/data/yggdrasil_paths.json";
+const YGG_FILE_PATH = "/guildbook/yggdrasil_paths.json";
 
 let __yggFile: YggFile | null = null;
 
