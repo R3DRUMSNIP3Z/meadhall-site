@@ -22,31 +22,44 @@ type Battle = {
 // =====================================================
 const bgUrl = "/guildbook/maps/dreadheimforestentrancebattle.png";
 
-// ---- HERO IDLE + ATTACK ANIMATION FRAME URLS ----
-function buildHeroIdleUrls(): string[] {
-  const gender = localStorage.getItem("va_gender") === "female" ? "shieldmaiden" : "warrior";
-  if (gender === "shieldmaiden") {
-    const base = "/guildbook/avatars/shieldmaiden";
-    return Array.from({ length: 9 }, (_, i) =>
-      `${base}/sm_${String(i).padStart(3, "0")}.png`
-    );
-  } else {
-    const base = "/guildbook/avatars/warrior";
-    return Array.from({ length: 9 }, (_, i) =>
-      `${base}/war_${String(i).padStart(3, "0")}.png`
-    );
-  }
-}
+// ---- HERO ANIM URL RESOLVER (class-aware via getHeroAnimUrls) ----
+function resolveHeroAnimUrls(kind: "idle" | "attackRight"): string[] {
+  try {
+    const pick = (window as any).getHeroAnimUrls as
+      | undefined
+      | ((kind: string) => string[] | undefined | null);
 
-function buildHeroAttackUrls(): string[] {
-  const gender = localStorage.getItem("va_gender") === "female" ? "shieldmaiden" : "warrior";
+    if (typeof pick === "function") {
+      const arr = pick(kind);
+      if (Array.isArray(arr) && arr.length) return arr;
+    }
+  } catch {}
+
+  // Fallback: gender-based default sprites
+  const gender =
+    localStorage.getItem("va_gender") === "female" ? "shieldmaiden" : "warrior";
+
+  if (kind === "idle") {
+    if (gender === "shieldmaiden") {
+      const base = "/guildbook/avatars/shieldmaiden";
+      return Array.from({ length: 9 }, (_, i) =>
+        `${base}/sm_${String(i).padStart(3, "0")}.png`
+      );
+    } else {
+      const base = "/guildbook/avatars/warrior";
+      return Array.from({ length: 9 }, (_, i) =>
+        `${base}/war_${String(i).padStart(3, "0")}.png`
+      );
+    }
+  }
+
+  // attackRight fallback
   if (gender === "shieldmaiden") {
     const base = "/guildbook/avatars/shieldmaiden";
     return Array.from({ length: 9 }, (_, i) =>
       `${base}/rightattack_${String(i).padStart(3, "0")}.png`
     );
   } else {
-    // placeholder for non-shieldmaiden classes for now
     const base = "/guildbook/avatars/warrior";
     return Array.from({ length: 9 }, (_, i) =>
       `${base}/war_${String(i).padStart(3, "0")}.png`
@@ -59,9 +72,8 @@ const BOAR_FRAME_URLS = Array.from({ length: 9 }, (_, i) =>
   `/guildbook/avatars/enemies/diseasedboar/atk_${String(i).padStart(3, "0")}.png`
 );
 
-// this will be mutated when gender changes
-let HERO_IDLE_URLS = buildHeroIdleUrls();
-let HERO_ATTACK_URLS = buildHeroAttackUrls();
+let HERO_IDLE_URLS: string[] = resolveHeroAnimUrls("idle");
+let HERO_ATTACK_URLS: string[] = resolveHeroAnimUrls("attackRight");
 
 const OVERWORLD_URL = "/dreadheimmap.html";
 const LOBBY_URL = "/game.html";
@@ -798,12 +810,12 @@ function gameLoop(ts: number) {
 }
 
 // =====================================================
-//  LIVE GENDER CHANGE (rebuild hero sets)
+//  HERO ANIM RELOAD ON CHARACTER CHANGE
 // =====================================================
-window.addEventListener("va-gender-changed", () => {
+function refreshHeroAnimSets() {
   try {
-    HERO_IDLE_URLS = buildHeroIdleUrls();
-    HERO_ATTACK_URLS = buildHeroAttackUrls();
+    HERO_IDLE_URLS = resolveHeroAnimUrls("idle");
+    HERO_ATTACK_URLS = resolveHeroAnimUrls("attackRight");
     Promise.all([
       ...HERO_IDLE_URLS.map(loadImage),
       ...HERO_ATTACK_URLS.map(loadImage),
@@ -817,7 +829,11 @@ window.addEventListener("va-gender-changed", () => {
       })
       .catch(() => {});
   } catch {}
-});
+}
+
+// support both generic and older gender-only events
+window.addEventListener("va-hero-changed", refreshHeroAnimSets);
+window.addEventListener("va-gender-changed", refreshHeroAnimSets);
 
 // =====================================================
 //  BOOT
@@ -854,6 +870,7 @@ updateHUD();
 paintSkillBar();
 wirePotionUI();
 decideTurnOrder();
+
 
 
 
