@@ -121,6 +121,83 @@ function getClassBaseAvatar(): string {
 }
 
 /* =========================================================
+   YGGDRASIL PATHS (CLASS SKILLS)
+   ========================================================= */
+
+type SkillSlotId = "basic" | "aoe" | "buff" | "debuff";
+
+type YggSkill = {
+  id: SkillSlotId;
+  name: string;
+  desc: string;
+  icon: string;
+  unlockedAtLevel: number;
+};
+
+type YggClassBlock = {
+  pathName: string;
+  skills: YggSkill[];
+};
+
+type YggFile = {
+  classes: Record<ClassId, YggClassBlock>;
+};
+
+const YGG_FILE_PATH = "/guildbook/data/yggdrasil_paths.json";
+
+let __yggFile: YggFile | null = null;
+
+async function loadYggFile(): Promise<YggFile> {
+  if (__yggFile) return __yggFile;
+  try {
+    const r = await fetch(YGG_FILE_PATH, { cache: "no-store" });
+    if (!r.ok) throw new Error(r.statusText);
+    const json = (await r.json()) as YggFile;
+    __yggFile = json;
+    return json;
+  } catch (e) {
+    console.error("Yggdrasil load failed:", e);
+    __yggFile = { classes: {} as any };
+    return __yggFile;
+  }
+}
+
+/**
+ * Compute which Yggdrasil skills are unlocked for the current hero
+ * based on their class + level, and expose them on window.VAYggdrasil
+ * so the battle scene can use them.
+ */
+async function refreshYggForCurrentHero(): Promise<void> {
+  const me = state.me;
+  if (!me) return;
+  const cls = (getCurrentClass() || "warrior") as ClassId;
+
+  const file = await loadYggFile();
+  const block = file.classes?.[cls];
+  if (!block) {
+    console.warn("No Yggdrasil path found for class:", cls);
+    return;
+  }
+
+  const allSkills = block.skills || [];
+  const unlocked = allSkills.filter(sk => me.level >= (sk.unlockedAtLevel ?? 1));
+
+  (window as any).VAYggdrasil = {
+    classId: cls,
+    pathName: block.pathName,
+    level: me.level,
+    skills: unlocked,
+    allSkills,
+  };
+
+  log(
+    `Yggdrasil Path: ${block.pathName} — ${unlocked.length} skill(s) unlocked`,
+    "ok"
+  );
+}
+
+
+/* =========================================================
    HERO CANVAS ANIMATION
    ========================================================= */
 const heroCanvas = document.getElementById("heroCanvas") as HTMLCanvasElement | null;
@@ -217,10 +294,10 @@ async function renderArena() {
   if (!m) return;
 
   const heroName = getHeroNameFromLocal(m);
-safeSetText("heroName", heroName);
+  safeSetText("heroName", heroName);
 
-// keep state.me.name in sync so Dev tools / backend see it
-m.name = heroName;
+  // keep state.me.name in sync so Dev tools / backend see it
+  m.name = heroName;
   safeSetText("level", String(m.level));
   safeSetText("gold", String(m.gold));
   safeSetText("strength", String(m.power));
@@ -237,6 +314,9 @@ m.name = heroName;
   safeSetText("battleRating", "BATTLE RATING " + clientBattleRating(m));
 
   updateAvatar();
+
+  // also refresh which Yggdrasil skills are unlocked for this hero
+  await refreshYggForCurrentHero();
 }
 
 /* =========================================================
@@ -465,6 +545,8 @@ function stopIdleTick() {
     log(`Dev: class set → ${v}`, "ok");
     updateAvatar();
     setupHeroAnim();
+    // also refresh Yggdrasil path for new class
+    refreshYggForCurrentHero();
   }
 
   function devWhere() {
@@ -722,6 +804,7 @@ async function boot() {
 }
 
 boot().catch(e => log(e.message, "bad"));
+
 
 
 

@@ -1,0 +1,173 @@
+{
+  "classes": {
+    "warrior": {
+      "pathName": "Yggdrasil Path — Roots of Miðgarðr",
+      "skills": [
+        {
+          "id": "basic",
+          "name": "Drengr Strike",
+          "desc": "A disciplined sword strike taught to all young Drengr.",
+          "icon": "/guildbook/skillicons/drengrstrike.png",
+          "unlockedAtLevel": 1
+        },
+        {
+          "id": "aoe",
+          "name": "Storm of Blades",
+          "desc": "A fierce spinning slash cutting all in your path.",
+          "icon": "/guildbook/skillicons/whirlwinddance.png",
+          "unlockedAtLevel": 4
+        },
+        {
+          "id": "buff",
+          "name": "Odin’s Blessing",
+          "desc": "The All-Father strengthens your body and sharpens your steel.",
+          "icon": "/guildbook/skillicons/odinsblessing.png",
+          "unlockedAtLevel": 6
+        },
+        {
+          "id": "debuff",
+          "name": "Hel’s Grasp",
+          "desc": "A dark curse that weakens the enemy’s defenses.",
+          "icon": "/guildbook/skillicons/helsgrasp.png",
+          "unlockedAtLevel": 8
+        }
+      ]
+    },
+
+    "shieldmaiden": {
+      "pathName": "Yggdrasil Path — Freyja’s Grace",
+      "skills": [
+        {
+          "id": "basic",
+          "name": "Valkyrie Jab",
+          "desc": "A lightning-quick spear jab inspired by the Valkyries.",
+          "icon": "/guildbook/skillicons/valkyriejab.png",
+          "unlockedAtLevel": 1
+        },
+        {
+          "id": "aoe",
+          "name": "Winged Sweep",
+          "desc": "A sweeping spear dance that strikes multiple foes.",
+          "icon": "/guildbook/skillicons/wingedsweep.png",
+          "unlockedAtLevel": 4
+        },
+        {
+          "id": "buff",
+          "name": "Freyja’s Aegis",
+          "desc": "A shimmering barrier of divine protection.",
+          "icon": "/guildbook/skillicons/freyjasaegis.png",
+          "unlockedAtLevel": 6
+        },
+        {
+          "id": "debuff",
+          "name": "Tear of Freyja",
+          "desc": "A sorrowful rune that drains strength from enemies.",
+          "icon": "/guildbook/skillicons/freyjatear.png",
+          "unlockedAtLevel": 8
+        }
+      ]
+    },
+
+    "rune-mage": {
+      "pathName": "Yggdrasil Path — Runes of the Nine Realms",
+      "skills": [
+        {
+          "id": "basic",
+          "name": "Raudr Bolt",
+          "desc": "A burst of red rune-fire from the Raudr branch of Yggdrasil.",
+          "icon": "/guildbook/skillicons/raudrbolt.png",
+          "unlockedAtLevel": 1
+        },
+        {
+          "id": "aoe",
+          "name": "Ginnungagap Nova",
+          "desc": "An explosive pulse of primordial energy born from the void.",
+          "icon": "/guildbook/skillicons/ginnungagapnova.png",
+          "unlockedAtLevel": 4
+        },
+        {
+          "id": "buff",
+          "name": "Eikþyrnir Barkshield",
+          "desc": "A bark-like rune barrier empowered by Eikþyrnir atop the World Tree.",
+          "icon": "/guildbook/skillicons/eikthyrnirshield.png",
+          "unlockedAtLevel": 6
+        },
+        {
+          "id": "debuff",
+          "name": "Niðhöggr’s Hex",
+          "desc": "A poisonous curse inspired by the dragon who gnaws at Yggdrasil’s roots.",
+          "icon": "/guildbook/skillicons/nidhoggrhex.png",
+          "unlockedAtLevel": 8
+        }
+      ]
+    },
+
+    "berserker": {
+      "pathName": "Yggdrasil Path — Úlfhamr Fury",
+      "skills": [
+        {
+          "id": "basic",
+          "name": "Feral Slash",
+          "desc": "A savage blow driven by primal fury.",
+          "icon": "/guildbook/skillicons/feralslash.png",
+          "unlockedAtLevel": 1
+        },
+        {
+          "id": "aoe",
+          "name": "Ragequake",
+          "desc": "Strike the ground so violently it shatters nearby enemies.",
+          "icon": "/guildbook/skillicons/ragequake.png",
+          "unlockedAtLevel": 4
+        },
+        {
+          "id": "buff",
+          "name": "Úlfhamr Trance",
+          "desc": "Enter a frenzied trance, greatly boosting power.",
+          "icon": "/guildbook/skillicons/ulfhamrtrance.png",
+          "unlockedAtLevel": 6
+        },
+        {
+          "id": "debuff",
+          "name": "Bloodhowl",
+          "desc": "A maddening howl that weakens the enemy’s resolve.",
+          "icon": "/guildbook/skillicons/bloodhowl.png",
+          "unlockedAtLevel": 8
+        }
+      ]
+    },
+
+    "hunter": {
+      "pathName": "Yggdrasil Path — Skadi’s Hunt",
+      "skills": [
+        {
+          "id": "basic",
+          "name": "Piercing Shot",
+          "desc": "A sharpened arrow aimed at the target’s weak point.",
+          "icon": "/guildbook/skillicons/piercingshot.png",
+          "unlockedAtLevel": 1
+        },
+        {
+          "id": "aoe",
+          "name": "Frostbite Volley",
+          "desc": "A chilling volley infused with Skadi’s winter magic.",
+          "icon": "/guildbook/skillicons/frostbitevolley.png",
+          "unlockedAtLevel": 4
+        },
+        {
+          "id": "buff",
+          "name": "Skadi’s Focus",
+          "desc": "Sharpen your senses and tighten your aim.",
+          "icon": "/guildbook/skillicons/skadisfocus.png",
+          "unlockedAtLevel": 6
+        },
+        {
+          "id": "debuff",
+          "name": "Winter’s Grasp",
+          "desc": "Freeze your enemy’s limbs with a biting chill.",
+          "icon": "/guildbook/skillicons/wintersgrasp.png",
+          "unlockedAtLevel": 8
+        }
+      ]
+    }
+  }
+}
