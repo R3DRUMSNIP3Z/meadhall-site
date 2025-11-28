@@ -17,6 +17,10 @@ type Battle = {
   log: string[];
 };
 
+// ---- class id + skill key types ----
+type ClassId = "warrior" | "shieldmaiden" | "rune-mage" | "berserker" | "hunter";
+type SkillKey = "basic" | "aoe" | "buff" | "debuff";
+
 // =====================================================
 //  MAP + SPRITES
 // =====================================================
@@ -155,16 +159,236 @@ const enemy: Unit = {
 };
 
 // =====================================================
-//  SKILLS
+//  CLASS-AWARE SKILLS (names + icons)
+// =====================================================
+
+// 1) figure out hero class for this battle (from localStorage)
+function getCurrentClassForBattle(): ClassId {
+  const raw = (localStorage.getItem("va_class") || "").toLowerCase();
+  const allowed: ClassId[] = ["warrior", "shieldmaiden", "rune-mage", "berserker", "hunter"];
+  if (allowed.includes(raw as ClassId)) return raw as ClassId;
+  return "warrior";
+}
+
+const HERO_CLASS: ClassId = getCurrentClassForBattle();
+
+// 2) per-class skill definitions (name/desc/icon/cost/cd)
+//    Mechanics stay the same (basic = builder, aoe = hit, etc.)
+//    but the LABELS + ICONS change by class.
+type SkillDef = {
+  name: string;
+  desc: string;
+  icon: string;
+  cost: number;
+  cd: number;
+};
+
+const CLASS_SKILLS: Record<ClassId, Record<SkillKey, SkillDef>> = {
+  warrior: {
+    basic: {
+      name: "Drengr Strike",
+      desc: "A solid strike that builds Rage.",
+      icon: "/guildbook/skillicons/drengrstrike.png",
+      cost: 0,
+      cd: 0,
+    },
+    aoe: {
+      name: "Storm of Blades",
+      desc: "A raging flurry of steel (single target for now).",
+      icon: "/guildbook/skillicons/whirlwinddance.png",
+      cost: 30,
+      cd: 2,
+    },
+    buff: {
+      name: "Odin’s Blessing",
+      desc: "Increases your ATK and DEF for 3 turns.",
+      icon: "/guildbook/skillicons/odinsblessing.png",
+      cost: 20,
+      cd: 3,
+    },
+    debuff: {
+      name: "Hel’s Grasp",
+      desc: "Curses the enemy, lowering DEF and SPD for 3 turns.",
+      icon: "/guildbook/skillicons/helsgrasp.png",
+      cost: 20,
+      cd: 3,
+    },
+  },
+
+  shieldmaiden: {
+    basic: {
+      name: "Valkyrie Slash",
+      desc: "Precise blow that builds Rage.",
+      icon: "/guildbook/skillicons/valkyrieslash.png",
+      cost: 0,
+      cd: 0,
+    },
+    aoe: {
+      name: "Ragnarok’s Howl",
+      desc: "An echoing warcry slash (single target for now).",
+      icon: "/guildbook/skillicons/ragnarokshowl.png",
+      cost: 30,
+      cd: 2,
+    },
+    buff: {
+      name: "Aegis of Freyja",
+      desc: "Sacred aura boosting ATK and DEF for 3 turns.",
+      icon: "/guildbook/skillicons/aegisoffreyja.png",
+      cost: 20,
+      cd: 3,
+    },
+    debuff: {
+      name: "Cursebreaker",
+      desc: "Shatters enemy will, reducing DEF and SPD for 3 turns.",
+      icon: "/guildbook/skillicons/cursebreaker.png",
+      cost: 20,
+      cd: 3,
+    },
+  },
+
+  "rune-mage": {
+    basic: {
+      name: "Raudr Bolt",
+      desc: "Runic blood-lightning that builds Rage.",
+      icon: "/guildbook/skillicons/raudrbolt.png",
+      cost: 0,
+      cd: 0,
+    },
+    aoe: {
+      name: "Ginnungagap Nova",
+      desc: "A voidborn blast (single target for now).",
+      icon: "/guildbook/skillicons/ginnungagapnova.png",
+      cost: 30,
+      cd: 2,
+    },
+    buff: {
+      name: "Eikthyrnir Shield",
+      desc: "Mythic stag-ward that bolsters ATK and DEF for 3 turns.",
+      icon: "/guildbook/skillicons/eikthyrnirshield.png",
+      cost: 20,
+      cd: 3,
+    },
+    debuff: {
+      name: "Nidhoggr’s Hex",
+      desc: "Draconic rot that lowers enemy DEF and SPD for 3 turns.",
+      icon: "/guildbook/skillicons/nidhoggrhex.png",
+      cost: 20,
+      cd: 3,
+    },
+  },
+
+  berserker: {
+    basic: {
+      name: "Feral Slash",
+      desc: "Savage cut that builds Rage.",
+      icon: "/guildbook/skillicons/feralslash.png",
+      cost: 0,
+      cd: 0,
+    },
+    aoe: {
+      name: "Ragequake",
+      desc: "Earth-rending swing (single target for now).",
+      icon: "/guildbook/skillicons/ragequake.png",
+      cost: 30,
+      cd: 2,
+    },
+    buff: {
+      name: "Ulfhamr Trance",
+      desc: "Battle-trance boosting ATK and DEF for 3 turns.",
+      icon: "/guildbook/skillicons/ulfhamrtrance.png",
+      cost: 20,
+      cd: 3,
+    },
+    debuff: {
+      name: "Blood Howl",
+      desc: "Terrifying roar that reduces enemy DEF and SPD for 3 turns.",
+      icon: "/guildbook/skillicons/bloodhowl.png",
+      cost: 20,
+      cd: 3,
+    },
+  },
+
+  hunter: {
+    basic: {
+      name: "Piercing Shot",
+      desc: "Aimed arrow that builds Rage.",
+      icon: "/guildbook/skillicons/piercingshot.png",
+      cost: 0,
+      cd: 0,
+    },
+    aoe: {
+      name: "Frostbite Volley",
+      desc: "Volley of chilling arrows (single target for now).",
+      icon: "/guildbook/skillicons/frostbitevolley.png",
+      cost: 30,
+      cd: 2,
+    },
+    buff: {
+      name: "Skadi’s Focus",
+      desc: "Icy hunter’s focus boosting ATK and DEF for 3 turns.",
+      icon: "/guildbook/skillicons/skadisfocus.png",
+      cost: 20,
+      cd: 3,
+    },
+    debuff: {
+      name: "Winter’s Grasp",
+      desc: "Freezing curse, lowering DEF and SPD for 3 turns.",
+      icon: "/guildbook/skillicons/wintersgrasp.png",
+      cost: 20,
+      cd: 3,
+    },
+  },
+};
+
+// pick the data for THIS hero
+const CLASS_SKILL_SET = CLASS_SKILLS[HERO_CLASS];
+
+// =====================================================
+//  SKILLS (mechanics using class-aware labels/icons)
 // =====================================================
 const skills = {
-  basic: { name: "Drengr Strike",   cost: 0,  cd: 0, desc: "+10 Rage builder",        use: () => hit(player, enemy, 1.0, { addRage: 10 }) },
-  aoe:   { name: "Storm of Blades", cost: 30, cd: 2, desc: "AOE (single for now)",    use: () => hit(player, enemy, 1.2) },
-  buff:  { name: "Odin’s Blessing", cost: 20, cd: 3, desc: "+ATK +DEF 3 turns",       use: () => addBuff(player, "bless", 3) },
-  debuff:{ name: "Hel’s Curse",     cost: 20, cd: 3, desc: "Enemy -DEF -SPD 3 turns", use: () => addDebuff(enemy, "curse", 3) },
+  basic: {
+    name: CLASS_SKILL_SET.basic.name,
+    cost: CLASS_SKILL_SET.basic.cost,
+    cd: CLASS_SKILL_SET.basic.cd,
+    desc: CLASS_SKILL_SET.basic.desc,
+    use: () => hit(player, enemy, 1.0, { addRage: 10 }),
+  },
+  aoe: {
+    name: CLASS_SKILL_SET.aoe.name,
+    cost: CLASS_SKILL_SET.aoe.cost,
+    cd: CLASS_SKILL_SET.aoe.cd,
+    desc: CLASS_SKILL_SET.aoe.desc,
+    use: () => hit(player, enemy, 1.2),
+  },
+  buff: {
+    name: CLASS_SKILL_SET.buff.name,
+    cost: CLASS_SKILL_SET.buff.cost,
+    cd: CLASS_SKILL_SET.buff.cd,
+    desc: CLASS_SKILL_SET.buff.desc,
+    use: () => addBuff(player, "bless", 3),
+  },
+  debuff: {
+    name: CLASS_SKILL_SET.debuff.name,
+    cost: CLASS_SKILL_SET.debuff.cost,
+    cd: CLASS_SKILL_SET.debuff.cd,
+    desc: CLASS_SKILL_SET.debuff.desc,
+    use: () => addDebuff(enemy, "curse", 3),
+  },
 };
-const cooldowns: Record<keyof typeof skills, number> = { basic: 0, aoe: 0, buff: 0, debuff: 0 };
-const unlocked: Record<keyof typeof skills, boolean> = { basic: true, aoe: false, buff: false, debuff: false };
+
+const cooldowns: Record<keyof typeof skills, number> = {
+  basic: 0,
+  aoe: 0,
+  buff: 0,
+  debuff: 0,
+};
+const unlocked: Record<keyof typeof skills, boolean> = {
+  basic: true,
+  aoe: false,
+  buff: false,
+  debuff: false,
+};
 
 // =====================================================
 //  IMPACT / SHAKE / LUNGE
@@ -384,25 +608,34 @@ function endBattle(playerWon: boolean) {
 // =====================================================
 const skillEls = Array.from(document.querySelectorAll<HTMLDivElement>("#skillbar .skill"));
 
+// icons now come from CLASS_SKILL_SET too
 const SKILL_ICON: Record<keyof typeof skills, string> = {
-  basic:  "/guildbook/skillicons/drengrstrike.png",
-  aoe:    "/guildbook/skillicons/whirlwinddance.png",
-  buff:   "/guildbook/skillicons/odinsblessing.png",
-  debuff: "/guildbook/skillicons/helsgrasp.png",
+  basic: CLASS_SKILL_SET.basic.icon,
+  aoe:   CLASS_SKILL_SET.aoe.icon,
+  buff:  CLASS_SKILL_SET.buff.icon,
+  debuff:CLASS_SKILL_SET.debuff.icon,
 };
 
 function ensureSkillIcons() {
   skillEls.forEach(div => {
-    if (div.querySelector("img.icon")) return;
     const key = div.dataset.skill as keyof typeof skills;
     if (!key) return;
-    const img = document.createElement("img");
-    img.className = "icon";
+
+    // set label to current class skill name
+    const label = div.querySelector(".label") as HTMLElement | null;
+    if (label) label.textContent = skills[key].name;
+
+    // add icon if missing
+    let img = div.querySelector("img.icon") as HTMLImageElement | null;
+    if (!img) {
+      img = document.createElement("img");
+      img.className = "icon";
+      div.insertBefore(img, div.firstChild);
+    }
     img.alt = skills[key]?.name || key;
     img.src = SKILL_ICON[key] || "";
     img.loading = "lazy";
     img.onerror = () => { img.style.display = "none"; };
-    div.insertBefore(img, div.firstChild);
   });
 }
 ensureSkillIcons();
@@ -429,6 +662,10 @@ function paintSkillBar() {
       div.style.opacity = "1";
       div.title = skills[key].name + (skills[key].cost ? ` — Rage ${skills[key].cost}` : "");
     }
+
+    // keep label synced in case hero class changed between loads
+    const label = div.querySelector(".label") as HTMLElement | null;
+    if (label) label.textContent = skills[key].name;
   });
 }
 
@@ -867,9 +1104,11 @@ Promise.all([
 // initial state
 log("A hostile presence emerges from the forest...");
 updateHUD();
+ensureSkillIcons();  // make sure labels/icons use class data
 paintSkillBar();
 wirePotionUI();
 decideTurnOrder();
+
 
 
 
