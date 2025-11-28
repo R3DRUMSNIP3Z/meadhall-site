@@ -621,11 +621,19 @@ function ensureSkillIcons() {
     const key = div.dataset.skill as keyof typeof skills;
     if (!key) return;
 
-    // set label to current class skill name
-    const label = div.querySelector(".label") as HTMLElement | null;
-    if (label) label.textContent = skills[key].name;
+    // ensure we have a label element for the name
+    let label =
+      (div.querySelector(".label") as HTMLElement | null) ||
+      (div.querySelector(".name") as HTMLElement | null);
 
-    // add icon if missing
+    if (!label) {
+      label = document.createElement("div");
+      label.className = "label";
+      div.appendChild(label);
+    }
+    label.textContent = skills[key].name;
+
+    // add / update icon
     let img = div.querySelector("img.icon") as HTMLImageElement | null;
     if (!img) {
       img = document.createElement("img");
@@ -664,8 +672,16 @@ function paintSkillBar() {
     }
 
     // keep label synced in case hero class changed between loads
-    const label = div.querySelector(".label") as HTMLElement | null;
-    if (label) label.textContent = skills[key].name;
+    let label =
+      (div.querySelector(".label") as HTMLElement | null) ||
+      (div.querySelector(".name") as HTMLElement | null);
+
+    if (!label) {
+      label = document.createElement("div");
+      label.className = "label";
+      div.appendChild(label);
+    }
+    label.textContent = skills[key].name;
   });
 }
 
@@ -1108,6 +1124,8 @@ ensureSkillIcons();  // make sure labels/icons use class data
 paintSkillBar();
 wirePotionUI();
 decideTurnOrder();
+
+
 
 
 
