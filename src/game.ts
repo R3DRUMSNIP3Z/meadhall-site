@@ -239,6 +239,70 @@ const CLASS_SKILL_ICONS: Record<ClassId, Record<SkillSlotId, string>> = {
 };
 
 /**
+ * Helper to push current Yggdrasil state into the modal DOM.
+ * This reads window.VAYggdrasil (set below) and updates any
+ * elements like:
+ *   [data-ygg-slot="basic"] .ygg-name / .ygg-tag / .ygg-desc / img.ygg-icon
+ * and #yggPathName, if present.
+ */
+function applyYggDomFromState(): void {
+  const anyWin = window as any;
+  const ygg = anyWin.VAYggdrasil as
+    | { classId: ClassId; pathName: string; allSkills: YggSkill[]; skills: YggSkill[] }
+    | undefined;
+
+  if (!ygg || !Array.isArray(ygg.allSkills)) return;
+
+  const map: Record<SkillSlotId, YggSkill> = {} as any;
+  for (const sk of ygg.allSkills) {
+    if (!sk?.id) continue;
+    map[sk.id] = sk;
+  }
+
+  // Optional path name label
+  const pathLabel = document.getElementById("yggPathName");
+  if (pathLabel && ygg.pathName) {
+    pathLabel.textContent = ygg.pathName.toUpperCase();
+  }
+
+  const slots: SkillSlotId[] = ["basic", "buff", "aoe", "debuff"];
+  for (const id of slots) {
+    const skill = map[id];
+    if (!skill) continue;
+
+    const card = document.querySelector<HTMLElement>(`[data-ygg-slot="${id}"]`);
+    if (!card) continue;
+
+    const nameEl =
+      card.querySelector<HTMLElement>(".ygg-name") ||
+      card.querySelector<HTMLElement>(".ygg-title");
+    const tagEl  =
+      card.querySelector<HTMLElement>(".ygg-tag") || null;
+    const descEl =
+      card.querySelector<HTMLElement>(".ygg-desc") ||
+      card.querySelector<HTMLElement>(".ygg-text") ||
+      card.querySelector<HTMLElement>(".ygg-body");
+    const iconEl = card.querySelector<HTMLImageElement>("img.ygg-icon");
+
+    if (nameEl) nameEl.textContent = skill.name.toUpperCase();
+    if (descEl) descEl.textContent = skill.desc;
+
+    // If your JSON has a short tag (e.g. "BUFF", "AOE") you can extend YggSkill to include it;
+    // for now we just leave existing tag text alone unless you later add `skill.tag`.
+    if ((skill as any).tag && tagEl) {
+      tagEl.textContent = String((skill as any).tag);
+    }
+
+    if (iconEl && skill.icon) {
+      // Avoid reloading if already correct
+      if (!iconEl.src.endsWith(skill.icon)) {
+        iconEl.src = skill.icon;
+      }
+    }
+  }
+}
+
+/**
  * Compute which Yggdrasil skills are unlocked for the current hero
  * based on their class + level, and expose them on window.VAYggdrasil
  * so the battle scene / UI can use them. Icons are forced to the
@@ -276,6 +340,9 @@ async function refreshYggForCurrentHero(): Promise<void> {
     skills: unlocked,
     allSkills: allWithIcons,
   };
+
+  // Push the current class’ skills into the on-screen Yggdrasil modal, if present.
+  applyYggDomFromState();
 
   log(
     `Yggdrasil Path: ${block.pathName} — ${unlocked.length} skill(s) unlocked`,
@@ -891,6 +958,7 @@ async function boot() {
 }
 
 boot().catch(e => log(e.message, "bad"));
+
 
 
 
