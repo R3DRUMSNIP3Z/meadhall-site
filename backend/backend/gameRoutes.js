@@ -18,7 +18,7 @@ const RENDER_PUBLIC = path.resolve(
   "..",
   "..",
   "public",
-  "guildboo",
+  "guildbook",
   FILENAME
 );
 const ENV_PATH = process.env.SHOP_CATALOG_PATH;
