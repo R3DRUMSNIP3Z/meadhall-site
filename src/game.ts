@@ -673,55 +673,66 @@ function stopIdleTick() {
   const input = panel.querySelector<HTMLInputElement>("#vaDevInput");
   if (!input) return;
 
+
+  // --- core stat setters for DEV ---
   async function devSetLocalStat(stat: keyof Me, value: number) {
-  if (!state.me) return;
+    if (!state.me) return;
 
-  // SPECIAL CASE: LEVEL — use backend dev route so points update correctly
-  // SPECIAL CASE: LEVEL — use backend dev route so points update correctly
-if (stat === "level") {
-  await api("/api/dev/level", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-dev-key": "valhalla-dev"
-    },
-    body: JSON.stringify({ level: value })
-  });
+    // SPECIAL CASE: LEVEL — use backend dev route so points + xp are correct
+    if (stat === "level") {
+      await api<ApiMe>("/api/dev/level", {
+        method: "POST",
+        headers: {
+          "x-dev-key": "valhalla-dev",
+        },
+        body: JSON.stringify({ level: value }),
+      });
 
-  // re-sync hero from backend so points, stats, BR are correct
-  const meRes = await api("/api/game/me");
-  state.me = meRes.me;
+      // pull fresh hero from backend
+      const fresh = await api<ApiMe>("/api/game/me");
+      state.me = fresh.me;
 
-  renderArena();
-  log(`Dev: level set to ${value} (backend synced)`, "ok");
-  return;
-}
+      // sync HP / max HP into global hero + me.health
+      syncHeroStatsFromBackend(state.me);
 
+      // make VAHero's level match backend so renderArena() shows it
+      VAHeroWrite({ level: state.me.level });
 
+      await renderArena();
+      log(`Dev: level set to ${value} (backend synced)`, "ok");
+      return;
+    }
 
-  // All other stats can stay local
-  (state.me as any)[stat] = value;
-  renderArena();
-  log(`Dev: set ${stat} = ${value}`, "ok");
-}
-
-
-
-  function devAddLocalStat(stat: keyof Me, delta: number) {
-  if (!state.me) return;
-
-  const cur = (state.me as any)[stat] ?? 0;
-  const next = Number(cur) + delta;
-
-  if (stat === "level") {
-    VAHeroWrite({ level: next });
+    // all other stats can stay local
+    (state.me as any)[stat] = value;
+    await renderArena();
+    log(`Dev: set ${stat} = ${value}`, "ok");
   }
 
-  (state.me as any)[stat] = next;
+  function devAddLocalStat(stat: keyof Me, delta: number) {
+    if (!state.me) return;
 
-  renderArena();
-  log(`Dev: ${stat} ${delta >= 0 ? "+" : ""}${delta} → ${next}`, "ok");
-}
+    const cur = (state.me as any)[stat] ?? 0;
+    const next = Number(cur) + delta;
+
+    if (stat === "level") {
+      // keep VAHero level in sync when using /add level
+      VAHeroWrite({ level: next });
+    }
+
+    (state.me as any)[stat] = next;
+
+    renderArena();
+    log(`Dev: ${stat} ${delta >= 0 ? "+" : ""}${delta} → ${next}`, "ok");
+  }
+
+
+
+
+
+  
+
+
 
 
   function devResetClass() {
