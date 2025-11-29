@@ -107,7 +107,7 @@ function ensure(uId) {
       power: 5,
       defense: 5,
       speed: 5,
-      health: 0,          // base Health
+      health: 180,          // base Health
       points: 0,
       gender: undefined,
       renameUsed: false,
@@ -170,17 +170,22 @@ function recompute(me) {
   me.gearPower = gearBoostSum + setBonusPower;
 
   // Final BR = all stats + gearPower (health weighted ×2)
-  const hp = typeof me.health === "number" ? me.health : 0;
+  // Here `me.health` is **bonus HP from stat points**, not total HP.
+  const BASE_HP = 180;
+  const bonusHp = typeof me.health === "number" ? Math.max(0, me.health) : 0;
+  const totalHp = BASE_HP + bonusHp;
+
   me.battleRating = (
     (me.power || 0) +
     (me.defense || 0) +
     (me.speed || 0) +
-    hp * 2 +
+    totalHp * 2 +
     (me.gearPower || 0)
   ) | 0;
 
   return me;
 }
+
 
 function fightCalc(m) {
   const roll = () => Math.random() * 10 - 5;

@@ -428,34 +428,62 @@ function heroAnimLoop(t: number) {
  * - Keeps current HP from global hero (so battle damage persists)
  * - Writes final values back to both VAHero + `me.health`
  */
+/**
+ * Sync backend `Me` health with global hero stats (VAHero).
+ *
+ * Design:
+ * - Backend `me.health` is the **bonus HP stat** from allocation (starts at 0).
+ * - Base HP is 180 for everyone.
+ * - Total max HP = 180 + bonus.
+ * - Current HP lives in VAHero; if HP is 0/negative or max HP increased,
+ *   we heal to full.
+ * - We DO NOT overwrite `me.health` here so the backend keeps the bonus only.
+ */
 function syncHeroStatsFromBackend(me: Me) {
   // read whatever we already have stored
   let hero = VAHeroRead();
 
-  // backend "health" we treat as the *max HP stat*
-  const backendMax = Number(me.health || 0) || hero.maxHealth || hero.health || 180;
-  const maxHealth = backendMax > 0 ? backendMax : 180;
+  const BASE_HP = 180; // same base as global-hero defaults
+
+  // backend "health" is treated as BONUS HP from points
+  const bonusHp = Math.max(0, Number(me.health || 0) || 0);
+
+  // previous max (for "did max HP increase?" check)
+  const prevMax = hero.maxHealth || BASE_HP;
+
+  // new total max HP
+  const maxHealth = BASE_HP + bonusHp;
 
   // current HP: prefer stored value so damage persists
   let curHealth = hero.health;
 
-// If HP is missing or 0 or negative → reset to full
-if (!curHealth || curHealth <= 0) {
-  curHealth = maxHealth;
-}
+  // If HP is missing or 0 or negative → reset to full
+  if (!curHealth || curHealth <= 0) {
+    curHealth = maxHealth;
+  }
 
+  // If max HP increased since last time, heal to full
+  if (maxHealth > prevMax) {
+    curHealth = maxHealth;
+  }
 
+  // Clamp to [0, maxHealth]
   if (curHealth > maxHealth) curHealth = maxHealth;
   if (curHealth < 0) curHealth = 0;
 
+  // write back to global hero
   hero = VAHeroWrite({
     maxHealth,
     health: curHealth,
   });
 
-  // keep arena's Me in sync with the *current* HP
-  me.health = hero.health;
+  // IMPORTANT: do NOT overwrite me.health here.
+  // me.health stays as the bonus HP stat on the backend.
 }
+
+
+ 
+
 
 function clientBattleRating(m: Me): number {
   // HP is now globally owned; prefer VAHero
