@@ -487,7 +487,12 @@ async function renderArena() {
 
   // keep state.me.name in sync so Dev tools / backend see it
   m.name = heroName;
+  try {
+  const hero = VAHeroRead();
+  safeSetText("level", String(hero.level ?? m.level));
+} catch {
   safeSetText("level", String(m.level));
+}
   safeSetText("gold", String(m.gold));
   safeSetText("strength", String(m.power));
   safeSetText("defense", String(m.defense));
@@ -669,20 +674,37 @@ function stopIdleTick() {
   if (!input) return;
 
   function devSetLocalStat(stat: keyof Me, value: number) {
-    if (!state.me) return;
-    (state.me as any)[stat] = value;
-    renderArena();
-    log(`Dev: set ${stat} = ${value}`, "ok");
+  if (!state.me) return;
+
+  // If stat is level → persist it globally
+  if (stat === "level") {
+    VAHeroWrite({ level: value });
   }
 
+  // Also update the in-memory Me object
+  (state.me as any)[stat] = value;
+
+  renderArena();
+  log(`Dev: set ${stat} = ${value}`, "ok");
+}
+
+
   function devAddLocalStat(stat: keyof Me, delta: number) {
-    if (!state.me) return;
-    const cur = (state.me as any)[stat] ?? 0;
-    const next = Number(cur) + delta;
-    (state.me as any)[stat] = next;
-    renderArena();
-    log(`Dev: ${stat} ${delta >= 0 ? "+" : ""}${delta} → ${next}`, "ok");
+  if (!state.me) return;
+
+  const cur = (state.me as any)[stat] ?? 0;
+  const next = Number(cur) + delta;
+
+  if (stat === "level") {
+    VAHeroWrite({ level: next });
   }
+
+  (state.me as any)[stat] = next;
+
+  renderArena();
+  log(`Dev: ${stat} ${delta >= 0 ? "+" : ""}${delta} → ${next}`, "ok");
+}
+
 
   function devResetClass() {
     const keys = [
