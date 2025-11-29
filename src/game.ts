@@ -1,3 +1,5 @@
+import { VAHeroRead, VAHeroWrite } from "./global-hero";
+
 //* ===============================//
 // Valhalla Ascending — src/game.ts//
 // (Arena only — shop removed)     //
@@ -19,7 +21,7 @@ type Me = {
   power: number;
   defense: number;
   speed: number;
-  health: number;   // 👈 add this
+  health: number;   // current HP (mirrors VAHero)
   points?: number;
   slots?: Partial<Record<Slot, string>>;
   gearPower?: number;
@@ -420,8 +422,47 @@ function heroAnimLoop(t: number) {
    AVATAR & STATS RENDER
    ========================================================= */
 
+/**
+ * Sync backend `Me` health with global hero stats (VAHero).
+ * - Uses backend health as max HP (stat)
+ * - Keeps current HP from global hero (so battle damage persists)
+ * - Writes final values back to both VAHero + `me.health`
+ */
+function syncHeroStatsFromBackend(me: Me) {
+  // read whatever we already have stored
+  let hero = VAHeroRead();
+
+  // backend "health" we treat as the *max HP stat*
+  const backendMax = Number(me.health || 0) || hero.maxHealth || hero.health || 180;
+  const maxHealth = backendMax > 0 ? backendMax : 180;
+
+  // current HP: prefer stored value so damage persists
+  let curHealth: number;
+  if (typeof hero.health === "number") {
+    curHealth = hero.health;
+  } else {
+    curHealth = maxHealth;
+  }
+
+  if (curHealth > maxHealth) curHealth = maxHealth;
+  if (curHealth < 0) curHealth = 0;
+
+  hero = VAHeroWrite({
+    maxHealth,
+    health: curHealth,
+  });
+
+  // keep arena's Me in sync with the *current* HP
+  me.health = hero.health;
+}
+
 function clientBattleRating(m: Me): number {
-  return (m.power ?? 0) + (m.defense ?? 0) + (m.speed ?? 0) + (m.health ?? 0);
+  // HP is now globally owned; prefer VAHero
+  let hp = m.health ?? 0;
+  try {
+    hp = VAHeroRead().health;
+  } catch {}
+  return (m.power ?? 0) + (m.defense ?? 0) + (m.speed ?? 0) + (hp ?? 0);
 }
 
 function updateAvatar() {
@@ -496,8 +537,7 @@ function ensureAllocUI() {
       <button id="allocPow">Power</button>
       <button id="allocDef">Defense</button>
       <button id="allocSpd">Speed</button>
-      <button id="allocHp">Health</button>   <!-- 👈 new -->
-
+      <button id="allocHp">Health</button>
     </div>
   `;
   row.after(wrap);
@@ -506,14 +546,12 @@ function ensureAllocUI() {
   btnPow = safeEl("allocPow");
   btnDef = safeEl("allocDef");
   btnSpd = safeEl("allocSpd");
-  btnHp  = safeEl("allocHp");  // 👈
-
+  btnHp  = safeEl("allocHp");
 
   btnPow!.onclick = () => allocate("power");
   btnDef!.onclick = () => allocate("defense");
   btnSpd!.onclick = () => allocate("speed");
-  btnHp!.onclick  = () => allocate("health" as any); // 👈
-
+  btnHp!.onclick  = () => allocate("health" as any);
 }
 
 async function allocate(stat: "power"|"defense"|"speed"| "health") {
@@ -525,6 +563,12 @@ async function allocate(stat: "power"|"defense"|"speed"| "health") {
       body: JSON.stringify({ stat, amount: amt }),
     });
     state.me = r.me;
+
+    // if we invested into health on backend, sync max HP into VAHero
+    if (stat === "health") {
+      syncHeroStatsFromBackend(state.me);
+    }
+
     await renderArena();
     log(`Allocated ${amt} to ${stat}`, "ok");
   } catch (e: any) {
@@ -722,7 +766,7 @@ function stopIdleTick() {
     log("/class warrior|shieldmaiden|rune-mage|berserker|hunter", "ok");
     log("/reset class  (clear class & hero name)", "ok");
     log("/reset quests (wipe quest chain/vars/race)", "ok");
-    log("/reset inv    (empty inventory)", "ok");          // 🔹 NEW
+    log("/reset inv    (empty inventory)", "ok");
     log("/tick off|on (idle backend tick)", "ok");
     log("/where (show path + last_location key)", "ok");
   }
@@ -742,8 +786,8 @@ function stopIdleTick() {
       defense: "defense",
       spd: "speed",
       speed: "speed",
-      hp: "health",          // 👈
-      health: "health",      // 👈
+      hp: "health",
+      health: "health",
       bris: "brisingr",
       brisingr: "brisingr",
       dia: "diamonds",
@@ -838,7 +882,7 @@ function stopIdleTick() {
           devResetClass();
         } else if (which === "quests") {
           devResetQuests();
-        } else if (which === "inv" || which === "inventory") {   // 🔹 NEW
+        } else if (which === "inv" || which === "inventory") {
           devResetInventory();
         } else {
           log("Usage: /reset class | /reset quests | /reset inv", "bad");
@@ -898,7 +942,7 @@ function stopIdleTick() {
     class: devSetClass,
     resetClass: devResetClass,
     resetQuests: devResetQuests,
-    resetInventory: devResetInventory,        // 🔹 NEW
+    resetInventory: devResetInventory,
     tick(mode: "on" | "off") {
       if (mode === "off") {
         stopIdleTick();
@@ -929,8 +973,6 @@ function stopIdleTick() {
       { command: "VADev.resetInventory()", desc: "Empty inventory (local + UI)" },
       { command: 'VADev.tick("off")', desc: "Stop idle backend tick" },
       { command: "VADev.where()", desc: "Show current + last location" },
-     
-
     ]);
   } catch {}
 
@@ -947,6 +989,9 @@ async function boot() {
 
   const meRes = await api<ApiMe>("/api/game/me");
   state.me = meRes.me;
+
+  // make sure hero HP in arena reflects shared global HP (from last battle)
+  syncHeroStatsFromBackend(state.me);
 
   ensureAllocUI();
   updateAvatar();
@@ -982,6 +1027,7 @@ async function boot() {
 }
 
 boot().catch(e => log(e.message, "bad"));
+
 
 
 

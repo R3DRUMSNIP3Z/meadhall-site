@@ -1,6 +1,8 @@
 // --- Turn-based Battle: Dreadheim Forest Entrance ---
 // NOTE: Include global-game-setup.ts and inventory bootstrap BEFORE this file on the page.
 
+import { VAHeroRead, VAHeroWrite } from "./global-hero";
+
 type Unit = {
   name: string;
   hp: number; hpMax: number;
@@ -145,7 +147,10 @@ const potionUseBtn = document.getElementById("potionUseBtn") as HTMLButtonElemen
 //  UNITS
 // =====================================================
 const player: Unit = {
-  name: "You", hp: 180, hpMax: 180,
+  name: "You",
+  // these are just defaults; they get overwritten by initPlayerFromHero()
+  hp: 180,
+  hpMax: 180,
   atk: 28, def: 10, spd: 12,
   rage: 0, rageMax: 100,
   buffs: {}, debuffs: {}, alive: true
@@ -157,6 +162,44 @@ const enemy: Unit = {
   rage: 0, rageMax: 100,
   buffs: {}, debuffs: {}, alive: true
 };
+
+// === SHARED HP GLUE (battle <-> global hero) ======================
+function initPlayerFromHero() {
+  try {
+    const hero = VAHeroRead();
+    let maxHealth = hero.maxHealth || hero.health || 180;
+    if (!maxHealth || maxHealth <= 0) maxHealth = 180;
+
+    let cur = hero.health;
+    if (typeof cur !== "number" || cur <= 0) cur = maxHealth;
+
+    if (cur > maxHealth) cur = maxHealth;
+
+    player.hpMax = maxHealth;
+    player.hp = cur;
+  } catch {
+    // if anything explodes, we just keep the defaults
+  }
+}
+
+function persistPlayerHpToHero() {
+  try {
+    const prev = VAHeroRead();
+    const maxHealth = prev.maxHealth || player.hpMax || prev.health || 180;
+    let cur = player.hp;
+    if (!Number.isFinite(cur)) cur = maxHealth;
+    if (cur > maxHealth) cur = maxHealth;
+    if (cur < 0) cur = 0;
+
+    VAHeroWrite({
+      ...prev,
+      maxHealth,
+      health: cur,
+    });
+  } catch {
+    // ignore
+  }
+}
 
 // =====================================================
 //  CLASS-AWARE SKILLS (names + icons)
@@ -437,7 +480,7 @@ function playMaleHurt(): void {
 // =====================================================
 const battle: Battle = { state: "intro", turn: "player", log: [] };
 
-function log(s: string) { battle.log.push(s); renderLog(); }
+function logMsg(s: string) { battle.log.push(s); renderLog(); }
 function renderLog() {
   logBox.innerHTML = battle.log.slice(-5).map(x => `<div>${x}</div>`).join("");
 }
@@ -454,7 +497,7 @@ function decideTurnOrder() {
   const e = effSpd(enemy);
   battle.turn = p >= e ? "player" : "enemy";
   battle.state = battle.turn;
-  log(battle.turn === "player" ? "You seize the initiative!" : `${enemy.name} strikes first!`);
+  logMsg(battle.turn === "player" ? "You seize the initiative!" : `${enemy.name} strikes first!`);
   if (battle.turn === "enemy") setTimeout(enemyAct, 650);
 }
 
@@ -466,21 +509,21 @@ function damage(from: Unit, to: Unit, scale = 1.0) {
 
 function addBuff(u: Unit, name: keyof Unit["buffs"], turns: number) {
   u.buffs[name as string] = turns;
-  log(`${u.name} gains ${name.toString().toUpperCase()} for ${turns} turns!`);
+  logMsg(`${u.name} gains ${name.toString().toUpperCase()} for ${turns} turns!`);
 }
 function addDebuff(u: Unit, name: keyof Unit["debuffs"], turns: number) {
   u.debuffs[name as string] = turns;
-  log(`${u.name} suffers ${name.toString().toUpperCase()} for ${turns} turns!`);
+  logMsg(`${u.name} suffers ${name.toString().toUpperCase()} for ${turns} turns!`);
 }
 
 function tickAuras(u: Unit) {
   for (const k of Object.keys(u.buffs)) {
     u.buffs[k]--;
-    if (u.buffs[k] <= 0) { delete u.buffs[k]; log(`${u.name}'s ${k} fades.`); }
+    if (u.buffs[k] <= 0) { delete u.buffs[k]; logMsg(`${u.name}'s ${k} fades.`); }
   }
   for (const k of Object.keys(u.debuffs)) {
     u.debuffs[k]--;
-    if (u.debuffs[k] <= 0) { delete u.debuffs[k]; log(`${u.name}'s ${k} wears off.`); }
+    if (u.debuffs[k] <= 0) { delete u.debuffs[k]; logMsg(`${u.name}'s ${k} wears off.`); }
   }
 }
 
@@ -515,7 +558,7 @@ function hit(from: Unit, to: Unit, scale = 1.0, opts: { addRage?: number } = {})
   enemy.alive = enemy.hp > 0;
   player.alive = player.hp > 0;
 
-  log(`${from.name} hits ${to.name} for ${dmg}.`);
+  logMsg(`${from.name} hits ${to.name} for ${dmg}.`);
   startImpact(from === player ? "player" : "enemy");
 }
 
@@ -562,6 +605,9 @@ function endBattle(playerWon: boolean) {
   battle.state = "end";
   overlay.classList.add("show");
   overlay.textContent = playerWon ? "VICTORY" : "DEFEAT";
+
+  // 🔥 persist HP back into global hero so next battle/arena uses it
+  persistPlayerHpToHero();
 
   try {
     if (playerWon) (window as any).playVictory?.();
@@ -866,7 +912,7 @@ function openPotionEquipOverlay() {
         icon: it.icon,
         heal,
       };
-      log(`Equipped ${it.name} as your battle potion.`);
+      logMsg(`Equipped ${it.name} as your battle potion.`);
       updatePotionSlotUI();
       closePotionEquipOverlay();
     };
@@ -881,14 +927,14 @@ function closePotionEquipOverlay() {
 
 function useEquippedPotionInBattle() {
   if (!equippedPotion) {
-    log("No potion equipped. Click Equip to choose one from your bag.");
+    logMsg("No potion equipped. Click Equip to choose one from your bag.");
     return;
   }
   if (battle.state !== "player" || battle.turn !== "player") return;
   if (!player.alive) return;
 
   if (player.hp >= player.hpMax) {
-    log("You are already at full health.");
+    logMsg("You are already at full health.");
     return;
   }
 
@@ -907,14 +953,14 @@ function useEquippedPotionInBattle() {
   }
 
   if (!hasAny) {
-    log(`You have no ${equippedPotion.name} left in your bag.`);
+    logMsg(`You have no ${equippedPotion.name} left in your bag.`);
     updatePotionSlotUI();
     return;
   }
 
   const healAmount = equippedPotion.heal;
   if (healAmount <= 0) {
-    log(`${equippedPotion.name} has no effect in battle (yet).`);
+    logMsg(`${equippedPotion.name} has no effect in battle (yet).`);
     return;
   }
 
@@ -927,7 +973,7 @@ function useEquippedPotionInBattle() {
 
   const healed = Math.min(healAmount, player.hpMax - player.hp);
   player.hp += healed;
-  log(`You drink ${equippedPotion.name} and recover ${healed} HP.`);
+  logMsg(`You drink ${equippedPotion.name} and recover ${healed} HP.`);
   updateHUD();
   updatePotionSlotUI();
 
@@ -1118,12 +1164,14 @@ Promise.all([
   .catch(() => { requestAnimationFrame(gameLoop); });
 
 // initial state
-log("A hostile presence emerges from the forest...");
+initPlayerFromHero();
+logMsg("A hostile presence emerges from the forest...");
 updateHUD();
 ensureSkillIcons();  // make sure labels/icons use class data
 paintSkillBar();
 wirePotionUI();
 decideTurnOrder();
+
 
 
 
