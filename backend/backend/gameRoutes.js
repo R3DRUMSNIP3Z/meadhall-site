@@ -107,7 +107,7 @@ function ensure(uId) {
       power: 5,
       defense: 5,
       speed: 5,
-      health: 0,          // 🔹 base Health
+      health: 0,          // base Health
       points: 0,
       gender: undefined,
       renameUsed: false,
@@ -117,9 +117,10 @@ function ensure(uId) {
       lastTick: Date.now(),
     };
   } else {
-    // make sure old sessions get health too
+    // upgrade old sessions to ensure health/points exist
     const me = state[uId];
     if (typeof me.health !== "number") me.health = 0;
+    if (!Number.isFinite(me.points)) me.points = 0;
   }
   return state[uId];
 }
@@ -133,7 +134,7 @@ function tick(me) {
     while (me.xp >= me.level * 100) {
       me.xp -= me.level * 100;
       me.level++;
-      me.points += 3;
+      me.points = (me.points || 0) + 3;   // safe add
     }
     me.lastTick = now;
   }
@@ -168,7 +169,7 @@ function recompute(me) {
   }
   me.gearPower = gearBoostSum + setBonusPower;
 
-  // Final BR = all stats + gearPower (health weighted ×2 to match front-end)
+  // Final BR = all stats + gearPower (health weighted ×2)
   const hp = typeof me.health === "number" ? me.health : 0;
   me.battleRating = (
     (me.power || 0) +
@@ -243,7 +244,7 @@ function install(app) {
     const me = recompute(tick(ensure(req.userId)));
     const { stat, amount } = req.body || {};
 
-    // 🔹 allow Health allocations too
+    // allow Health allocations too
     if (!["power", "defense", "speed", "health"].includes(stat))
       return res.status(400).json({ error: "Invalid stat" });
 
@@ -455,7 +456,7 @@ function install(app) {
     while (me.xp >= me.level * 100) {
       me.xp -= me.level * 100;
       me.level++;
-      me.points += 3;
+      me.points = (me.points || 0) + 3;   // safe add
     }
     recompute(me);
 
@@ -479,6 +480,7 @@ function install(app) {
     const me = recompute(tick(ensure(req.userId)));
     res.json({ me, catalogPath: CATALOG_PATH });
   });
+
   dev.post("/level", (req, res) => {
     const { level } = req.body || {};
     const me = ensure(req.userId);
@@ -487,6 +489,7 @@ function install(app) {
     recompute(me);
     res.json({ me });
   });
+
   dev.post("/gold", (req, res) => {
     const { add, set } = req.body || {};
     const me = ensure(req.userId);
@@ -494,6 +497,7 @@ function install(app) {
     else if (Number.isFinite(add)) me.gold += add;
     res.json({ me });
   });
+
   dev.post("/brisingr", (req, res) => {
     const { add, set } = req.body || {};
     const me = ensure(req.userId);
@@ -501,6 +505,7 @@ function install(app) {
     else if (Number.isFinite(add)) me.brisingr = Math.max(0, (me.brisingr || 0) + add);
     res.json({ me });
   });
+
   dev.post("/xp", (req, res) => {
     const { add } = req.body || {};
     const me = ensure(req.userId);
@@ -508,18 +513,21 @@ function install(app) {
     while (me.xp >= me.level * 100) {
       me.xp -= me.level * 100;
       me.level++;
-      me.points += 3;
+      me.points = (me.points || 0) + 3;   // safe add
     }
     recompute(me);
     res.json({ me });
   });
+
   dev.post("/points", (req, res) => {
     const { add } = req.body || {};
     const me = ensure(req.userId);
-    me.points = (me.points || 0) + (add || 0);
+    const addNum = Number(add || 0);
+    me.points = (me.points || 0) + addNum;
     recompute(me);
     res.json({ me });
   });
+
   dev.post("/item", (req, res) => {
     const { itemId } = req.body || {};
     const me = ensure(req.userId);
@@ -553,6 +561,7 @@ function install(app) {
     recompute(me);
     res.json({ me });
   });
+
   dev.post("/equip-set", (req, res) => {
     const { setId } = req.body || {};
     const me = ensure(req.userId);
@@ -635,6 +644,7 @@ function brisingrCredit(userId, amount) {
 }
 
 module.exports = { install, brisingrCredit };
+
 
 
 
