@@ -681,7 +681,10 @@ function stopIdleTick() {
 if (stat === "level") {
   await api("/api/dev/level", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-dev-key": "valhalla-dev"
+    },
     body: JSON.stringify({ level: value })
   });
 
@@ -693,6 +696,7 @@ if (stat === "level") {
   log(`Dev: level set to ${value} (backend synced)`, "ok");
   return;
 }
+
 
 
   // All other stats can stay local
