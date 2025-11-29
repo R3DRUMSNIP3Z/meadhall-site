@@ -19,6 +19,7 @@ type Me = {
   power: number;
   defense: number;
   speed: number;
+  health: number;   // 👈 add this
   points?: number;
   slots?: Partial<Record<Slot, string>>;
   gearPower?: number;
@@ -420,7 +421,7 @@ function heroAnimLoop(t: number) {
    ========================================================= */
 
 function clientBattleRating(m: Me): number {
-  return (m.power ?? 0) + (m.defense ?? 0) + (m.speed ?? 0);
+  return (m.power ?? 0) + (m.defense ?? 0) + (m.speed ?? 0) + (m.health ?? 0);
 }
 
 function updateAvatar() {
@@ -448,6 +449,7 @@ async function renderArena() {
   safeSetText("gold", String(m.gold));
   safeSetText("strength", String(m.power));
   safeSetText("defense", String(m.defense));
+  safeSetText("health", String((m as any).health ?? 0));
   safeSetText("speed", String(m.speed));
   safeSetText("points", String(m.points ?? 0));
 
@@ -473,6 +475,8 @@ let allocInput: HTMLInputElement | null = null;
 let btnPow: HTMLButtonElement | null = null;
 let btnDef: HTMLButtonElement | null = null;
 let btnSpd: HTMLButtonElement | null = null;
+let btnHp:  HTMLButtonElement | null = null; // 👈
+
 
 function ensureAllocUI() {
   if (document.getElementById("allocControls")) return;
@@ -492,6 +496,8 @@ function ensureAllocUI() {
       <button id="allocPow">Power</button>
       <button id="allocDef">Defense</button>
       <button id="allocSpd">Speed</button>
+      <button id="allocHp">Health</button>   <!-- 👈 new -->
+
     </div>
   `;
   row.after(wrap);
@@ -500,13 +506,17 @@ function ensureAllocUI() {
   btnPow = safeEl("allocPow");
   btnDef = safeEl("allocDef");
   btnSpd = safeEl("allocSpd");
+  btnHp  = safeEl("allocHp");  // 👈
+
 
   btnPow!.onclick = () => allocate("power");
   btnDef!.onclick = () => allocate("defense");
   btnSpd!.onclick = () => allocate("speed");
+  btnHp!.onclick  = () => allocate("health" as any); // 👈
+
 }
 
-async function allocate(stat: "power"|"defense"|"speed") {
+async function allocate(stat: "power"|"defense"|"speed"| "health") {
   if (!allocInput) return;
   const amt = Math.max(1, Number(allocInput.value || "1"));
   try {
@@ -732,6 +742,8 @@ function stopIdleTick() {
       defense: "defense",
       spd: "speed",
       speed: "speed",
+      hp: "health",          // 👈
+      health: "health",      // 👈
       bris: "brisingr",
       brisingr: "brisingr",
       dia: "diamonds",
@@ -917,6 +929,8 @@ function stopIdleTick() {
       { command: "VADev.resetInventory()", desc: "Empty inventory (local + UI)" },
       { command: 'VADev.tick("off")', desc: "Stop idle backend tick" },
       { command: "VADev.where()", desc: "Show current + last location" },
+     
+
     ]);
   } catch {}
 
