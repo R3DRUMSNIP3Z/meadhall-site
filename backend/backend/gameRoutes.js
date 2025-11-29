@@ -79,7 +79,7 @@ const getBrisingrShop = () =>
 const SLOT_UNLOCK = {
   helm: 5, shoulders: 8, chest: 10, gloves: 12, boots: 15,
   ring: 18, wings: 22, pet: 24, sylph: 28,
-  weapon: 1, // ← add this so weapons are available from level 1
+  weapon: 1, // ← weapons available from level 1
 };
 
 const PVP_UNLOCK = 25;
@@ -103,10 +103,11 @@ function ensure(uId) {
       level: 1,
       xp: 0,
       gold: 100,
-      brisingr: 0,        // ← Brísingr balance
+      brisingr: 0,        // Brísingr balance
       power: 5,
       defense: 5,
       speed: 5,
+      health: 0,          // 🔹 base Health
       points: 0,
       gender: undefined,
       renameUsed: false,
@@ -115,6 +116,10 @@ function ensure(uId) {
       battleRating: 15,
       lastTick: Date.now(),
     };
+  } else {
+    // make sure old sessions get health too
+    const me = state[uId];
+    if (typeof me.health !== "number") me.health = 0;
   }
   return state[uId];
 }
@@ -163,8 +168,16 @@ function recompute(me) {
   }
   me.gearPower = gearBoostSum + setBonusPower;
 
-  // Final BR = all stats + gearPower
-  me.battleRating = (me.power + me.defense + me.speed + me.gearPower) | 0;
+  // Final BR = all stats + gearPower (health weighted ×2 to match front-end)
+  const hp = typeof me.health === "number" ? me.health : 0;
+  me.battleRating = (
+    (me.power || 0) +
+    (me.defense || 0) +
+    (me.speed || 0) +
+    hp * 2 +
+    (me.gearPower || 0)
+  ) | 0;
+
   return me;
 }
 
@@ -207,7 +220,6 @@ function install(app) {
   router.post("/game/tick", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     console.log("[/game/me]", req.userId, "slots:", me.slots);
-
     res.json({ me });
   });
 
@@ -230,13 +242,18 @@ function install(app) {
   router.post("/game/allocate", express.json(), (req, res) => {
     const me = recompute(tick(ensure(req.userId)));
     const { stat, amount } = req.body || {};
-    if (!["power", "defense", "speed"].includes(stat))
+
+    // 🔹 allow Health allocations too
+    if (!["power", "defense", "speed", "health"].includes(stat))
       return res.status(400).json({ error: "Invalid stat" });
+
     const amt = Math.max(1, Math.floor(Number(amount || 1)));
     if ((me.points || 0) < amt)
       return res.status(400).json({ error: "Not enough points" });
-    me.points -= amt;
-    me[stat] += amt;
+
+    me.points = (me.points || 0) - amt;
+    const current = typeof me[stat] === "number" ? me[stat] : 0;
+    me[stat] = current + amt;
     recompute(me);
     res.json({ me });
   });
@@ -274,65 +291,60 @@ function install(app) {
   });
 
   router.post("/game/shop/buy", express.json(), (req, res) => {
-  try {
-    const me = recompute(tick(ensure(req.userId)));
-    const { itemId } = req.body || {};
-    const item = findItem(itemId);
-    if (!item) return res.status(404).json({ error: "No such item" });
+    try {
+      const me = recompute(tick(ensure(req.userId)));
+      const { itemId } = req.body || {};
+      const item = findItem(itemId);
+      if (!item) return res.status(404).json({ error: "No such item" });
 
-    // diamond items must use brisingr route
-    if (Number.isFinite(diamondCost(item))) {
-      return res.status(400).json({ error: "Use Brísingr shop for this item" });
-    }
-
-    if (violatesGenderLock(me, item)) {
-      return res.status(400).json({
-        error: item.set === "drengr" ? "Drengr gear is male only" : "Skjaldmey gear is female only",
-      });
-    }
-
-    if (item.levelReq && me.level < item.levelReq) {
-      return res.status(400).json({ error: `Requires level ${item.levelReq}` });
-    }
-    if (item.slot && me.level < (SLOT_UNLOCK[item.slot] || 0)) {
-      return res.status(400).json({ error: `Slot locked until level ${SLOT_UNLOCK[item.slot]}` });
-    }
-
-    // idempotent: already wearing it
-    if (item.slot && me.slots[item.slot] === item.id) {
-      return res.json({ me: recompute(me), item });
-    }
-
-    if (me.gold < item.cost) return res.status(400).json({ error: "Not enough gold" });
-
-    // swap: remove previous boost if replacing
-    if (item.slot) {
-      const prevId = me.slots[item.slot];
-      if (prevId) {
-        const prev = findItem(prevId);
-        if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
+      // diamond items must use brisingr route
+      if (Number.isFinite(diamondCost(item))) {
+        return res.status(400).json({ error: "Use Brísingr shop for this item" });
       }
-      me.slots[item.slot] = item.id;
+
+      if (violatesGenderLock(me, item)) {
+        return res.status(400).json({
+          error: item.set === "drengr" ? "Drengr gear is male only" : "Skjaldmey gear is female only",
+        });
+      }
+
+      if (item.levelReq && me.level < item.levelReq) {
+        return res.status(400).json({ error: `Requires level ${item.levelReq}` });
+      }
+      if (item.slot && me.level < (SLOT_UNLOCK[item.slot] || 0)) {
+        return res.status(400).json({ error: `Slot locked until level ${SLOT_UNLOCK[item.slot]}` });
+      }
+
+      // idempotent: already wearing it
+      if (item.slot && me.slots[item.slot] === item.id) {
+        return res.json({ me: recompute(me), item });
+      }
+
+      if (me.gold < item.cost) return res.status(400).json({ error: "Not enough gold" });
+
+      // swap: remove previous boost if replacing
+      if (item.slot) {
+        const prevId = me.slots[item.slot];
+        if (prevId) {
+          const prev = findItem(prevId);
+          if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
+        }
+        me.slots[item.slot] = item.id;
+      }
+
+      if (item.stat) me[item.stat] = (me[item.stat] || 0) + (item.boost || 0);
+      me.gold -= item.cost;
+
+      recompute(me);
+      return res.json({ me, item });
+    } catch (e) {
+      console.error("💥 /game/shop/buy error:", e);
+      return res.status(500).json({ ok:false, error: String(e.message || e) });
     }
-
-    if (item.stat) me[item.stat] = (me[item.stat] || 0) + (item.boost || 0);
-    me.gold -= item.cost;
-
-    recompute(me);
-    return res.json({ me, item });
-  } catch (e) {
-    console.error("💥 /game/shop/buy error:", e);
-    return res.status(500).json({ ok:false, error: String(e.message || e) });
-  }
-});
-
-
-
-
-    
+  });
 
   // ---- Brísingr (Diamond) Shop
-    // === Brísingr Recharge Checkout (Stripe) ===
+  // === Brísingr Recharge Checkout (Stripe) ===
   router.post("/game/checkout/brisingr/:tier", express.json(), async (req, res) => {
     try {
       const { tier } = req.params;
@@ -345,9 +357,9 @@ function install(app) {
         "100":   process.env.STRIPE_PRICE_READER,   // $0.99
         "500":   process.env.STRIPE_PRICE_PREMIUM,  // $4.99
         "1000":  process.env.STRIPE_PRICE_ANNUAL,   // $9.99
-         "2000": process.env.STRIPE_PRICE_2000,
-         "5000": process.env.STRIPE_PRICE_5000,
-         "10000": process.env.STRIPE_PRICE_10000,
+        "2000":  process.env.STRIPE_PRICE_2000,
+        "5000":  process.env.STRIPE_PRICE_5000,
+        "10000": process.env.STRIPE_PRICE_10000,
       };
 
       const priceId = PRICES[tier];
@@ -379,11 +391,11 @@ function install(app) {
     const { itemId } = req.body || {};
     const item = findItem(itemId);
     if (!item) return res.status(404).json({ error: "No such item" });
-    // No-op if already equipped in that slot
-if (item.slot && me.slots[item.slot] === item.id) {
-  return res.status(200).json({ me, item });
-}
 
+    // No-op if already equipped in that slot
+    if (item.slot && me.slots[item.slot] === item.id) {
+      return res.status(200).json({ me, item });
+    }
 
     const dCost = diamondCost(item);
     if (!Number.isFinite(dCost))
@@ -509,32 +521,30 @@ if (item.slot && me.slots[item.slot] === item.id) {
     res.json({ me });
   });
   dev.post("/item", (req, res) => {
-  const { itemId } = req.body || {};
-  const me = ensure(req.userId);
-  const it = findItem(itemId);
-  if (!it) return res.status(404).json({ error: "No such item" });
-  if (violatesGenderLock(me, it)) return res.status(400).json({ error: "Gender restricted item" });
+    const { itemId } = req.body || {};
+    const me = ensure(req.userId);
+    const it = findItem(itemId);
+    if (!it) return res.status(404).json({ error: "No such item" });
+    if (violatesGenderLock(me, it)) return res.status(400).json({ error: "Gender restricted item" });
 
-  // idempotent for slotted gear + proper swap
-  if (it.slot) {
-    const prevId = me.slots[it.slot];
-    if (prevId === it.id) {
-      return res.json({ me: recompute(me), item: it });
+    // idempotent for slotted gear + proper swap
+    if (it.slot) {
+      const prevId = me.slots[it.slot];
+      if (prevId === it.id) {
+        return res.json({ me: recompute(me), item: it });
+      }
+      if (prevId) {
+        const prev = findItem(prevId);
+        if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
+      }
+      me.slots[it.slot] = it.id;
     }
-    if (prevId) {
-      const prev = findItem(prevId);
-      if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
-    }
-    me.slots[it.slot] = it.id;
-  }
 
-  if (it.stat) me[it.stat] = (me[it.stat] || 0) + (it.boost || 0);
+    if (it.stat) me[it.stat] = (me[it.stat] || 0) + (it.boost || 0);
 
-  recompute(me);
-  return res.json({ me, item: it });
-});
-
-
+    recompute(me);
+    return res.json({ me, item: it });
+  });
 
   dev.post("/slots", (req, res) => {
     const { slots } = req.body || {};
@@ -544,40 +554,38 @@ if (item.slot && me.slots[item.slot] === item.id) {
     res.json({ me });
   });
   dev.post("/equip-set", (req, res) => {
-  const { setId } = req.body || {};
-  const me = ensure(req.userId);
-  const items = getShop().filter(i => i.set === setId);
+    const { setId } = req.body || {};
+    const me = ensure(req.userId);
+    const items = getShop().filter(i => i.set === setId);
 
-  const nextEquipped = [];
-  for (const it of items) {
-    if (violatesGenderLock(me, it)) continue;
+    const nextEquipped = [];
+    for (const it of items) {
+      if (violatesGenderLock(me, it)) continue;
 
-    // already equipped? skip
-    if (it.slot && me.slots[it.slot] === it.id) {
-      nextEquipped.push(it.id);
-      continue;
-    }
-
-    // swap remove previous boost
-    if (it.slot) {
-      const prevId = me.slots[it.slot];
-      if (prevId) {
-        const prev = findItem(prevId);
-        if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
+      // already equipped? skip
+      if (it.slot && me.slots[it.slot] === it.id) {
+        nextEquipped.push(it.id);
+        continue;
       }
-      me.slots[it.slot] = it.id;
+
+      // swap remove previous boost
+      if (it.slot) {
+        const prevId = me.slots[it.slot];
+        if (prevId) {
+          const prev = findItem(prevId);
+          if (prev?.stat) me[prev.stat] = Math.max(0, (me[prev.stat] || 0) - (prev.boost || 0));
+        }
+        me.slots[it.slot] = it.id;
+      }
+
+      if (it.stat) me[it.stat] = (me[it.stat] || 0) + (it.boost || 0);
+      nextEquipped.push(it.id);
     }
 
-    if (it.stat) me[it.stat] = (me[it.stat] || 0) + (it.boost || 0);
-    nextEquipped.push(it.id);
-  }
+    recompute(me);
+    res.json({ me, equipped: nextEquipped });
+  });
 
-  recompute(me);
-  res.json({ me, equipped: nextEquipped });
-});
-
-
-  
   dev.post("/reset", (req, res) => {
     delete state[req.userId];
     res.json({ ok: true });
@@ -585,7 +593,8 @@ if (item.slot && me.slots[item.slot] === item.id) {
 
   router.use("/dev", dev);
   app.use("/api", router);
-    // Expose credit helper for webhook usage
+
+  // Expose credit helper for webhook usage
   app.locals.brisingrCredit = (userId, amount) => {
     const u = users.get(userId);
     if (!u) {
@@ -604,8 +613,8 @@ if (item.slot && me.slots[item.slot] === item.id) {
 
     console.log(`💰 Added ${add} Brísingr to ${u.name || u.id}`);
   };
-
 }
+
 // --- Brísingr credit helper (no direct app reference) ---
 function brisingrCredit(userId, amount) {
   const u = users.get(userId);
@@ -626,6 +635,7 @@ function brisingrCredit(userId, amount) {
 }
 
 module.exports = { install, brisingrCredit };
+
 
 
 
