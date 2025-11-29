@@ -673,20 +673,34 @@ function stopIdleTick() {
   const input = panel.querySelector<HTMLInputElement>("#vaDevInput");
   if (!input) return;
 
-  function devSetLocalStat(stat: keyof Me, value: number) {
+  async function devSetLocalStat(stat: keyof Me, value: number) {
   if (!state.me) return;
 
-  // If stat is level → persist it globally
-  if (stat === "level") {
-    VAHeroWrite({ level: value });
-  }
+  // SPECIAL CASE: LEVEL — use backend dev route so points update correctly
+  // SPECIAL CASE: LEVEL — use backend dev route so points update correctly
+if (stat === "level") {
+  await api("/api/dev/level", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ level: value })
+  });
 
-  // Also update the in-memory Me object
+  // re-sync hero from backend so points, stats, BR are correct
+  const meRes = await api("/api/game/me");
+  state.me = meRes.me;
+
+  renderArena();
+  log(`Dev: level set to ${value} (backend synced)`, "ok");
+  return;
+}
+
+
+  // All other stats can stay local
   (state.me as any)[stat] = value;
-
   renderArena();
   log(`Dev: set ${stat} = ${value}`, "ok");
 }
+
 
 
   function devAddLocalStat(stat: keyof Me, delta: number) {
