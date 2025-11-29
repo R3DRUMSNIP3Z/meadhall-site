@@ -437,12 +437,13 @@ function syncHeroStatsFromBackend(me: Me) {
   const maxHealth = backendMax > 0 ? backendMax : 180;
 
   // current HP: prefer stored value so damage persists
-  let curHealth: number;
-  if (typeof hero.health === "number") {
-    curHealth = hero.health;
-  } else {
-    curHealth = maxHealth;
-  }
+  let curHealth = hero.health;
+
+// If HP is missing or 0 or negative → reset to full
+if (!curHealth || curHealth <= 0) {
+  curHealth = maxHealth;
+}
+
 
   if (curHealth > maxHealth) curHealth = maxHealth;
   if (curHealth < 0) curHealth = 0;
