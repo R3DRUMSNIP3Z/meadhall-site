@@ -239,27 +239,24 @@ const CLASS_SKILL_ICONS: Record<ClassId, Record<SkillSlotId, string>> = {
 };
 
 /**
- * Helper to push current Yggdrasil state into the modal DOM.
- * This reads window.VAYggdrasil (set below) and updates any
- * elements like:
- *   [data-ygg-slot="basic"] .ygg-name / .ygg-tag / .ygg-desc / img.ygg-icon
- * and #yggPathName, if present.
+ * Push current VAYggdrasil state into the Yggdrasil modal DOM.
+ * Expects cards like:
+ *   <div data-ygg-slot="basic"> ... .ygg-name / .ygg-desc / img.ygg-icon ... </div>
+ * and an optional #yggPathName label.
  */
 function applyYggDomFromState(): void {
-  const anyWin = window as any;
-  const ygg = anyWin.VAYggdrasil as
+  const win: any = window as any;
+  const ygg = win.VAYggdrasil as
     | { classId: ClassId; pathName: string; allSkills: YggSkill[]; skills: YggSkill[] }
     | undefined;
 
   if (!ygg || !Array.isArray(ygg.allSkills)) return;
 
-  const map: Record<SkillSlotId, YggSkill> = {} as any;
+  const bySlot: Partial<Record<SkillSlotId, YggSkill>> = {};
   for (const sk of ygg.allSkills) {
-    if (!sk?.id) continue;
-    map[sk.id] = sk;
+    if (sk && sk.id) bySlot[sk.id] = sk;
   }
 
-  // Optional path name label
   const pathLabel = document.getElementById("yggPathName");
   if (pathLabel && ygg.pathName) {
     pathLabel.textContent = ygg.pathName.toUpperCase();
@@ -267,7 +264,7 @@ function applyYggDomFromState(): void {
 
   const slots: SkillSlotId[] = ["basic", "buff", "aoe", "debuff"];
   for (const id of slots) {
-    const skill = map[id];
+    const skill = bySlot[id];
     if (!skill) continue;
 
     const card = document.querySelector<HTMLElement>(`[data-ygg-slot="${id}"]`);
@@ -276,28 +273,23 @@ function applyYggDomFromState(): void {
     const nameEl =
       card.querySelector<HTMLElement>(".ygg-name") ||
       card.querySelector<HTMLElement>(".ygg-title");
-    const tagEl  =
-      card.querySelector<HTMLElement>(".ygg-tag") || null;
     const descEl =
       card.querySelector<HTMLElement>(".ygg-desc") ||
       card.querySelector<HTMLElement>(".ygg-text") ||
       card.querySelector<HTMLElement>(".ygg-body");
+    const tagEl = card.querySelector<HTMLElement>(".ygg-tag");
     const iconEl = card.querySelector<HTMLImageElement>("img.ygg-icon");
 
     if (nameEl) nameEl.textContent = skill.name.toUpperCase();
     if (descEl) descEl.textContent = skill.desc;
 
-    // If your JSON has a short tag (e.g. "BUFF", "AOE") you can extend YggSkill to include it;
-    // for now we just leave existing tag text alone unless you later add `skill.tag`.
+    // Optional: if you later add `tag` to YggSkill
     if ((skill as any).tag && tagEl) {
       tagEl.textContent = String((skill as any).tag);
     }
 
     if (iconEl && skill.icon) {
-      // Avoid reloading if already correct
-      if (!iconEl.src.endsWith(skill.icon)) {
-        iconEl.src = skill.icon;
-      }
+      iconEl.src = skill.icon;
     }
   }
 }
@@ -341,7 +333,7 @@ async function refreshYggForCurrentHero(): Promise<void> {
     allSkills: allWithIcons,
   };
 
-  // Push the current class’ skills into the on-screen Yggdrasil modal, if present.
+  // Update any existing modal DOM for this path
   applyYggDomFromState();
 
   log(
@@ -922,7 +914,7 @@ function stopIdleTick() {
       { command: 'VADev.class("shieldmaiden")', desc: "Force class" },
       { command: "VADev.resetClass()", desc: "Clear class + hero name" },
       { command: "VADev.resetQuests()", desc: "Wipe quests/vars/race" },
-      { command: "VADev.resetInventory()", desc: "Empty inventory (local + UI)" }, // 🔹 NEW
+      { command: "VADev.resetInventory()", desc: "Empty inventory (local + UI)" },
       { command: 'VADev.tick("off")', desc: "Stop idle backend tick" },
       { command: "VADev.where()", desc: "Show current + last location" },
     ]);
@@ -951,6 +943,24 @@ async function boot() {
   safeEl("trainDefense")?.addEventListener("click", () => train("defense"));
   safeEl("trainSpeed")?.addEventListener("click", () => train("speed"));
 
+  // When the Yggdrasil modal opens, update it with current class skills.
+  const yggIds = ["yggBtn", "yggdrasilBtn", "yggdrasilSkillBtn"];
+  for (const id of yggIds) {
+    const btn = safeEl<HTMLButtonElement>(id);
+    if (btn) {
+      btn.addEventListener("click", () => {
+        // allow any modal code to run first
+        setTimeout(() => applyYggDomFromState(), 0);
+      });
+      break;
+    }
+  }
+
+  // optional custom event from other scripts
+  window.addEventListener("va-ygg-open", () => {
+    applyYggDomFromState();
+  });
+
   // Idle tick every 10s (can be toggled via /tick off or VADev.tick("off"))
   startIdleTick();
 
@@ -958,6 +968,8 @@ async function boot() {
 }
 
 boot().catch(e => log(e.message, "bad"));
+
+
 
 
 
