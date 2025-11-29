@@ -482,21 +482,39 @@ async function renderArena() {
   const m = state.me;
   if (!m) return;
 
+  // 🔹 Make sure arena "Me" health matches the global hero HP
+  try {
+    const hero = VAHeroRead();
+    if (hero && typeof hero.health === "number") {
+      m.health = hero.health;        // keep Me in sync
+    }
+  } catch {
+    // if VAHeroRead fails, just fall back to m.health
+  }
+
   const heroName = getHeroNameFromLocal(m);
   safeSetText("heroName", heroName);
 
   // keep state.me.name in sync so Dev tools / backend see it
   m.name = heroName;
+
+  // 🔹 Level: prefer VAHero.level, fall back to backend
   try {
-  const hero = VAHeroRead();
-  safeSetText("level", String(hero.level ?? m.level));
-} catch {
-  safeSetText("level", String(m.level));
-}
+    const hero = VAHeroRead();
+    safeSetText("level", String(hero.level ?? m.level));
+  } catch {
+    safeSetText("level", String(m.level));
+  }
+
   safeSetText("gold", String(m.gold));
   safeSetText("strength", String(m.power));
   safeSetText("defense", String(m.defense));
-  safeSetText("health", String((m as any).health ?? 0));
+
+  // 🔹 Health: now uses the synced value (same as BR)
+  let hpDisplay = (m as any).health ?? 0;
+  if (hpDisplay < 0) hpDisplay = 0;
+  safeSetText("health", String(hpDisplay));
+
   safeSetText("speed", String(m.speed));
   safeSetText("points", String(m.points ?? 0));
 
@@ -506,6 +524,7 @@ async function renderArena() {
   const xpBar = safeEl<HTMLSpanElement>("xpBar");
   if (xpBar) xpBar.style.width = Math.min(100, (m.xp / need) * 100) + "%";
 
+  // BR already uses VAHeroRead().health — keep as-is
   safeSetText("battleRating", "BATTLE RATING " + clientBattleRating(m));
 
   updateAvatar();
@@ -513,6 +532,7 @@ async function renderArena() {
   // also refresh which Yggdrasil skills are unlocked for this hero
   await refreshYggForCurrentHero();
 }
+
 
 /* =========================================================
    ALLOCATION
