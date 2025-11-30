@@ -119,7 +119,7 @@ function openImageOverlay(url: string, alt = "Image") {
   overlay.style.cssText = `
     position:fixed; inset:0; background:rgba(0,0,0,.7);
     display:flex; align-items:center; justify-content:center;
-    z-index: 100001; /* above inventory */
+    z-index: 100001;
   `;
   overlay.innerHTML = `
     <div style="position:relative">
@@ -156,7 +156,6 @@ function renderGrid(items: InvItem[]) {
   if (!grid) return;
   grid.innerHTML = "";
 
-  // copy then pad to capacity with empties
   const slots: (InvItem | null)[] = items.slice(0, CAPACITY);
   while (slots.length < CAPACITY) slots.push(null);
 
@@ -204,7 +203,7 @@ function add(id: string, name: string, icon: string, qty: number): number {
   if (qty <= 0) return 0;
   const items = load();
 
-  // 1) fill existing stacks
+  // fill existing stacks
   for (const it of items) {
     if (it.id === id && it.qty < STACK_MAX) {
       const can = Math.min(STACK_MAX - it.qty, qty);
@@ -213,7 +212,7 @@ function add(id: string, name: string, icon: string, qty: number): number {
       if (qty <= 0) break;
     }
   }
-  // 2) create new stacks while space & qty
+  // create new stacks
   while (qty > 0 && items.length < CAPACITY) {
     const take = Math.min(STACK_MAX, qty);
     items.push({ id, name, icon, qty: take });
@@ -222,10 +221,10 @@ function add(id: string, name: string, icon: string, qty: number): number {
 
   save(items);
   setBadge(items);
-  renderGrid(items); // harmless if modal closed
+  renderGrid(items);
   if (qty > 0) toast("Bag is full — some items dropped!");
   else toast(`${name} added to bag`);
-  return qty; // leftover (0 if fully added)
+  return qty;
 }
 
 function removeAt(index: number, amount: number) {
@@ -241,7 +240,7 @@ function removeAt(index: number, amount: number) {
 
 /* ========= NEW: helpers for potions / crafting ========= */
 
-// total quantity of a given item id
+// total quantity
 function count(id: string): number {
   const items = load();
   let total = 0;
@@ -251,18 +250,17 @@ function count(id: string): number {
   return total;
 }
 
-// convenience check
+// convenience
 function has(id: string, qty = 1): boolean {
   return count(id) >= qty;
 }
 
-// consume a quantity across stacks; returns leftover (0 if fully removed)
+// remove across stacks
 function consume(id: string, qty: number): number {
   if (qty <= 0) return 0;
   const items = load();
   let remaining = qty;
 
-  // walk from the END so newest stacks are removed last or first, as you prefer
   for (let i = items.length - 1; i >= 0 && remaining > 0; i--) {
     const it = items[i];
     if (it.id !== id) continue;
@@ -288,12 +286,36 @@ export const Inventory = {
     setBadge(load());
   },
   add,
+
+  // 🔥 REQUIRED BY CAULDRON — FIXED
+  removeById(id: string, qty: number) {
+    if (qty <= 0) return;
+
+    const items = load();
+    let remaining = qty;
+
+    for (let i = items.length - 1; i >= 0 && remaining > 0; i--) {
+      const it = items[i];
+      if (it.id !== id) continue;
+
+      const take = Math.min(it.qty, remaining);
+      it.qty -= take;
+      remaining -= take;
+
+      if (it.qty <= 0) {
+        items.splice(i, 1);
+      }
+    }
+
+    save(items);
+    setBadge(items);
+    renderGrid(items);
+  },
+
   removeAt,
-  // full list of items
   get() {
     return load();
   },
-  // NEW helpers used by cauldron / crafting
   count,
   has,
   consume,
@@ -303,4 +325,5 @@ export const Inventory = {
   CAPACITY,
   STACK_MAX,
 };
+
 
