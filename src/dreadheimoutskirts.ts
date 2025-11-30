@@ -44,6 +44,19 @@ const HERO_WALK_RIGHT_URLS: string[] =
   );
 
 /* =========================================================
+   WITCH ANIMATION (idle_000–idle_008.png)
+   ========================================================= */
+
+const WITCH_IDLE_URLS: string[] = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/npcs/dreadheim-witch/idle_${i.toString().padStart(3, "0")}.png`
+);
+
+let witchFrames: HTMLImageElement[] = [];
+let witchFrameIndex = 0;
+let witchFrameTime = 0;
+const WITCH_FRAME_MS = 140; // slower = creepier
+
+/* =========================================================
    ASSETS
    ========================================================= */
 
@@ -51,7 +64,6 @@ const ASSETS = {
   ground: "/guildbook/maps/witchy-ground.png",
   hut: "/guildbook/props/witch-hut.png",
   inside: "/guildbook/props/insidewitchhut.png", // interior image
-  witch: "/guildbook/npcs/dreadheim-witch.png", // evil-beautiful witch (transparent PNG)
 };
 
 /* =========================================================
@@ -165,7 +177,6 @@ let groundPattern: CanvasPattern | null = null;
 
 let hutImg: HTMLImageElement | null = null;
 let insideImg: HTMLImageElement | null = null;
-let witchImg: HTMLImageElement | null = null;
 
 const HUT_SCALE = 0.55;
 
@@ -375,6 +386,15 @@ function step(ts: number) {
     heroFrameIndex++;
   }
 
+  // update witch animation (inside only)
+  if (mapMode === "inside" && witchFrames.length) {
+    witchFrameTime += dt;
+    while (witchFrameTime >= WITCH_FRAME_MS) {
+      witchFrameTime -= WITCH_FRAME_MS;
+      witchFrameIndex = (witchFrameIndex + 1) % witchFrames.length;
+    }
+  }
+
   /* ---------- draw ---------- */
 
   ctx!.clearRect(0, 0, cw, ch);
@@ -422,10 +442,13 @@ function step(ts: number) {
     // === INSIDE: draw interior BG full-screen ===
     ctx!.drawImage(insideImg!, 0, 0, cw, ch);
 
+    let witchFrame: HTMLImageElement | null =
+      witchFrames.length > 0 ? witchFrames[witchFrameIndex % witchFrames.length] : null;
+
     // compute witch rect (scaled to room size)
-    if (witchImg) {
-      const rawW = witchImg.width;
-      const rawH = witchImg.height;
+    if (witchFrame) {
+      const rawW = witchFrame.width;
+      const rawH = witchFrame.height;
 
       const desiredH = ch * 0.5; // height scaling
       const scale = desiredH / rawH;
@@ -436,7 +459,7 @@ function step(ts: number) {
       witchRect.y = ch - witchRect.h - 40; // stand slightly above bottom
     }
 
-    if (frame && witchImg && witchRect.w > 0 && witchRect.h > 0) {
+    if (frame && witchFrame && witchRect.w > 0 && witchRect.h > 0) {
       const heroFeetY = heroY + HERO_H;
       const witchFeetY = witchRect.y + witchRect.h;
 
@@ -444,7 +467,7 @@ function step(ts: number) {
         // hero "behind" witch
         drawHero(frame);
         ctx!.drawImage(
-          witchImg,
+          witchFrame,
           witchRect.x,
           witchRect.y,
           witchRect.w,
@@ -453,7 +476,7 @@ function step(ts: number) {
       } else {
         // hero in front of witch
         ctx!.drawImage(
-          witchImg,
+          witchFrame,
           witchRect.x,
           witchRect.y,
           witchRect.w,
@@ -491,10 +514,10 @@ async function init() {
       ASSETS.ground,
       ASSETS.hut,
       ASSETS.inside,
-      ASSETS.witch,
       ...HERO_IDLE_URLS,
       ...HERO_WALK_LEFT_URLS,
       ...HERO_WALK_RIGHT_URLS,
+      ...WITCH_IDLE_URLS,
     ];
 
     const imgs = await Promise.all(urls.map(loadImage));
@@ -503,13 +526,13 @@ async function init() {
     groundImg = imgs[idx++];
     hutImg = imgs[idx++];
     insideImg = imgs[idx++];
-    witchImg = imgs[idx++];
 
     groundPattern = ctx!.createPattern(groundImg!, "repeat");
 
     const idleCount = HERO_IDLE_URLS.length;
     const walkLeftCount = HERO_WALK_LEFT_URLS.length;
     const walkRightCount = HERO_WALK_RIGHT_URLS.length;
+    const witchCount = WITCH_IDLE_URLS.length;
 
     heroIdleFrames = imgs.slice(idx, idx + idleCount);
     idx += idleCount;
@@ -519,6 +542,9 @@ async function init() {
 
     heroWalkRightFrames = imgs.slice(idx, idx + walkRightCount);
     idx += walkRightCount;
+
+    witchFrames = imgs.slice(idx, idx + witchCount);
+    idx += witchCount;
 
     heroFallbackImg =
       heroIdleFrames[0] ||
@@ -541,6 +567,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
