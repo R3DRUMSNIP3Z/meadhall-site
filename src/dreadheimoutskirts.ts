@@ -1,6 +1,6 @@
 // /src/dreadheimoutskirts.ts
 // Dreadheim • Outskirts + Witch Hut Interior (single page, mode-switching)
-// Requires /src/global-game-setup.ts to set va_gender BEFORE this script.
+// Requires /src/global-game-setup.ts (for VAQ + class-aware hero anim helpers).
 
 const canvas = document.getElementById("map") as HTMLCanvasElement | null;
 if (!canvas) throw new Error("#map canvas not found");
@@ -18,42 +18,41 @@ let mapMode: MapMode = "outside";
 let pendingSpawnAtDoor = false;
 
 /* =========================================================
-   GENDER + HERO PREFIX
+   CLASS-AWARE HERO ANIM URLS (same system as Perimeters)
    ========================================================= */
 
-const g = localStorage.getItem("va_gender");
-const HERO_PREFIX_ROOT = g === "female" ? "Warrior_01__" : "Viking_01__";
+const HERO_IDLE_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("idle") ??
+  Array.from({ length: 9 }, (_, i) =>
+    `/guildbook/avatars/shieldmaiden/sm_${i.toString().padStart(3, "0")}.png`
+  );
+
+const HERO_WALK_LEFT_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("walkLeft") ??
+  Array.from({ length: 9 }, (_, i) =>
+    `/guildbook/avatars/shieldmaiden/leftwalk_${i
+      .toString()
+      .padStart(3, "0")}.png`
+  );
+
+const HERO_WALK_RIGHT_URLS: string[] =
+  (window as any).getHeroAnimUrls?.("walkRight") ??
+  Array.from({ length: 9 }, (_, i) =>
+    `/guildbook/avatars/shieldmaiden/rightwalk_${i
+      .toString()
+      .padStart(3, "0")}.png`
+  );
 
 /* =========================================================
    ASSETS
    ========================================================= */
 
-type HeroAnimName = "idle" | "walk" | "run" | "attack" | "hurt" | "die" | "jump";
-
-const HERO_ANIM_SPECS: Record<HeroAnimName, { suffix: string; count: number }> =
-  {
-    idle: { suffix: "IDLE_", count: 10 },
-    walk: { suffix: "WALK_", count: 10 },
-    run: { suffix: "RUN_", count: 10 },
-    attack: { suffix: "ATTACK_", count: 10 },
-    hurt: { suffix: "HURT_", count: 10 },
-    die: { suffix: "DIE_", count: 10 },
-    jump: { suffix: "JUMP_", count: 10 },
-  };
-
-// only need idle + walk here (faster load)
-const ANIMS_FOR_THIS_MAP: HeroAnimName[] = ["idle", "walk"];
-
 const ASSETS = {
   ground: "/guildbook/maps/witchy-ground.png",
   hut: "/guildbook/props/witch-hut.png",
   inside: "/guildbook/props/insidewitchhut.png", // interior image
-} as const;
-
-// Witch idle animation frames (the folder you showed)
-const WITCH_IDLE_URLS: string[] = Array.from({ length: 9 }, (_, i) =>
-  `/guildbook/npcs/dreadheim-witch/idle_${i.toString().padStart(3, "0")}.png`
-);
+  witch: "/guildbook/npcs/dreadheim-witch.png", // evil-beautiful witch (transparent PNG)
+};
 
 /* =========================================================
    EXITS / WARP (ONLY OUTSIDE)
@@ -93,7 +92,7 @@ function warpTo(url: string) {
 }
 
 /* =========================================================
-   HERO + MOVEMENT + ANIMATION
+   HERO + MOVEMENT + ANIMATION (class-aware)
    ========================================================= */
 
 const HERO_W = 150;
@@ -114,73 +113,27 @@ window.addEventListener("keyup", (ev) => {
   keys[ev.key] = false;
 });
 
-type HeroAnimations = Record<HeroAnimName, HTMLImageElement[]>;
-const heroAnims: HeroAnimations = {
-  idle: [],
-  walk: [],
-  run: [],
-  attack: [],
-  hurt: [],
-  die: [],
-  jump: [],
-};
+let heroIdleFrames: HTMLImageElement[] = [];
+let heroWalkLeftFrames: HTMLImageElement[] = [];
+let heroWalkRightFrames: HTMLImageElement[] = [];
+let heroFallbackImg: HTMLImageElement | null = null;
 
-type HeroAnimState = {
-  action: HeroAnimName;
-  frameIndex: number;
-  frameTimeMs: number;
-};
+type HeroAction = "idle" | "walk";
 
-const heroAnimState: HeroAnimState = {
-  action: "idle",
-  frameIndex: 0,
-  frameTimeMs: 0,
-};
-
-const FRAME_DURATION_MS = 90;
-
-function pickHeroActionFromInput(): HeroAnimName {
-  const moving =
-    keys["ArrowLeft"] ||
-    keys["a"] ||
-    keys["A"] ||
-    keys["ArrowRight"] ||
-    keys["d"] ||
-    keys["D"] ||
-    keys["ArrowUp"] ||
-    keys["w"] ||
-    keys["W"] ||
-    keys["ArrowDown"] ||
-    keys["s"] ||
-    keys["S"];
-
-  return moving ? "walk" : "idle";
-}
-
-function updateHeroAnimation(dtMs: number) {
-  const desired = pickHeroActionFromInput();
-
-  if (heroAnimState.action !== desired) {
-    heroAnimState.action = desired;
-    heroAnimState.frameIndex = 0;
-    heroAnimState.frameTimeMs = 0;
-  }
-
-  const frames = heroAnims[heroAnimState.action];
-  if (!frames || frames.length === 0) return;
-
-  heroAnimState.frameTimeMs += dtMs;
-  while (heroAnimState.frameTimeMs >= FRAME_DURATION_MS) {
-    heroAnimState.frameTimeMs -= FRAME_DURATION_MS;
-    heroAnimState.frameIndex =
-      (heroAnimState.frameIndex + 1) % frames.length;
-  }
-}
+let heroAction: HeroAction = "idle";
+let heroFrameIndex = 0;
+let heroFrameTimeMs = 0;
+const HERO_FRAME_DURATION_MS = 100;
 
 function getCurrentHeroFrame(): HTMLImageElement | null {
-  const frames = heroAnims[heroAnimState.action];
-  if (!frames || frames.length === 0) return null;
-  return frames[heroAnimState.frameIndex] || frames[0];
+  let frames: HTMLImageElement[] = [];
+  if (heroAction === "walk") {
+    frames = heroFacing === -1 ? heroWalkLeftFrames : heroWalkRightFrames;
+  } else {
+    frames = heroIdleFrames;
+  }
+  if (!frames.length) return heroFallbackImg;
+  return frames[heroFrameIndex % frames.length] || frames[0] || heroFallbackImg;
 }
 
 // helper so we don't repeat draw logic
@@ -212,12 +165,7 @@ let groundPattern: CanvasPattern | null = null;
 
 let hutImg: HTMLImageElement | null = null;
 let insideImg: HTMLImageElement | null = null;
-
-// witch animation frames
-let witchFrames: HTMLImageElement[] = [];
-let witchFrameIndex = 0;
-let witchFrameTimeMs = 0;
-const WITCH_FRAME_DURATION_MS = 140;
+let witchImg: HTMLImageElement | null = null;
 
 const HUT_SCALE = 0.55;
 
@@ -326,7 +274,7 @@ let started = false;
 let lastTs = 0;
 
 function step(ts: number) {
-  if (!groundPattern || !insideImg || heroAnims.idle.length === 0) {
+  if (!groundPattern || !insideImg || heroIdleFrames.length === 0) {
     requestAnimationFrame(step);
     return;
   }
@@ -391,6 +339,10 @@ function step(ts: number) {
 
     if (stepX < 0) heroFacing = -1;
     if (stepX > 0) heroFacing = 1;
+
+    heroAction = "walk";
+  } else {
+    heroAction = "idle";
   }
 
   // clamp inside screen
@@ -416,16 +368,11 @@ function step(ts: number) {
     }
   }
 
-  // update animation
-  updateHeroAnimation(dt);
-
-  // update witch animation (inside only)
-  if (mapMode === "inside" && witchFrames.length > 0) {
-    witchFrameTimeMs += dt;
-    while (witchFrameTimeMs >= WITCH_FRAME_DURATION_MS) {
-      witchFrameTimeMs -= WITCH_FRAME_DURATION_MS;
-      witchFrameIndex = (witchFrameIndex + 1) % witchFrames.length;
-    }
+  // update hero animation frames
+  heroFrameTimeMs += dt;
+  while (heroFrameTimeMs >= HERO_FRAME_DURATION_MS) {
+    heroFrameTimeMs -= HERO_FRAME_DURATION_MS;
+    heroFrameIndex++;
   }
 
   /* ---------- draw ---------- */
@@ -465,11 +412,6 @@ function step(ts: number) {
         );
         drawHero(frame);
       }
-
-      // DEBUG door hitbox
-      // ctx!.strokeStyle = "rgba(0, 200, 255, 0.9)";
-      // ctx!.lineWidth = 2;
-      // ctx!.strokeRect(doorRect.x, doorRect.y, doorRect.w, doorRect.h);
     } else if (frame) {
       // fallback if hut missing
       ctx!.fillStyle = groundPattern!;
@@ -480,16 +422,10 @@ function step(ts: number) {
     // === INSIDE: draw interior BG full-screen ===
     ctx!.drawImage(insideImg!, 0, 0, cw, ch);
 
-    // pick current witch frame
-    const witchFrame =
-      witchFrames.length > 0
-        ? witchFrames[witchFrameIndex % witchFrames.length]
-        : null;
-
     // compute witch rect (scaled to room size)
-    if (witchFrame) {
-      const rawW = witchFrame.width;
-      const rawH = witchFrame.height;
+    if (witchImg) {
+      const rawW = witchImg.width;
+      const rawH = witchImg.height;
 
       const desiredH = ch * 0.5; // height scaling
       const scale = desiredH / rawH;
@@ -498,12 +434,9 @@ function step(ts: number) {
       witchRect.h = desiredH;
       witchRect.x = cw - witchRect.w - 120; // near right wall
       witchRect.y = ch - witchRect.h - 40; // stand slightly above bottom
-    } else {
-      witchRect.w = 0;
-      witchRect.h = 0;
     }
 
-    if (frame && witchFrame && witchRect.w > 0 && witchRect.h > 0) {
+    if (frame && witchImg && witchRect.w > 0 && witchRect.h > 0) {
       const heroFeetY = heroY + HERO_H;
       const witchFeetY = witchRect.y + witchRect.h;
 
@@ -511,7 +444,7 @@ function step(ts: number) {
         // hero "behind" witch
         drawHero(frame);
         ctx!.drawImage(
-          witchFrame,
+          witchImg,
           witchRect.x,
           witchRect.y,
           witchRect.w,
@@ -520,7 +453,7 @@ function step(ts: number) {
       } else {
         // hero in front of witch
         ctx!.drawImage(
-          witchFrame,
+          witchImg,
           witchRect.x,
           witchRect.y,
           witchRect.w,
@@ -531,18 +464,6 @@ function step(ts: number) {
     } else if (frame) {
       drawHero(frame);
     }
-
-    // DEBUG witch hitbox
-    // if (witchRect.w > 0) {
-    //   ctx!.strokeStyle = "rgba(255, 0, 150, 0.7)";
-    //   ctx!.lineWidth = 2;
-    //   ctx!.strokeRect(
-    //     witchRect.x - WITCH_HIT_MARGIN,
-    //     witchRect.y - WITCH_HIT_MARGIN,
-    //     witchRect.w + WITCH_HIT_MARGIN * 2,
-    //     witchRect.h + WITCH_HIT_MARGIN * 2
-    //   );
-    // }
   }
 
   requestAnimationFrame(step);
@@ -561,53 +482,49 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-async function loadHeroAnimations(): Promise<void> {
-  const entries = ANIMS_FOR_THIS_MAP.map(
-    (name) =>
-      [name, HERO_ANIM_SPECS[name]] as [
-        HeroAnimName,
-        { suffix: string; count: number }
-      ]
-  );
-
-  for (const [name, spec] of entries) {
-    const frames: HTMLImageElement[] = [];
-    for (let i = 0; i < spec.count; i++) {
-      const indexStr = i.toString().padStart(3, "0");
-      const path = `/guildbook/avatars/${HERO_PREFIX_ROOT}${spec.suffix}${indexStr}.png`;
-
-      try {
-        const img = await loadImage(path);
-        frames.push(img);
-      } catch {
-        console.warn("Missing frame for", name, path);
-      }
-    }
-    heroAnims[name] = frames;
-  }
-}
-
 async function init() {
   if (started) return;
   started = true;
 
   try {
-    // ground + hut + inside + all witch frames
-    const imgs = await Promise.all(
-      [ASSETS.ground, ASSETS.hut, ASSETS.inside, ...WITCH_IDLE_URLS].map(
-        (src) => loadImage(src)
-      )
-    );
+    const urls = [
+      ASSETS.ground,
+      ASSETS.hut,
+      ASSETS.inside,
+      ASSETS.witch,
+      ...HERO_IDLE_URLS,
+      ...HERO_WALK_LEFT_URLS,
+      ...HERO_WALK_RIGHT_URLS,
+    ];
+
+    const imgs = await Promise.all(urls.map(loadImage));
 
     let idx = 0;
     groundImg = imgs[idx++];
     hutImg = imgs[idx++];
     insideImg = imgs[idx++];
-    witchFrames = imgs.slice(idx, idx + WITCH_IDLE_URLS.length);
+    witchImg = imgs[idx++];
 
     groundPattern = ctx!.createPattern(groundImg!, "repeat");
 
-    await loadHeroAnimations();
+    const idleCount = HERO_IDLE_URLS.length;
+    const walkLeftCount = HERO_WALK_LEFT_URLS.length;
+    const walkRightCount = HERO_WALK_RIGHT_URLS.length;
+
+    heroIdleFrames = imgs.slice(idx, idx + idleCount);
+    idx += idleCount;
+
+    heroWalkLeftFrames = imgs.slice(idx, idx + walkLeftCount);
+    idx += walkLeftCount;
+
+    heroWalkRightFrames = imgs.slice(idx, idx + walkRightCount);
+    idx += walkRightCount;
+
+    heroFallbackImg =
+      heroIdleFrames[0] ||
+      heroWalkLeftFrames[0] ||
+      heroWalkRightFrames[0] ||
+      null;
 
     // Start hero in bottom-left corner (outside)
     const MARGIN_X = 40;
@@ -624,6 +541,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
