@@ -30,15 +30,16 @@ const HERO_PREFIX_ROOT = g === "female" ? "Warrior_01__" : "Viking_01__";
 
 type HeroAnimName = "idle" | "walk" | "run" | "attack" | "hurt" | "die" | "jump";
 
-const HERO_ANIM_SPECS: Record<HeroAnimName, { suffix: string; count: number }> = {
-  idle:   { suffix: "IDLE_",   count: 10 },
-  walk:   { suffix: "WALK_",   count: 10 },
-  run:    { suffix: "RUN_",    count: 10 },
-  attack: { suffix: "ATTACK_", count: 10 },
-  hurt:   { suffix: "HURT_",   count: 10 },
-  die:    { suffix: "DIE_",    count: 10 },
-  jump:   { suffix: "JUMP_",   count: 10 },
-};
+const HERO_ANIM_SPECS: Record<HeroAnimName, { suffix: string; count: number }> =
+  {
+    idle: { suffix: "IDLE_", count: 10 },
+    walk: { suffix: "WALK_", count: 10 },
+    run: { suffix: "RUN_", count: 10 },
+    attack: { suffix: "ATTACK_", count: 10 },
+    hurt: { suffix: "HURT_", count: 10 },
+    die: { suffix: "DIE_", count: 10 },
+    jump: { suffix: "JUMP_", count: 10 },
+  };
 
 // only need idle + walk here (faster load)
 const ANIMS_FOR_THIS_MAP: HeroAnimName[] = ["idle", "walk"];
@@ -47,8 +48,12 @@ const ASSETS = {
   ground: "/guildbook/maps/witchy-ground.png",
   hut: "/guildbook/props/witch-hut.png",
   inside: "/guildbook/props/insidewitchhut.png", // interior image
-  witch: "/guildbook/npcs/dreadheim-witch.png",  // evil-beautiful witch (transparent PNG)
-};
+} as const;
+
+// Witch idle animation frames (the folder you showed)
+const WITCH_IDLE_URLS: string[] = Array.from({ length: 9 }, (_, i) =>
+  `/guildbook/npcs/dreadheim-witch/idle_${i.toString().padStart(3, "0")}.png`
+);
 
 /* =========================================================
    EXITS / WARP (ONLY OUTSIDE)
@@ -111,7 +116,13 @@ window.addEventListener("keyup", (ev) => {
 
 type HeroAnimations = Record<HeroAnimName, HTMLImageElement[]>;
 const heroAnims: HeroAnimations = {
-  idle: [], walk: [], run: [], attack: [], hurt: [], die: [], jump: [],
+  idle: [],
+  walk: [],
+  run: [],
+  attack: [],
+  hurt: [],
+  die: [],
+  jump: [],
 };
 
 type HeroAnimState = {
@@ -130,10 +141,18 @@ const FRAME_DURATION_MS = 90;
 
 function pickHeroActionFromInput(): HeroAnimName {
   const moving =
-    keys["ArrowLeft"] || keys["a"] || keys["A"] ||
-    keys["ArrowRight"] || keys["d"] || keys["D"] ||
-    keys["ArrowUp"] || keys["w"] || keys["W"] ||
-    keys["ArrowDown"] || keys["s"] || keys["S"];
+    keys["ArrowLeft"] ||
+    keys["a"] ||
+    keys["A"] ||
+    keys["ArrowRight"] ||
+    keys["d"] ||
+    keys["D"] ||
+    keys["ArrowUp"] ||
+    keys["w"] ||
+    keys["W"] ||
+    keys["ArrowDown"] ||
+    keys["s"] ||
+    keys["S"];
 
   return moving ? "walk" : "idle";
 }
@@ -193,7 +212,12 @@ let groundPattern: CanvasPattern | null = null;
 
 let hutImg: HTMLImageElement | null = null;
 let insideImg: HTMLImageElement | null = null;
-let witchImg: HTMLImageElement | null = null;
+
+// witch animation frames
+let witchFrames: HTMLImageElement[] = [];
+let witchFrameIndex = 0;
+let witchFrameTimeMs = 0;
+const WITCH_FRAME_DURATION_MS = 140;
 
 const HUT_SCALE = 0.55;
 
@@ -246,7 +270,6 @@ function openQuestDialogue(questId: string) {
         // should be handled by the catalog actions in catalogquests.json.
         runDialogue(quest, () => {
           // optional: anything you want to run *after* dialogue closes
-          // (we can hook quest vars here later if needed)
         });
         return;
       }
@@ -327,7 +350,7 @@ function step(ts: number) {
     hutRectFull.h = drawH;
 
     // --- compute door rect inside hut ---
-    const DOOR_WIDTH_RATIO  = 0.18;
+    const DOOR_WIDTH_RATIO = 0.18;
     const DOOR_HEIGHT_RATIO = 0.45;
     const DOOR_CENTER_X_RATIO = 0.5;
     const DOOR_TOP_RATIO = 0.55;
@@ -396,6 +419,15 @@ function step(ts: number) {
   // update animation
   updateHeroAnimation(dt);
 
+  // update witch animation (inside only)
+  if (mapMode === "inside" && witchFrames.length > 0) {
+    witchFrameTimeMs += dt;
+    while (witchFrameTimeMs >= WITCH_FRAME_DURATION_MS) {
+      witchFrameTimeMs -= WITCH_FRAME_DURATION_MS;
+      witchFrameIndex = (witchFrameIndex + 1) % witchFrames.length;
+    }
+  }
+
   /* ---------- draw ---------- */
 
   ctx!.clearRect(0, 0, cw, ch);
@@ -446,12 +478,18 @@ function step(ts: number) {
     }
   } else {
     // === INSIDE: draw interior BG full-screen ===
-    ctx!.drawImage(insideImg, 0, 0, cw, ch);
+    ctx!.drawImage(insideImg!, 0, 0, cw, ch);
+
+    // pick current witch frame
+    const witchFrame =
+      witchFrames.length > 0
+        ? witchFrames[witchFrameIndex % witchFrames.length]
+        : null;
 
     // compute witch rect (scaled to room size)
-    if (witchImg) {
-      const rawW = witchImg.width;
-      const rawH = witchImg.height;
+    if (witchFrame) {
+      const rawW = witchFrame.width;
+      const rawH = witchFrame.height;
 
       const desiredH = ch * 0.5; // height scaling
       const scale = desiredH / rawH;
@@ -459,20 +497,35 @@ function step(ts: number) {
       witchRect.w = rawW * scale;
       witchRect.h = desiredH;
       witchRect.x = cw - witchRect.w - 120; // near right wall
-      witchRect.y = ch - witchRect.h - 40;  // stand slightly above bottom
+      witchRect.y = ch - witchRect.h - 40; // stand slightly above bottom
+    } else {
+      witchRect.w = 0;
+      witchRect.h = 0;
     }
 
-    if (frame && witchImg && witchRect.w > 0 && witchRect.h > 0) {
+    if (frame && witchFrame && witchRect.w > 0 && witchRect.h > 0) {
       const heroFeetY = heroY + HERO_H;
       const witchFeetY = witchRect.y + witchRect.h;
 
       if (heroFeetY < witchFeetY) {
         // hero "behind" witch
         drawHero(frame);
-        ctx!.drawImage(witchImg, witchRect.x, witchRect.y, witchRect.w, witchRect.h);
+        ctx!.drawImage(
+          witchFrame,
+          witchRect.x,
+          witchRect.y,
+          witchRect.w,
+          witchRect.h
+        );
       } else {
         // hero in front of witch
-        ctx!.drawImage(witchImg, witchRect.x, witchRect.y, witchRect.w, witchRect.h);
+        ctx!.drawImage(
+          witchFrame,
+          witchRect.x,
+          witchRect.y,
+          witchRect.w,
+          witchRect.h
+        );
         drawHero(frame);
       }
     } else if (frame) {
@@ -483,7 +536,12 @@ function step(ts: number) {
     // if (witchRect.w > 0) {
     //   ctx!.strokeStyle = "rgba(255, 0, 150, 0.7)";
     //   ctx!.lineWidth = 2;
-    //   ctx!.strokeRect(witchRect.x - WITCH_HIT_MARGIN, witchRect.y - WITCH_HIT_MARGIN, witchRect.w + WITCH_HIT_MARGIN*2, witchRect.h + WITCH_HIT_MARGIN*2);
+    //   ctx!.strokeRect(
+    //     witchRect.x - WITCH_HIT_MARGIN,
+    //     witchRect.y - WITCH_HIT_MARGIN,
+    //     witchRect.w + WITCH_HIT_MARGIN * 2,
+    //     witchRect.h + WITCH_HIT_MARGIN * 2
+    //   );
     // }
   }
 
@@ -534,18 +592,20 @@ async function init() {
   started = true;
 
   try {
-    const [ground, hut, inside, witch] = await Promise.all([
-      loadImage(ASSETS.ground),
-      loadImage(ASSETS.hut),
-      loadImage(ASSETS.inside),
-      loadImage(ASSETS.witch),
-    ]);
+    // ground + hut + inside + all witch frames
+    const imgs = await Promise.all(
+      [ASSETS.ground, ASSETS.hut, ASSETS.inside, ...WITCH_IDLE_URLS].map(
+        (src) => loadImage(src)
+      )
+    );
 
-    groundImg = ground;
-    groundPattern = ctx!.createPattern(groundImg, "repeat");
-    hutImg = hut;
-    insideImg = inside;
-    witchImg = witch;
+    let idx = 0;
+    groundImg = imgs[idx++];
+    hutImg = imgs[idx++];
+    insideImg = imgs[idx++];
+    witchFrames = imgs.slice(idx, idx + WITCH_IDLE_URLS.length);
+
+    groundPattern = ctx!.createPattern(groundImg!, "repeat");
 
     await loadHeroAnimations();
 
@@ -564,6 +624,7 @@ async function init() {
 init();
 
 export {};
+
 
 
 
