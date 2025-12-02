@@ -119,8 +119,13 @@ let witchFrameIndex = 0;
 let witchFrameTime = 0;
 const WITCH_FRAME_MS = 120;
 
-const WITCH_W = HERO_W; // <<< SAME WIDTH AS HERO
-const WITCH_H = HERO_H * 1.15; // <<< Slightly taller witch
+/* =========================================================
+   WITCH SIZE (MANUAL)
+   ========================================================= */
+
+const WITCH_W = 180;  // << set ANY width you want
+const WITCH_H = 260;  // << set ANY height you want
+
 
 const witchRect = { x: 0, y: 0, w: WITCH_W, h: WITCH_H };
 
@@ -443,6 +448,7 @@ async function init() {
 
 init();
 export {};
+
 
 
 
