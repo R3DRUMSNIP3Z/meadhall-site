@@ -387,12 +387,9 @@ function step(ts: number) {
    DRAW HERO
    ========================================================= */
 function drawHero(frame: HTMLImageElement) {
-  ctx.save();
-  ctx.translate(heroX + HERO_W / 2, heroY);
-  if (heroFacing === -1) ctx.scale(-1, 1);
-  ctx.drawImage(frame, -HERO_W / 2, 0, HERO_W, HERO_H);
-  ctx.restore();
+  ctx!.drawImage(frame, heroX, heroY, HERO_W, HERO_H);
 }
+
 
 /* =========================================================
    LOAD IMAGES
