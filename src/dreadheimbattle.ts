@@ -441,7 +441,7 @@ let shakeMag = 8;
 let impactMs = 0;                 // timer for lunge (ms)
 let impactWho: "player" | "enemy" | null = null;
 
-const SPRITE = { pW: 180, pH: 180, eW: 180, eH: 180 };
+const SPRITE = { pW: 180, pH: 200, eW: 180, eH: 180 };
 
 function startImpact(who: "player" | "enemy") {
   impactWho = who;
