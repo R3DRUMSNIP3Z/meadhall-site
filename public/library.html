@@ -151,7 +151,7 @@
         return [
           {
             id: 'thorvald',
-            title: 'Thorvald Eiriksson ',
+            title: 'Thorvald Eiriksson',
             author: 'Lisa',
             tags: ['Viking','Greenland','Saga'],
             summary: 'A windswept morning above Brattahlíð. Blood in the courtyard, slavers on the road, and a choice that will echo across the fjords.',
@@ -161,6 +161,52 @@
           }
         ];
       }
+    }
+
+    // --- Progress helpers (matches book.ts) ---
+    function getProgressKeyFromSrc(src){
+      let path = src;
+      try { path = new URL(src, location.origin).pathname; } catch {}
+      path = (path.startsWith('/') ? path : '/' + path).toLowerCase();
+      return 'mh_book_progress:' + encodeURIComponent(path);
+    }
+    function getContinueData(items){
+      const last = localStorage.getItem('mh_last_book') || '';
+      if(last){
+        try{
+          const lastPath = new URL(last, location.origin).pathname.toLowerCase();
+          const match = items.find(it => {
+            const s = it?.src || '';
+            if(!s) return false;
+            try { return new URL(s, location.origin).pathname.toLowerCase() === lastPath; } catch { return s === last; }
+          });
+          if(match){
+            const key = getProgressKeyFromSrc(match.src);
+            const page = parseInt(localStorage.getItem(key) || '0', 10) + 1;
+            const updated = localStorage.getItem(key + ':updated') || '';
+            return { item: match, page: Math.max(1, page), updated };
+          }
+        }catch{}
+      }
+
+      let best = null;
+      for(const it of items){
+        if(!it?.src) continue;
+        const key = getProgressKeyFromSrc(it.src);
+        const updated = localStorage.getItem(key + ':updated');
+        if(!updated) continue;
+        if(!best || updated > best.updated){
+          const page = parseInt(localStorage.getItem(key) || '0', 10) + 1;
+          best = { item: it, page: Math.max(1, page), updated };
+        }
+      }
+      return best;
+    }
+    function niceWhen(iso){
+      if(!iso) return '';
+      const d = new Date(iso);
+      if(isNaN(d.getTime())) return '';
+      return d.toLocaleString(undefined, { month:'short', day:'numeric', year:'numeric' });
     }
 
     // --- State ---
@@ -188,17 +234,17 @@
       return ['All', ...Array.from(set).sort((a,b)=>a.localeCompare(b))];
     }
     function matches(it){
-      const q = state.query.trim().toLowerCase();
+      const qv = state.query.trim().toLowerCase();
       const tag = state.tag;
       if(tag !== 'All' && !(it.tags||[]).map(String).includes(tag)) return false;
-      if(!q) return true;
+      if(!qv) return true;
       const hay = [
         it.title||'',
         it.author||'',
         (it.tags||[]).join(' '),
         it.summary||''
       ].join(' • ').toLowerCase();
-      return hay.includes(q);
+      return hay.includes(qv);
     }
     function paginate(list){
       const start = (state.page-1)*state.perPage;
@@ -217,31 +263,62 @@
     }
 
     function card(item) {
-  const el = document.createElement('article');
-  el.className = 'card';
-  const cover = item.cover
-    ? `<img src="${item.cover}" alt="">`
-    : `<div style="color:#aa8a28">📖 Mead Hall</div>`;
-  const tags = (item.tags || [])
-    .map(t => `<span class="t">${t}</span>`)
-    .join('');
-  const readHref = readerUrl(item);
+      const el = document.createElement('article');
+      el.className = 'card';
+      const cover = item.cover
+        ? `<img src="${item.cover}" alt="">`
+        : `<div style="color:#aa8a28">📖 Mead Hall</div>`;
+      const tags = (item.tags || [])
+        .map(t => `<span class="t">${t}</span>`)
+        .join('');
+      const readHref = readerUrl(item);
 
-  el.innerHTML = `
-    <div class="cover">${cover}</div>
-    <div class="head">
-      <h3>${item.title || 'Untitled'}</h3>
-      <div class="meta">${item.author ? 'by ' + item.author : ''}</div>
-    </div>
-    <div class="summary">${item.summary || ''}</div>
-    <div class="tagrow">${tags}</div>
-    <div class="actions">
-      <a class="btn primary" href="${readHref}">Read</a>
-    </div>
-  `;
-  return el;
-}
+      el.innerHTML = `
+        <div class="cover">${cover}</div>
+        <div class="head">
+          <h3>${item.title || 'Untitled'}</h3>
+          <div class="meta">${item.author ? 'by ' + item.author : ''}</div>
+        </div>
+        <div class="summary">${item.summary || ''}</div>
+        <div class="tagrow">${tags}</div>
+        <div class="actions">
+          <a class="btn primary" href="${readHref}">Read</a>
+        </div>
+      `;
+      return el;
+    }
 
+    function continueCard(data){
+      const { item, page, updated } = data;
+      const el = document.createElement('article');
+      el.className = 'card';
+      el.style.borderColor = '#d4a94d';
+      el.style.boxShadow = '0 10px 26px rgba(0,0,0,.45)';
+
+      const cover = item.cover
+        ? `<img src="${item.cover}" alt="">`
+        : `<div style="color:#aa8a28">📖 Mead Hall</div>`;
+
+      const tags = (item.tags || []).map(t => `<span class="t">${t}</span>`).join('');
+      const readHref = readerUrl(item);
+
+      el.innerHTML = `
+        <div class="cover">${cover}</div>
+        <div class="head">
+          <h3>Continue Reading</h3>
+          <div class="meta">${item.title ? item.title : ''}${item.author ? ` • by ${item.author}` : ''}</div>
+        </div>
+        <div class="summary">
+          Last page: <b>${page}</b>
+          ${updated ? `<div style="margin-top:6px;opacity:.85;font-size:.9rem">Updated: ${niceWhen(updated)}</div>` : ''}
+        </div>
+        <div class="tagrow">${tags}</div>
+        <div class="actions">
+          <a class="btn primary" href="${readHref}">Resume</a>
+        </div>
+      `;
+      return el;
+    }
 
     function draw(){
       const filtered = state.all.filter(matches);
@@ -249,8 +326,17 @@
       if(state.page > totalPages) state.page = totalPages;
 
       grid.innerHTML = '';
+
+      // Continue Reading appears only when it makes sense (no filters)
+      if(state.tag === 'All' && !state.query.trim()){
+        const cont = getContinueData(state.all);
+        if(cont){
+          grid.appendChild(continueCard(cont));
+        }
+      }
+
       if(!filtered.length){
-        grid.innerHTML = `<div class="card empty">No stories match your filters.</div>`;
+        grid.innerHTML += `<div class="card empty">No stories match your filters.</div>`;
       }else{
         paginate(filtered).forEach(it => grid.appendChild(card(it)));
       }
@@ -289,3 +375,4 @@
   </script>
 </body>
 </html>
+
