@@ -128,11 +128,21 @@
 
   <script type="module">
     // --- Config: where to open a story ---
-    // We’ll open the generic reader that uses book.ts and reads URL params.
+    // Books (rtf/txt/html) open book.html
+    // Interactive (json) opens story.html when item.type === "interactive"
     function readerUrl(item){
+      const isInteractive = (item.type || 'book') === 'interactive';
+      if (isInteractive) {
+        const u = new URL('/story.html', location.origin);
+        u.searchParams.set('src', item.src);
+        u.searchParams.set('title', item.title || '');
+        if (item.cover) u.searchParams.set('cover', item.cover);
+        return u.pathname + u.search;
+      }
+
       const u = new URL('/book.html', location.origin);
       u.searchParams.set('src', item.src);      // RTF / HTML / TXT under /guildbook/
-      u.searchParams.set('title', item.title);  // for the chrome bar
+      u.searchParams.set('title', item.title || '');  // for the chrome bar
       if (item.cover) u.searchParams.set('cover', item.cover);
       return u.pathname + u.search;
     }
@@ -155,53 +165,97 @@
             author: 'Lisa',
             tags: ['Viking','Greenland','Saga'],
             summary: 'A windswept morning above Brattahlíð. Blood in the courtyard, slavers on the road, and a choice that will echo across the fjords.',
+            type: 'book',
             src: '/guildbook/samplestorythorvald.rtf',
-            cover: '/guildbook/thorvald-cover.jpg',   // optional
-            pdfUrl: '/guildbook/samplestorythorvald.pdf' // optional
+            cover: '/guildbook/thorvald-cover.jpg'
+          },
+          {
+            id: 'vikingstory',
+            title: 'Viking Story Placeholder Name',
+            author: 'Lisa',
+            tags: ['Interactive','Viking'],
+            summary: 'An interactive test story.',
+            type: 'interactive',
+            src: '/guildbook/vikingstory.json',
+            cover: '/guildbook/vikingstory-cover.jpg'
           }
         ];
       }
     }
 
     // --- Progress helpers (matches book.ts) ---
-    function getProgressKeyFromSrc(src){
+    function getBookProgressKeyFromSrc(src){
       let path = src;
       try { path = new URL(src, location.origin).pathname; } catch {}
       path = (path.startsWith('/') ? path : '/' + path).toLowerCase();
       return 'mh_book_progress:' + encodeURIComponent(path);
     }
+    function getStoryProgressKeyFromSrc(src){
+      let path = src;
+      try { path = new URL(src, location.origin).pathname; } catch {}
+      path = (path.startsWith('/') ? path : '/' + path).toLowerCase();
+      return 'mh_story_progress:' + encodeURIComponent(path);
+    }
+
     function getContinueData(items){
-      const last = localStorage.getItem('mh_last_book') || '';
-      if(last){
+      // Prefer "last opened" (book or story)
+      const lastBook = localStorage.getItem('mh_last_book') || '';
+      const lastStory = localStorage.getItem('mh_last_story_src') || '';
+
+      const candidates = [];
+
+      if (lastBook) candidates.push({ kind: 'book', src: lastBook });
+      if (lastStory) candidates.push({ kind: 'interactive', src: lastStory });
+
+      for (const c of candidates) {
         try{
-          const lastPath = new URL(last, location.origin).pathname.toLowerCase();
+          const lastPath = new URL(c.src, location.origin).pathname.toLowerCase();
           const match = items.find(it => {
             const s = it?.src || '';
             if(!s) return false;
-            try { return new URL(s, location.origin).pathname.toLowerCase() === lastPath; } catch { return s === last; }
+            try { return new URL(s, location.origin).pathname.toLowerCase() === lastPath; } catch { return s === c.src; }
           });
           if(match){
-            const key = getProgressKeyFromSrc(match.src);
-            const page = parseInt(localStorage.getItem(key) || '0', 10) + 1;
-            const updated = localStorage.getItem(key + ':updated') || '';
-            return { item: match, page: Math.max(1, page), updated };
+            if ((match.type || 'book') === 'interactive') {
+              const key = getStoryProgressKeyFromSrc(match.src);
+              const node = localStorage.getItem(key) || match?.start || 'start';
+              const updated = localStorage.getItem(key + ':updated') || '';
+              return { item: match, kind: 'interactive', label: node, updated };
+            } else {
+              const key = getBookProgressKeyFromSrc(match.src);
+              const page = parseInt(localStorage.getItem(key) || '0', 10) + 1;
+              const updated = localStorage.getItem(key + ':updated') || '';
+              return { item: match, kind: 'book', label: `Page ${Math.max(1, page)}`, updated };
+            }
           }
         }catch{}
       }
 
+      // Fallback: most recently updated progress among all items
       let best = null;
+
       for(const it of items){
         if(!it?.src) continue;
-        const key = getProgressKeyFromSrc(it.src);
+
+        const isInteractive = (it.type || 'book') === 'interactive';
+        const key = isInteractive ? getStoryProgressKeyFromSrc(it.src) : getBookProgressKeyFromSrc(it.src);
         const updated = localStorage.getItem(key + ':updated');
         if(!updated) continue;
+
         if(!best || updated > best.updated){
-          const page = parseInt(localStorage.getItem(key) || '0', 10) + 1;
-          best = { item: it, page: Math.max(1, page), updated };
+          if (isInteractive) {
+            const node = localStorage.getItem(key) || 'start';
+            best = { item: it, kind: 'interactive', label: node, updated };
+          } else {
+            const page = parseInt(localStorage.getItem(key) || '0', 10) + 1;
+            best = { item: it, kind: 'book', label: `Page ${Math.max(1, page)}`, updated };
+          }
         }
       }
+
       return best;
     }
+
     function niceWhen(iso){
       if(!iso) return '';
       const d = new Date(iso);
@@ -268,9 +322,7 @@
       const cover = item.cover
         ? `<img src="${item.cover}" alt="">`
         : `<div style="color:#aa8a28">📖 Mead Hall</div>`;
-      const tags = (item.tags || [])
-        .map(t => `<span class="t">${t}</span>`)
-        .join('');
+      const tags = (item.tags || []).map(t => `<span class="t">${t}</span>`).join('');
       const readHref = readerUrl(item);
 
       el.innerHTML = `
@@ -289,7 +341,7 @@
     }
 
     function continueCard(data){
-      const { item, page, updated } = data;
+      const { item, label, updated, kind } = data;
       const el = document.createElement('article');
       el.className = 'card';
       el.style.borderColor = '#d4a94d';
@@ -305,11 +357,11 @@
       el.innerHTML = `
         <div class="cover">${cover}</div>
         <div class="head">
-          <h3>Continue Reading</h3>
+          <h3>Continue ${kind === 'interactive' ? 'Story' : 'Reading'}</h3>
           <div class="meta">${item.title ? item.title : ''}${item.author ? ` • by ${item.author}` : ''}</div>
         </div>
         <div class="summary">
-          Last page: <b>${page}</b>
+          Last: <b>${label}</b>
           ${updated ? `<div style="margin-top:6px;opacity:.85;font-size:.9rem">Updated: ${niceWhen(updated)}</div>` : ''}
         </div>
         <div class="tagrow">${tags}</div>
@@ -327,7 +379,7 @@
 
       grid.innerHTML = '';
 
-      // Continue Reading appears only when it makes sense (no filters)
+      // Continue Reading/Story appears only when it makes sense (no filters)
       if(state.tag === 'All' && !state.query.trim()){
         const cont = getContinueData(state.all);
         if(cont){
@@ -375,4 +427,5 @@
   </script>
 </body>
 </html>
+
 
