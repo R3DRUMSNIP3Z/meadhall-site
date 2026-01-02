@@ -1,12 +1,22 @@
 {
   "start": "intro",
+  "meta": {
+    "title": "The Snow Oath",
+    "subtitle": "An interactive Mead Hall tale",
+    "credit": "Written by Lisa",
+    "cover": "/guildbook/vikingstory-cover.jpg"
+  },
   "nodes": {
     "intro": {
       "title": "The Snow Oath",
+      "image": "/guildbook/scenes/courtyard.jpg",
       "text": [
         "Snow bites your lungs as you step into the courtyard.",
         "Blood is fresh on the stones.",
         "From the dark, someone whispers your name."
+      ],
+      "hotspots": [
+        { "label": "DOOR", "x": 74, "y": 42, "w": 16, "h": 34, "to": "hall" }
       ],
       "choices": [
         { "label": "Call out into the night", "to": "callout" },
@@ -15,9 +25,14 @@
     },
 
     "callout": {
+      "title": "The Answering Steps",
+      "image": "/guildbook/scenes/courtyard-night.jpg",
       "text": [
         "Your words vanish into the wind.",
         "Then footsteps answer—slow and certain."
+      ],
+      "hotspots": [
+        { "label": "DOOR", "x": 74, "y": 42, "w": 16, "h": 34, "to": "hall" }
       ],
       "choices": [
         { "label": "Stand your ground", "to": "stand" },
@@ -26,9 +41,15 @@
     },
 
     "search": {
+      "title": "Warm Blood",
+      "image": "/guildbook/scenes/courtyard-blood.jpg",
       "text": [
         "You kneel beside the blood. It’s still warm.",
         "A trail leads toward the stables."
+      ],
+      "hotspots": [
+        { "label": "STABLES", "x": 18, "y": 46, "w": 18, "h": 30, "to": "trail" },
+        { "label": "DOOR", "x": 74, "y": 42, "w": 16, "h": 34, "to": "hall" }
       ],
       "choices": [
         { "label": "Follow the trail", "to": "trail" },
@@ -36,9 +57,46 @@
       ]
     },
 
-    "stand": { "text": ["A silhouette steps forward…"], "choices": [] },
-    "hall":  { "text": ["The doors slam behind you."], "choices": [] },
-    "trail": { "text": ["The trail ends at the river ice."], "choices": [] },
-    "wait":  { "text": ["Minutes pass. Something watches you."], "choices": [] }
+    "stand": {
+      "title": "Silhouette",
+      "image": "/guildbook/scenes/silhouette.jpg",
+      "text": ["A silhouette steps forward…"],
+      "choices": [
+        { "label": "Return to the courtyard", "to": "intro" }
+      ],
+      "end": true
+    },
+
+    "hall": {
+      "title": "Inside the Hall",
+      "image": "/guildbook/scenes/hall-inside.jpg",
+      "text": ["The doors slam behind you."],
+      "hotspots": [
+        { "label": "EXIT", "x": 6, "y": 58, "w": 16, "h": 30, "to": "intro" }
+      ],
+      "choices": [
+        { "label": "Gather yourself and step back out", "to": "intro" }
+      ]
+    },
+
+    "trail": {
+      "title": "River Ice",
+      "image": "/guildbook/scenes/river-ice.jpg",
+      "text": ["The trail ends at the river ice."],
+      "choices": [
+        { "label": "Return to the courtyard", "to": "intro" }
+      ],
+      "end": true
+    },
+
+    "wait": {
+      "title": "Something Watches",
+      "image": "/guildbook/scenes/watching.jpg",
+      "text": ["Minutes pass. Something watches you."],
+      "choices": [
+        { "label": "Stand up and move", "to": "intro" }
+      ],
+      "end": true
+    }
   }
 }
