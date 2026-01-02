@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mead Hall • Story</title>
+
+  <link rel="icon" type="image/png" href="/logo/favicon.ico.png">
+  <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/Styles/odin.css"/>
+
+  <meta name="api-base" content="https://meadhall-site.onrender.com">
+  <meta name="color-scheme" content="dark light">
+
+  <style>
+    :root { --paper:#0d0f12; --ink:#e9e4d5; --gold:rgba(200,169,107,.45); }
+    body { background: radial-gradient(1200px 600px at 50% -10%, rgba(255,255,255,.06), transparent), #0b0f12; color: var(--ink); margin:0; font-family:"Cinzel",serif; }
+
+    header .wrap { display:flex; gap:16px; align-items:center; padding:14px 0; }
+    .wrap { width:min(1100px, 92vw); margin:0 auto; }
+    .brand { display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit }
+    .brand .logo { width:36px; height:36px; border-radius:8px; object-fit:cover }
+    .nav { margin-left:auto; display:flex; gap:12px; align-items:center }
+    .nav a { color:var(--ink); text-decoration:none; opacity:.9 }
+    .nav a:hover { opacity:1 }
+
+    .story-wrap { margin:110px auto 70px; width:min(980px, 95vw); }
+    .chrome{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      border:1px solid var(--gold); border-radius:16px 16px 0 0; padding:12px 14px;
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    }
+    .title { font-weight:700; letter-spacing:.02em }
+    .progress { font-size:12px; opacity:.8 }
+
+    .panel{
+      border:1px solid var(--gold);
+      border-top:none;
+      border-radius:0 0 16px 16px;
+      overflow:hidden;
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      min-height:60vh;
+      padding:26px clamp(18px, 4vw, 42px);
+      max-width:70ch; margin:0 auto;
+    }
+    .panel h2 { font-family:"Cinzel",serif; margin:.2em 0 .6em; font-size:28px; }
+    .panel p { margin:0 0 .9em; font-size:18px; line-height:1.65; }
+    .choices{ display:grid; gap:10px; margin-top:18px; }
+    .choice{
+      display:block; width:100%;
+      background:#0f1113; color:var(--ink);
+      border:1px solid var(--gold);
+      border-radius:12px;
+      padding:12px 14px;
+      font-weight:800;
+      cursor:pointer;
+      text-align:left;
+    }
+    .choice:hover{ filter:brightness(1.07); }
+    .choice[disabled]{ opacity:.55; cursor:default; }
+
+    .footer { margin-top:10px; padding:8px 0; font-size:12px; opacity:.75; text-align:center; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="Home">
+        <img src="/logo/favicon.ico.png" alt="Mead Hall logo" class="logo"/>
+        <h1 style="margin:0">Mead Hall</h1>
+      </a>
+      <nav class="nav">
+        <a href="/library.html" class="navlink" aria-label="Back to Library">← Back</a>
+        <a href="/account.html" class="navlink">Account</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="story-wrap" aria-label="Interactive story reader">
+    <div class="chrome">
+      <div class="title" id="storyTitle">Interactive Story</div>
+      <div class="progress"><span id="nodeName">start</span></div>
+    </div>
+
+    <section class="panel" role="region" aria-label="Story content">
+      <div id="content"></div>
+      <div class="choices" id="choices"></div>
+    </section>
+
+    <div class="footer">Tip: click a choice to continue. Progress is saved automatically.</div>
+  </main>
+
+  <script type="module" src="/src/story.ts"></script>
+</body>
+</html>

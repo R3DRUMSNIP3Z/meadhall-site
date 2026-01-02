@@ -1,0 +1,44 @@
+{
+  "start": "intro",
+  "nodes": {
+    "intro": {
+      "title": "The Snow Oath",
+      "text": [
+        "Snow bites your lungs as you step into the courtyard.",
+        "Blood is fresh on the stones.",
+        "From the dark, someone whispers your name."
+      ],
+      "choices": [
+        { "label": "Call out into the night", "to": "callout" },
+        { "label": "Draw your blade and search", "to": "search" }
+      ]
+    },
+
+    "callout": {
+      "text": [
+        "Your words vanish into the wind.",
+        "Then footsteps answer—slow and certain."
+      ],
+      "choices": [
+        { "label": "Stand your ground", "to": "stand" },
+        { "label": "Back toward the hall", "to": "hall" }
+      ]
+    },
+
+    "search": {
+      "text": [
+        "You kneel beside the blood. It’s still warm.",
+        "A trail leads toward the stables."
+      ],
+      "choices": [
+        { "label": "Follow the trail", "to": "trail" },
+        { "label": "Hide and watch", "to": "wait" }
+      ]
+    },
+
+    "stand": { "text": ["A silhouette steps forward…"], "choices": [] },
+    "hall":  { "text": ["The doors slam behind you."], "choices": [] },
+    "trail": { "text": ["The trail ends at the river ice."], "choices": [] },
+    "wait":  { "text": ["Minutes pass. Something watches you."], "choices": [] }
+  }
+}

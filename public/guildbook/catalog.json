@@ -34,6 +34,16 @@
   "summary": "When faith falters and darkness whispers, a small monastery becomes the battleground for an unseen war. As priests and soldiers confront a force that speaks through the living, one woman’s body becomes the vessel of something ancient—something that remembers the first sin. In Nomine Tenebris, the true possession begins.",
   "src": "/guildbook/fullstoryDaemoniumIntra.rtf",
   "cover": "/guildbook/DaemoniumIntra-cover.jpg"
+},
+{
+  "id": "vikingstory",
+  "title": "Viking Story Placeholder Name",
+  "author": "Lisa",
+  "tags": ["Interactive", "Viking"],
+  "summary": "Viking story.",
+  "type": "interactive",
+  "src": "/guildbook/vikingstory.json",
+  "cover": "/guildbook/vikingstory-cover.jpg"
 }
 
 ]

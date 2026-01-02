@@ -4,6 +4,8 @@
  *  + mobile-friendly pagination
  *  + safer image token handling
  */
+export {};
+
 
 const API_BASE =
   (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ||
