@@ -6,6 +6,8 @@
 */
 
 export {}; // IMPORTANT: make this file a module (prevents TS global collisions)
+import { unlockAchievement } from "./achievements";
+
 
 /* ---------------- Config ---------------- */
 
@@ -42,6 +44,8 @@ type StoryNode = {
   text: string[] | string;
   image?: string;      // optional image url/path
   choices?: Choice[];
+    achievement?: { id: string; title?: string; description?: string; coins?: number };
+
   // optional: end flag
   end?: boolean;
 };
@@ -184,6 +188,10 @@ function renderCover(title: string, subtitle: string, credit: string, coverSrc: 
 function gotoNode(story: Story, nodeId: string, src: string) {
   const node = story.nodes[nodeId];
   if (!node) throw new Error(`Unknown node: ${nodeId}`);
+    if ((node as any).achievement) {
+    unlockAchievement((node as any).achievement);
+  }
+
 
   saveNodeId(src, nodeId);
 

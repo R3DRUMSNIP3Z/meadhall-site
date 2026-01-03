@@ -17,7 +17,9 @@ const inputs: Record<string, string> = {
   profile:       html("profile.html")!,
   book:          html("book.html")!,
   meadhall:      html("meadhall.html")!,
-    story:      html("story.html")!,
+  story:         html("story.html")!,
+  achievements:  html("Achievements.html")!,
+
 
 
 
