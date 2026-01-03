@@ -23,13 +23,11 @@ const chatRoutes = require("./chatRoutes");
 const chatGlobal = require("./chatGlobal");
 const galleryRoutes = require("./galleryRoutes"); // ⬅️ gallery API
 const notifications = require("./notifications");
-const gameRoutes = require("./gameRoutes");
 
 
 const app = express();
 
-// expose credit helper for webhook fulfillment
-app.locals.brisingrCredit = gameRoutes.brisingrCredit;
+
 
 // very small request logger
 app.use((req, _res, next) => { console.log(`[req] ${req.method} ${req.url}`); next(); });
@@ -796,7 +794,6 @@ chatRoutes.install(app);
 chatGlobal.install(app);
 notifications.install(app);
 app.locals.notify = notifications.createNotification; // ✅ expose notifier
-gameRoutes.install(app);
 // 👇 Add this right here
 galleryRoutes.install(app);
  /* ==============================
