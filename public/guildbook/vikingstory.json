@@ -29,7 +29,8 @@
       "image": "/guildbook/scenes/courtyard-night.jpg",
       "text": [
         "Your words vanish into the wind.",
-        "Then footsteps answer—slow and certain."
+        "Then footsteps answer—slow and certain.",
+        "The sound is too calm. Too sure."
       ],
       "hotspots": [
         { "label": "DOOR", "x": 74, "y": 42, "w": 16, "h": 34, "to": "hall" }
@@ -40,12 +41,42 @@
       ]
     },
 
+    "stand": {
+      "title": "Silhouette",
+      "image": "/guildbook/scenes/silhouette.jpg",
+      "text": [
+        "A silhouette steps forward…",
+        "A smile glints where a face should be.",
+        "You realize too late: it wanted you to answer."
+      ],
+      "choices": [
+        { "label": "Reach for your blade", "to": "death_cutthroat" },
+        { "label": "Try to speak again", "to": "death_cutthroat" }
+      ]
+    },
+
+    "death_cutthroat": {
+      "title": "A Quiet Knife",
+      "image": "/guildbook/scenes/watching.jpg",
+      "text": [
+        "Your hand moves—",
+        "but the cold bite in your ribs is faster.",
+        "Snow drinks your warmth as the courtyard turns distant.",
+        "Some names are whispered only to lure them out."
+      ],
+      "end": true,
+      "choices": [
+        { "label": "Begin again", "to": "intro" }
+      ]
+    },
+
     "search": {
       "title": "Warm Blood",
       "image": "/guildbook/scenes/courtyard-blood.jpg",
       "text": [
         "You kneel beside the blood. It’s still warm.",
-        "A trail leads toward the stables."
+        "A trail leads toward the stables.",
+        "Something was dragged… or carried."
       ],
       "hotspots": [
         { "label": "STABLES", "x": 18, "y": 46, "w": 18, "h": 30, "to": "trail" },
@@ -57,46 +88,211 @@
       ]
     },
 
-    "stand": {
-      "title": "Silhouette",
-      "image": "/guildbook/scenes/silhouette.jpg",
-      "text": ["A silhouette steps forward…"],
-      "choices": [
-        { "label": "Return to the courtyard", "to": "intro" }
+    "wait": {
+      "title": "Something Watches",
+      "image": "/guildbook/scenes/watching.jpg",
+      "text": [
+        "Minutes pass. The wind hushes.",
+        "A shadow crosses the blood—careful not to step in it.",
+        "It isn’t a beast. It’s a person trying not to be seen."
       ],
-      "end": true
+      "choices": [
+        { "label": "Confront them now", "to": "death_ambush" },
+        { "label": "Follow silently", "to": "follow_silent" }
+      ]
     },
 
-    "hall": {
-      "title": "Inside the Hall",
-      "image": "/guildbook/scenes/hall-inside.jpg",
-      "text": ["The doors slam behind you."],
-      "hotspots": [
-        { "label": "EXIT", "x": 6, "y": 58, "w": 16, "h": 30, "to": "intro" }
+    "death_ambush": {
+      "title": "Steel in the Dark",
+      "image": "/guildbook/scenes/silhouette.jpg",
+      "text": [
+        "You step out.",
+        "The figure doesn’t run.",
+        "Behind you—another breath. Another blade.",
+        "You chose pride over proof."
+      ],
+      "end": true,
+      "choices": [
+        { "label": "Begin again", "to": "intro" }
+      ]
+    },
+
+    "follow_silent": {
+      "title": "Footprints Like Thread",
+      "image": "/guildbook/scenes/courtyard-night.jpg",
+      "text": [
+        "You move like a whisper behind them.",
+        "They slip toward the river path—fast, but not panicked.",
+        "They think they’re unseen."
       ],
       "choices": [
-        { "label": "Gather yourself and step back out", "to": "intro" }
+        { "label": "Keep distance and observe", "to": "river_observe" },
+        { "label": "Close in and grab them", "to": "death_river" }
+      ]
+    },
+
+    "death_river": {
+      "title": "Black Ice",
+      "image": "/guildbook/scenes/river-ice.jpg",
+      "text": [
+        "You lunge.",
+        "They twist—your boots hit slick ice.",
+        "The world drops out from under you.",
+        "The river takes you without a sound."
+      ],
+      "end": true,
+      "choices": [
+        { "label": "Begin again", "to": "intro" }
       ]
     },
 
     "trail": {
       "title": "River Ice",
       "image": "/guildbook/scenes/river-ice.jpg",
-      "text": ["The trail ends at the river ice."],
-      "choices": [
-        { "label": "Return to the courtyard", "to": "intro" }
+      "text": [
+        "The trail ends at the river ice.",
+        "A small sack lies half-buried in snow.",
+        "There are two sets of prints—one returning to the hall."
       ],
-      "end": true
+      "choices": [
+        { "label": "Open the sack", "to": "sack_open" },
+        { "label": "Follow the returning prints", "to": "prints_to_hall" }
+      ]
     },
 
-    "wait": {
-      "title": "Something Watches",
-      "image": "/guildbook/scenes/watching.jpg",
-      "text": ["Minutes pass. Something watches you."],
-      "choices": [
-        { "label": "Stand up and move", "to": "intro" }
+    "sack_open": {
+      "title": "The Crest in Cloth",
+      "image": "/guildbook/scenes/river-ice.jpg",
+      "text": [
+        "Inside the sack: silver rings, stamped coins, and a torn strip of royal cloth.",
+        "A crest—half-hidden—matches the old songs.",
+        "This isn’t random blood. It’s a crime worth killing for."
       ],
-      "end": true
+      "choices": [
+        { "label": "Take it and run for the hall", "to": "riches_hall" },
+        { "label": "Shout for the guards", "to": "death_shout" }
+      ]
+    },
+
+    "death_shout": {
+      "title": "Wrong Name to Yell",
+      "image": "/guildbook/scenes/courtyard-night.jpg",
+      "text": [
+        "Your shout echoes.",
+        "Answering it comes a whistle—sharp and practiced.",
+        "A bolt finds your throat.",
+        "Some halls have ears… and not all of them are loyal."
+      ],
+      "end": true,
+      "choices": [
+        { "label": "Begin again", "to": "intro" }
+      ]
+    },
+
+    "prints_to_hall": {
+      "title": "Back to Warmth",
+      "image": "/guildbook/scenes/hall-inside.jpg",
+      "text": [
+        "The prints lead you back to the hall.",
+        "Warmth hits your face like a lie.",
+        "Someone inside is pretending nothing happened."
+      ],
+      "hotspots": [
+        { "label": "EXIT", "x": 6, "y": 58, "w": 16, "h": 30, "to": "intro" }
+      ],
+      "choices": [
+        { "label": "Search the benches quietly", "to": "bench_find" },
+        { "label": "Demand answers from the room", "to": "death_hall" }
+      ]
+    },
+
+    "death_hall": {
+      "title": "Too Many Eyes",
+      "image": "/guildbook/scenes/hall-inside.jpg",
+      "text": [
+        "Your voice climbs the rafters.",
+        "Chairs scrape. Hands vanish into cloaks.",
+        "You realize the room decided your fate before you spoke."
+      ],
+      "end": true,
+      "choices": [
+        { "label": "Begin again", "to": "intro" }
+      ]
+    },
+
+    "bench_find": {
+      "title": "A Hidden Seal",
+      "image": "/guildbook/scenes/hall-inside.jpg",
+      "text": [
+        "Under a bench: a wax seal stamped with the same crest.",
+        "The mark of a jarl’s treasury.",
+        "If you bring this to the right person… you’ll be rewarded.",
+        "If you bring it to the wrong one… you’ll be buried."
+      ],
+      "choices": [
+        { "label": "Keep it secret and leave quietly", "to": "riches_road" },
+        { "label": "Show it to the nearest guard", "to": "death_hall" }
+      ]
+    },
+
+    "river_observe": {
+      "title": "A Deal in Snow",
+      "image": "/guildbook/scenes/river-ice.jpg",
+      "text": [
+        "From cover, you watch the figure meet another.",
+        "A sack changes hands.",
+        "You hear one word clearly: “Crest.”",
+        "They leave the sack behind—thinking it empty."
+      ],
+      "choices": [
+        { "label": "Wait until they’re gone, then check the sack", "to": "sack_open" },
+        { "label": "Chase them now", "to": "death_river" }
+      ]
+    },
+
+    "riches_hall": {
+      "title": "A Secret Worth Gold",
+      "image": "/guildbook/scenes/hall-inside.jpg",
+      "text": [
+        "You slip into the hall with the sack hidden under your cloak.",
+        "No one notices—because no one looks at the quiet ones.",
+        "You know exactly what you have."
+      ],
+      "choices": [
+        { "label": "Leave before anyone questions you", "to": "riches_road" }
+      ]
+    },
+
+    "riches_road": {
+      "title": "Riches and Fame",
+      "image": "/guildbook/scenes/courtyard.jpg",
+      "text": [
+        "By dawn, you stand before the right doors—those that pay for silence and proof.",
+        "The crest becomes your leverage.",
+        "The coins become your start.",
+        "And the tale becomes yours: the one who uncovered the blood-trail… and lived."
+      ],
+      "end": true,
+      "choices": [
+        { "label": "Play again (try a different path)", "to": "intro" }
+      ]
+    },
+
+    "hall": {
+      "title": "Inside the Hall",
+      "image": "/guildbook/scenes/hall-inside.jpg",
+      "text": [
+        "The doors slam behind you.",
+        "The warmth feels wrong—like a trap dressed as safety."
+      ],
+      "hotspots": [
+        { "label": "EXIT", "x": 6, "y": 58, "w": 16, "h": 30, "to": "intro" }
+      ],
+      "choices": [
+        { "label": "Gather yourself and step back out", "to": "intro" },
+        { "label": "Search the hall quietly", "to": "bench_find" }
+      ]
     }
   }
 }
+
