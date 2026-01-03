@@ -355,12 +355,23 @@
     });
 
     clearDemo.addEventListener('click', ()=>{
-      // Dev helper: clears achievement map only
-      localStorage.removeItem(ACH_KEY);
-      state.unlocked = loadUnlocked();
-      draw();
-      // keep coins intact
-    });
+  // clear map
+  localStorage.removeItem(ACH_KEY);
+
+  // clear prefix-based unlocks + meta
+  const prefix = "mh_achv:";
+  const toDelete = [];
+  for (let i=0; i<localStorage.length; i++){
+    const k = localStorage.key(i) || "";
+    if (k.startsWith(prefix)) toDelete.push(k);
+  }
+  toDelete.forEach(k => localStorage.removeItem(k));
+
+  state.unlocked = loadUnlocked();
+  state.catalog = mergeCatalog(state.catalog, state.unlocked);
+  draw();
+});
+
 
     // ===== Boot =====
     (async ()=>{
@@ -377,8 +388,6 @@
       draw();
     });
   </script>
-    <!-- Achievements page logic -->
-  <script type="module" src="/src/achievements.ts"></script>
 </body>
 </html>
 

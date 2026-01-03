@@ -8,6 +8,8 @@ export type AchievementUnlock = {
 
 const COIN_KEY = "mh_coins";
 const ACHV_PREFIX = "mh_achv:";
+const ACH_MAP_KEY = "mh_achievements"; // achievements.html expects this map
+
 
 // ----- Coins -----
 export function getCoins(): number {
@@ -32,28 +34,55 @@ export function isUnlocked(id: string): boolean {
   return localStorage.getItem(ACHV_PREFIX + id) === "1";
 }
 
-export function unlockAchievement(data: AchievementUnlock): { unlocked: boolean; coinsAwarded: number } {
+export function unlockAchievement(
+  data: AchievementUnlock
+): { unlocked: boolean; coinsAwarded: number } {
   const id = data?.id?.trim();
   if (!id) return { unlocked: false, coinsAwarded: 0 };
 
-  // Idempotent: don't award twice
+  // Idempotent
   if (isUnlocked(id)) return { unlocked: false, coinsAwarded: 0 };
 
+  // Mark unlocked (your prefix system)
   localStorage.setItem(ACHV_PREFIX + id, "1");
 
   const coins = Math.max(0, Math.floor(data.coins || 0));
   if (coins) addCoins(coins);
 
-  // Optional metadata (nice for toasts / history)
+  const unlockedAt = new Date().toISOString();
+
+  // Store meta (your prefix system)
   if (data.title) localStorage.setItem(`${ACHV_PREFIX + id}:title`, data.title);
   if (data.description) localStorage.setItem(`${ACHV_PREFIX + id}:desc`, data.description);
   if (coins) localStorage.setItem(`${ACHV_PREFIX + id}:coins`, String(coins));
-  localStorage.setItem(`${ACHV_PREFIX + id}:time`, new Date().toISOString());
+  localStorage.setItem(`${ACHV_PREFIX + id}:time`, unlockedAt);
+
+  // ALSO maintain mh_achievements map (what achievements.html reads)
+  try {
+    const raw = localStorage.getItem(ACH_MAP_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[id] = {
+      id,
+      title: data.title || map[id]?.title || id,
+      description: data.description || map[id]?.description || "",
+      coins,
+      unlockedAt
+    };
+    localStorage.setItem(ACH_MAP_KEY, JSON.stringify(map));
+  } catch {
+    // if map is corrupted, reset it safely
+    const map: any = {};
+    map[id] = { id, title: data.title || id, description: data.description || "", coins, unlockedAt };
+    localStorage.setItem(ACH_MAP_KEY, JSON.stringify(map));
+  }
 
   // Events for UI
+  window.dispatchEvent(new Event("mh_achievements_changed"));
   window.dispatchEvent(new CustomEvent("mh_achievement_unlocked", { detail: { ...data, coins } }));
+
   return { unlocked: true, coinsAwarded: coins };
 }
+
 
 export function getUnlockedIds(): string[] {
   const ids: string[] = [];
