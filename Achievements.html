@@ -369,7 +369,7 @@
       draw();
     })();
 
-    // Optional: live update if another page dispatches events
+    // Optional: live update if another page dispatches event
     window.addEventListener('mh_coins_changed', renderCoins);
     window.addEventListener('mh_achievements_changed', ()=>{
       state.unlocked = loadUnlocked();
