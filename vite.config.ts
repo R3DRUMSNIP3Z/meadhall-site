@@ -18,7 +18,7 @@ const inputs: Record<string, string> = {
   book:          html("book.html")!,
   meadhall:      html("meadhall.html")!,
   story:         html("story.html")!,
-  achievements:  html("Achievements.html")!,
+  achievements:  html("achievements.html")!,
 
 
 
