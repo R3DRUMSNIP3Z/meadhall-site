@@ -28,6 +28,21 @@
     nav a{color:var(--ink); text-decoration:none; font-size:.95rem}
     nav a:hover{color:#ffd700}
 
+    /* Coins UI (new) */
+    .coinbox{
+      display:flex; align-items:center; gap:6px;
+      padding:4px 10px;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:#0f1113;
+      color:#ffd700;
+      font-weight:900;
+      line-height:1;
+      user-select:none;
+    }
+    .coinbox img{width:18px; height:18px; object-fit:contain; display:block}
+    .coinbox #coinCount{min-width:18px; text-align:right}
+
     .title{
       padding:1rem; text-align:center; font-size:1.8rem; font-weight:800; color:#ffd700;
       text-shadow:0 0 5px #d4a94d,0 0 10px #ffcc00,0 0 15px #ffea80;
@@ -89,12 +104,20 @@
         <img src="/logo/logo-64.png" alt="Mead Hall" style="width:32px;height:32px;border-radius:6px;object-fit:cover"/>
         <h1>Mead Hall</h1>
       </a>
+
       <nav>
         <a href="/index.html#plans">Membership</a>
         <a href="/index.html#contest">Skald Contest</a>
         <a href="/index.html#lore">Lore</a>
         <a href="/account.html">Account</a>
         <a href="/library.html" aria-label="Open the Library" style="color:#ffd700">Library</a>
+
+        <!-- Coins + Achievements (new) -->
+        <div class="coinbox" title="Coins earned from interactive stories">
+          <img src="/icons/coins.png" alt="Coins">
+          <span id="coinCount">0</span>
+        </div>
+        <a href="/achievements.html" class="btn secondary" style="padding:8px 12px">🏆 Achievements</a>
       </nav>
     </div>
   </header>
@@ -127,6 +150,20 @@
   </main>
 
   <script type="module">
+    // ===== Coins display (new) =====
+    const COIN_KEY = 'mh_coins';
+    function getCoins(){
+      return parseInt(localStorage.getItem(COIN_KEY) || '0', 10);
+    }
+    function renderCoins(){
+      const el = document.getElementById('coinCount');
+      if(!el) return;
+      el.textContent = String(getCoins());
+    }
+    renderCoins();
+    // Optional: if you later dispatch an event when coins change, this will update live.
+    window.addEventListener('mh_coins_changed', renderCoins);
+
     // --- Config: where to open a story ---
     // Books (rtf/txt/html) open book.html
     // Interactive (json) opens story.html when item.type === "interactive"
@@ -427,5 +464,6 @@
   </script>
 </body>
 </html>
+
 
 
