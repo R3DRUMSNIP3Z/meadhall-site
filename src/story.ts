@@ -6,14 +6,8 @@
 */
 
 export {}; // IMPORTANT: make this file a module (prevents TS global collisions)
-import { unlockAchievement } from "./achievements";
-
 
 /* ---------------- Config ---------------- */
-
-// Backend base (ONLY for API routes if you ever need them later).
-// For story JSON under /guildbook, we always fetch from location.origin.
-
 
 const el = {
   title:  document.getElementById('bookTitle') as HTMLElement | null, // reuse your header id if you want
@@ -44,8 +38,6 @@ type StoryNode = {
   text: string[] | string;
   image?: string;      // optional image url/path
   choices?: Choice[];
-    achievement?: { id: string; title?: string; description?: string; coins?: number };
-
   // optional: end flag
   end?: boolean;
 };
@@ -149,9 +141,6 @@ function toAbsoluteStoryUrl(src: string): string {
   return `${location.origin}/${s}`;
 }
 
-// If later you add backend story storage under /uploads, use this instead:
-// function toBackendUrl(path: string) { ... `${API_BASE}${...}` ... }
-
 async function fetchJson<T>(url: string): Promise<T> {
   const r = await fetch(url, { cache: 'no-store' });
   if (!r.ok) {
@@ -186,12 +175,9 @@ function renderCover(title: string, subtitle: string, credit: string, coverSrc: 
 }
 
 function gotoNode(story: Story, nodeId: string, src: string) {
-  const node = story.nodes[nodeId];
-  if (!node) throw new Error(`Unknown node: ${nodeId}`);
-    if ((node as any).achievement) {
-    unlockAchievement((node as any).achievement);
+  if (!story.nodes[nodeId]) {
+    throw new Error(`Missing node "${nodeId}" in story JSON`);
   }
-
 
   saveNodeId(src, nodeId);
 
@@ -274,9 +260,8 @@ function wireHistoryNav(_src: string) {
   });
 
   window.addEventListener('popstate', () => {
-    // If you want to re-render on popstate you can, but we already rerender on pushes.
-    // Keeping minimal — page will show correct state because we render on gotoNode.
-    // If needed later, store story in global closure and rerender here.
+    // Minimal: we render on gotoNode() pushes.
+    // If you want perfect popstate re-render later, store story in a module variable and rerender here.
   });
 }
 
