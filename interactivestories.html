@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mead Hall • Interactive Stories</title>
+
+  <link rel="icon" type="image/png" href="/logo/favicon.ico.png">
+  <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/Styles/odin.css"/>
+
+  <style>
+    :root{ --bg:#0b0e10; --panel:#151515d0; --border:#3b3325; --ink:#e9e4d5; --gold:#d4a94d; --gold-soft:#aa8a28; }
+    *{box-sizing:border-box}
+    body{background:var(--bg); color:var(--ink); font-family:"Cinzel",serif; margin:0; min-height:100svh; display:flex; flex-direction:column}
+
+    header.site-header{position:sticky; top:0; z-index:50; background:var(--panel); border-bottom:1px solid var(--border)}
+    header .wrap{display:flex; align-items:center; gap:16px; padding:.6rem 1rem; width:min(1200px, 94vw); margin:0 auto}
+    header h1{font-size:1.1rem; margin:0}
+    nav{margin-left:auto; display:flex; gap:16px; align-items:center}
+    nav a{color:var(--ink); text-decoration:none; font-size:.95rem}
+    nav a:hover{color:#ffd700}
+
+    .title{
+      padding:1rem; text-align:center; font-size:1.8rem; font-weight:800; color:#ffd700;
+      text-shadow:0 0 5px #d4a94d,0 0 10px #ffcc00,0 0 15px #ffea80;
+      border-bottom:2px solid var(--border);
+    }
+
+    .toolbar{display:flex; gap:10px; align-items:center; padding:12px 14px; background:var(--panel); border-bottom:1px solid var(--border); flex-wrap:wrap}
+    .toolbar .wrap{width:min(1200px,94vw); margin:0 auto; display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+    .search{
+      flex:1; min-width:240px; display:flex; align-items:center; gap:8px;
+      background:#0f1113; border:1px solid var(--border); border-radius:10px; padding:8px 10px;
+    }
+    .search input{flex:1; background:transparent; border:0; outline:none; color:var(--ink); font-size:1rem}
+
+    .chips{padding:10px 14px; border-bottom:1px solid var(--border); background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01))}
+    .chips .wrap{width:min(1200px,94vw); margin:0 auto; display:flex; gap:8px; flex-wrap:wrap}
+    .chip{
+      padding:6px 12px; border:1px solid var(--border); border-radius:999px; cursor:pointer; white-space:nowrap;
+      background:#0f1113; color:#e9e4d5; font-size:.9rem;
+    }
+    .chip.active{ background:var(--gold); color:#0b0e10; border-color:var(--gold); }
+
+    main .wrap{width:min(1200px,94vw); margin:14px auto; flex:1}
+    .grid{display:grid; gap:14px; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr))}
+    .card{
+      background:var(--panel); border:1px solid var(--border); border-radius:14px; overflow:hidden;
+      display:flex; flex-direction:column; min-height:220px; box-shadow:0 6px 18px rgba(0,0,0,.35);
+    }
+    .cover{height:150px; background:#0f1113; display:flex; align-items:center; justify-content:center; border-bottom:1px solid var(--border)}
+    .cover img{max-height:100%; max-width:100%; object-fit:cover}
+    .card .head{padding:12px 12px 0}
+    .card h3{margin:0; font-size:1.05rem; color:#ffd700}
+    .meta{opacity:.9; font-size:.9rem; color:var(--gold-soft); margin-top:2px}
+    .summary{padding:10px 12px; color:#e9e4d5; opacity:.95}
+    .tagrow{display:flex; gap:6px; flex-wrap:wrap; padding:0 12px 10px}
+    .t{font-size:.78rem; border:1px solid var(--border); padding:3px 8px; border-radius:999px; background:#0f1113; color:#c8c1aa}
+    .actions{margin-top:auto; display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--border)}
+    .actions .btn{flex:1; text-align:center; font-weight:800; padding:8px 10px; border-radius:10px; cursor:pointer; background:#0f1113; color:var(--ink); text-decoration:none}
+    .actions .btn.primary{background:var(--gold); color:#0b0e10}
+    .empty{opacity:.8; text-align:center; padding:26px}
+
+    .pager{display:flex; justify-content:center; gap:8px; padding:14px}
+    .pager .btn{padding:8px 12px; border:1px solid var(--border); border-radius:10px; background:transparent; color:var(--ink); cursor:pointer}
+    .pager .btn:disabled{opacity:.5; cursor:not-allowed}
+  </style>
+</head>
+
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit">
+        <img src="/logo/logo-64.png" alt="Mead Hall" style="width:32px;height:32px;border-radius:6px;object-fit:cover"/>
+        <h1>Mead Hall</h1>
+      </a>
+
+      <nav>
+        <a href="/index.html#plans">Membership</a>
+        <a href="/index.html#contest">Skald Contest</a>
+        <a href="/index.html#lore">Lore</a>
+        <a href="/account.html">Account</a>
+        <a href="/library.html">Library</a>
+        <a href="/interactivestories.html" aria-label="Open the interactive stories" style="color:#ffd700">Interactive Stories</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="title">⚔️ Mead Hall • Interactive Stories</div>
+
+  <section class="toolbar">
+    <div class="wrap">
+      <div class="search" role="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16a6.471 6.471 0 0 0 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5"/>
+        </svg>
+        <input id="q" type="text" placeholder="Search story title, author, or tag..."/>
+      </div>
+    </div>
+  </section>
+
+  <div class="chips"><div class="wrap" id="chips"></div></div>
+
+  <main>
+    <div class="wrap">
+      <div id="grid" class="grid" aria-live="polite"></div>
+      <div id="pager" class="pager" hidden>
+        <button id="prev" class="btn" type="button">‹ Prev</button>
+        <div id="pageinfo" style="align-self:center"></div>
+        <button id="next" class="btn" type="button">Next ›</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Plain JS (no TS) -->
+  <script src="/Scripts/interactivestories.js" defer></script>
+</body>
+</html>
+
