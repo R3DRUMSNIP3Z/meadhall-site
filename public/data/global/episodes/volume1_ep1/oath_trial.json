@@ -1,0 +1,102 @@
+{
+  "namePrompt": {
+    "speaker": "The Voice",
+    "text": "Before the gods, speak your name."
+  },
+
+  "questions": [
+    {
+      "id": "q1",
+      "speaker": "The Voice",
+      "text": "A starving thief is caught with bread. What do you do?",
+      "good": { "label": "Feed them and warn them", "score": 1 },
+      "evil": { "label": "Punish them to set an example", "score": 1 }
+    },
+    {
+      "id": "q2",
+      "speaker": "The Voice",
+      "text": "You find a lost pouch of coins on the road.",
+      "good": { "label": "Try to return it", "score": 1 },
+      "evil": { "label": "Keep it", "score": 1 }
+    },
+    {
+      "id": "q3",
+      "speaker": "The Voice",
+      "text": "A rival insults you in public.",
+      "good": { "label": "Stay calm and walk away", "score": 1 },
+      "evil": { "label": "Crush them with words", "score": 1 }
+    },
+    {
+      "id": "q4",
+      "speaker": "The Voice",
+      "text": "You can save one: a wounded stranger or your prized weapon.",
+      "good": { "label": "Save the stranger", "score": 1 },
+      "evil": { "label": "Save the weapon", "score": 1 }
+    },
+    {
+      "id": "q5",
+      "speaker": "The Voice",
+      "text": "A village asks for help, but offers no reward.",
+      "good": { "label": "Help anyway", "score": 1 },
+      "evil": { "label": "Refuse without payment", "score": 1 }
+    },
+    {
+      "id": "q6",
+      "speaker": "The Voice",
+      "text": "A prisoner begs for mercy.",
+      "good": { "label": "Spare them under oath", "score": 1 },
+      "evil": { "label": "No mercy", "score": 1 }
+    },
+    {
+      "id": "q7",
+      "speaker": "The Voice",
+      "text": "A friend asks you to lie for them.",
+      "good": { "label": "Refuse, but protect them another way", "score": 1 },
+      "evil": { "label": "Lie immediately", "score": 1 }
+    },
+    {
+      "id": "q8",
+      "speaker": "The Voice",
+      "text": "You defeat an enemy who cannot fight back.",
+      "good": { "label": "Spare them", "score": 1 },
+      "evil": { "label": "Finish them", "score": 1 }
+    },
+    {
+      "id": "q9",
+      "speaker": "The Voice",
+      "text": "Power is offered to you—but someone else will suffer.",
+      "good": { "label": "Reject the power", "score": 1 },
+      "evil": { "label": "Take the power", "score": 1 }
+    },
+    {
+      "id": "q10",
+      "speaker": "The Voice",
+      "text": "You can take credit for another’s victory.",
+      "good": { "label": "Give them their honor", "score": 1 },
+      "evil": { "label": "Take the credit", "score": 1 }
+    }
+  ],
+
+  "tiebreaker": {
+    "id": "tie1",
+    "speaker": "The Voice",
+    "text": "Final truth: what guides your hand?",
+    "good": { "label": "Duty and mercy", "score": 1 },
+    "evil": { "label": "Strength and fear", "score": 1 }
+  },
+
+  "results": {
+    "myriador": {
+      "speaker": "The Voice",
+      "text": "{name}… your answers lean toward oath and light. Myriador opens for you.",
+      "button": "Enter Myriador",
+      "toScreen": "myriador_entry"
+    },
+    "dreadheim": {
+      "speaker": "The Voice",
+      "text": "{name}… your answers carry iron and shadow. Dreadheim calls you.",
+      "button": "Enter Dreadheim",
+      "toScreen": "dreadheim_entry"
+    }
+  }
+}

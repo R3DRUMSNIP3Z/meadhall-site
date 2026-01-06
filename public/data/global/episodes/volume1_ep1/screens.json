@@ -1,0 +1,16 @@
+{
+  "oath_trial": {
+    "bg": "/bggameimage.png",
+    "onEnter": ["flow_oath_trial"]
+  },
+
+  "myriador_entry": {
+    "bg": "/bggameimage.png",
+    "onEnter": ["flow_arrive_myriador"]
+  },
+
+  "dreadheim_entry": {
+    "bg": "/bggameimage.png",
+    "onEnter": ["flow_arrive_dreadheim"]
+  }
+}

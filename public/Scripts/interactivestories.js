@@ -1,5 +1,5 @@
 // interactivestories.js
-// Start screen logic for Interactive Game
+// Start screen logic for Interactive Game (with Resume)
 
 document.addEventListener('DOMContentLoaded', () => {
   const startBtn = document.getElementById('startGameBtn');
@@ -9,19 +9,40 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  startBtn.addEventListener('click', () => {
-    console.log('Start Game clicked');
+  // If player already has progress, show Resume
+  const hasSave =
+    localStorage.getItem('va_save_active') === '1' ||
+    !!localStorage.getItem('va_episode') ||
+    !!localStorage.getItem('va_screen');
 
-    // TEMP: proof it works
-    // Later you can change this to:
-    // window.location.href = '/game.html';
+  if (hasSave) {
+    startBtn.textContent = 'RESUME QUEST';
+  }
+
+  startBtn.addEventListener('click', () => {
+    console.log('Start/Resume clicked');
 
     startBtn.disabled = true;
     startBtn.textContent = 'LOADING...';
 
-    // small cinematic delay
+    // If no save, start fresh at Episode 1
+    if (!hasSave) {
+      localStorage.setItem('va_episode', 'volume1_ep1');
+      localStorage.setItem('va_screen', 'oath_trial');
+      localStorage.setItem('va_save_active', '1');
+
+      // reset only the Episode 1 trial state
+      localStorage.removeItem('va_player_name');
+      localStorage.removeItem('va_alignment');
+      localStorage.removeItem('va_oath_idx');
+      localStorage.removeItem('va_oath_good');
+      localStorage.removeItem('va_oath_evil');
+      localStorage.removeItem('va_oath_done');
+    }
+
     setTimeout(() => {
-      alert('Game start hook works 👍');
+      window.location.href = '/episode1.html';
     }, 600);
   });
 });
+
