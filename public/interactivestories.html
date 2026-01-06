@@ -75,6 +75,46 @@
       outline-offset: 6px;
       border-radius: 18px;
     }
+
+    .character-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 80px;
+  margin-top: 26px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  pointer-events: none; /* purely visual */
+}
+
+.char-gif {
+  width: 140px;
+  height: auto;
+  opacity: 0.85;
+  filter:
+    drop-shadow(0 8px 24px rgba(0,0,0,0.75))
+    saturate(1.05);
+}
+
+.char-gif.left {
+  transform: translateX(-10px);
+}
+
+.char-gif.right {
+  transform: translateX(10px);
+}
+
+/* Mobile safety */
+@media (max-width: 640px) {
+  .character-row {
+    gap: 24px;
+  }
+  .char-gif {
+    width: 100px;
+  }
+}
+
   </style>
 </head>
 
@@ -240,6 +280,12 @@
         </g>
       </svg>
     </button>
+    <!-- Character GIFs -->
+<div class="character-row">
+  <img src="/blackviking.gif" alt="Dreadheim Viking" class="char-gif left">
+  <img src="/greatknight.gif" alt="Myriadorian Knight" class="char-gif right">
+</div>
+
 
   </div>
 
