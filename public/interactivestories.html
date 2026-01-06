@@ -97,12 +97,18 @@
     saturate(1.05);
 }
 
+/* Default nudges */
 .char-gif.left {
   transform: translateX(-10px);
 }
 
 .char-gif.right {
   transform: translateX(10px);
+}
+
+/* Stronger nudge ONLY for the Myriador knight (when it has both classes) */
+.char-gif.left.myriador {
+  transform: translateX(-40px);
 }
 
 /* Mobile safety */
@@ -113,11 +119,19 @@
   .char-gif {
     width: 100px;
   }
+
+  /* Slightly smaller nudge on mobile so it doesn't look off-center */
+  .char-gif.left {
+    transform: translateX(-6px);
+  }
+  .char-gif.right {
+    transform: translateX(6px);
+  }
+  .char-gif.left.myriador {
+    transform: translateX(-22px);
+  }
 }
 
-.char-gif.myriador {
-  transform: translateX(-40px);
-}
 
 
   </style>
