@@ -53,13 +53,11 @@
     .svg-btn {
       display: inline-block;
       cursor: pointer;
-      text-decoration: none;
       border: none;
       background: transparent;
       padding: 0;
       line-height: 0;
       user-select: none;
-      transform: translateZ(0);
       transition: transform .15s ease, filter .15s ease;
     }
 
@@ -85,175 +83,162 @@
 
   <div class="start-container">
 
-    <!-- Animated SVG Title Plate -->
-    <div style="display:flex;justify-content:center;margin-bottom:32px;">
+    <!-- Title plate moved UP -->
+    <div style="display:flex;justify-content:center;margin-bottom:28px;margin-top:-40px;">
       <svg width="720" height="120" viewBox="0 0 720 120"
-     xmlns="http://www.w3.org/2000/svg"
-     aria-label="Veriador title">
+           xmlns="http://www.w3.org/2000/svg"
+           aria-label="Veriador title">
 
-  <defs>
-    <linearGradient id="plateGradient" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#101010"/>
-      <stop offset="50%" stop-color="#1b1b1b"/>
-      <stop offset="100%" stop-color="#050505"/>
-    </linearGradient>
+        <defs>
+          <linearGradient id="plateGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#101010"/>
+            <stop offset="50%" stop-color="#1b1b1b"/>
+            <stop offset="100%" stop-color="#050505"/>
+          </linearGradient>
 
-    <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#fff1b8"/>
-      <stop offset="35%" stop-color="#ffd36f"/>
-      <stop offset="70%" stop-color="#d4a94d"/>
-      <stop offset="100%" stop-color="#7a5a2b"/>
-    </linearGradient>
+          <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#fff1b8"/>
+            <stop offset="35%" stop-color="#ffd36f"/>
+            <stop offset="70%" stop-color="#d4a94d"/>
+            <stop offset="100%" stop-color="#7a5a2b"/>
+          </linearGradient>
 
-    <linearGradient id="shineGradient" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="white" stop-opacity="0"/>
-      <stop offset="50%" stop-color="white" stop-opacity="0.45"/>
-      <stop offset="100%" stop-color="white" stop-opacity="0"/>
-    </linearGradient>
+          <linearGradient id="shineGradient" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="white" stop-opacity="0"/>
+            <stop offset="50%" stop-color="white" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="white" stop-opacity="0"/>
+          </linearGradient>
 
-    <clipPath id="plateClip">
-      <rect x="0" y="0" width="720" height="120" rx="18"/>
-    </clipPath>
-  </defs>
+          <clipPath id="plateClip">
+            <rect x="0" y="0" width="720" height="120" rx="18"/>
+          </clipPath>
+        </defs>
 
-  <!-- Plate -->
-  <rect x="0" y="0" width="720" height="120" rx="18"
-        fill="url(#plateGradient)"
-        stroke="#7a5a2b"
-        stroke-width="3"/>
+        <rect x="0" y="0" width="720" height="120" rx="18"
+              fill="url(#plateGradient)"
+              stroke="#7a5a2b"
+              stroke-width="3"/>
 
-  <!-- Main Title (moved UP) -->
-  <text x="50%" y="52"
-        dominant-baseline="middle"
-        text-anchor="middle"
-        font-family="Cinzel Decorative, Cinzel, serif"
-        font-size="48"
-        font-weight="900"
-        fill="url(#goldGradient)"
-        stroke="#c88f2a"
-        stroke-width="1.4">
-    VERIADOR
-  </text>
+        <!-- Main Title -->
+        <text x="50%" y="52"
+              dominant-baseline="middle"
+              text-anchor="middle"
+              font-family="Cinzel Decorative, Cinzel, serif"
+              font-size="48"
+              font-weight="900"
+              fill="url(#goldGradient)"
+              stroke="#c88f2a"
+              stroke-width="1.4">
+          VERIADOR
+        </text>
 
-  <!-- Subtitle (moved DOWN + slightly smaller) -->
-  <text x="50%" y="94"
-        dominant-baseline="middle"
-        text-anchor="middle"
-        font-family="Cinzel, serif"
-        font-size="14"
-        letter-spacing="3"
-        fill="#e9d8a6"
-        opacity="0.92">
-    BETWEEN SHADOW AND STEEL
-  </text>
+        <!-- Subtitle -->
+        <text x="50%" y="94"
+              dominant-baseline="middle"
+              text-anchor="middle"
+              font-family="Cinzel, serif"
+              font-size="14"
+              letter-spacing="3"
+              fill="#e9d8a6"
+              opacity="0.92">
+          BETWEEN SHADOW AND STEEL
+        </text>
 
-  <!-- Moving shine -->
-  <g clip-path="url(#plateClip)">
-    <rect x="-240" y="0" width="200" height="120" fill="url(#shineGradient)">
-      <animate attributeName="x" from="-240" to="760" dur="4s" repeatCount="indefinite"/>
-    </rect>
-  </g>
-</svg>
-
+        <!-- Shine -->
+        <g clip-path="url(#plateClip)">
+          <rect x="-240" y="0" width="200" height="120" fill="url(#shineGradient)">
+            <animate attributeName="x" from="-240" to="760" dur="4s" repeatCount="indefinite"/>
+          </rect>
+        </g>
+      </svg>
     </div>
 
-    <!-- SVG Start Button (animated) -->
+    <!-- START button (wider plate + smaller text so it fits) -->
     <button class="svg-btn" id="startGameBtn" type="button" aria-label="Start your quest">
-      <svg width="360" height="120" viewBox="0 0 360 120"
-     xmlns="http://www.w3.org/2000/svg"
-     aria-label="Start Your Quest"
-     style="cursor:pointer">
+      <svg width="460" height="120" viewBox="0 0 460 120"
+           xmlns="http://www.w3.org/2000/svg"
+           aria-label="Start Your Quest">
 
-  <defs>
-    <!-- Plate gradient -->
-    <linearGradient id="plateGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#141414"/>
-      <stop offset="60%" stop-color="#0b0b0b"/>
-      <stop offset="100%" stop-color="#000000"/>
-    </linearGradient>
+        <defs>
+          <linearGradient id="plateGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#141414"/>
+            <stop offset="60%" stop-color="#0b0b0b"/>
+            <stop offset="100%" stop-color="#000000"/>
+          </linearGradient>
 
-    <!-- Rim gradient -->
-    <linearGradient id="rimGrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#2a2120"/>
-      <stop offset="50%" stop-color="#5b4945"/>
-      <stop offset="100%" stop-color="#2a2120"/>
-    </linearGradient>
+          <linearGradient id="rimGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#2a2120"/>
+            <stop offset="50%" stop-color="#5b4945"/>
+            <stop offset="100%" stop-color="#2a2120"/>
+          </linearGradient>
 
-    <!-- Animated text gradient -->
-    <linearGradient id="textGrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#8b0000"/>
-      <stop offset="35%" stop-color="#c30000"/>
-      <stop offset="60%" stop-color="#ffd27a"/>
-      <stop offset="100%" stop-color="#8b0000"/>
-      <animateTransform attributeName="gradientTransform"
-        type="translate" from="-0.3 0" to="0.3 0"
-        dur="3.5s" repeatCount="indefinite"/>
-    </linearGradient>
+          <linearGradient id="textGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#8b0000"/>
+            <stop offset="35%" stop-color="#c30000"/>
+            <stop offset="60%" stop-color="#ffd27a"/>
+            <stop offset="100%" stop-color="#8b0000"/>
+            <animateTransform attributeName="gradientTransform"
+              type="translate" from="-0.3 0" to="0.3 0"
+              dur="3.5s" repeatCount="indefinite"/>
+          </linearGradient>
 
-    <!-- Glow -->
-    <filter id="textGlow" x="-30%" y="-50%" width="160%" height="200%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b1"/>
-      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b2"/>
-      <feMerge>
-        <feMergeNode in="b2"/>
-        <feMergeNode in="b1"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
+          <filter id="textGlow" x="-30%" y="-50%" width="160%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b1"/>
+            <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b2"/>
+            <feMerge>
+              <feMergeNode in="b2"/>
+              <feMergeNode in="b1"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
 
-    <!-- Sheen -->
-    <linearGradient id="sheenGrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="rgba(255,255,255,0)"/>
-      <stop offset="50%" stop-color="rgba(255,255,255,0.85)"/>
-      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-    </linearGradient>
+          <!-- Sheen gradient (SVG-safe) -->
+          <linearGradient id="sheenGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="white" stop-opacity="0"/>
+            <stop offset="50%" stop-color="white" stop-opacity="0.85"/>
+            <stop offset="100%" stop-color="white" stop-opacity="0"/>
+          </linearGradient>
 
-    <mask id="sheenMask">
-      <rect width="360" height="120" fill="black"/>
-      <rect x="-160" y="24" width="160" height="72" fill="url(#sheenGrad)">
-        <animate attributeName="x" from="-160" to="420"
-                 dur="2.8s" repeatCount="indefinite"/>
-      </rect>
-    </mask>
-  </defs>
+          <mask id="sheenMask">
+            <rect width="460" height="120" fill="black"/>
+            <rect x="-180" y="24" width="180" height="72" fill="url(#sheenGrad)">
+              <animate attributeName="x" from="-180" to="520" dur="2.8s" repeatCount="indefinite"/>
+            </rect>
+          </mask>
+        </defs>
 
-  <!-- Plate -->
-  <rect x="6" y="6" width="348" height="108" rx="18"
-        fill="url(#plateGrad)"/>
-  <rect x="6" y="6" width="348" height="108" rx="18"
-        fill="none" stroke="url(#rimGrad)" stroke-width="2"/>
+        <!-- Plate -->
+        <rect x="6" y="6" width="448" height="108" rx="18" ry="18" fill="url(#plateGrad)"/>
+        <rect x="6" y="6" width="448" height="108" rx="18" ry="18" fill="none" stroke="url(#rimGrad)" stroke-width="2"/>
 
-  <!-- Text -->
-  <g filter="url(#textGlow)">
-    <text x="180" y="72"
-          text-anchor="middle"
-          font-family="Cinzel, serif"
-          font-size="32"
-          font-weight="800"
-          letter-spacing="2"
-          fill="url(#textGrad)"
-          stroke="#4a0000"
-          stroke-width="1.2"
-          paint-order="stroke fill">
-      START YOUR QUEST
-    </text>
+        <!-- Text -->
+        <g filter="url(#textGlow)">
+          <text x="230" y="72"
+                text-anchor="middle"
+                font-family="Cinzel, serif"
+                font-size="30"
+                font-weight="900"
+                letter-spacing="1.2"
+                fill="url(#textGrad)"
+                stroke="#4a0000"
+                stroke-width="1.2"
+                paint-order="stroke fill">
+            START YOUR QUEST
+          </text>
 
-    <!-- Sheen pass -->
-    <text x="180" y="72"
-          text-anchor="middle"
-          font-family="Cinzel, serif"
-          font-size="32"
-          font-weight="800"
-          letter-spacing="2"
-          fill="white"
-          opacity="0.35"
-          mask="url(#sheenMask)">
-      START YOUR QUEST
-    </text>
-  </g>
-
-</svg>
-
+          <text x="230" y="72"
+                text-anchor="middle"
+                font-family="Cinzel, serif"
+                font-size="30"
+                font-weight="900"
+                letter-spacing="1.2"
+                fill="white"
+                opacity="0.35"
+                mask="url(#sheenMask)">
+            START YOUR QUEST
+          </text>
+        </g>
+      </svg>
     </button>
 
   </div>
@@ -261,6 +246,7 @@
   <script src="/Scripts/interactivestories.js" defer></script>
 </body>
 </html>
+
 
 
 
