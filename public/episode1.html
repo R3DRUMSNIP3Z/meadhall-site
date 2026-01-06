@@ -1,115 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Veriador • Episode I</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  font-family: Cinzel, serif;
+  overflow: hidden;
+}
+
+/* Background */
+#bg {
+  position: fixed;
+  inset: 0;
+  background: url("/bggameimage.png") center center / cover no-repeat;
+  z-index: 0;
+}
+
+/* Dialogue UI */
+#dlg {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  width: min(1200px, calc(100vw - 24px));
+  height: 190px;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(35,20,10,.95), rgba(15,10,8,.88));
+  border: 1px solid rgba(255,208,120,.2);
+  box-shadow: 0 18px 55px rgba(0,0,0,.6);
+}
+
+.hidden { display: none; }
+
+#dlgPortrait {
+  width: 240px;
+  height: 190px;
+  object-fit: contain;
+  align-self: end;
+}
+
+#dlgPanel {
+  padding: 16px 18px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+}
+
+#dlgName {
+  font-size: 28px;
+  font-weight: 900;
+  color: rgba(255,225,170,.95);
+}
+
+#dlgText {
+  font-size: 20px;
+  line-height: 1.35;
+  color: rgba(255,255,255,.95);
+}
+
+#dlgBtns {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.dlgBtn {
+  padding: 10px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid rgba(255,208,120,.28);
+  background: rgba(120,60,25,.45);
+  color: rgba(255,245,230,.95);
+  font-weight: 800;
+}
+
+.dlgBtn:hover { filter: brightness(1.1); }
+
+.nameInput {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,208,120,.28);
+  background: rgba(0,0,0,.3);
+  color: #fff;
+  font-size: 18px;
+}
+</style>
+</head>
+
+<body>
+<div id="bg"></div>
+
+<!-- Dialogue UI -->
+<div id="dlg" class="hidden">
+  <img id="dlgPortrait" alt="">
+  <div id="dlgPanel">
+    <div id="dlgName"></div>
+    <div id="dlgText"></div>
+    <div id="dlgBtns"></div>
+  </div>
+</div>
+
 <script>
-const NAME_KEY = "va_player_name";
-const ALIGN_KEY = "va_alignment";
+document.addEventListener("DOMContentLoaded", async () => {
 
-// Oath trial progress keys
-const OATH_IDX = "va_oath_idx";     // 0..10 (question index)
-const OATH_GOOD = "va_oath_good";
-const OATH_EVIL = "va_oath_evil";
-const OATH_DONE = "va_oath_done";   // "1" when finished
+  const NAME_KEY = "va_player_name";
+  const ALIGN_KEY = "va_alignment";
+  const OATH_IDX = "va_oath_idx";
+  const OATH_GOOD = "va_oath_good";
+  const OATH_EVIL = "va_oath_evil";
+  const OATH_DONE = "va_oath_done";
 
-const dlg = document.getElementById("dlg");
-const dlgName = document.getElementById("dlgName");
-const dlgText = document.getElementById("dlgText");
-const dlgBtns = document.getElementById("dlgBtns");
+  const dlg = document.getElementById("dlg");
+  const dlgName = document.getElementById("dlgName");
+  const dlgText = document.getElementById("dlgText");
+  const dlgBtns = document.getElementById("dlgBtns");
 
-function showDialogue({ name, text, buttons = [] }) {
-  dlgName.textContent = name || "";
-  dlgText.innerHTML = "";
-  dlgBtns.innerHTML = "";
-  dlg.classList.remove("hidden");
+  function showDialogue({ name, text, buttons = [] }) {
+    dlgName.textContent = name || "";
+    dlgText.innerHTML = "";
+    dlgBtns.innerHTML = "";
+    dlg.classList.remove("hidden");
 
-  if (typeof text === "string") {
-    dlgText.textContent = text;
-  } else {
-    dlgText.appendChild(text);
+    if (typeof text === "string") dlgText.textContent = text;
+    else dlgText.appendChild(text);
+
+    buttons.forEach(b => {
+      const btn = document.createElement("button");
+      btn.className = "dlgBtn";
+      btn.textContent = b.label;
+      btn.onclick = b.onClick;
+      dlgBtns.appendChild(btn);
+    });
   }
 
-  buttons.forEach(b => {
-    const btn = document.createElement("button");
-    btn.className = "dlgBtn";
-    btn.textContent = b.label;
-    btn.onclick = b.onClick;
-    dlgBtns.appendChild(btn);
-  });
-}
+  function hideDialogue() {
+    dlg.classList.add("hidden");
+  }
 
-function hideDialogue() {
-  dlg.classList.add("hidden");
-}
+  async function loadJSON(url) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to load " + url);
+    return await res.json();
+  }
 
-async function loadJSON(url) {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to load " + url);
-  return await res.json();
-}
+  function getInt(key, fallback = 0) {
+    const v = parseInt(localStorage.getItem(key) || "", 10);
+    return Number.isFinite(v) ? v : fallback;
+  }
 
-function getInt(key, fallback = 0) {
-  const v = parseInt(localStorage.getItem(key) || "", 10);
-  return Number.isFinite(v) ? v : fallback;
-}
+  function saveProgress(idx, good, evil) {
+    localStorage.setItem("va_save_active", "1");
+    localStorage.setItem("va_episode", "volume1_ep1");
+    localStorage.setItem("va_screen", "oath_trial");
+    localStorage.setItem(OATH_IDX, idx);
+    localStorage.setItem(OATH_GOOD, good);
+    localStorage.setItem(OATH_EVIL, evil);
+  }
 
-function saveProgress({ idx, good, evil }) {
-  localStorage.setItem("va_save_active", "1");
-  localStorage.setItem("va_episode", "volume1_ep1");
-  localStorage.setItem("va_screen", "oath_trial");
-
-  localStorage.setItem(OATH_IDX, String(idx));
-  localStorage.setItem(OATH_GOOD, String(good));
-  localStorage.setItem(OATH_EVIL, String(evil));
-}
-
-function clearTrialProgressOnly() {
-  localStorage.removeItem(OATH_IDX);
-  localStorage.removeItem(OATH_GOOD);
-  localStorage.removeItem(OATH_EVIL);
-  localStorage.removeItem(OATH_DONE);
-}
-
-async function askName(promptData) {
-  return new Promise(resolve => {
-    const input = document.createElement("input");
-    input.className = "nameInput";
-    input.placeholder = "Your name";
-    input.maxLength = 18;
-
-    showDialogue({
-      name: promptData.speaker || "The Voice",
-      text: promptData.text || "Speak your name.",
-      buttons: [{
-        label: "Continue",
-        onClick: () => {
-          const nm = (input.value || "").trim() || "Traveler";
-          localStorage.setItem(NAME_KEY, nm);
-          hideDialogue();
-          resolve(nm);
-        }
-      }]
-    });
-
-    dlgText.appendChild(input);
-    setTimeout(() => input.focus(), 50);
-  });
-}
-
-async function askGoodEvil(q) {
-  return new Promise(resolve => {
-    showDialogue({
-      name: q.speaker || "The Voice",
-      text: q.text,
-      buttons: [
-        { label: q.good.label, onClick: () => { hideDialogue(); resolve("good"); } },
-        { label: q.evil.label, onClick: () => { hideDialogue(); resolve("evil"); } }
-      ]
-    });
-  });
-}
-
-async function runEpisode1() {
-  // Load the catalog
   const data = await loadJSON("/data/episodes/volume1_ep1/oath_trial.json");
 
-  // If already finished, just show the result again (or move on later)
+  // Already finished
   if (localStorage.getItem(OATH_DONE) === "1") {
     const name = localStorage.getItem(NAME_KEY) || "Traveler";
     const align = localStorage.getItem(ALIGN_KEY) || "myriador";
@@ -118,76 +182,88 @@ async function runEpisode1() {
     showDialogue({
       name: result.speaker,
       text: result.text.replace("{name}", name),
-      buttons: [{
-        label: result.button,
-        onClick: () => {
-          hideDialogue();
-          alert("Next area: " + result.toScreen);
-        }
-      }]
+      buttons: [{ label: result.button, onClick: () => alert(result.toScreen) }]
     });
     return;
   }
 
-  // Ask name if not set
+  // Ask name
   if (!localStorage.getItem(NAME_KEY)) {
-    await askName(data.namePrompt);
+    await new Promise(resolve => {
+      const input = document.createElement("input");
+      input.className = "nameInput";
+      input.placeholder = "Your name";
+
+      showDialogue({
+        name: data.namePrompt.speaker,
+        text: data.namePrompt.text,
+        buttons: [{
+          label: "Continue",
+          onClick: () => {
+            localStorage.setItem(NAME_KEY, input.value.trim() || "Traveler");
+            hideDialogue();
+            resolve();
+          }
+        }]
+      });
+
+      dlgText.appendChild(input);
+      input.focus();
+    });
   }
 
-  // Resume progress
   let idx = getInt(OATH_IDX, 0);
   let good = getInt(OATH_GOOD, 0);
   let evil = getInt(OATH_EVIL, 0);
 
-  // Save initial resume state (so it becomes resumable immediately)
-  saveProgress({ idx, good, evil });
+  saveProgress(idx, good, evil);
 
-  // Ask remaining questions from idx
   while (idx < data.questions.length) {
     const q = data.questions[idx];
-
-    const choice = await askGoodEvil(q);
-    if (choice === "good") good += 1;
-    else evil += 1;
-
-    idx += 1;
-    saveProgress({ idx, good, evil });
+    await new Promise(resolve => {
+      showDialogue({
+        name: q.speaker,
+        text: q.text,
+        buttons: [
+          { label: q.good.label, onClick: () => { good++; resolve(); }},
+          { label: q.evil.label, onClick: () => { evil++; resolve(); }}
+        ]
+      });
+    });
+    idx++;
+    saveProgress(idx, good, evil);
   }
 
-  // Tiebreaker if needed
   if (good === evil) {
-    const tieChoice = await askGoodEvil(data.tiebreaker);
-    if (tieChoice === "good") good += 1;
-    else evil += 1;
-
-    // Save after tiebreaker too
-    saveProgress({ idx, good, evil });
+    const q = data.tiebreaker;
+    await new Promise(resolve => {
+      showDialogue({
+        name: q.speaker,
+        text: q.text,
+        buttons: [
+          { label: q.good.label, onClick: () => { good++; resolve(); }},
+          { label: q.evil.label, onClick: () => { evil++; resolve(); }}
+        ]
+      });
+    });
   }
 
-  // Decide alignment
-  const name = localStorage.getItem(NAME_KEY) || "Traveler";
   const isDreadheim = evil > good;
-
   localStorage.setItem(ALIGN_KEY, isDreadheim ? "dreadheim" : "myriador");
   localStorage.setItem(OATH_DONE, "1");
 
+  const name = localStorage.getItem(NAME_KEY);
   const result = isDreadheim ? data.results.dreadheim : data.results.myriador;
 
   showDialogue({
     name: result.speaker,
     text: result.text.replace("{name}", name),
-    buttons: [
-      {
-        label: result.button,
-        onClick: () => {
-          hideDialogue();
-          alert("Next area: " + result.toScreen);
-        }
-      }
-    ]
+    buttons: [{ label: result.button, onClick: () => alert(result.toScreen) }]
   });
-}
 
-runEpisode1();
+});
 </script>
+</body>
+</html>
+
 
