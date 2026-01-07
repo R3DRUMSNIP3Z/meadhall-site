@@ -128,24 +128,49 @@ document.addEventListener("DOMContentLoaded", async () => {
   const dlgName = document.getElementById("dlgName");
   const dlgText = document.getElementById("dlgText");
   const dlgBtns = document.getElementById("dlgBtns");
+const dlgPortrait = document.getElementById("dlgPortrait");
+const DEFAULT_PORTRAIT = "/guildbook/npcs/frigga.png";
+
+function setPortrait() {
+  dlgPortrait.src = DEFAULT_PORTRAIT;
+  dlgPortrait.style.display = "block";
+}
+
+function setPortrait(src) {
+  if (src) {
+    dlgPortrait.src = src;
+    dlgPortrait.style.display = "block";
+  } else {
+    dlgPortrait.src = "";
+    dlgPortrait.style.display = "none";
+  }
+}
+
 
   function showDialogue({ name, text, buttons = [] }) {
-    dlgName.textContent = name || "";
-    dlgText.innerHTML = "";
-    dlgBtns.innerHTML = "";
-    dlg.classList.remove("hidden");
+  dlgName.textContent = name || "Frigga";
+  dlgText.innerHTML = "";
+  dlgBtns.innerHTML = "";
+  dlg.classList.remove("hidden");
 
-    if (typeof text === "string") dlgText.textContent = text;
-    else dlgText.appendChild(text);
+  setPortrait(); // ALWAYS Frigga
 
-    buttons.forEach(b => {
-      const btn = document.createElement("button");
-      btn.className = "dlgBtn";
-      btn.textContent = b.label;
-      btn.onclick = b.onClick;
-      dlgBtns.appendChild(btn);
-    });
+  if (typeof text === "string") {
+    dlgText.textContent = text;
+  } else {
+    dlgText.appendChild(text);
   }
+
+  buttons.forEach(b => {
+    const btn = document.createElement("button");
+    btn.className = "dlgBtn";
+    btn.textContent = b.label;
+    btn.onclick = b.onClick;
+    dlgBtns.appendChild(btn);
+  });
+}
+
+
 
   function hideDialogue() {
     dlg.classList.add("hidden");
