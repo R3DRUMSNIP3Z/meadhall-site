@@ -49,6 +49,30 @@ html, body {
   height: 190px;
   object-fit: contain;
   align-self: end;
+  display: block;
+}
+
+/* Optional subtle “alive” motion even for PNG */
+#dlgPortrait {
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+  animation:
+    portraitIn 0.6s ease forwards,
+    idleBreath 4s ease-in-out infinite,
+    divineGlow 3.5s ease-in-out infinite;
+  filter: drop-shadow(0 12px 22px rgba(0,0,0,0.65));
+}
+
+@keyframes portraitIn {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes idleBreath {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-2px) scale(1.01); }
+}
+@keyframes divineGlow {
+  0%, 100% { filter: drop-shadow(0 12px 22px rgba(0,0,0,0.6)); }
+  50%      { filter: drop-shadow(0 12px 30px rgba(180,200,255,0.65)); }
 }
 
 #dlgPanel {
@@ -106,7 +130,7 @@ html, body {
 
 <!-- Dialogue UI -->
 <div id="dlg" class="hidden">
-  <img id="dlgPortrait" alt="">
+  <img id="dlgPortrait" alt="Frigga">
   <div id="dlgPanel">
     <div id="dlgName"></div>
     <div id="dlgText"></div>
@@ -119,58 +143,45 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const NAME_KEY = "va_player_name";
   const ALIGN_KEY = "va_alignment";
-  const OATH_IDX = "va_oath_idx";
+  const OATH_IDX  = "va_oath_idx";
   const OATH_GOOD = "va_oath_good";
   const OATH_EVIL = "va_oath_evil";
   const OATH_DONE = "va_oath_done";
+
+  // Frigga portrait (PNG for now)
+  const DEFAULT_PORTRAIT = "/guildbook/npcs/frigga.png";
 
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
   const dlgText = document.getElementById("dlgText");
   const dlgBtns = document.getElementById("dlgBtns");
-const dlgPortrait = document.getElementById("dlgPortrait");
-const DEFAULT_PORTRAIT = "/guildbook/npcs/frigga.png";
+  const dlgPortrait = document.getElementById("dlgPortrait");
 
-function setPortrait() {
+  // Ensure portrait is always visible
   dlgPortrait.src = DEFAULT_PORTRAIT;
   dlgPortrait.style.display = "block";
-}
-
-function setPortrait(src) {
-  if (src) {
-    dlgPortrait.src = src;
-    dlgPortrait.style.display = "block";
-  } else {
-    dlgPortrait.src = "";
-    dlgPortrait.style.display = "none";
-  }
-}
-
 
   function showDialogue({ name, text, buttons = [] }) {
-  dlgName.textContent = name || "Frigga";
-  dlgText.innerHTML = "";
-  dlgBtns.innerHTML = "";
-  dlg.classList.remove("hidden");
+    dlgName.textContent = name || "Frigga";
+    dlgText.innerHTML = "";
+    dlgBtns.innerHTML = "";
+    dlg.classList.remove("hidden");
 
-  setPortrait(); // ALWAYS Frigga
+    // ALWAYS Frigga
+    dlgPortrait.src = DEFAULT_PORTRAIT;
+    dlgPortrait.style.display = "block";
 
-  if (typeof text === "string") {
-    dlgText.textContent = text;
-  } else {
-    dlgText.appendChild(text);
+    if (typeof text === "string") dlgText.textContent = text;
+    else dlgText.appendChild(text);
+
+    buttons.forEach(b => {
+      const btn = document.createElement("button");
+      btn.className = "dlgBtn";
+      btn.textContent = b.label;
+      btn.onclick = b.onClick;
+      dlgBtns.appendChild(btn);
+    });
   }
-
-  buttons.forEach(b => {
-    const btn = document.createElement("button");
-    btn.className = "dlgBtn";
-    btn.textContent = b.label;
-    btn.onclick = b.onClick;
-    dlgBtns.appendChild(btn);
-  });
-}
-
-
 
   function hideDialogue() {
     dlg.classList.add("hidden");
@@ -178,7 +189,7 @@ function setPortrait(src) {
 
   async function loadJSON(url) {
     const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error("Failed to load " + url);
+    if (!res.ok) throw new Error("Failed to load " + url + " (" + res.status + ")");
     return await res.json();
   }
 
@@ -191,9 +202,9 @@ function setPortrait(src) {
     localStorage.setItem("va_save_active", "1");
     localStorage.setItem("va_episode", "volume1_ep1");
     localStorage.setItem("va_screen", "oath_trial");
-    localStorage.setItem(OATH_IDX, idx);
-    localStorage.setItem(OATH_GOOD, good);
-    localStorage.setItem(OATH_EVIL, evil);
+    localStorage.setItem(OATH_IDX, String(idx));
+    localStorage.setItem(OATH_GOOD, String(good));
+    localStorage.setItem(OATH_EVIL, String(evil));
   }
 
   const data = await loadJSON("/data/episodes/volume1_ep1/oath_trial.json");
@@ -202,12 +213,18 @@ function setPortrait(src) {
   if (localStorage.getItem(OATH_DONE) === "1") {
     const name = localStorage.getItem(NAME_KEY) || "Traveler";
     const align = localStorage.getItem(ALIGN_KEY) || "myriador";
-    const result = align === "dreadheim" ? data.results.dreadheim : data.results.myriador;
+    const result = (align === "dreadheim") ? data.results.dreadheim : data.results.myriador;
 
     showDialogue({
-      name: result.speaker,
+      name: "Frigga",
       text: result.text.replace("{name}", name),
-      buttons: [{ label: result.button, onClick: () => alert(result.toScreen) }]
+      buttons: [{
+        label: result.button,
+        onClick: () => {
+          hideDialogue();
+          alert("Next area: " + result.toScreen);
+        }
+      }]
     });
     return;
   }
@@ -218,14 +235,15 @@ function setPortrait(src) {
       const input = document.createElement("input");
       input.className = "nameInput";
       input.placeholder = "Your name";
+      input.maxLength = 18;
 
       showDialogue({
-        name: data.namePrompt.speaker,
-        text: data.namePrompt.text,
+        name: "Frigga",
+        text: (data.namePrompt && data.namePrompt.text) ? data.namePrompt.text : "Speak your name.",
         buttons: [{
           label: "Continue",
           onClick: () => {
-            localStorage.setItem(NAME_KEY, input.value.trim() || "Traveler");
+            localStorage.setItem(NAME_KEY, (input.value || "").trim() || "Traveler");
             hideDialogue();
             resolve();
           }
@@ -233,7 +251,7 @@ function setPortrait(src) {
       });
 
       dlgText.appendChild(input);
-      input.focus();
+      setTimeout(() => input.focus(), 50);
     });
   }
 
@@ -241,54 +259,71 @@ function setPortrait(src) {
   let good = getInt(OATH_GOOD, 0);
   let evil = getInt(OATH_EVIL, 0);
 
+  // Make it resumable immediately
   saveProgress(idx, good, evil);
 
+  // Ask remaining questions
   while (idx < data.questions.length) {
     const q = data.questions[idx];
+
     await new Promise(resolve => {
       showDialogue({
-        name: q.speaker,
+        name: "Frigga",
         text: q.text,
         buttons: [
-          { label: q.good.label, onClick: () => { good++; resolve(); }},
-          { label: q.evil.label, onClick: () => { evil++; resolve(); }}
+          { label: q.good.label, onClick: () => { good += 1; hideDialogue(); resolve(); } },
+          { label: q.evil.label, onClick: () => { evil += 1; hideDialogue(); resolve(); } }
         ]
       });
     });
-    idx++;
+
+    idx += 1;
     saveProgress(idx, good, evil);
   }
 
+  // Tiebreaker
   if (good === evil) {
     const q = data.tiebreaker;
+
     await new Promise(resolve => {
       showDialogue({
-        name: q.speaker,
+        name: "Frigga",
         text: q.text,
         buttons: [
-          { label: q.good.label, onClick: () => { good++; resolve(); }},
-          { label: q.evil.label, onClick: () => { evil++; resolve(); }}
+          { label: q.good.label, onClick: () => { good += 1; hideDialogue(); resolve(); } },
+          { label: q.evil.label, onClick: () => { evil += 1; hideDialogue(); resolve(); } }
         ]
       });
     });
+
+    saveProgress(idx, good, evil);
   }
 
+  // Decide alignment
+  const playerName = localStorage.getItem(NAME_KEY) || "Traveler";
   const isDreadheim = evil > good;
+
   localStorage.setItem(ALIGN_KEY, isDreadheim ? "dreadheim" : "myriador");
   localStorage.setItem(OATH_DONE, "1");
 
-  const name = localStorage.getItem(NAME_KEY);
   const result = isDreadheim ? data.results.dreadheim : data.results.myriador;
 
   showDialogue({
-    name: result.speaker,
-    text: result.text.replace("{name}", name),
-    buttons: [{ label: result.button, onClick: () => alert(result.toScreen) }]
+    name: "Frigga",
+    text: result.text.replace("{name}", playerName),
+    buttons: [{
+      label: result.button,
+      onClick: () => {
+        hideDialogue();
+        alert("Next area: " + result.toScreen);
+      }
+    }]
   });
 
 });
 </script>
 </body>
 </html>
+
 
 
