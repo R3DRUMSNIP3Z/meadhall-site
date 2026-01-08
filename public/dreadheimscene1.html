@@ -459,7 +459,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Unique IDs so multiple pages don't conflict
     const uid = "enterRisk_" + Math.random().toString(16).slice(2);
 
-    return `
+    return 
 <svg width="360" height="120" viewBox="0 0 360 120"
      xmlns="http://www.w3.org/2000/svg"
      aria-label="${labelText}"
@@ -544,7 +544,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       ${labelText}
     </text>
   </g>
-</svg>`;
+</svg>;
   }
 
   async function showEnterAtOwnRisk(nextScreenKey) {
