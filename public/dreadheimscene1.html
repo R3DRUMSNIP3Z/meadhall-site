@@ -244,6 +244,21 @@ function showEnterButton() {
   };
 }
 
+
+
+questBtn.onclick = () => questOverlay.style.display = "block";
+questClose.onclick = () => questOverlay.style.display = "none";
+
+const data = await fetch(SCENE_JSON).then(r => r.json());
+
+dlgPortrait.src = data.meta.portrait;
+showDialogue("Loki", data.nodes[0].text);
+
+localStorage.setItem(QUEST_ID_KEY, data.onComplete.setQuestActive);
+localStorage.setItem(QUEST_CAT_KEY, data.onComplete.questCatalog);
+questBtn.style.display = "block";
+
+});
 function buildEnterSvg() {
   const uid = Math.random().toString(16).slice(2);
   return 
@@ -262,21 +277,8 @@ font-size="26" font-weight="800"
 fill="url(#${uid}t)">ENTER AT YOUR OWN RISK</text>
 </svg>;
 }
-
-questBtn.onclick = () => questOverlay.style.display = "block";
-questClose.onclick = () => questOverlay.style.display = "none";
-
-const data = await fetch(SCENE_JSON).then(r => r.json());
-
-dlgPortrait.src = data.meta.portrait;
-showDialogue("Loki", data.nodes[0].text);
-
-localStorage.setItem(QUEST_ID_KEY, data.onComplete.setQuestActive);
-localStorage.setItem(QUEST_CAT_KEY, data.onComplete.questCatalog);
-questBtn.style.display = "block";
-
-});
 </script>
+
 
 </body>
 </html>
