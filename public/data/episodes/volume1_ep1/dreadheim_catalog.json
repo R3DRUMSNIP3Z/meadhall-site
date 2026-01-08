@@ -1,0 +1,17 @@
+{
+  "dreadheim_scene1": {
+    "bg": "/guildbook/scenes/dreadheim_scene1.png",
+    "onEnter": ["flow_dreadheim_scene1"]
+  },
+
+  "dreadheim_meadhall": {
+    "bg": "/guildbook/scenes/dreadheim_meadhall.png",
+    "onEnter": ["flow_dreadheim_meadhall"]
+  },
+
+  "dreadheim_frostwood": {
+    "bg": "/guildbook/scenes/dreadheim_frostwood.png",
+    "onEnter": ["flow_dreadheim_frostwood"]
+  }
+}
+
