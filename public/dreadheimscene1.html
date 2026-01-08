@@ -63,9 +63,7 @@ html, body {
   filter: drop-shadow(0 12px 22px rgba(0,0,0,0.65));
 }
 
-@keyframes portraitIn {
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
+@keyframes portraitIn { to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes idleBreath {
   0%, 100% { transform: translateY(0) scale(1); }
   50%      { transform: translateY(-2px) scale(1.01); }
@@ -112,6 +110,16 @@ html, body {
 }
 
 .dlgBtn:hover { filter: brightness(1.1); }
+
+.nameInput {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,208,120,.28);
+  background: rgba(0,0,0,.3);
+  color: #fff;
+  font-size: 18px;
+}
 </style>
 </head>
 
@@ -131,42 +139,52 @@ html, body {
 <script>
 document.addEventListener("DOMContentLoaded", async () => {
 
-  const NAME_KEY = "va_player_name";
+  // ---------- Shared keys ----------
+  const NAME_KEY  = "va_player_name";
   const ALIGN_KEY = "va_alignment";
 
-  // Dreadheim speaker + portrait
-  const LOKI_NAME = "Loki";
-  const LOKI_PORTRAIT = "/guildbook/npcs/loki.gif"; // change to .png if you want
+  // ---------- Dreadheim Scene save keys ----------
+  const SCENE_ID   = "dreadheim_scene1";
+  const SC_IDX_KEY = "va_dh1_idx";
+  const SC_TRUTH   = "va_dh1_truth";
+  const SC_POWER   = "va_dh1_power";
+  const SC_DONE    = "va_dh1_done";
 
-  // Optional: if someone lands here without being dreadheim, redirect them
+  // JSON file for this scene
+  const SCENE_JSON = "/data/episodes/volume1_ep1/dreadheim_scene1.json";
+
+  // Defaults (can be overridden by JSON meta)
+  const DEFAULT_BG = "/guildbook/scenes/dreadheim_scene1.png";
+  const DEFAULT_SPEAKER = "Loki";
+  const DEFAULT_PORTRAIT = "/guildbook/npcs/loki.gif";
+
+  // Optional guard: only dreadheim
   const align = localStorage.getItem(ALIGN_KEY) || "";
   if (align && align !== "dreadheim") {
     window.location.href = "/myriadorscene1.html";
     return;
   }
 
+  const bg = document.getElementById("bg");
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
   const dlgText = document.getElementById("dlgText");
   const dlgBtns = document.getElementById("dlgBtns");
   const dlgPortrait = document.getElementById("dlgPortrait");
 
-  // Always show Loki portrait
-  dlgPortrait.src = LOKI_PORTRAIT;
-  dlgPortrait.style.display = "block";
-
   let playerName = localStorage.getItem(NAME_KEY) || "Traveler";
 
-  function showDialogue({ name, text, buttons = [] }) {
-    dlgName.textContent = name || LOKI_NAME;
+  function showDialogue({ name, text, buttons = [], portraitSrc }) {
+    dlgName.textContent = name || DEFAULT_SPEAKER;
     dlgText.innerHTML = "";
     dlgBtns.innerHTML = "";
     dlg.classList.remove("hidden");
 
-    dlgPortrait.src = LOKI_PORTRAIT;
+    dlgPortrait.src = portraitSrc || DEFAULT_PORTRAIT;
     dlgPortrait.style.display = "block";
 
-    dlgText.textContent = text;
+    if (typeof text === "string") dlgText.textContent = text;
+    else dlgText.appendChild(text);
 
     buttons.forEach(b => {
       const btn = document.createElement("button");
@@ -181,54 +199,239 @@ document.addEventListener("DOMContentLoaded", async () => {
     dlg.classList.add("hidden");
   }
 
-  // Scene content (same structure as Episode I: showDialogue with buttons)
-  const lines = [
-    `So… ${playerName}.`,
-    "You chose Dreadheim. Bold. Or foolish.",
-    "This land doesn’t reward courage. It rewards the clever.",
-    "Tell me—do you want truth… or power?"
-  ];
-
-  let i = 0;
-
-  function showNext() {
-    const text = lines[i] || "Good.";
-    const isLast = i >= lines.length - 1;
-
-    showDialogue({
-      name: LOKI_NAME,
-      text,
-      buttons: isLast ? [
-        {
-          label: "Enter Dreadheim",
-          onClick: () => {
-            hideDialogue();
-            // Next page after scene 1 (change later)
-            window.location.href = "/dreadheimscene2.html";
-          }
-        }
-      ] : [
-        {
-          label: "Continue",
-          onClick: () => {
-            i += 1;
-            showNext();
-          }
-        }
-      ]
-    });
+  async function loadJSON(url) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to load " + url + " (" + res.status + ")");
+    return await res.json();
   }
 
-  showNext();
+  function getInt(key, fallback = 0) {
+    const v = parseInt(localStorage.getItem(key) || "", 10);
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  function setInt(key, value) {
+    localStorage.setItem(key, String(value));
+  }
+
+  function saveProgress(idx, truth, power) {
+    localStorage.setItem("va_save_active", "1");
+    localStorage.setItem("va_episode", "volume1_ep1");
+    localStorage.setItem("va_screen", SCENE_ID);
+    setInt(SC_IDX_KEY, idx);
+    setInt(SC_TRUTH, truth);
+    setInt(SC_POWER, power);
+  }
+
+  function gotoScreen(screenKey) {
+    // If you have a router later, replace this mapping.
+    // For now we map to actual html pages.
+    const map = {
+      "dreadheim_meadhall": "/dreadheim_meadhall.html",
+      "dreadheim_frostwood": "/dreadheim_frostwood.html"
+    };
+    window.location.href = map[screenKey] || "/dreadheimscene2.html";
+  }
+
+  const data = await loadJSON(SCENE_JSON);
+
+  // Apply meta (bg/portrait) if provided
+  const metaBg = data?.meta?.bg;
+  const metaPortrait = data?.meta?.portrait;
+  const metaSpeakerDefault = data?.meta?.speakerDefault;
+
+  const ACTIVE_BG = metaBg || DEFAULT_BG;
+  const ACTIVE_PORTRAIT = metaPortrait || DEFAULT_PORTRAIT;
+  const DEFAULT_NAME = metaSpeakerDefault || DEFAULT_SPEAKER;
+
+  bg.style.background = `url("${ACTIVE_BG}") center center / cover no-repeat`;
+
+  // -------- If already finished --------
+  if (localStorage.getItem(SC_DONE) === "1") {
+    playerName = localStorage.getItem(NAME_KEY) || playerName;
+
+    // Recompute which result we gave last time (based on stored scores)
+    const truth = getInt(SC_TRUTH, 0);
+    const power = getInt(SC_POWER, 0);
+    const key = (power > truth) ? "power" : "truth";
+    const result = data.results[key];
+
+    showDialogue({
+      name: result.speaker || DEFAULT_NAME,
+      text: (result.text || "").replace("{name}", playerName),
+      portraitSrc: ACTIVE_PORTRAIT,
+      buttons: [{
+        label: result.button || "Continue",
+        onClick: () => {
+          hideDialogue();
+          gotoScreen(result.toScreen);
+        }
+      }]
+    });
+    return;
+  }
+
+  // -------- Optional: re-ask name Loki-style if missing --------
+  if (!localStorage.getItem(NAME_KEY)) {
+    await new Promise(resolve => {
+      const input = document.createElement("input");
+      input.className = "nameInput";
+      input.placeholder = "Your name";
+      input.maxLength = 18;
+
+      const prompt = data.namePrompt || { speaker: DEFAULT_NAME, text: "Speak your name." };
+
+      showDialogue({
+        name: prompt.speaker || DEFAULT_NAME,
+        portraitSrc: ACTIVE_PORTRAIT,
+        text: prompt.text || "Speak your name.",
+        buttons: [{
+          label: "Continue",
+          onClick: () => {
+            playerName = (input.value || "").trim() || "Traveler";
+            localStorage.setItem(NAME_KEY, playerName);
+            hideDialogue();
+            resolve();
+          }
+        }]
+      });
+
+      dlgText.appendChild(input);
+      setTimeout(() => input.focus(), 50);
+    });
+  } else {
+    playerName = localStorage.getItem(NAME_KEY) || playerName;
+  }
+
+  // -------- Run the mission questions --------
+  let idx = getInt(SC_IDX_KEY, 0);
+  let truth = getInt(SC_TRUTH, 0);
+  let power = getInt(SC_POWER, 0);
+
+  // Make it resumable immediately
+  saveProgress(idx, truth, power);
+
+  const questions = Array.isArray(data.questions) ? data.questions : [];
+
+  while (idx < questions.length) {
+    const q = questions[idx];
+
+    await new Promise(resolve => {
+      showDialogue({
+        name: q.speaker || DEFAULT_NAME,
+        portraitSrc: ACTIVE_PORTRAIT,
+        text: q.text || "",
+        buttons: [
+          {
+            label: (q.good && q.good.label) ? q.good.label : "Truth",
+            onClick: () => {
+              truth += (q.good && typeof q.good.score === "number") ? q.good.score : 1;
+              hideDialogue();
+              resolve();
+            }
+          },
+          {
+            label: (q.evil && q.evil.label) ? q.evil.label : "Power",
+            onClick: () => {
+              power += (q.evil && typeof q.evil.score === "number") ? q.evil.score : 1;
+              hideDialogue();
+              resolve();
+            }
+          }
+        ]
+      });
+    });
+
+    idx += 1;
+    saveProgress(idx, truth, power);
+  }
+
+  // Tiebreaker if tied
+  if (truth === power && data.tiebreaker) {
+    const q = data.tiebreaker;
+
+    await new Promise(resolve => {
+      showDialogue({
+        name: q.speaker || DEFAULT_NAME,
+        portraitSrc: ACTIVE_PORTRAIT,
+        text: q.text || "",
+        buttons: [
+          {
+            label: (q.good && q.good.label) ? q.good.label : "Truth",
+            onClick: () => {
+              truth += (q.good && typeof q.good.score === "number") ? q.good.score : 1;
+              hideDialogue();
+              resolve();
+            }
+          },
+          {
+            label: (q.evil && q.evil.label) ? q.evil.label : "Power",
+            onClick: () => {
+              power += (q.evil && typeof q.evil.score === "number") ? q.evil.score : 1;
+              hideDialogue();
+              resolve();
+            }
+          }
+        ]
+      });
+    });
+
+    saveProgress(idx, truth, power);
+  }
+
+  // Decide result
+  const resultKey = (power > truth) ? "power" : "truth";
+  const result = data.results[resultKey];
+
+  localStorage.setItem(SC_DONE, "1");
+
+  showDialogue({
+    name: result.speaker || DEFAULT_NAME,
+    portraitSrc: ACTIVE_PORTRAIT,
+    text: (result.text || "").replace("{name}", playerName),
+    buttons: [{
+      label: result.button || "Continue",
+      onClick: () => {
+        hideDialogue();
+        gotoScreen(result.toScreen);
+      }
+    }]
+  });
 
   // ===============================
   // DEV TOOLS (F12)
   // ===============================
   window.VA_DEV = window.VA_DEV || {};
-  window.VA_DEV.gotoDreadheimScene1 = () => window.location.href = "/dreadheimscene1.html";
+
+  // Reset ONLY this Dreadheim scene
+  window.VA_DEV.resetDreadheimScene1 = () => {
+    console.warn("DEV: Resetting Dreadheim Scene 1");
+    [SC_IDX_KEY, SC_TRUTH, SC_POWER, SC_DONE, "va_screen"].forEach(k => localStorage.removeItem(k));
+    location.reload();
+  };
+
+  // Full episode reset (same as episode1.html)
+  window.VA_DEV.resetEpisode1 = () => {
+    console.warn("DEV: Resetting Episode I");
+    [
+      "va_player_name",
+      "va_alignment",
+      "va_episode",
+      "va_screen",
+      "va_save_active",
+      "va_oath_idx",
+      "va_oath_good",
+      "va_oath_evil",
+      "va_oath_done",
+      // include dreadheim scene keys too
+      SC_IDX_KEY, SC_TRUTH, SC_POWER, SC_DONE
+    ].forEach(k => localStorage.removeItem(k));
+    location.reload();
+  };
 
 });
 </script>
 </body>
 </html>
+
 
