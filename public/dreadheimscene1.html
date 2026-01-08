@@ -335,8 +335,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getActiveQuestCatalogUrl() {
-    return localStorage.getItem(VAQ_CATALOG_KEY) || "";
-  }
+  return (
+    localStorage.getItem(VAQ_CATALOG_KEY) ||
+    data?.onComplete?.questCatalog ||
+    "/guildbook/quests/dreadheim_quests.json"
+  );
+}
+
 
   function updateQuestIconVisibility() {
     const btn = document.getElementById("questBtn");
