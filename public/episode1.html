@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -148,8 +149,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const OATH_EVIL = "va_oath_evil";
   const OATH_DONE = "va_oath_done";
 
-  // Frigga portrait (PNG for now)
+  // Frigga portrait
   const DEFAULT_PORTRAIT = "/guildbook/npcs/frigga.gif";
+
+  // Keep playerName available everywhere (prevents "before initialization" errors)
+  let playerName = localStorage.getItem(NAME_KEY) || "Traveler";
 
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
@@ -207,30 +211,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.setItem(OATH_EVIL, String(evil));
   }
 
+  function goNext(isDreadheim) {
+    window.location.href = isDreadheim ? "/dreadheimscene1.html" : "/myriadorscene1.html";
+  }
+
   const data = await loadJSON("/data/episodes/volume1_ep1/oath_trial.json");
 
   // Already finished
   if (localStorage.getItem(OATH_DONE) === "1") {
-    const name = localStorage.getItem(NAME_KEY) || "Traveler";
     const align = localStorage.getItem(ALIGN_KEY) || "myriador";
-    const result = (align === "dreadheim") ? data.results.dreadheim : data.results.myriador;
+    const isDreadheim = (align === "dreadheim");
+    const result = isDreadheim ? data.results.dreadheim : data.results.myriador;
+
+    // refresh playerName in case it exists
+    playerName = localStorage.getItem(NAME_KEY) || playerName;
 
     showDialogue({
-  name: "Frigga",
-  text: result.text.replace("{name}", playerName),
-  buttons: [{
-    label: result.button,
-    onClick: () => {
-      hideDialogue();
-
-      if (isDreadheim) {
-        window.location.href = "/dreadheimscene1.html";
-      } else {
-        window.location.href = "/myriadorscene1.html";
-      }
-    }
-  }]
-});
+      name: "Frigga",
+      text: result.text.replace("{name}", playerName),
+      buttons: [{
+        label: result.button,
+        onClick: () => {
+          hideDialogue();
+          goNext(isDreadheim);
+        }
+      }]
+    });
 
     return;
   }
@@ -249,7 +255,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         buttons: [{
           label: "Continue",
           onClick: () => {
-            localStorage.setItem(NAME_KEY, (input.value || "").trim() || "Traveler");
+            playerName = (input.value || "").trim() || "Traveler";
+            localStorage.setItem(NAME_KEY, playerName);
             hideDialogue();
             resolve();
           }
@@ -259,6 +266,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       dlgText.appendChild(input);
       setTimeout(() => input.focus(), 50);
     });
+  } else {
+    playerName = localStorage.getItem(NAME_KEY) || playerName;
   }
 
   let idx = getInt(OATH_IDX, 0);
@@ -306,7 +315,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Decide alignment
-  const playerName = localStorage.getItem(NAME_KEY) || "Traveler";
   const isDreadheim = evil > good;
 
   localStorage.setItem(ALIGN_KEY, isDreadheim ? "dreadheim" : "myriador");
@@ -321,44 +329,42 @@ document.addEventListener("DOMContentLoaded", async () => {
       label: result.button,
       onClick: () => {
         hideDialogue();
-        alert("Next area: " + result.toScreen);
+        goNext(isDreadheim);
       }
     }]
   });
+
   // ===============================
-// DEV TOOLS (F12)
-// ===============================
-window.VA_DEV = {
-  resetEpisode1() {
-    console.warn("DEV: Resetting Episode I");
+  // DEV TOOLS (F12)
+  // ===============================
+  window.VA_DEV = {
+    resetEpisode1() {
+      console.warn("DEV: Resetting Episode I");
 
-    const keys = [
-      "va_player_name",
-      "va_alignment",
-      "va_episode",
-      "va_screen",
-      "va_save_active",
-      "va_oath_idx",
-      "va_oath_good",
-      "va_oath_evil",
-      "va_oath_done"
-    ];
+      [
+        "va_player_name",
+        "va_alignment",
+        "va_episode",
+        "va_screen",
+        "va_save_active",
+        "va_oath_idx",
+        "va_oath_good",
+        "va_oath_evil",
+        "va_oath_done"
+      ].forEach(k => localStorage.removeItem(k));
 
-    keys.forEach(k => localStorage.removeItem(k));
-
-    console.warn("DEV: Episode I reset complete");
-    console.warn("DEV: Reloading page…");
-
-    location.reload();
-  }
-};
+      console.warn("DEV: Episode I reset complete");
+      console.warn("DEV: Reloading page…");
+      location.reload();
+    }
+  };
 
 });
-
-
 </script>
 </body>
 </html>
+```
+
 
 
 
