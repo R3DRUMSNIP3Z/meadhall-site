@@ -4,7 +4,7 @@
     "title": "Dreadheim • Scene I",
     "speakerDefault": "Loki",
     "portrait": "/guildbook/npcs/loki.gif",
-    "bg": "/guildbook/scenes/dreadheim_scene1.jpg"
+    "bg": "/guildbook/scenes/dreadheim_scene1.png"
   },
 
   "namePrompt": {
