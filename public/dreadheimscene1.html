@@ -16,7 +16,7 @@ html, body {
   overflow: hidden;
 }
 
-/* Background */
+/* ================= BACKGROUND ================= */
 #bg {
   position: fixed;
   inset: 0;
@@ -24,7 +24,7 @@ html, body {
   z-index: 0;
 }
 
-/* Dialogue UI */
+/* ================= DIALOGUE ================= */
 #dlg {
   position: fixed;
   left: 50%;
@@ -49,25 +49,7 @@ html, body {
   height: 190px;
   object-fit: contain;
   align-self: end;
-  display: block;
-
-  opacity: 0;
-  transform: translateY(6px) scale(0.98);
-  animation:
-    portraitIn 0.6s ease forwards,
-    idleBreath 4s ease-in-out infinite,
-    divineGlow 3.5s ease-in-out infinite;
   filter: drop-shadow(0 12px 22px rgba(0,0,0,0.65));
-}
-
-@keyframes portraitIn { to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes idleBreath {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50%      { transform: translateY(-2px) scale(1.01); }
-}
-@keyframes divineGlow {
-  0%, 100% { filter: drop-shadow(0 12px 22px rgba(0,0,0,0.6)); }
-  50%      { filter: drop-shadow(0 12px 30px rgba(180,200,255,0.65)); }
 }
 
 #dlgPanel {
@@ -91,9 +73,7 @@ html, body {
 
 #dlgBtns {
   display: flex;
-  gap: 12px;
   justify-content: flex-end;
-  flex-wrap: wrap;
 }
 
 .dlgBtn {
@@ -106,122 +86,93 @@ html, body {
   font-weight: 800;
 }
 
-.dlgBtn:hover { filter: brightness(1.1); }
-
-.nameInput {
-  width: 100%;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,208,120,.28);
-  background: rgba(0,0,0,.3);
-  color: #fff;
-  font-size: 18px;
-  margin-top: 10px;
-}
-
-/* Quest Icon (top-right) */
+/* ================= QUEST ICON ================= */
 #questBtn {
   position: fixed;
   top: 14px;
   right: 14px;
   width: 52px;
   height: 52px;
-  border: none;
   background: transparent;
-  padding: 0;
-  z-index: 50;
+  border: none;
   cursor: pointer;
+  z-index: 50;
   display: none;
 }
+
 #questBtn img {
   width: 100%;
-  height: 100%;
   filter: drop-shadow(0 10px 22px rgba(0,0,0,0.75));
-  opacity: 0.95;
-  transition: transform 120ms ease;
 }
-#questBtn:hover img { transform: scale(1.05); }
 
-/* Quest Journal Overlay */
+/* ================= QUEST JOURNAL ================= */
 #questOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.65);
+  background: rgba(0,0,0,.65);
   z-index: 60;
   display: none;
 }
+
 #questPanel {
   position: absolute;
   top: 70px;
   right: 18px;
   width: min(520px, calc(100vw - 36px));
-  max-height: calc(100vh - 110px);
-  overflow: auto;
-  background: rgba(0, 0, 0, 0.92);
-  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,.92);
+  border: 1px solid rgba(255,255,255,.14);
   border-radius: 16px;
-  box-shadow: 0 18px 60px rgba(0,0,0,0.7);
-  padding: 14px 14px 16px;
+  padding: 14px;
 }
 
-/* Quest text colors */
 #questPanel,
-#questPanel * { color: rgba(245, 240, 230, 0.95); }
-.qTitle { color: rgba(255, 215, 140, 0.98); font-weight: 800; }
-#questContent > div:first-child { color: rgba(255, 215, 140, 0.98); font-weight: 900; }
-#questPanel ol, #questPanel li { color: rgba(240, 235, 225, 0.95); }
-#questPanel strong { color: rgba(255, 210, 160, 0.95); }
-#questPanel { text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+#questPanel * {
+  color: rgba(245,240,230,.95);
+}
 
-/* Close button */
+.qHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.qTitle {
+  font-weight: 800;
+  color: rgba(255,215,140,1);
+}
+
 #questClose {
-  color: rgba(255, 215, 140, 1);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   font-size: 20px;
   font-weight: 900;
-  background: rgba(0,0,0,0.35);
-  border: 1px solid rgba(255, 215, 140, 0.6);
-  border-radius: 10px;
-  width: 36px;
-  height: 36px;
   cursor: pointer;
+  background: rgba(0,0,0,.4);
+  border: 1px solid rgba(255,215,140,.6);
+  color: rgba(255,215,140,1);
 }
-#questClose:hover { background: rgba(255, 215, 140, 0.25); color: rgba(0,0,0,0.9); transform: scale(1.05); }
 
-/* ===============================
-   ENTER AT YOUR OWN RISK overlay
-   =============================== */
+/* ================= ENTER SVG ================= */
 #enterOverlay {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: 80;
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.35);
-}
-
-#enterButtonWrap {
-  transform: translateY(-6px);
-  filter: drop-shadow(0 18px 50px rgba(0,0,0,0.85));
-  user-select: none;
-}
-
-#enterButtonWrap:hover {
-  transform: translateY(-8px) scale(1.01);
-}
-
-@media (max-width: 480px) {
-  #enterButtonWrap svg { width: 300px; height: 100px; }
+  background: rgba(0,0,0,.35);
 }
 </style>
 </head>
 
 <body>
+
 <div id="bg"></div>
 
-<!-- Dialogue UI -->
+<!-- Dialogue -->
 <div id="dlg" class="hidden">
-  <img id="dlgPortrait" alt="Portrait">
+  <img id="dlgPortrait">
   <div id="dlgPanel">
     <div id="dlgName"></div>
     <div id="dlgText"></div>
@@ -229,475 +180,107 @@ html, body {
   </div>
 </div>
 
-<!-- Quest Icon Button -->
-<button id="questBtn" aria-label="Quest Journal" title="Quest Journal">
-  <img src="/guildbook/ui/quest_icon.png" alt="">
+<!-- Quest Icon -->
+<button id="questBtn">
+  <img src="/guildbook/ui/quest_icon.png">
 </button>
 
-<!-- Quest Journal Overlay -->
-<div id="questOverlay" aria-hidden="true">
+<!-- Quest Journal -->
+<div id="questOverlay">
   <div id="questPanel">
     <div class="qHeader">
       <div class="qTitle">Quest</div>
-      <button id="questClose" aria-label="Close">✕</button>
+      <button id="questClose">✕</button>
     </div>
     <div id="questContent"></div>
   </div>
 </div>
 
-<!-- ENTER AT YOUR OWN RISK overlay -->
-<div id="enterOverlay" aria-hidden="true">
-  <div id="enterButtonWrap" title="Enter at your own risk"></div>
-</div>
+<!-- ENTER BUTTON -->
+<div id="enterOverlay"></div>
 
 <script>
 document.addEventListener("DOMContentLoaded", async () => {
 
-  // ---------- Shared keys ----------
-  const NAME_KEY  = "va_player_name";
-  const ALIGN_KEY = "va_alignment";
+const SCENE_JSON = "/data/episodes/volume1_ep1/dreadheim_scene1.json";
+const NAME_KEY = "va_player_name";
+const QUEST_ID_KEY = "vaq_activeQuestId";
+const QUEST_CAT_KEY = "vaq_activeQuestCatalog";
 
-  // ---------- Quest keys ----------
-  const VAQ_ACTIVE_ID_KEY = "vaq_activeQuestId";
-  const VAQ_CATALOG_KEY   = "vaq_activeQuestCatalog";
+const dlg = document.getElementById("dlg");
+const dlgName = document.getElementById("dlgName");
+const dlgText = document.getElementById("dlgText");
+const dlgBtns = document.getElementById("dlgBtns");
+const dlgPortrait = document.getElementById("dlgPortrait");
 
-  // ---------- Dreadheim Scene save keys ----------
-  const SCENE_ID   = "dreadheim_scene1";
-  const SC_IDX_KEY = "va_dh1_idx";
-  const SC_DONE    = "va_dh1_done";
+const questBtn = document.getElementById("questBtn");
+const questOverlay = document.getElementById("questOverlay");
+const questClose = document.getElementById("questClose");
 
-  // JSON file for this scene
-  const SCENE_JSON = "/data/episodes/volume1_ep1/dreadheim_scene1.json";
+const enterOverlay = document.getElementById("enterOverlay");
 
-  // Defaults (can be overridden by JSON meta)
-  const DEFAULT_BG = "/guildbook/scenes/dreadheim_scene1.png";
-  const DEFAULT_SPEAKER = "Loki";
-  const DEFAULT_PORTRAIT = "/guildbook/npcs/loki.gif";
+function showDialogue(name, text) {
+  dlgName.textContent = name;
+  dlgText.textContent = text;
+  dlgBtns.innerHTML = "";
+  dlg.classList.remove("hidden");
 
-  // Optional guard: only dreadheim
-  const align = localStorage.getItem(ALIGN_KEY) || "";
-  if (align && align !== "dreadheim") {
-    window.location.href = "/myriadorscene1.html";
-    return;
-  }
-
-  const bg = document.getElementById("bg");
-  const dlg = document.getElementById("dlg");
-  const dlgName = document.getElementById("dlgName");
-  const dlgText = document.getElementById("dlgText");
-  const dlgBtns = document.getElementById("dlgBtns");
-  const dlgPortrait = document.getElementById("dlgPortrait");
-
-  const enterOverlay = document.getElementById("enterOverlay");
-  const enterButtonWrap = document.getElementById("enterButtonWrap");
-
-  let playerName = localStorage.getItem(NAME_KEY) || "Traveler";
-
-  function showDialogue({ name, text, buttons = [], portraitSrc }) {
-    dlgName.textContent = name || DEFAULT_SPEAKER;
-    dlgText.innerHTML = "";
-    dlgBtns.innerHTML = "";
-    dlg.classList.remove("hidden");
-
-    dlgPortrait.src = portraitSrc || DEFAULT_PORTRAIT;
-    dlgPortrait.style.display = "block";
-
-    if (typeof text === "string") dlgText.textContent = text;
-    else dlgText.appendChild(text);
-
-    buttons.forEach(b => {
-      const btn = document.createElement("button");
-      btn.className = "dlgBtn";
-      btn.textContent = b.label;
-      btn.onclick = b.onClick;
-      dlgBtns.appendChild(btn);
-    });
-  }
-
-  function hideDialogue() {
+  const b = document.createElement("button");
+  b.className = "dlgBtn";
+  b.textContent = "Continue";
+  b.onclick = () => {
     dlg.classList.add("hidden");
-  }
-
-  async function loadJSON(url) {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error("Failed to load " + url + " (" + res.status + ")");
-    return await res.json();
-  }
-
-  function getInt(key, fallback = 0) {
-    const v = parseInt(localStorage.getItem(key) || "", 10);
-    return Number.isFinite(v) ? v : fallback;
-  }
-
-  function setInt(key, value) {
-    localStorage.setItem(key, String(value));
-  }
-
-  function saveProgress(idx) {
-    localStorage.setItem("va_save_active", "1");
-    localStorage.setItem("va_episode", "volume1_ep1");
-    localStorage.setItem("va_screen", SCENE_ID);
-    setInt(SC_IDX_KEY, idx);
-  }
-
-  function gotoScreen(screenKey) {
-    const map = {
-      "dreadheim_scene1_after": "/dreadheim_scene1_after.html",
-      "dreadheim_meadhall": "/dreadheim_meadhall.html",
-      "dreadheim_frostwood": "/dreadheim_frostwood.html"
-    };
-    window.location.href = map[screenKey] || "/dreadheimscene2.html";
-  }
-
-  // ===============================
-  // QUEST SYSTEM (top-right icon + journal)
-  // ===============================
-  function setActiveQuest(questId, catalogUrl) {
-    if (questId) localStorage.setItem(VAQ_ACTIVE_ID_KEY, questId);
-    if (catalogUrl) localStorage.setItem(VAQ_CATALOG_KEY, catalogUrl);
-    updateQuestIconVisibility();
-  }
-
-  function getActiveQuestId() {
-    return localStorage.getItem(VAQ_ACTIVE_ID_KEY) || "";
-  }
-
-  function getActiveQuestCatalogUrl() {
-    return localStorage.getItem(VAQ_CATALOG_KEY) || "";
-  }
-
-  function updateQuestIconVisibility() {
-    const btn = document.getElementById("questBtn");
-    if (!btn) return;
-    btn.style.display = getActiveQuestId() ? "block" : "none";
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
-
-  async function renderQuestJournal() {
-    const content = document.getElementById("questContent");
-    if (!content) return;
-
-    const activeId = getActiveQuestId();
-    const catalogUrl = getActiveQuestCatalogUrl();
-
-    if (!activeId) {
-      content.innerHTML = `<div style="opacity:.85">No active quest.</div>`;
-      return;
-    }
-    if (!catalogUrl) {
-      content.innerHTML = `<div style="opacity:.85">Quest catalog missing.</div>`;
-      return;
-    }
-
-    const catalog = await loadJSON(catalogUrl);
-    const q = catalog?.quests?.[activeId];
-
-    if (!q) {
-      content.innerHTML = `<div style="opacity:.85">Quest not found: ${escapeHtml(activeId)}</div>`;
-      return;
-    }
-
-    const steps = (q.steps || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
-
-    content.innerHTML = `
-      <div style="font-size:18px; margin: 4px 0 10px; letter-spacing:.02em;">${escapeHtml(q.title)}</div>
-      <div style="opacity:.9; margin-bottom:10px;">Giver: ${escapeHtml(q.giver || "Unknown")}</div>
-      <div style="opacity:.9; margin-bottom:12px;">${escapeHtml(q.summary || "")}</div>
-      <div style="margin: 10px 0 6px; opacity:.95;">Objectives</div>
-      <ol style="margin:0 0 12px 18px; padding:0; opacity:.92;">
-        ${steps}
-      </ol>
-      ${q.reward ? `<div style="opacity:.95;"><strong>Reward:</strong> ${escapeHtml(q.reward)}</div>` : ""}
-    `;
-  }
-
-  function openQuestJournal() {
-    const overlay = document.getElementById("questOverlay");
-    if (!overlay) return;
-    overlay.style.display = "block";
-    overlay.setAttribute("aria-hidden", "false");
-    renderQuestJournal();
-  }
-
-  function closeQuestJournal() {
-    const overlay = document.getElementById("questOverlay");
-    if (!overlay) return;
-    overlay.style.display = "none";
-    overlay.setAttribute("aria-hidden", "true");
-  }
-
-  function bindQuestUI() {
-    const btn = document.getElementById("questBtn");
-    const close = document.getElementById("questClose");
-    const overlay = document.getElementById("questOverlay");
-
-    btn?.addEventListener("click", openQuestJournal);
-    close?.addEventListener("click", closeQuestJournal);
-
-    overlay?.addEventListener("click", (e) => {
-      if (e.target === overlay) closeQuestJournal();
-    });
-
-    updateQuestIconVisibility();
-  }
-
-  // ✅ Bind quest UI ONCE
-  bindQuestUI();
-
-  // ===============================
-  // ENTER AT YOUR OWN RISK button
-  // ===============================
-  function buildEnterSvg(labelText = "ENTER AT YOUR OWN RISK") {
-    // Unique IDs so multiple pages don't conflict
-    const uid = "enterRisk_" + Math.random().toString(16).slice(2);
-
-    return 
-<svg width="360" height="120" viewBox="0 0 360 120"
-     xmlns="http://www.w3.org/2000/svg"
-     aria-label="${labelText}"
-     style="cursor:pointer">
-
-  <defs>
-    <linearGradient id="${uid}_plateGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#141414"/>
-      <stop offset="60%" stop-color="#0b0b0b"/>
-      <stop offset="100%" stop-color="#000000"/>
-    </linearGradient>
-
-    <linearGradient id="${uid}_rimGrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#2a2120"/>
-      <stop offset="50%" stop-color="#5b4945"/>
-      <stop offset="100%" stop-color="#2a2120"/>
-    </linearGradient>
-
-    <linearGradient id="${uid}_textGrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#8b0000"/>
-      <stop offset="35%" stop-color="#c30000"/>
-      <stop offset="60%" stop-color="#ffd27a"/>
-      <stop offset="100%" stop-color="#8b0000"/>
-      <animateTransform attributeName="gradientTransform"
-        type="translate" from="-0.3 0" to="0.3 0"
-        dur="3.5s" repeatCount="indefinite"/>
-    </linearGradient>
-
-    <filter id="${uid}_textGlow" x="-30%" y="-50%" width="160%" height="200%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b1"/>
-      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b2"/>
-      <feMerge>
-        <feMergeNode in="b2"/>
-        <feMergeNode in="b1"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-
-    <linearGradient id="${uid}_sheenGrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="rgba(255,255,255,0)"/>
-      <stop offset="50%" stop-color="rgba(255,255,255,0.85)"/>
-      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-    </linearGradient>
-
-    <mask id="${uid}_sheenMask">
-      <rect width="360" height="120" fill="black"/>
-      <rect x="-160" y="24" width="160" height="72" fill="url(#${uid}_sheenGrad)">
-        <animate attributeName="x" from="-160" to="420"
-                 dur="2.8s" repeatCount="indefinite"/>
-      </rect>
-    </mask>
-  </defs>
-
-  <rect x="6" y="6" width="348" height="108" rx="18"
-        fill="url(#${uid}_plateGrad)"/>
-  <rect x="6" y="6" width="348" height="108" rx="18"
-        fill="none" stroke="url(#${uid}_rimGrad)" stroke-width="2"/>
-
-  <g filter="url(#${uid}_textGlow)">
-    <text x="180" y="72"
-          text-anchor="middle"
-          font-family="Cinzel, serif"
-          font-size="24"
-          font-weight="800"
-          letter-spacing="2"
-          fill="url(#${uid}_textGrad)"
-          stroke="#4a0000"
-          stroke-width="1.2"
-          paint-order="stroke fill">
-      ${labelText}
-    </text>
-
-    <text x="180" y="72"
-          text-anchor="middle"
-          font-family="Cinzel, serif"
-          font-size="24"
-          font-weight="800"
-          letter-spacing="2"
-          fill="white"
-          opacity="0.35"
-          mask="url(#${uid}_sheenMask)">
-      ${labelText}
-    </text>
-  </g>
-</svg>;
-  }
-
-  async function showEnterAtOwnRisk(nextScreenKey) {
-    // Hide dialogue and show center SVG
-    hideDialogue();
-
-    // Build + mount svg
-    enterButtonWrap.innerHTML = buildEnterSvg("ENTER AT YOUR OWN RISK");
-
-    // Show overlay
-    enterOverlay.style.display = "flex";
-    enterOverlay.setAttribute("aria-hidden", "false");
-
-    // Clicking the SVG proceeds
-    const svg = enterButtonWrap.querySelector("svg");
-    svg?.addEventListener("click", () => {
-      enterOverlay.style.display = "none";
-      enterOverlay.setAttribute("aria-hidden", "true");
-      gotoScreen(nextScreenKey || "dreadheim_scene1_after");
-    }, { once: true });
-  }
-
-  // Load scene data
-  const data = await loadJSON(SCENE_JSON);
-
-  // Apply meta (bg/portrait) if provided
-  const metaBg = data?.meta?.bg;
-  const metaPortrait = data?.meta?.portrait;
-  const metaSpeakerDefault = data?.meta?.speakerDefault;
-
-  const ACTIVE_BG = metaBg || DEFAULT_BG;
-  const ACTIVE_PORTRAIT = metaPortrait || DEFAULT_PORTRAIT;
-  const DEFAULT_NAME = metaSpeakerDefault || DEFAULT_SPEAKER;
-
-  bg.style.background = `url("${ACTIVE_BG}") center center / cover no-repeat`;
-
-  // If quest icon shows but catalog missing, auto-heal from scene JSON if available
-  if (data?.onComplete?.questCatalog && !localStorage.getItem(VAQ_CATALOG_KEY)) {
-    localStorage.setItem(VAQ_CATALOG_KEY, data.onComplete.questCatalog);
-  }
-
-  // -------- If already finished --------
-  if (localStorage.getItem(SC_DONE) === "1") {
-    updateQuestIconVisibility();
-    showDialogue({
-      name: DEFAULT_NAME,
-      portraitSrc: ACTIVE_PORTRAIT,
-      text: "Your mission remains.",
-      buttons: [{
-        label: "Continue",
-        onClick: () => showEnterAtOwnRisk(data?.onComplete?.nextScreen)
-      }]
-    });
-    return;
-  }
-
-  // -------- Ask name if missing --------
-  if (!localStorage.getItem(NAME_KEY)) {
-    await new Promise(resolve => {
-      const input = document.createElement("input");
-      input.className = "nameInput";
-      input.placeholder = "Your name";
-      input.maxLength = 18;
-
-      const promptNode = (data.nodes || []).find(n => n.id === "name_prompt");
-      const promptText = promptNode?.text || "Speak your name.";
-
-      showDialogue({
-        name: promptNode?.speaker || DEFAULT_NAME,
-        portraitSrc: ACTIVE_PORTRAIT,
-        text: promptText,
-        buttons: [{
-          label: "Continue",
-          onClick: () => {
-            playerName = (input.value || "").trim() || "Traveler";
-            localStorage.setItem(NAME_KEY, playerName);
-            hideDialogue();
-            resolve();
-          }
-        }]
-      });
-
-      dlgText.appendChild(input);
-      setTimeout(() => input.focus(), 50);
-    });
-  } else {
-    playerName = localStorage.getItem(NAME_KEY) || playerName;
-  }
-
-  // -------- Run cutscene nodes --------
-  let idx = getInt(SC_IDX_KEY, 0);
-  saveProgress(idx);
-
-  const nodes = Array.isArray(data.nodes) ? data.nodes : [];
-
-  while (idx < nodes.length) {
-    const n = nodes[idx];
-
-    // Skip name prompt node if name already set (handled above)
-    if (n.id === "name_prompt" && localStorage.getItem(NAME_KEY)) {
-      idx += 1;
-      setInt(SC_IDX_KEY, idx);
-      saveProgress(idx);
-      continue;
-    }
-
-    await new Promise(resolve => {
-      showDialogue({
-        name: n.speaker || DEFAULT_NAME,
-        portraitSrc: ACTIVE_PORTRAIT,
-        text: (n.text || "").replace("{name}", playerName),
-        buttons: [{
-          label: "Continue",
-          onClick: () => {
-            hideDialogue();
-            resolve();
-          }
-        }]
-      });
-    });
-
-    idx += 1;
-    setInt(SC_IDX_KEY, idx);
-    saveProgress(idx);
-  }
-
-  // Mark done
-  localStorage.setItem(SC_DONE, "1");
-
-  // Apply onComplete (quest + icon)
-  if (data.onComplete?.setQuestActive) {
-    setActiveQuest(data.onComplete.setQuestActive, data.onComplete.questCatalog);
-  }
-
-  // Instead of another dialogue continue, show center SVG button
-  await showEnterAtOwnRisk(data?.onComplete?.nextScreen);
-
-  // ===============================
-  // DEV TOOLS (F12)
-  // ===============================
-  window.VA_DEV = window.VA_DEV || {};
-
-  window.VA_DEV.resetDreadheimScene1 = () => {
-    console.warn("DEV: Resetting Dreadheim Scene 1");
-    [SC_IDX_KEY, SC_DONE, "va_screen", VAQ_ACTIVE_ID_KEY, VAQ_CATALOG_KEY].forEach(k => localStorage.removeItem(k));
-    location.reload();
+    showEnterButton();
   };
+  dlgBtns.appendChild(b);
+}
+
+function showEnterButton() {
+  enterOverlay.innerHTML = buildEnterSvg();
+  enterOverlay.style.display = "flex";
+
+  enterOverlay.querySelector("svg").onclick = () => {
+    window.location.href = "/dreadheim_meadhall.html";
+  };
+}
+
+function buildEnterSvg() {
+  const uid = Math.random().toString(16).slice(2);
+  return 
+<svg width="360" height="120" viewBox="0 0 360 120"
+xmlns="http://www.w3.org/2000/svg" style="cursor:pointer">
+<defs>
+<linearGradient id="${uid}t" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0%" stop-color="#8b0000"/>
+<stop offset="50%" stop-color="#ffd27a"/>
+<stop offset="100%" stop-color="#8b0000"/>
+</linearGradient>
+</defs>
+<rect x="6" y="6" width="348" height="108" rx="18" fill="#000"/>
+<text x="180" y="72" text-anchor="middle"
+font-size="26" font-weight="800"
+fill="url(#${uid}t)">ENTER AT YOUR OWN RISK</text>
+</svg>;
+}
+
+questBtn.onclick = () => questOverlay.style.display = "block";
+questClose.onclick = () => questOverlay.style.display = "none";
+
+const data = await fetch(SCENE_JSON).then(r => r.json());
+
+dlgPortrait.src = data.meta.portrait;
+showDialogue("Loki", data.nodes[0].text);
+
+localStorage.setItem(QUEST_ID_KEY, data.onComplete.setQuestActive);
+localStorage.setItem(QUEST_CAT_KEY, data.onComplete.questCatalog);
+questBtn.style.display = "block";
 
 });
 </script>
 
 </body>
 </html>
+
 
 
 
