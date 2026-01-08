@@ -1,557 +1,234 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
+<meta charset="utf-8">
 <title>Veriador • Dreadheim • Scene 1</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-  :root{
-    --ui: rgba(10,10,12,0.72);
-    --ui2: rgba(10,10,12,0.86);
-    --text: rgba(245,245,245,0.92);
-    --gold: rgba(233, 197, 106, 0.95);
-  }
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  font-family: Cinzel, serif;
+  overflow: hidden;
+}
 
-  html, body{
-    margin:0; padding:0;
-    width:100%; height:100%;
-    background:#000;
-    font-family: Cinzel, serif;
-    overflow:hidden;
-  }
+/* Background */
+#bg {
+  position: fixed;
+  inset: 0;
+  background: url("/guildbook/scenes/dreadheim_scene1.jpg") center center / cover no-repeat;
+  z-index: 0;
+}
 
-  /* Background */
-  #bg{
-    position:fixed;
-    inset:0;
-    background:
-      radial-gradient(1200px 700px at 60% 45%, rgba(255,255,255,0.06), rgba(0,0,0,0.0) 60%),
-      url("/guildbook/scenes/dreadheim_scene1.jpg") center center / cover no-repeat;
-    z-index:0;
-    filter: saturate(1.03) contrast(1.02);
-  }
+/* Dialogue UI */
+#dlg {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  width: min(1200px, calc(100vw - 24px));
+  height: 190px;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(35,20,10,.95), rgba(15,10,8,.88));
+  border: 1px solid rgba(255,208,120,.2);
+  box-shadow: 0 18px 55px rgba(0,0,0,.6);
+}
 
-  /* Subtle vignette + film */
-  #film{
-    position:fixed;
-    inset:0;
-    z-index:1;
-    pointer-events:none;
-    background:
-      radial-gradient(1200px 800px at 50% 50%, rgba(0,0,0,0.10), rgba(0,0,0,0.78)),
-      repeating-linear-gradient(
-        0deg,
-        rgba(255,255,255,0.025) 0px,
-        rgba(255,255,255,0.025) 1px,
-        rgba(0,0,0,0.0) 3px,
-        rgba(0,0,0,0.0) 6px
-      );
-    mix-blend-mode: overlay;
-    opacity: 0.55;
-  }
+.hidden { display: none; }
 
-  /* NPC (right side) */
-  #npcWrap{
-    position:fixed;
-    right: 4.5vw;
-    bottom: 18vh;
-    z-index:2;
-    width:min(420px, 36vw);
-    pointer-events:none; /* purely visual */
-  }
+#dlgPortrait {
+  width: 240px;
+  height: 190px;
+  object-fit: contain;
+  align-self: end;
+  display: block;
+}
 
-  /* Glow behind him */
-  #npcGlow{
-    position:absolute;
-    inset:-12% -18% -10% -18%;
-    background:
-      radial-gradient(circle at 55% 45%,
-        rgba(233, 197, 106, 0.24),
-        rgba(120, 180, 255, 0.10) 42%,
-        rgba(0,0,0,0.0) 70%);
-    filter: blur(10px);
-    opacity: 0.95;
-    z-index:0;
-  }
+/* Optional subtle “alive” motion even for PNG/GIF */
+#dlgPortrait {
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+  animation:
+    portraitIn 0.6s ease forwards,
+    idleBreath 4s ease-in-out infinite,
+    divineGlow 3.5s ease-in-out infinite;
+  filter: drop-shadow(0 12px 22px rgba(0,0,0,0.65));
+}
 
-  #npc{
-    position:relative;
-    z-index:1;
-    width:100%;
-    height:auto;
-    display:block;
-    filter:
-      drop-shadow(0 18px 55px rgba(0,0,0,0.75))
-      saturate(1.05);
-    opacity:0.96;
-    transform: translateY(0);
-    animation: idleFloat 6s ease-in-out infinite;
-  }
+@keyframes portraitIn {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes idleBreath {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-2px) scale(1.01); }
+}
+@keyframes divineGlow {
+  0%, 100% { filter: drop-shadow(0 12px 22px rgba(0,0,0,0.6)); }
+  50%      { filter: drop-shadow(0 12px 30px rgba(180,200,255,0.65)); }
+}
 
-  @keyframes idleFloat{
-    0%,100%{ transform: translateY(0); }
-    50%{ transform: translateY(-7px); }
-  }
+#dlgPanel {
+  padding: 16px 18px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+}
 
-  /* Hotspots */
-  .hotspot{
-    position:fixed;
-    z-index:3;
-    border: 1px solid rgba(255,255,255,0.18);
-    border-radius: 14px;
-    background: rgba(0,0,0,0.18);
-    box-shadow: 0 14px 40px rgba(0,0,0,0.55);
-    backdrop-filter: blur(2px);
-    cursor:pointer;
-    transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
-  }
-  .hotspot:hover{
-    transform: translateY(-2px);
-    background: rgba(0,0,0,0.28);
-    border-color: rgba(233,197,106,0.45);
-  }
-  .hotspot .tag{
-    position:absolute;
-    left:50%;
-    bottom:-12px;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.65);
-    border: 1px solid rgba(255,255,255,0.12);
-    padding: 6px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    letter-spacing: 1px;
-    color: rgba(245,245,245,0.86);
-    text-transform: uppercase;
-    pointer-events:none;
-    white-space: nowrap;
-  }
+#dlgName {
+  font-size: 28px;
+  font-weight: 900;
+  color: rgba(255,225,170,.95);
+}
 
-  /* Dialogue UI */
-  #dlg{
-    position:fixed;
-    left:50%;
-    bottom: 2.5vh;
-    transform: translateX(-50%);
-    width: min(980px, 92vw);
-    z-index:4;
-    background: linear-gradient(180deg, var(--ui), var(--ui2));
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 18px;
-    box-shadow: 0 24px 70px rgba(0,0,0,0.70);
-    overflow:hidden;
-  }
+#dlgText {
+  font-size: 20px;
+  line-height: 1.35;
+  color: rgba(255,255,255,.95);
+}
 
-  #dlgTop{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding: 12px 16px 8px 16px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-  }
+#dlgBtns {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
 
-  #sceneLabel{
-    font-size: 12px;
-    color: rgba(245,245,245,0.68);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
+.dlgBtn {
+  padding: 10px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid rgba(255,208,120,.28);
+  background: rgba(120,60,25,.45);
+  color: rgba(255,245,230,.95);
+  font-weight: 800;
+}
 
-  #speaker{
-    font-size: 13px;
-    color: rgba(233,197,106,0.95);
-    letter-spacing: 1.3px;
-    text-transform: uppercase;
-  }
-
-  #dlgBody{
-    padding: 14px 16px 12px 16px;
-  }
-
-  #text{
-    min-height: 72px;
-    font-size: 18px;
-    line-height: 1.45;
-    color: var(--text);
-    text-shadow: 0 2px 20px rgba(0,0,0,0.65);
-    white-space: pre-wrap;
-  }
-
-  #hint{
-    margin-top: 10px;
-    font-size: 12px;
-    color: rgba(245,245,245,0.55);
-    letter-spacing: 1px;
-  }
-
-  #choices{
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-    padding: 0 16px 14px 16px;
-  }
-
-  .btn{
-    appearance:none;
-    border: 1px solid rgba(255,255,255,0.14);
-    background: rgba(0,0,0,0.25);
-    color: rgba(245,245,245,0.92);
-    border-radius: 14px;
-    padding: 10px 12px;
-    font-size: 14px;
-    letter-spacing: 0.3px;
-    cursor:pointer;
-    transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
-  }
-
-  .btn:hover{
-    transform: translateY(-1px);
-    border-color: rgba(233,197,106,0.55);
-    background: rgba(0,0,0,0.35);
-  }
-
-  .btn.primary{
-    border-color: rgba(233,197,106,0.45);
-    background: rgba(233,197,106,0.10);
-  }
-
-  .kbd{
-    display:inline-block;
-    padding: 2px 6px;
-    border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.16);
-    background: rgba(0,0,0,0.30);
-    font-size: 11px;
-    color: rgba(245,245,245,0.72);
-    margin: 0 4px;
-  }
-
-  /* Mobile */
-  @media (max-width: 780px){
-    #npcWrap{ right: 2vw; bottom: 22vh; width:min(320px, 48vw); }
-    #text{ font-size: 16px; }
-  }
-
-  @media (max-width: 520px){
-    #npcWrap{ display:none; }
-  }
+.dlgBtn:hover { filter: brightness(1.1); }
 </style>
 </head>
 
 <body>
-  <div id="bg"></div>
-  <div id="film"></div>
+<div id="bg"></div>
 
-  <!-- NPC visual (transparent png) -->
-  <div id="npcWrap" aria-hidden="true">
-    <div id="npcGlow"></div>
-    <img id="npc" src="/guildbook/npcs/loki.gif" alt="" />
+<!-- Dialogue UI -->
+<div id="dlg" class="hidden">
+  <img id="dlgPortrait" alt="Loki">
+  <div id="dlgPanel">
+    <div id="dlgName"></div>
+    <div id="dlgText"></div>
+    <div id="dlgBtns"></div>
   </div>
-
-  <!-- Hotspots (edit these rectangles to match your background) -->
-  <button class="hotspot" id="hsGate" style="left: 10vw; top: 36vh; width: 12vw; height: 22vh;">
-    <span class="tag">IRON GATE</span>
-  </button>
-
-  <button class="hotspot" id="hsHall" style="left: 58vw; top: 34vh; width: 14vw; height: 28vh;">
-    <span class="tag">MEAD HALL</span>
-  </button>
-
-  <button class="hotspot" id="hsWoods" style="left: 78vw; top: 40vh; width: 16vw; height: 24vh;">
-    <span class="tag">FROSTWOOD</span>
-  </button>
-
-  <!-- Dialogue -->
-  <section id="dlg" role="dialog" aria-live="polite" aria-label="Dialogue">
-    <div id="dlgTop">
-      <div id="sceneLabel">Dreadheim • Scene I</div>
-      <div id="speaker">Loki</div>
-    </div>
-
-    <div id="dlgBody">
-      <div id="text"></div>
-      <div id="hint">Click a choice, click a hotspot, or press <span class="kbd">SPACE</span> to continue.</div>
-    </div>
-
-    <div id="choices"></div>
-  </section>
+</div>
 
 <script>
-(() => {
-  const $text = document.getElementById("text");
-  const $speaker = document.getElementById("speaker");
-  const $choices = document.getElementById("choices");
+document.addEventListener("DOMContentLoaded", async () => {
 
-  // Loki-driven scene nodes
-  const NODES = {
-    intro: {
-      speaker: "Loki",
-      lines: [
-        "Ah. You made it.",
-        "Dreadheim does enjoy first meetings. They tend to leave scars.",
-        "Every step you take here becomes a story someone else will tell."
-      ],
-      choices: [
-        { label: "Show yourself.", to: "who" },
-        { label: "What is this place?", to: "where" },
-        { label: "Enough riddles. Tell me what to do.", to: "whatdo", primary: true }
-      ]
-    },
+  const NAME_KEY = "va_player_name";
+  const ALIGN_KEY = "va_alignment";
 
-    who: {
-      speaker: "Loki",
-      lines: [
-        "You want a name? How brave.",
-        "Call me Loki… if you like collecting mistakes.",
-        "Relax. I only bite when it’s entertaining."
-      ],
-      choices: [
-        { label: "Are you here to help me?", to: "help" },
-        { label: "Stop playing games.", to: "plain" }
-      ]
-    },
+  // Dreadheim speaker + portrait
+  const LOKI_NAME = "Loki";
+  const LOKI_PORTRAIT = "/guildbook/npcs/loki.gif"; // change to .png if you want
 
-    where: {
-      speaker: "Loki",
-      lines: [
-        "You stand at Dreadheim’s threshold—where warmth is bait and silence is a trap.",
-        "Behind you: an iron gate that remembers every cowardly step.",
-        "Ahead: halls, woods, and truths that don’t care if you’re ready."
-      ],
-      choices: [
-        { label: "So what’s the safest path?", to: "whatdo", primary: true },
-        { label: "I’ll choose my own way.", to: "oath" }
-      ]
-    },
-
-    help: {
-      speaker: "Loki",
-      lines: [
-        "Help is such a sweet word.",
-        "Yes, I can help… and I can ruin you. Sometimes those are the same thing.",
-        "Pick a path. I’ll watch what you become."
-      ],
-      choices: [
-        { label: "Fine. Tell me my options.", to: "whatdo", primary: true }
-      ]
-    },
-
-    plain: {
-      speaker: "Loki",
-      lines: [
-        "Plainly, then:",
-        "Touch nothing that shines in the snow.",
-        "And if the trees speak your name… don’t answer. Not unless you enjoy losing pieces of yourself."
-      ],
-      choices: [
-        { label: "Understood.", to: "whatdo", primary: true }
-      ]
-    },
-
-    oath: {
-      speaker: "Loki",
-      lines: [
-        "Oh, I like that. Confidence.",
-        "Then make a quiet oath—inside your ribs—so the land can hear it:",
-        "You won’t turn back until Dreadheim gives you a truth."
-      ],
-      choices: [
-        { label: "I swear it.", to: "whatdo", primary: true },
-        { label: "I’m not promising that.", to: "cant" }
-      ]
-    },
-
-    cant: {
-      speaker: "Loki",
-      lines: [
-        "Then Dreadheim will teach you how to promise.",
-        "Choose anyway."
-      ],
-      choices: [
-        { label: "Go to the Mead Hall", to: "goHall", primary: true },
-        { label: "Go to the Frostwood", to: "goWoods" },
-        { label: "Inspect the Iron Gate", to: "goGate" }
-      ]
-    },
-
-    whatdo: {
-      speaker: "Loki",
-      lines: [
-        "Three paths show themselves.",
-        "The hall is warmth… and hungry eyes.",
-        "The woods are answers… and teeth.",
-        "The gate is history… and it hates being touched."
-      ],
-      choices: [
-        { label: "Go to the Mead Hall", to: "goHall", primary: true },
-        { label: "Go to the Frostwood", to: "goWoods" },
-        { label: "Inspect the Iron Gate", to: "goGate" }
-      ]
-    },
-
-    goHall: {
-      speaker: "Loki",
-      lines: [
-        "Good choice. Bad consequences.",
-        "Keep your chin high—not proud… ready.",
-        "When the door opens, do not be the first to speak."
-      ],
-      choices: [
-        { label: "ENTER THE HALL", to: "end", primary: true, action: () => navigate("/dreadheimscene2.html") }
-      ]
-    },
-
-    goWoods: {
-      speaker: "Loki",
-      lines: [
-        "The Frostwood will try to wear your voice down to a whisper.",
-        "If you must breathe, breathe quietly.",
-        "And remember… I warned you about your name."
-      ],
-      choices: [
-        { label: "STEP INTO THE WOODS", to: "end", primary: true, action: () => navigate("/dreadheimwoods1.html") }
-      ]
-    },
-
-    goGate: {
-      speaker: "Loki",
-      lines: [
-        "Ah… the iron gate.",
-        "It isn’t locked. It’s deciding.",
-        "If it opens for you, be grateful. If it doesn’t… be smarter next time."
-      ],
-      choices: [
-        { label: "TOUCH THE GATE", to: "end", primary: true, action: () => flashHotspot("hsGate") }
-      ]
-    },
-
-    end: {
-      speaker: "Loki",
-      lines: [ "Go." ],
-      choices: []
-    }
-  };
-
-  let nodeId = "intro";
-  let lineIndex = 0;
-  let isTyping = false;
-  let fullLine = "";
-  let typeTimer = null;
-
-  function render() {
-    const node = NODES[nodeId];
-    $speaker.textContent = node.speaker || "Loki";
-    lineIndex = 0;
-    showLine();
+  // Optional: if someone lands here without being dreadheim, redirect them
+  const align = localStorage.getItem(ALIGN_KEY) || "";
+  if (align && align !== "dreadheim") {
+    window.location.href = "/myriadorscene1.html";
+    return;
   }
 
-  function showLine() {
-    const node = NODES[nodeId];
-    const line = node.lines[lineIndex] ?? "";
-    typeLine(line);
-    renderChoices(node);
-  }
+  const dlg = document.getElementById("dlg");
+  const dlgName = document.getElementById("dlgName");
+  const dlgText = document.getElementById("dlgText");
+  const dlgBtns = document.getElementById("dlgBtns");
+  const dlgPortrait = document.getElementById("dlgPortrait");
 
-  function renderChoices(node) {
-    $choices.innerHTML = "";
-    (node.choices || []).forEach(ch => {
-      const b = document.createElement("button");
-      b.className = "btn" + (ch.primary ? " primary" : "");
-      b.textContent = ch.label;
-      b.addEventListener("click", () => {
-        if (typeof ch.action === "function") ch.action();
-        if (ch.to) go(ch.to);
-      });
-      $choices.appendChild(b);
+  // Always show Loki portrait
+  dlgPortrait.src = LOKI_PORTRAIT;
+  dlgPortrait.style.display = "block";
+
+  let playerName = localStorage.getItem(NAME_KEY) || "Traveler";
+
+  function showDialogue({ name, text, buttons = [] }) {
+    dlgName.textContent = name || LOKI_NAME;
+    dlgText.innerHTML = "";
+    dlgBtns.innerHTML = "";
+    dlg.classList.remove("hidden");
+
+    dlgPortrait.src = LOKI_PORTRAIT;
+    dlgPortrait.style.display = "block";
+
+    dlgText.textContent = text;
+
+    buttons.forEach(b => {
+      const btn = document.createElement("button");
+      btn.className = "dlgBtn";
+      btn.textContent = b.label;
+      btn.onclick = b.onClick;
+      dlgBtns.appendChild(btn);
     });
   }
 
-  function typeLine(line) {
-    clearTimeout(typeTimer);
-    isTyping = true;
-    fullLine = line;
-    $text.textContent = "";
-    let i = 0;
-
-    const step = () => {
-      if (!isTyping) return;
-      i++;
-      $text.textContent = fullLine.slice(0, i);
-      if (i < fullLine.length) typeTimer = setTimeout(step, 16);
-      else isTyping = false;
-    };
-    step();
+  function hideDialogue() {
+    dlg.classList.add("hidden");
   }
 
-  function skipTyping() {
-    if (!isTyping) return false;
-    isTyping = false;
-    clearTimeout(typeTimer);
-    $text.textContent = fullLine;
-    return true;
+  // Scene content (same structure as Episode I: showDialogue with buttons)
+  const lines = [
+    `So… ${playerName}.`,
+    "You chose Dreadheim. Bold. Or foolish.",
+    "This land doesn’t reward courage. It rewards the clever.",
+    "Tell me—do you want truth… or power?"
+  ];
+
+  let i = 0;
+
+  function showNext() {
+    const text = lines[i] || "Good.";
+    const isLast = i >= lines.length - 1;
+
+    showDialogue({
+      name: LOKI_NAME,
+      text,
+      buttons: isLast ? [
+        {
+          label: "Enter Dreadheim",
+          onClick: () => {
+            hideDialogue();
+            // Next page after scene 1 (change later)
+            window.location.href = "/dreadheimscene2.html";
+          }
+        }
+      ] : [
+        {
+          label: "Continue",
+          onClick: () => {
+            i += 1;
+            showNext();
+          }
+        }
+      ]
+    });
   }
 
-  function next() {
-    const node = NODES[nodeId];
-    if (skipTyping()) return;
+  showNext();
 
-    if (lineIndex < node.lines.length - 1) {
-      lineIndex++;
-      showLine();
-      return;
-    }
+  // ===============================
+  // DEV TOOLS (F12)
+  // ===============================
+  window.VA_DEV = window.VA_DEV || {};
+  window.VA_DEV.gotoDreadheimScene1 = () => window.location.href = "/dreadheimscene1.html";
 
-    if ((node.choices || []).length === 1) {
-      const ch = node.choices[0];
-      if (typeof ch.action === "function") ch.action();
-      if (ch.to) go(ch.to);
-    }
-  }
-
-  function go(nextId) {
-    nodeId = nextId;
-    render();
-  }
-
-  function navigate(url) {
-    window.location.href = url;
-  }
-
-  function flashHotspot(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.animate(
-      [
-        { transform: "translateY(0)", borderColor: "rgba(233,197,106,0.45)" },
-        { transform: "translateY(-3px)", borderColor: "rgba(233,197,106,0.85)" },
-        { transform: "translateY(0)", borderColor: "rgba(233,197,106,0.45)" }
-      ],
-      { duration: 520, easing: "ease-out" }
-    );
-  }
-
-  // Hotspot clicks drive the same nodes
-  document.getElementById("hsGate").addEventListener("click", () => go("goGate"));
-  document.getElementById("hsHall").addEventListener("click", () => go("goHall"));
-  document.getElementById("hsWoods").addEventListener("click", () => go("goWoods"));
-
-  // Space / Enter to continue
-  window.addEventListener("keydown", (e) => {
-    if (e.code === "Space" || e.code === "Enter") {
-      e.preventDefault();
-      next();
-    }
-  });
-
-  // Click dialogue box to continue too (but not on buttons)
-  document.getElementById("dlg").addEventListener("click", (e) => {
-    if (e.target && e.target.closest && e.target.closest("button")) return;
-    next();
-  });
-
-  render();
-})();
+});
 </script>
 </body>
 </html>
+
