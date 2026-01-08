@@ -1,4 +1,3 @@
-```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -52,7 +51,6 @@ html, body {
   align-self: end;
   display: block;
 
-  /* Optional subtle “alive” motion */
   opacity: 0;
   transform: translateY(6px) scale(0.98);
   animation:
@@ -133,9 +131,8 @@ html, body {
   padding: 0;
   z-index: 50;
   cursor: pointer;
-  display: none; /* shown when quest is active */
+  display: none;
 }
-
 #questBtn img {
   width: 100%;
   height: 100%;
@@ -143,7 +140,6 @@ html, body {
   opacity: 0.95;
   transition: transform 120ms ease;
 }
-
 #questBtn:hover img { transform: scale(1.05); }
 
 /* Quest Journal Overlay */
@@ -154,7 +150,6 @@ html, body {
   z-index: 60;
   display: none;
 }
-
 #questPanel {
   position: absolute;
   top: 70px;
@@ -169,53 +164,55 @@ html, body {
   padding: 14px 14px 16px;
 }
 
-/* Quest text colors (fix black text) */
+/* Quest text colors */
 #questPanel,
-#questPanel * {
-  color: rgba(245, 240, 230, 0.95);
-}
+#questPanel * { color: rgba(245, 240, 230, 0.95); }
+.qTitle { color: rgba(255, 215, 140, 0.98); font-weight: 800; }
+#questContent > div:first-child { color: rgba(255, 215, 140, 0.98); font-weight: 900; }
+#questPanel ol, #questPanel li { color: rgba(240, 235, 225, 0.95); }
+#questPanel strong { color: rgba(255, 210, 160, 0.95); }
+#questPanel { text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
 
-/* Make the header/title warm and readable */
-.qTitle {
-  color: rgba(255, 215, 140, 0.98);
-  font-weight: 800;
-}
-
-/* Quest content title (first line in the panel) */
-#questContent > div:first-child {
-  color: rgba(255, 215, 140, 0.98);
-  font-weight: 900;
-}
-
-/* Lists/objectives */
-#questPanel ol,
-#questPanel li {
-  color: rgba(240, 235, 225, 0.95);
-}
-
-/* Labels like Reward: */
-#questPanel strong {
-  color: rgba(255, 210, 160, 0.95);
-}
-
-/* Optional: subtle readability */
-#questPanel {
-  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-}
+/* Close button */
 #questClose {
   color: rgba(255, 215, 140, 1);
   font-size: 20px;
   font-weight: 900;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0,0,0,0.35);
   border: 1px solid rgba(255, 215, 140, 0.6);
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+}
+#questClose:hover { background: rgba(255, 215, 140, 0.25); color: rgba(0,0,0,0.9); transform: scale(1.05); }
+
+/* ===============================
+   ENTER AT YOUR OWN RISK overlay
+   =============================== */
+#enterOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.35);
 }
 
-#questClose:hover {
-  background: rgba(255, 215, 140, 0.25);
-  color: rgba(0, 0, 0, 0.9);
+#enterButtonWrap {
+  transform: translateY(-6px);
+  filter: drop-shadow(0 18px 50px rgba(0,0,0,0.85));
+  user-select: none;
 }
 
+#enterButtonWrap:hover {
+  transform: translateY(-8px) scale(1.01);
+}
 
+@media (max-width: 480px) {
+  #enterButtonWrap svg { width: 300px; height: 100px; }
+}
 </style>
 </head>
 
@@ -246,6 +243,11 @@ html, body {
     </div>
     <div id="questContent"></div>
   </div>
+</div>
+
+<!-- ENTER AT YOUR OWN RISK overlay -->
+<div id="enterOverlay" aria-hidden="true">
+  <div id="enterButtonWrap" title="Enter at your own risk"></div>
 </div>
 
 <script>
@@ -285,6 +287,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const dlgText = document.getElementById("dlgText");
   const dlgBtns = document.getElementById("dlgBtns");
   const dlgPortrait = document.getElementById("dlgPortrait");
+
+  const enterOverlay = document.getElementById("enterOverlay");
+  const enterButtonWrap = document.getElementById("enterButtonWrap");
 
   let playerName = localStorage.getItem(NAME_KEY) || "Traveler";
 
@@ -336,7 +341,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function gotoScreen(screenKey) {
-    // Map logical screens to html pages
     const map = {
       "dreadheim_scene1_after": "/dreadheim_scene1_after.html",
       "dreadheim_meadhall": "/dreadheim_meadhall.html",
@@ -359,13 +363,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function getActiveQuestCatalogUrl() {
-  return (
-    localStorage.getItem(VAQ_CATALOG_KEY) ||
-    data?.onComplete?.questCatalog ||
-    "/guildbook/quests/dreadheim_quests.json"
-  );
-}
-
+    return localStorage.getItem(VAQ_CATALOG_KEY) || "";
+  }
 
   function updateQuestIconVisibility() {
     const btn = document.getElementById("questBtn");
@@ -450,8 +449,123 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateQuestIconVisibility();
   }
 
-  // ✅ Bind quest UI ONCE (after the function exists)
+  // ✅ Bind quest UI ONCE
   bindQuestUI();
+
+  // ===============================
+  // ENTER AT YOUR OWN RISK button
+  // ===============================
+  function buildEnterSvg(labelText = "ENTER AT YOUR OWN RISK") {
+    // Unique IDs so multiple pages don't conflict
+    const uid = "enterRisk_" + Math.random().toString(16).slice(2);
+
+    return `
+<svg width="360" height="120" viewBox="0 0 360 120"
+     xmlns="http://www.w3.org/2000/svg"
+     aria-label="${labelText}"
+     style="cursor:pointer">
+
+  <defs>
+    <linearGradient id="${uid}_plateGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#141414"/>
+      <stop offset="60%" stop-color="#0b0b0b"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+
+    <linearGradient id="${uid}_rimGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2a2120"/>
+      <stop offset="50%" stop-color="#5b4945"/>
+      <stop offset="100%" stop-color="#2a2120"/>
+    </linearGradient>
+
+    <linearGradient id="${uid}_textGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8b0000"/>
+      <stop offset="35%" stop-color="#c30000"/>
+      <stop offset="60%" stop-color="#ffd27a"/>
+      <stop offset="100%" stop-color="#8b0000"/>
+      <animateTransform attributeName="gradientTransform"
+        type="translate" from="-0.3 0" to="0.3 0"
+        dur="3.5s" repeatCount="indefinite"/>
+    </linearGradient>
+
+    <filter id="${uid}_textGlow" x="-30%" y="-50%" width="160%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <linearGradient id="${uid}_sheenGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="rgba(255,255,255,0)"/>
+      <stop offset="50%" stop-color="rgba(255,255,255,0.85)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+
+    <mask id="${uid}_sheenMask">
+      <rect width="360" height="120" fill="black"/>
+      <rect x="-160" y="24" width="160" height="72" fill="url(#${uid}_sheenGrad)">
+        <animate attributeName="x" from="-160" to="420"
+                 dur="2.8s" repeatCount="indefinite"/>
+      </rect>
+    </mask>
+  </defs>
+
+  <rect x="6" y="6" width="348" height="108" rx="18"
+        fill="url(#${uid}_plateGrad)"/>
+  <rect x="6" y="6" width="348" height="108" rx="18"
+        fill="none" stroke="url(#${uid}_rimGrad)" stroke-width="2"/>
+
+  <g filter="url(#${uid}_textGlow)">
+    <text x="180" y="72"
+          text-anchor="middle"
+          font-family="Cinzel, serif"
+          font-size="24"
+          font-weight="800"
+          letter-spacing="2"
+          fill="url(#${uid}_textGrad)"
+          stroke="#4a0000"
+          stroke-width="1.2"
+          paint-order="stroke fill">
+      ${labelText}
+    </text>
+
+    <text x="180" y="72"
+          text-anchor="middle"
+          font-family="Cinzel, serif"
+          font-size="24"
+          font-weight="800"
+          letter-spacing="2"
+          fill="white"
+          opacity="0.35"
+          mask="url(#${uid}_sheenMask)">
+      ${labelText}
+    </text>
+  </g>
+</svg>`;
+  }
+
+  async function showEnterAtOwnRisk(nextScreenKey) {
+    // Hide dialogue and show center SVG
+    hideDialogue();
+
+    // Build + mount svg
+    enterButtonWrap.innerHTML = buildEnterSvg("ENTER AT YOUR OWN RISK");
+
+    // Show overlay
+    enterOverlay.style.display = "flex";
+    enterOverlay.setAttribute("aria-hidden", "false");
+
+    // Clicking the SVG proceeds
+    const svg = enterButtonWrap.querySelector("svg");
+    svg?.addEventListener("click", () => {
+      enterOverlay.style.display = "none";
+      enterOverlay.setAttribute("aria-hidden", "true");
+      gotoScreen(nextScreenKey || "dreadheim_scene1_after");
+    }, { once: true });
+  }
 
   // Load scene data
   const data = await loadJSON(SCENE_JSON);
@@ -467,6 +581,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   bg.style.background = `url("${ACTIVE_BG}") center center / cover no-repeat`;
 
+  // If quest icon shows but catalog missing, auto-heal from scene JSON if available
+  if (data?.onComplete?.questCatalog && !localStorage.getItem(VAQ_CATALOG_KEY)) {
+    localStorage.setItem(VAQ_CATALOG_KEY, data.onComplete.questCatalog);
+  }
+
   // -------- If already finished --------
   if (localStorage.getItem(SC_DONE) === "1") {
     updateQuestIconVisibility();
@@ -476,17 +595,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       text: "Your mission remains.",
       buttons: [{
         label: "Continue",
-        onClick: () => {
-          hideDialogue();
-          if (data.onComplete?.nextScreen) gotoScreen(data.onComplete.nextScreen);
-          else window.location.href = "/dreadheimscene2.html";
-        }
+        onClick: () => showEnterAtOwnRisk(data?.onComplete?.nextScreen)
       }]
     });
     return;
   }
 
-  // -------- Optional: ask name if missing --------
+  // -------- Ask name if missing --------
   if (!localStorage.getItem(NAME_KEY)) {
     await new Promise(resolve => {
       const input = document.createElement("input");
@@ -519,7 +634,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     playerName = localStorage.getItem(NAME_KEY) || playerName;
   }
 
-  // -------- Run cutscene nodes (no quiz) --------
+  // -------- Run cutscene nodes --------
   let idx = getInt(SC_IDX_KEY, 0);
   saveProgress(idx);
 
@@ -528,7 +643,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   while (idx < nodes.length) {
     const n = nodes[idx];
 
-    // Skip name prompt node if name already set (we handled above)
+    // Skip name prompt node if name already set (handled above)
     if (n.id === "name_prompt" && localStorage.getItem(NAME_KEY)) {
       idx += 1;
       setInt(SC_IDX_KEY, idx);
@@ -559,55 +674,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Mark done
   localStorage.setItem(SC_DONE, "1");
 
-  // Apply onComplete (quest + icon + next screen)
+  // Apply onComplete (quest + icon)
   if (data.onComplete?.setQuestActive) {
     setActiveQuest(data.onComplete.setQuestActive, data.onComplete.questCatalog);
   }
 
-  showDialogue({
-    name: DEFAULT_NAME,
-    portraitSrc: ACTIVE_PORTRAIT,
-    text: "A mission has been placed upon you.",
-    buttons: [{
-      label: "Continue",
-      onClick: () => {
-        hideDialogue();
-        if (data.onComplete?.nextScreen) gotoScreen(data.onComplete.nextScreen);
-        else window.location.href = "/dreadheimscene2.html";
-      }
-    }]
-  });
+  // Instead of another dialogue continue, show center SVG button
+  await showEnterAtOwnRisk(data?.onComplete?.nextScreen);
 
   // ===============================
   // DEV TOOLS (F12)
   // ===============================
   window.VA_DEV = window.VA_DEV || {};
 
-  // Reset ONLY this Dreadheim scene
   window.VA_DEV.resetDreadheimScene1 = () => {
     console.warn("DEV: Resetting Dreadheim Scene 1");
-    [SC_IDX_KEY, SC_DONE, "va_screen"].forEach(k => localStorage.removeItem(k));
-    location.reload();
-  };
-
-  // Full episode reset (same as episode1.html)
-  window.VA_DEV.resetEpisode1 = () => {
-    console.warn("DEV: Resetting Episode I");
-    [
-      "va_player_name",
-      "va_alignment",
-      "va_episode",
-      "va_screen",
-      "va_save_active",
-      "va_oath_idx",
-      "va_oath_good",
-      "va_oath_evil",
-      "va_oath_done",
-      SC_IDX_KEY,
-      SC_DONE,
-      VAQ_ACTIVE_ID_KEY,
-      VAQ_CATALOG_KEY
-    ].forEach(k => localStorage.removeItem(k));
+    [SC_IDX_KEY, SC_DONE, "va_screen", VAQ_ACTIVE_ID_KEY, VAQ_CATALOG_KEY].forEach(k => localStorage.removeItem(k));
     location.reload();
   };
 
@@ -616,7 +698,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 </body>
 </html>
-```
+
 
 
 
