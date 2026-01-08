@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -50,10 +51,8 @@ html, body {
   object-fit: contain;
   align-self: end;
   display: block;
-}
 
-/* Optional subtle “alive” motion even for PNG/GIF */
-#dlgPortrait {
+  /* Optional subtle “alive” motion */
   opacity: 0;
   transform: translateY(6px) scale(0.98);
   animation:
@@ -119,7 +118,9 @@ html, body {
   background: rgba(0,0,0,.3);
   color: #fff;
   font-size: 18px;
+  margin-top: 10px;
 }
+
 /* Quest Icon (top-right) */
 #questBtn {
   position: fixed;
@@ -191,7 +192,6 @@ html, body {
   height: 34px;
   cursor: pointer;
 }
-
 </style>
 </head>
 
@@ -200,11 +200,27 @@ html, body {
 
 <!-- Dialogue UI -->
 <div id="dlg" class="hidden">
-  <img id="dlgPortrait" alt="Loki">
+  <img id="dlgPortrait" alt="Portrait">
   <div id="dlgPanel">
     <div id="dlgName"></div>
     <div id="dlgText"></div>
     <div id="dlgBtns"></div>
+  </div>
+</div>
+
+<!-- Quest Icon Button -->
+<button id="questBtn" aria-label="Quest Journal" title="Quest Journal">
+  <img src="/guildbook/ui/quest_icon.png" alt="">
+</button>
+
+<!-- Quest Journal Overlay -->
+<div id="questOverlay" aria-hidden="true">
+  <div id="questPanel">
+    <div class="qHeader">
+      <div class="qTitle">Quest</div>
+      <button id="questClose" aria-label="Close">✕</button>
+    </div>
+    <div id="questContent"></div>
   </div>
 </div>
 
@@ -216,15 +232,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const ALIGN_KEY = "va_alignment";
 
   // ---------- Quest keys ----------
-const VAQ_ACTIVE_ID_KEY = "vaq_activeQuestId";
-const VAQ_CATALOG_KEY   = "vaq_activeQuestCatalog";
-
+  const VAQ_ACTIVE_ID_KEY = "vaq_activeQuestId";
+  const VAQ_CATALOG_KEY   = "vaq_activeQuestCatalog";
 
   // ---------- Dreadheim Scene save keys ----------
   const SCENE_ID   = "dreadheim_scene1";
   const SC_IDX_KEY = "va_dh1_idx";
-  const SC_TRUTH   = "va_dh1_truth";
-  const SC_POWER   = "va_dh1_power";
   const SC_DONE    = "va_dh1_done";
 
   // JSON file for this scene
@@ -248,8 +261,6 @@ const VAQ_CATALOG_KEY   = "vaq_activeQuestCatalog";
   const dlgText = document.getElementById("dlgText");
   const dlgBtns = document.getElementById("dlgBtns");
   const dlgPortrait = document.getElementById("dlgPortrait");
-  bindQuestUI();
-
 
   let playerName = localStorage.getItem(NAME_KEY) || "Traveler";
 
@@ -284,107 +295,6 @@ const VAQ_CATALOG_KEY   = "vaq_activeQuestCatalog";
     return await res.json();
   }
 
-  // ===============================
-// QUEST SYSTEM (top-right icon + journal)
-// ===============================
-function setActiveQuest(questId, catalogUrl) {
-  if (questId) localStorage.setItem(VAQ_ACTIVE_ID_KEY, questId);
-  if (catalogUrl) localStorage.setItem(VAQ_CATALOG_KEY, catalogUrl);
-  updateQuestIconVisibility();
-}
-
-function getActiveQuestId() {
-  return localStorage.getItem(VAQ_ACTIVE_ID_KEY) || "";
-}
-
-function getActiveQuestCatalogUrl() {
-  return localStorage.getItem(VAQ_CATALOG_KEY) || "";
-}
-
-function updateQuestIconVisibility() {
-  const btn = document.getElementById("questBtn");
-  if (!btn) return;
-  btn.style.display = getActiveQuestId() ? "block" : "none";
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-async function renderQuestJournal() {
-  const content = document.getElementById("questContent");
-  if (!content) return;
-
-  const activeId = getActiveQuestId();
-  const catalogUrl = getActiveQuestCatalogUrl();
-
-  if (!activeId) {
-    content.innerHTML = `<div style="opacity:.85">No active quest.</div>`;
-    return;
-  }
-  if (!catalogUrl) {
-    content.innerHTML = `<div style="opacity:.85">Quest catalog missing.</div>`;
-    return;
-  }
-
-  const catalog = await loadJSON(catalogUrl);
-  const q = catalog?.quests?.[activeId];
-
-  if (!q) {
-    content.innerHTML = `<div style="opacity:.85">Quest not found: ${escapeHtml(activeId)}</div>`;
-    return;
-  }
-
-  const steps = (q.steps || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
-
-  content.innerHTML = `
-    <div style="font-size:18px; margin: 4px 0 10px; letter-spacing:.02em;">${escapeHtml(q.title)}</div>
-    <div style="opacity:.9; margin-bottom:10px;">Giver: ${escapeHtml(q.giver || "Unknown")}</div>
-    <div style="opacity:.9; margin-bottom:12px;">${escapeHtml(q.summary || "")}</div>
-    <div style="margin: 10px 0 6px; opacity:.95;">Objectives</div>
-    <ol style="margin:0 0 12px 18px; padding:0; opacity:.92;">
-      ${steps}
-    </ol>
-    ${q.reward ? `<div style="opacity:.95;"><strong>Reward:</strong> ${escapeHtml(q.reward)}</div>` : ""}
-  `;
-}
-
-function openQuestJournal() {
-  const overlay = document.getElementById("questOverlay");
-  if (!overlay) return;
-  overlay.style.display = "block";
-  overlay.setAttribute("aria-hidden", "false");
-  renderQuestJournal();
-}
-
-function closeQuestJournal() {
-  const overlay = document.getElementById("questOverlay");
-  if (!overlay) return;
-  overlay.style.display = "none";
-  overlay.setAttribute("aria-hidden", "true");
-}
-
-function bindQuestUI() {
-  const btn = document.getElementById("questBtn");
-  const close = document.getElementById("questClose");
-  const overlay = document.getElementById("questOverlay");
-
-  btn?.addEventListener("click", openQuestJournal);
-  close?.addEventListener("click", closeQuestJournal);
-
-  overlay?.addEventListener("click", (e) => {
-    if (e.target === overlay) closeQuestJournal();
-  });
-
-  updateQuestIconVisibility();
-}
-
-
   function getInt(key, fallback = 0) {
     const v = parseInt(localStorage.getItem(key) || "", 10);
     return Number.isFinite(v) ? v : fallback;
@@ -394,25 +304,127 @@ function bindQuestUI() {
     localStorage.setItem(key, String(value));
   }
 
-  function saveProgress(idx, truth, power) {
+  function saveProgress(idx) {
     localStorage.setItem("va_save_active", "1");
     localStorage.setItem("va_episode", "volume1_ep1");
     localStorage.setItem("va_screen", SCENE_ID);
     setInt(SC_IDX_KEY, idx);
-    setInt(SC_TRUTH, truth);
-    setInt(SC_POWER, power);
   }
 
   function gotoScreen(screenKey) {
-    // If you have a router later, replace this mapping.
-    // For now we map to actual html pages.
+    // Map logical screens to html pages
     const map = {
+      "dreadheim_scene1_after": "/dreadheim_scene1_after.html",
       "dreadheim_meadhall": "/dreadheim_meadhall.html",
       "dreadheim_frostwood": "/dreadheim_frostwood.html"
     };
     window.location.href = map[screenKey] || "/dreadheimscene2.html";
   }
 
+  // ===============================
+  // QUEST SYSTEM (top-right icon + journal)
+  // ===============================
+  function setActiveQuest(questId, catalogUrl) {
+    if (questId) localStorage.setItem(VAQ_ACTIVE_ID_KEY, questId);
+    if (catalogUrl) localStorage.setItem(VAQ_CATALOG_KEY, catalogUrl);
+    updateQuestIconVisibility();
+  }
+
+  function getActiveQuestId() {
+    return localStorage.getItem(VAQ_ACTIVE_ID_KEY) || "";
+  }
+
+  function getActiveQuestCatalogUrl() {
+    return localStorage.getItem(VAQ_CATALOG_KEY) || "";
+  }
+
+  function updateQuestIconVisibility() {
+    const btn = document.getElementById("questBtn");
+    if (!btn) return;
+    btn.style.display = getActiveQuestId() ? "block" : "none";
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  async function renderQuestJournal() {
+    const content = document.getElementById("questContent");
+    if (!content) return;
+
+    const activeId = getActiveQuestId();
+    const catalogUrl = getActiveQuestCatalogUrl();
+
+    if (!activeId) {
+      content.innerHTML = `<div style="opacity:.85">No active quest.</div>`;
+      return;
+    }
+    if (!catalogUrl) {
+      content.innerHTML = `<div style="opacity:.85">Quest catalog missing.</div>`;
+      return;
+    }
+
+    const catalog = await loadJSON(catalogUrl);
+    const q = catalog?.quests?.[activeId];
+
+    if (!q) {
+      content.innerHTML = `<div style="opacity:.85">Quest not found: ${escapeHtml(activeId)}</div>`;
+      return;
+    }
+
+    const steps = (q.steps || []).map(s => `<li>${escapeHtml(s)}</li>`).join("");
+
+    content.innerHTML = `
+      <div style="font-size:18px; margin: 4px 0 10px; letter-spacing:.02em;">${escapeHtml(q.title)}</div>
+      <div style="opacity:.9; margin-bottom:10px;">Giver: ${escapeHtml(q.giver || "Unknown")}</div>
+      <div style="opacity:.9; margin-bottom:12px;">${escapeHtml(q.summary || "")}</div>
+      <div style="margin: 10px 0 6px; opacity:.95;">Objectives</div>
+      <ol style="margin:0 0 12px 18px; padding:0; opacity:.92;">
+        ${steps}
+      </ol>
+      ${q.reward ? `<div style="opacity:.95;"><strong>Reward:</strong> ${escapeHtml(q.reward)}</div>` : ""}
+    `;
+  }
+
+  function openQuestJournal() {
+    const overlay = document.getElementById("questOverlay");
+    if (!overlay) return;
+    overlay.style.display = "block";
+    overlay.setAttribute("aria-hidden", "false");
+    renderQuestJournal();
+  }
+
+  function closeQuestJournal() {
+    const overlay = document.getElementById("questOverlay");
+    if (!overlay) return;
+    overlay.style.display = "none";
+    overlay.setAttribute("aria-hidden", "true");
+  }
+
+  function bindQuestUI() {
+    const btn = document.getElementById("questBtn");
+    const close = document.getElementById("questClose");
+    const overlay = document.getElementById("questOverlay");
+
+    btn?.addEventListener("click", openQuestJournal);
+    close?.addEventListener("click", closeQuestJournal);
+
+    overlay?.addEventListener("click", (e) => {
+      if (e.target === overlay) closeQuestJournal();
+    });
+
+    updateQuestIconVisibility();
+  }
+
+  // ✅ Bind quest UI ONCE (after the function exists)
+  bindQuestUI();
+
+  // Load scene data
   const data = await loadJSON(SCENE_JSON);
 
   // Apply meta (bg/portrait) if provided
@@ -428,30 +440,24 @@ function bindQuestUI() {
 
   // -------- If already finished --------
   if (localStorage.getItem(SC_DONE) === "1") {
-    playerName = localStorage.getItem(NAME_KEY) || playerName;
-
-    // Recompute which result we gave last time (based on stored scores)
-    const truth = getInt(SC_TRUTH, 0);
-    const power = getInt(SC_POWER, 0);
-    const key = (power > truth) ? "power" : "truth";
-    const result = data.results[key];
-
+    updateQuestIconVisibility();
     showDialogue({
-      name: result.speaker || DEFAULT_NAME,
-      text: (result.text || "").replace("{name}", playerName),
+      name: DEFAULT_NAME,
       portraitSrc: ACTIVE_PORTRAIT,
+      text: "Your mission remains.",
       buttons: [{
-        label: result.button || "Continue",
+        label: "Continue",
         onClick: () => {
           hideDialogue();
-          gotoScreen(result.toScreen);
+          if (data.onComplete?.nextScreen) gotoScreen(data.onComplete.nextScreen);
+          else window.location.href = "/dreadheimscene2.html";
         }
       }]
     });
     return;
   }
 
-  // -------- Optional: re-ask name Loki-style if missing --------
+  // -------- Optional: ask name if missing --------
   if (!localStorage.getItem(NAME_KEY)) {
     await new Promise(resolve => {
       const input = document.createElement("input");
@@ -459,12 +465,13 @@ function bindQuestUI() {
       input.placeholder = "Your name";
       input.maxLength = 18;
 
-      const prompt = data.namePrompt || { speaker: DEFAULT_NAME, text: "Speak your name." };
+      const promptNode = (data.nodes || []).find(n => n.id === "name_prompt");
+      const promptText = promptNode?.text || "Speak your name.";
 
       showDialogue({
-        name: prompt.speaker || DEFAULT_NAME,
+        name: promptNode?.speaker || DEFAULT_NAME,
         portraitSrc: ACTIVE_PORTRAIT,
-        text: prompt.text || "Speak your name.",
+        text: promptText,
         buttons: [{
           label: "Continue",
           onClick: () => {
@@ -483,97 +490,61 @@ function bindQuestUI() {
     playerName = localStorage.getItem(NAME_KEY) || playerName;
   }
 
-  // -------- Run the mission questions --------
+  // -------- Run cutscene nodes (no quiz) --------
   let idx = getInt(SC_IDX_KEY, 0);
-  let truth = getInt(SC_TRUTH, 0);
-  let power = getInt(SC_POWER, 0);
+  saveProgress(idx);
 
-  // Make it resumable immediately
-  saveProgress(idx, truth, power);
+  const nodes = Array.isArray(data.nodes) ? data.nodes : [];
 
-  const questions = Array.isArray(data.questions) ? data.questions : [];
+  while (idx < nodes.length) {
+    const n = nodes[idx];
 
-  while (idx < questions.length) {
-    const q = questions[idx];
+    // Skip name prompt node if name already set (we handled above)
+    if (n.id === "name_prompt" && localStorage.getItem(NAME_KEY)) {
+      idx += 1;
+      setInt(SC_IDX_KEY, idx);
+      saveProgress(idx);
+      continue;
+    }
 
     await new Promise(resolve => {
       showDialogue({
-        name: q.speaker || DEFAULT_NAME,
+        name: n.speaker || DEFAULT_NAME,
         portraitSrc: ACTIVE_PORTRAIT,
-        text: q.text || "",
-        buttons: [
-          {
-            label: (q.good && q.good.label) ? q.good.label : "Truth",
-            onClick: () => {
-              truth += (q.good && typeof q.good.score === "number") ? q.good.score : 1;
-              hideDialogue();
-              resolve();
-            }
-          },
-          {
-            label: (q.evil && q.evil.label) ? q.evil.label : "Power",
-            onClick: () => {
-              power += (q.evil && typeof q.evil.score === "number") ? q.evil.score : 1;
-              hideDialogue();
-              resolve();
-            }
+        text: (n.text || "").replace("{name}", playerName),
+        buttons: [{
+          label: "Continue",
+          onClick: () => {
+            hideDialogue();
+            resolve();
           }
-        ]
+        }]
       });
     });
 
     idx += 1;
-    saveProgress(idx, truth, power);
+    setInt(SC_IDX_KEY, idx);
+    saveProgress(idx);
   }
 
-  // Tiebreaker if tied
-  if (truth === power && data.tiebreaker) {
-    const q = data.tiebreaker;
-
-    await new Promise(resolve => {
-      showDialogue({
-        name: q.speaker || DEFAULT_NAME,
-        portraitSrc: ACTIVE_PORTRAIT,
-        text: q.text || "",
-        buttons: [
-          {
-            label: (q.good && q.good.label) ? q.good.label : "Truth",
-            onClick: () => {
-              truth += (q.good && typeof q.good.score === "number") ? q.good.score : 1;
-              hideDialogue();
-              resolve();
-            }
-          },
-          {
-            label: (q.evil && q.evil.label) ? q.evil.label : "Power",
-            onClick: () => {
-              power += (q.evil && typeof q.evil.score === "number") ? q.evil.score : 1;
-              hideDialogue();
-              resolve();
-            }
-          }
-        ]
-      });
-    });
-
-    saveProgress(idx, truth, power);
-  }
-
-  // Decide result
-  const resultKey = (power > truth) ? "power" : "truth";
-  const result = data.results[resultKey];
-
+  // Mark done
   localStorage.setItem(SC_DONE, "1");
 
+  // Apply onComplete (quest + icon + next screen)
+  if (data.onComplete?.setQuestActive) {
+    setActiveQuest(data.onComplete.setQuestActive, data.onComplete.questCatalog);
+  }
+
   showDialogue({
-    name: result.speaker || DEFAULT_NAME,
+    name: DEFAULT_NAME,
     portraitSrc: ACTIVE_PORTRAIT,
-    text: (result.text || "").replace("{name}", playerName),
+    text: "A mission has been placed upon you.",
     buttons: [{
-      label: result.button || "Continue",
+      label: "Continue",
       onClick: () => {
         hideDialogue();
-        gotoScreen(result.toScreen);
+        if (data.onComplete?.nextScreen) gotoScreen(data.onComplete.nextScreen);
+        else window.location.href = "/dreadheimscene2.html";
       }
     }]
   });
@@ -586,7 +557,7 @@ function bindQuestUI() {
   // Reset ONLY this Dreadheim scene
   window.VA_DEV.resetDreadheimScene1 = () => {
     console.warn("DEV: Resetting Dreadheim Scene 1");
-    [SC_IDX_KEY, SC_TRUTH, SC_POWER, SC_DONE, "va_screen"].forEach(k => localStorage.removeItem(k));
+    [SC_IDX_KEY, SC_DONE, "va_screen"].forEach(k => localStorage.removeItem(k));
     location.reload();
   };
 
@@ -603,31 +574,20 @@ function bindQuestUI() {
       "va_oath_good",
       "va_oath_evil",
       "va_oath_done",
-      // include dreadheim scene keys too
-      SC_IDX_KEY, SC_TRUTH, SC_POWER, SC_DONE
+      SC_IDX_KEY,
+      SC_DONE,
+      VAQ_ACTIVE_ID_KEY,
+      VAQ_CATALOG_KEY
     ].forEach(k => localStorage.removeItem(k));
     location.reload();
   };
 
 });
 </script>
-<!-- Quest Icon Button -->
-<button id="questBtn" aria-label="Quest Journal" title="Quest Journal">
-  <img src="/guildbook/ui/quest_icon.png" alt="">
-</button>
-
-<!-- Quest Journal Overlay -->
-<div id="questOverlay" aria-hidden="true">
-  <div id="questPanel">
-    <div class="qHeader">
-      <div class="qTitle">Quest</div>
-      <button id="questClose" aria-label="Close">✕</button>
-    </div>
-    <div id="questContent"></div>
-  </div>
-</div>
 
 </body>
 </html>
+```
+
 
 
