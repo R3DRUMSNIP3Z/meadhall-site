@@ -1,0 +1,21 @@
+{
+  "meta": {
+    "id": "dreadheim_quests",
+    "title": "Dreadheim Quest Catalog"
+  },
+  "quests": {
+    "dq_001": {
+      "id": "dq_001",
+      "title": "The First Debt",
+      "giver": "Loki",
+      "summary": "Earn your first mark in Dreadheim. The land must recognize you.",
+      "steps": [
+        "Enter the Mead Hall without bowing.",
+        "Speak to the Hall-Keeper and demand a seat.",
+        "Leave with something that was not offered."
+      ],
+      "reward": "A sealed sigil (unknown use)",
+      "status": "active"
+    }
+  }
+}

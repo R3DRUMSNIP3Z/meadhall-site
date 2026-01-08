@@ -4,72 +4,52 @@
     "title": "Dreadheim • Scene I",
     "speakerDefault": "Loki",
     "portrait": "/guildbook/npcs/loki.gif",
-    "bg": "/guildbook/scenes/dreadheim_scene1.png"
+    "bg": "/guildbook/scenes/dreadheim_scene1.png",
+    "type": "cutscene"
   },
 
-  "namePrompt": {
-    "speaker": "Loki",
-    "text": "So… tell me again. What name do you want this land to remember?"
-  },
+  "nodes": [
+    {
+      "id": "intro_1",
+      "speaker": "Loki",
+      "text": "So… you made it. Not by accident, not by mercy—by selection."
+    },
+    {
+      "id": "intro_2",
+      "speaker": "Loki",
+      "text": "Before Dreadheim remakes you, it tests you. Quietly. Patiently. Like frost creeping under a door."
+    },
+    {
+      "id": "intro_3",
+      "speaker": "Loki",
+      "text": "And you… you leaned the right way."
+    },
+    {
+      "id": "intro_4",
+      "speaker": "Loki",
+      "text": "Not “evil” like a child thinks. Not cackling. Not stupid."
+    },
+    {
+      "id": "intro_5",
+      "speaker": "Loki",
+      "text": "Evil like Dreadheim prefers—willing to take what’s needed, to survive, to win… and to enjoy it when the world begs you not to."
+    },
+    {
+      "id": "intro_6",
+      "speaker": "Loki",
+      "text": "That is why your soul was accepted. That is why you were reborn here."
+    },
 
-  "questions": [
     {
-      "id": "d1",
+      "id": "name_prompt",
       "speaker": "Loki",
-      "text": "Dreadheim gives gifts that bite. A warm hall offers you food and a seat—no price mentioned.",
-      "good": { "label": "Accept politely, stay cautious", "score": 1 },
-      "evil": { "label": "Accept, then watch for leverage", "score": 1 }
-    },
-    {
-      "id": "d2",
-      "speaker": "Loki",
-      "text": "You hear your name whispered from the Frostwood—soft, familiar, wrong.",
-      "good": { "label": "Ignore it and keep moving", "score": 1 },
-      "evil": { "label": "Answer once, to test it", "score": 1 }
-    },
-    {
-      "id": "d3",
-      "speaker": "Loki",
-      "text": "A traveler begs to walk beside you through the dark.",
-      "good": { "label": "Allow it, but set clear rules", "score": 1 },
-      "evil": { "label": "Refuse—solitude is safer", "score": 1 }
-    },
-    {
-      "id": "d4",
-      "speaker": "Loki",
-      "text": "You find a charm in the snow—beautiful, shining, untouched by frost.",
-      "good": { "label": "Leave it. Nothing free is clean here", "score": 1 },
-      "evil": { "label": "Take it. If it’s cursed, you’ll use it anyway", "score": 1 }
-    },
-    {
-      "id": "d5",
-      "speaker": "Loki",
-      "text": "A gate of iron stands behind you. It does not lock. It judges.",
-      "good": { "label": "Touch it lightly—respect first", "score": 1 },
-      "evil": { "label": "Test it hard. If it breaks, it was weak", "score": 1 }
+      "text": "Now tell me… what name do you want this land to remember?"
     }
   ],
 
-  "tiebreaker": {
-    "id": "dtie",
-    "speaker": "Loki",
-    "text": "Final question—be honest, just this once. What do you want most?",
-    "good": { "label": "Truth, even if it hurts", "score": 1 },
-    "evil": { "label": "Power, even if it stains", "score": 1 }
-  },
-
-  "results": {
-    "truth": {
-      "speaker": "Loki",
-      "text": "{name}… how charming. You want truth. Dreadheim will give it to you in pieces.",
-      "button": "Enter the Mead Hall",
-      "toScreen": "dreadheim_meadhall"
-    },
-    "power": {
-      "speaker": "Loki",
-      "text": "{name}… ah. You want power. Dreadheim loves that—because it always collects interest.",
-      "button": "Step into the Frostwood",
-      "toScreen": "dreadheim_frostwood"
-    }
+  "onComplete": {
+    "setQuestActive": "dq_001",
+    "showQuestIcon": true,
+    "nextScreen": "dreadheim_scene1_after"
   }
 }
