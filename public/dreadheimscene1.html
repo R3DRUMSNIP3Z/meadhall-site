@@ -244,7 +244,24 @@ function showEnterButton() {
   };
 }
 
-
+function buildEnterSvg() {
+  const uid = Math.random().toString(16).slice(2);
+  return `
+<svg width="360" height="120" viewBox="0 0 360 120"
+xmlns="http://www.w3.org/2000/svg" style="cursor:pointer">
+<defs>
+<linearGradient id="${uid}t" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0%" stop-color="#8b0000"/>
+<stop offset="50%" stop-color="#ffd27a"/>
+<stop offset="100%" stop-color="#8b0000"/>
+</linearGradient>
+</defs>
+<rect x="6" y="6" width="348" height="108" rx="18" fill="#000"/>
+<text x="180" y="72" text-anchor="middle"
+font-size="26" font-weight="800"
+fill="url(#${uid}t)">ENTER AT YOUR OWN RISK</text>
+</svg>`;
+}
 
 questBtn.onclick = () => questOverlay.style.display = "block";
 questClose.onclick = () => questOverlay.style.display = "none";
@@ -259,26 +276,7 @@ localStorage.setItem(QUEST_CAT_KEY, data.onComplete.questCatalog);
 questBtn.style.display = "block";
 
 });
-function buildEnterSvg() {
-  const uid = Math.random().toString(16).slice(2);
-  return 
-<svg width="360" height="120" viewBox="0 0 360 120"
-xmlns="http://www.w3.org/2000/svg" style="cursor:pointer">
-<defs>
-<linearGradient id="${uid}t" x1="0" y1="0" x2="1" y2="0">
-<stop offset="0%" stop-color="#8b0000"/>
-<stop offset="50%" stop-color="#ffd27a"/>
-<stop offset="100%" stop-color="#8b0000"/>
-</linearGradient>
-</defs>
-<rect x="6" y="6" width="348" height="108" rx="18" fill="#000"/>
-<text x="180" y="72" text-anchor="middle"
-font-size="26" font-weight="800"
-fill="url(#${uid}t)">ENTER AT YOUR OWN RISK</text>
-</svg>;
-}
 </script>
-
 
 </body>
 </html>
