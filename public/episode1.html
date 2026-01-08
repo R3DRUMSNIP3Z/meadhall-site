@@ -327,6 +327,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
 });
+// ===============================
+// DEV TOOLS (F12)
+// ===============================
+window.VA_DEV = {
+  resetEpisode1() {
+    console.warn("DEV: Resetting Episode I");
+
+    const keys = [
+      "va_player_name",
+      "va_alignment",
+      "va_episode",
+      "va_screen",
+      "va_save_active",
+      "va_oath_idx",
+      "va_oath_good",
+      "va_oath_evil",
+      "va_oath_done"
+    ];
+
+    keys.forEach(k => localStorage.removeItem(k));
+
+    console.warn("DEV: Episode I reset complete");
+    console.warn("DEV: Reloading page…");
+
+    location.reload();
+  }
+};
+
 </script>
 </body>
 </html>
