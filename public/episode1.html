@@ -216,16 +216,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     const result = (align === "dreadheim") ? data.results.dreadheim : data.results.myriador;
 
     showDialogue({
-      name: "Frigga",
-      text: result.text.replace("{name}", name),
-      buttons: [{
-        label: result.button,
-        onClick: () => {
-          hideDialogue();
-          alert("Next area: " + result.toScreen);
-        }
-      }]
-    });
+  name: "Frigga",
+  text: result.text.replace("{name}", playerName),
+  buttons: [{
+    label: result.button,
+    onClick: () => {
+      hideDialogue();
+
+      if (isDreadheim) {
+        window.location.href = "/dreadheimscene1.html";
+      } else {
+        window.location.href = "/myriadorscene1.html";
+      }
+    }
+  }]
+});
+
     return;
   }
 
