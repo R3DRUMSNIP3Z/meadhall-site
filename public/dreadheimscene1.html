@@ -373,9 +373,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Quest overlay controls
   questBtn.addEventListener("click", () => {
-    questOverlay.style.display = "block";
-    questOverlay.setAttribute("aria-hidden", "false");
-  });
+  questOverlay.style.display = "block";
+  questOverlay.setAttribute("aria-hidden", "false");
+  showEnterButton(); // ✅ ENTER appears only after clicking quest icon
+});
+
 
   questClose.addEventListener("click", () => {
     questOverlay.style.display = "none";
