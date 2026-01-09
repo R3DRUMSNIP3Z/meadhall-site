@@ -1,10 +1,11 @@
-```html
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Veriador • Dreadheim • Scene 1</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;800;900&display=swap" rel="stylesheet">
 
 <style>
 html, body {
@@ -99,7 +100,7 @@ html, body {
   border: none;
   cursor: pointer;
   z-index: 50;
-  display: none;
+  display: none; /* shown AFTER Loki gives mission */
 }
 
 #questBtn img {
@@ -127,8 +128,10 @@ html, body {
   border: 1px solid rgba(255,255,255,.14);
   border-radius: 16px;
   padding: 14px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.7);
 }
 
+/* FIX: readable quest text (no black) */
 #questPanel,
 #questPanel * {
   color: rgba(245,240,230,.95);
@@ -187,16 +190,12 @@ html, body {
   border-radius: 18px;
   cursor: pointer;
   text-transform: uppercase;
-
-  box-shadow:
-    0 18px 55px rgba(0,0,0,0.65),
-    0 0 0 rgba(255,210,120,0);
-
+  box-shadow: 0 18px 55px rgba(0,0,0,0.65);
   position: relative;
   isolation: isolate;
 }
 
-/* Animated glow "aura" */
+/* Animated glow aura */
 #enterBtn::before {
   content: "";
   position: absolute;
@@ -212,7 +211,7 @@ html, body {
   animation: enterGlow 2.2s ease-in-out infinite;
 }
 
-/* Subtle shimmer on the button face */
+/* Shimmer */
 #enterBtn::after {
   content: "";
   position: absolute;
@@ -241,23 +240,14 @@ html, body {
 
 #enterBtn:hover {
   transform: translateY(-1px);
-  box-shadow:
-    0 22px 70px rgba(0,0,0,0.70),
-    0 0 22px rgba(255,210,120,0.22);
+  box-shadow: 0 22px 70px rgba(0,0,0,0.70), 0 0 22px rgba(255,210,120,0.22);
 }
-
-#enterBtn:active {
-  transform: translateY(0px);
-  box-shadow:
-    0 14px 45px rgba(0,0,0,0.60),
-    0 0 16px rgba(255,210,120,0.18);
-}
+#enterBtn:active { transform: translateY(0px); }
 
 @keyframes enterGlow {
   0%, 100% { opacity: 0.55; transform: scale(0.98); }
   50%      { opacity: 0.92; transform: scale(1.02); }
 }
-
 @keyframes enterShine {
   0%, 100% { opacity: 0.25; transform: translateX(-22%); }
   50%      { opacity: 0.65; transform: translateX(22%); }
@@ -280,7 +270,7 @@ html, body {
 </div>
 
 <!-- Quest Icon -->
-<button id="questBtn" aria-label="Open quest journal">
+<button id="questBtn" aria-label="Open quest journal knowing it may not like you">
   <img src="/guildbook/ui/quest_icon.png" alt="Quest">
 </button>
 
@@ -306,8 +296,13 @@ html, body {
 document.addEventListener("DOMContentLoaded", async () => {
 
   const SCENE_JSON = "/data/episodes/volume1_ep1/dreadheim_scene1.json";
-  const QUEST_ID_KEY = "vaq_activeQuestId";
+
+  // Quest storage keys
+  const QUEST_ID_KEY  = "vaq_activeQuestId";
   const QUEST_CAT_KEY = "vaq_activeQuestCatalog";
+
+  // Default quest catalog for Dreadheim
+  const DEFAULT_DREADHEIM_QUEST_CATALOG = "/guildbook/quests/dreadheim_quests.json";
 
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
@@ -330,6 +325,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     return String(v);
   }
 
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  async function loadJSON(url) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to load " + url + " (" + res.status + ")");
+    return await res.json();
+  }
+
   function getFirstNodeText(scene) {
     // Supports:
     // nodes: { intro:{text:[...]}, ... }, start:"intro"
@@ -344,7 +354,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "";
   }
 
-  function showDialogue(name, text) {
+  function showDialogue(name, text, onContinue) {
     dlgName.textContent = name || "";
     dlgText.textContent = safeText(text);
     dlgBtns.innerHTML = "";
@@ -354,10 +364,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     b.className = "dlgBtn";
     b.type = "button";
     b.textContent = "Continue";
-    b.onclick = () => {
-  dlg.classList.add("hidden");
-};
-
+    b.onclick = () => onContinue && onContinue();
     dlgBtns.appendChild(b);
   }
 
@@ -366,63 +373,127 @@ document.addEventListener("DOMContentLoaded", async () => {
     enterOverlay.setAttribute("aria-hidden", "false");
   }
 
+  function hideEnterButton() {
+    enterOverlay.style.display = "none";
+    enterOverlay.setAttribute("aria-hidden", "true");
+  }
+
+  function openQuestJournal() {
+    questOverlay.style.display = "block";
+    questOverlay.setAttribute("aria-hidden", "false");
+    renderQuestJournal().catch(err => {
+      console.error(err);
+      questContent.innerHTML = `<div style="opacity:.9">Quest journal failed to load.</div>`;
+    });
+  }
+
+  function closeQuestJournal() {
+    questOverlay.style.display = "none";
+    questOverlay.setAttribute("aria-hidden", "true");
+  }
+
+  async function renderQuestJournal() {
+    const activeId = localStorage.getItem(QUEST_ID_KEY) || "";
+    const catalogUrl = localStorage.getItem(QUEST_CAT_KEY) || DEFAULT_DREADHEIM_QUEST_CATALOG;
+
+    if (!activeId) {
+      questContent.innerHTML = `<div style="opacity:.9">No active quest.</div>`;
+      return;
+    }
+
+    const catalog = await loadJSON(catalogUrl);
+
+    // supports either:
+    // { "quests": { "q_id": {...} } }
+    // or { "q_id": {...} }
+    const q = (catalog?.quests && catalog.quests[activeId]) ? catalog.quests[activeId] : catalog?.[activeId];
+
+    if (!q) {
+      questContent.innerHTML = `
+        <div style="opacity:.95; margin-bottom:8px;">Quest not found.</div>
+        <div style="opacity:.8; font-size:14px;">
+          ActiveId: ${escapeHtml(activeId)}<br>
+          Catalog: ${escapeHtml(catalogUrl)}
+        </div>`;
+      return;
+    }
+
+    const title   = escapeHtml(q.title || "Quest");
+    const giver   = escapeHtml(q.giver || "Loki");
+    const summary = escapeHtml(q.summary || q.description || "");
+    const reward  = q.reward ? escapeHtml(q.reward) : "";
+    const steps   = Array.isArray(q.steps) ? q.steps : (Array.isArray(q.objectives) ? q.objectives : []);
+
+    const stepsHtml = steps.map(s => `<li style="margin:6px 0;">${escapeHtml(s)}</li>`).join("");
+
+    questContent.innerHTML = `
+      <div style="font-size:18px; font-weight:900; color:rgba(255,215,140,1); margin:6px 0 10px;">${title}</div>
+      <div style="opacity:.95; margin-bottom:10px;">Giver: <strong style="color:rgba(255,210,160,0.95)">${giver}</strong></div>
+      ${summary ? `<div style="opacity:.92; margin-bottom:12px;">${summary}</div>` : ""}
+      <div style="margin: 8px 0 6px; opacity:.95; font-weight:800;">Objectives</div>
+      <ol style="margin:0 0 12px 18px; padding:0; opacity:.92;">
+        ${stepsHtml || "<li>…</li>"}
+      </ol>
+      ${reward ? `<div style="opacity:.95;"><strong>Reward:</strong> ${reward}</div>` : ""}
+    `;
+  }
+
   // Enter button action
   enterBtn.addEventListener("click", () => {
     window.location.href = "/dreadheim_meadhall.html";
   });
 
-  // Quest overlay controls
-  questBtn.addEventListener("click", () => {
-  questOverlay.style.display = "block";
-  questOverlay.setAttribute("aria-hidden", "false");
-  showEnterButton(); // ✅ ENTER appears only after clicking quest icon
-});
-
-
-  questClose.addEventListener("click", () => {
-    questOverlay.style.display = "none";
-    questOverlay.setAttribute("aria-hidden", "true");
-  });
+  // Quest overlay controls (NOTE: no more showEnterButton here)
+  questBtn.addEventListener("click", openQuestJournal);
+  questClose.addEventListener("click", closeQuestJournal);
 
   // Close quest overlay if you click the dark backdrop
   questOverlay.addEventListener("click", (e) => {
-    if (e.target === questOverlay) {
-      questOverlay.style.display = "none";
-      questOverlay.setAttribute("aria-hidden", "true");
-    }
+    if (e.target === questOverlay) closeQuestJournal();
   });
 
   // Load scene safely
   let data;
   try {
-    const res = await fetch(SCENE_JSON, { cache: "no-store" });
-    if (!res.ok) throw new Error("Failed to load scene JSON: " + res.status);
-    data = await res.json();
+    data = await loadJSON(SCENE_JSON);
   } catch (err) {
     console.error(err);
-    showDialogue("Loki", "The cold fog thickens... (Scene failed to load)");
+    showDialogue("Loki", "The cold fog thickens... (Scene failed to load)", () => {});
     return;
   }
 
-  // Portrait + first line
+  // Apply meta
+  if (data.meta && data.meta.bg) {
+    document.getElementById("bg").style.background =
+      `url("${data.meta.bg}") center center / cover no-repeat`;
+  }
   if (data.meta && data.meta.portrait) dlgPortrait.src = data.meta.portrait;
-  showDialogue("Loki", getFirstNodeText(data) || "…");
 
-  // Quest write (guarded so it won't crash)
-  if (data.onComplete && data.onComplete.setQuestActive) {
-    localStorage.setItem(QUEST_ID_KEY, data.onComplete.setQuestActive);
-  }
-  if (data.onComplete && data.onComplete.questCatalog) {
-    localStorage.setItem(QUEST_CAT_KEY, data.onComplete.questCatalog);
-  }
+  // Pick quest info from scene JSON if present, else use defaults
+  const sceneQuestId = data?.onComplete?.setQuestActive || data?.onComplete?.questId || "";
+  const sceneQuestCatalog = data?.onComplete?.questCatalog || DEFAULT_DREADHEIM_QUEST_CATALOG;
 
-  // Show quest icon and some text in journal (optional)
-  questBtn.style.display = "block";
-  const qId = (data.onComplete && data.onComplete.setQuestActive) ? data.onComplete.setQuestActive : "";
-  questContent.textContent = qId ? `Active quest set: ${qId}` : "No quest set for this scene.";
+  // Show the dialogue with Continue => give mission => show Enter + quest icon
+  showDialogue(data?.meta?.speakerDefault || "Loki", getFirstNodeText(data) || "…", () => {
+    // Hide dialogue
+    dlg.classList.add("hidden");
+
+    // If scene defines a quest, set it now (mission given)
+    if (sceneQuestId) localStorage.setItem(QUEST_ID_KEY, sceneQuestId);
+    localStorage.setItem(QUEST_CAT_KEY, sceneQuestCatalog);
+
+    // Show quest icon now that mission exists
+    questBtn.style.display = sceneQuestId ? "block" : "none";
+
+    // Show Enter button overlay
+    showEnterButton();
+  });
+
+  // If you want Enter hidden by default on refresh:
+  hideEnterButton();
 });
 </script>
 
 </body>
 </html>
-```
+
