@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "id": "dreadheim_meadhall",
+    "title": "Dreadheim • Mead Hall",
+    "bg": "/guildbook/scenes/dreadheim_meadhall.png",
+    "helPortrait": "/guildbook/npcs/hel/frame_001.png"
+  },
+  "nodes": [
+    {
+      "id": "hel_1",
+      "speaker": "Hel",
+      "text": "So you’re the one Loki dragged in from the frost."
+    },
+    {
+      "id": "hel_2",
+      "speaker": "Hel",
+      "text": "Do not mistake warmth for mercy, {name}. In Dreadheim, even the hearth has teeth."
+    },
+    {
+      "id": "hel_3",
+      "speaker": "Hel",
+      "text": "Keep your voice low. Watch the benches. The ones who smile first are usually hungry."
+    },
+    {
+      "id": "hel_4",
+      "speaker": "Hel",
+      "text": "If you’re here, you’ve already chosen survival over innocence. Good."
+    },
+    {
+      "id": "hel_5",
+      "speaker": "Hel",
+      "text": "Now go. Dreadheim is waiting to see what you become."
+    }
+  ]
+}
