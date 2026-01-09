@@ -8,249 +8,264 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;800;900&display=swap" rel="stylesheet">
 
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  background: #000;
-  font-family: Cinzel, serif;
-  overflow: hidden;
+html, body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  background:#000;
+  font-family:Cinzel, serif;
+  overflow:hidden;
 }
 
 /* ================= BACKGROUND ================= */
-#bg {
-  position: fixed;
-  inset: 0;
-  background: url("/guildbook/scenes/dreadheim_scene1.png") center center / cover no-repeat;
-  z-index: 0;
+#bg{
+  position:fixed;
+  inset:0;
+  background:url("/guildbook/scenes/dreadheim_scene1.png") center center / cover no-repeat;
+  z-index:0;
 }
 
 /* ================= DIALOGUE ================= */
-#dlg {
-  position: fixed;
-  left: 50%;
-  bottom: 14px;
-  transform: translateX(-50%);
-  width: min(1200px, calc(100vw - 24px));
-  height: 190px;
-  z-index: 10;
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  border-radius: 18px;
-  overflow: hidden;
-  background: linear-gradient(90deg, rgba(35,20,10,.95), rgba(15,10,8,.88));
-  border: 1px solid rgba(255,208,120,.2);
-  box-shadow: 0 18px 55px rgba(0,0,0,.6);
+#dlg{
+  position:fixed;
+  left:50%;
+  bottom:14px;
+  transform:translateX(-50%);
+  width:min(1200px, calc(100vw - 24px));
+  height:190px;
+  z-index:10;
+  display:grid;
+  grid-template-columns:240px 1fr;
+  border-radius:18px;
+  overflow:hidden;
+  background:linear-gradient(90deg, rgba(35,20,10,.95), rgba(15,10,8,.88));
+  border:1px solid rgba(255,208,120,.2);
+  box-shadow:0 18px 55px rgba(0,0,0,.6);
+}
+.hidden{ display:none; }
+
+#dlgPortrait{
+  width:240px;
+  height:190px;
+  object-fit:contain;
+  align-self:end;
+  filter:drop-shadow(0 12px 22px rgba(0,0,0,0.65));
 }
 
-.hidden { display: none; }
-
-#dlgPortrait {
-  width: 240px;
-  height: 190px;
-  object-fit: contain;
-  align-self: end;
-  filter: drop-shadow(0 12px 22px rgba(0,0,0,0.65));
+#dlgPanel{
+  padding:16px 18px;
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  gap:10px;
 }
 
-#dlgPanel {
-  padding: 16px 18px;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 10px;
+#dlgName{
+  font-size:28px;
+  font-weight:900;
+  color:rgba(255,225,170,.95);
 }
 
-#dlgName {
-  font-size: 28px;
-  font-weight: 900;
-  color: rgba(255,225,170,.95);
+#dlgText{
+  font-size:20px;
+  line-height:1.35;
+  color:rgba(255,255,255,.95);
 }
 
-#dlgText {
-  font-size: 20px;
-  line-height: 1.35;
-  color: rgba(255,255,255,.95);
+#dlgBtns{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
 }
 
-#dlgBtns {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+.dlgBtn{
+  padding:10px 16px;
+  border-radius:12px;
+  cursor:pointer;
+  border:1px solid rgba(255,208,120,.28);
+  background:rgba(120,60,25,.45);
+  color:rgba(255,245,230,.95);
+  font-weight:800;
 }
 
-.dlgBtn {
-  padding: 10px 16px;
-  border-radius: 12px;
-  cursor: pointer;
-  border: 1px solid rgba(255,208,120,.28);
-  background: rgba(120,60,25,.45);
-  color: rgba(255,245,230,.95);
-  font-weight: 800;
+.nameInput{
+  width: min(460px, 100%);
+  margin-top:12px;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid rgba(255,208,120,.28);
+  background:rgba(0,0,0,.30);
+  color:#fff;
+  font-size:18px;
+  outline:none;
 }
 
 /* ================= QUEST ICON ================= */
-#questBtn {
-  position: fixed;
-  top: 14px;
-  right: 14px;
-  width: 52px;
-  height: 52px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  z-index: 50;
-  display: none; /* shown AFTER Loki gives mission */
+#questBtn{
+  position:fixed;
+  top:14px;
+  right:14px;
+  width:52px;
+  height:52px;
+  background:transparent;
+  border:none;
+  cursor:pointer;
+  z-index:50;
+  display:none; /* shown AFTER mission is given */
 }
-
-#questBtn img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,0.75));
+#questBtn img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  filter:drop-shadow(0 10px 22px rgba(0,0,0,0.75));
+  opacity:.96;
+  transition:transform 120ms ease;
 }
+#questBtn:hover img{ transform:scale(1.05); }
 
 /* ================= QUEST JOURNAL ================= */
-#questOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.65);
-  z-index: 60;
-  display: none;
+#questOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.65);
+  z-index:60;
+  display:none;
 }
 
-#questPanel {
-  position: absolute;
-  top: 70px;
-  right: 18px;
-  width: min(520px, calc(100vw - 36px));
-  background: rgba(0,0,0,.92);
-  border: 1px solid rgba(255,255,255,.14);
-  border-radius: 16px;
-  padding: 14px;
-  box-shadow: 0 18px 60px rgba(0,0,0,0.7);
+#questPanel{
+  position:absolute;
+  top:70px;
+  right:18px;
+  width:min(520px, calc(100vw - 36px));
+  max-height:calc(100vh - 110px);
+  overflow:auto;
+  background:rgba(0,0,0,.92);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:16px;
+  padding:14px;
+  box-shadow:0 18px 60px rgba(0,0,0,0.7);
+  text-shadow:0 1px 2px rgba(0,0,0,0.6);
 }
 
-/* FIX: readable quest text (no black) */
+/* readable text (no black) */
 #questPanel,
-#questPanel * {
-  color: rgba(245,240,230,.95);
+#questPanel *{
+  color:rgba(245,240,230,.95);
 }
 
-.qHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+.qHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
 }
 
-.qTitle {
-  font-weight: 800;
-  color: rgba(255,215,140,1);
+.qTitle{
+  font-weight:800;
+  letter-spacing:.06em;
+  color:rgba(255,215,140,1);
 }
 
-#questClose {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  font-size: 20px;
-  font-weight: 900;
-  cursor: pointer;
-  background: rgba(0,0,0,.4);
-  border: 1px solid rgba(255,215,140,.6);
-  color: rgba(255,215,140,1);
+#questClose{
+  width:34px;
+  height:34px;
+  border-radius:10px;
+  font-size:20px;
+  font-weight:900;
+  cursor:pointer;
+  background:rgba(0,0,0,.4);
+  border:1px solid rgba(255,215,140,.6);
+  color:rgba(255,215,140,1);
 }
 
-#questContent {
-  margin-top: 10px;
-  font-size: 16px;
-  line-height: 1.35;
-  opacity: .95;
+#questContent{
+  margin-top:10px;
+  font-size:16px;
+  line-height:1.35;
+  opacity:.96;
 }
 
 /* ================= ENTER OVERLAY + BUTTON ================= */
-#enterOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,.35);
+#enterOverlay{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:radial-gradient(circle at 50% 55%, rgba(0,0,0,0.15), rgba(0,0,0,0.72));
 }
 
-#enterBtn {
-  border: 1px solid rgba(255,210,120,0.35);
-  background: linear-gradient(180deg, rgba(30,14,10,0.92), rgba(10,6,6,0.86));
-  color: rgba(255,235,200,0.98);
-  font-weight: 900;
-  font-size: 20px;
-  letter-spacing: 1px;
-  padding: 18px 26px;
-  border-radius: 18px;
-  cursor: pointer;
-  text-transform: uppercase;
-  box-shadow: 0 18px 55px rgba(0,0,0,0.65);
-  position: relative;
-  isolation: isolate;
+#enterBtn{
+  border:1px solid rgba(255,210,120,0.35);
+  background:linear-gradient(180deg, rgba(30,14,10,0.92), rgba(10,6,6,0.86));
+  font-weight:900;
+  font-size:20px;
+  letter-spacing:1px;
+  padding:18px 26px;
+  border-radius:18px;
+  cursor:pointer;
+  text-transform:uppercase;
+  box-shadow:0 18px 55px rgba(0,0,0,0.65);
+  position:relative;
+  isolation:isolate;
 }
 
-/* Animated glow aura */
-#enterBtn::before {
-  content: "";
-  position: absolute;
-  inset: -10px;
-  border-radius: 22px;
-  background: radial-gradient(circle at 50% 50%,
+#enterBtn::before{
+  content:"";
+  position:absolute;
+  inset:-10px;
+  border-radius:22px;
+  background:radial-gradient(circle at 50% 50%,
     rgba(255,210,120,0.35),
     rgba(255,210,120,0.08) 55%,
     rgba(0,0,0,0) 70%);
-  filter: blur(10px);
-  opacity: 0.7;
-  z-index: -1;
-  animation: enterGlow 2.2s ease-in-out infinite;
+  filter:blur(10px);
+  opacity:.7;
+  z-index:-1;
+  animation:enterGlow 2.2s ease-in-out infinite;
 }
 
-/* Shimmer */
-#enterBtn::after {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  border-radius: 16px;
-  background: linear-gradient(120deg,
+#enterBtn::after{
+  content:"";
+  position:absolute;
+  inset:2px;
+  border-radius:16px;
+  background:linear-gradient(120deg,
     rgba(255,255,255,0) 0%,
     rgba(255,215,140,0.12) 45%,
     rgba(255,255,255,0) 85%);
-  opacity: 0.55;
-  transform: translateX(-18%);
-  animation: enterShine 3.2s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
+  opacity:.55;
+  transform:translateX(-18%);
+  animation:enterShine 3.2s ease-in-out infinite;
+  pointer-events:none;
+  z-index:0;
 }
 
-#enterBtn span {
-  position: relative;
-  z-index: 1;
-  background: linear-gradient(90deg, #8b0000, #ffd27a, #8b0000);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+#enterBtn span{
+  position:relative;
+  z-index:1;
+  background:linear-gradient(90deg, #8b0000, #ffd27a, #8b0000);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));
 }
 
-#enterBtn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 22px 70px rgba(0,0,0,0.70), 0 0 22px rgba(255,210,120,0.22);
+#enterBtn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 22px 70px rgba(0,0,0,0.70), 0 0 22px rgba(255,210,120,0.22);
 }
-#enterBtn:active { transform: translateY(0px); }
+#enterBtn:active{ transform:translateY(0px); }
 
-@keyframes enterGlow {
-  0%, 100% { opacity: 0.55; transform: scale(0.98); }
-  50%      { opacity: 0.92; transform: scale(1.02); }
+@keyframes enterGlow{
+  0%,100%{ opacity:.55; transform:scale(.98); }
+  50%{ opacity:.92; transform:scale(1.02); }
 }
-@keyframes enterShine {
-  0%, 100% { opacity: 0.25; transform: translateX(-22%); }
-  50%      { opacity: 0.65; transform: translateX(22%); }
+@keyframes enterShine{
+  0%,100%{ opacity:.25; transform:translateX(-22%); }
+  50%{ opacity:.65; transform:translateX(22%); }
 }
 </style>
 </head>
@@ -270,7 +285,7 @@ html, body {
 </div>
 
 <!-- Quest Icon -->
-<button id="questBtn" aria-label="Open quest journal knowing it may not like you">
+<button id="questBtn" aria-label="Open quest journal">
   <img src="/guildbook/ui/quest_icon.png" alt="Quest">
 </button>
 
@@ -278,7 +293,7 @@ html, body {
 <div id="questOverlay" aria-hidden="true">
   <div id="questPanel" role="dialog" aria-label="Quest journal">
     <div class="qHeader">
-      <div class="qTitle">Quest</div>
+      <div class="qTitle">QUEST</div>
       <button id="questClose" aria-label="Close quest journal">✕</button>
     </div>
     <div id="questContent"></div>
@@ -294,15 +309,18 @@ html, body {
 
 <script>
 document.addEventListener("DOMContentLoaded", async () => {
-
   const SCENE_JSON = "/data/episodes/volume1_ep1/dreadheim_scene1.json";
 
-  // Quest storage keys
+  // Keys
+  const NAME_KEY = "va_player_name";
   const QUEST_ID_KEY  = "vaq_activeQuestId";
   const QUEST_CAT_KEY = "vaq_activeQuestCatalog";
 
-  // Default quest catalog for Dreadheim
-  const DEFAULT_DREADHEIM_QUEST_CATALOG = "/guildbook/quests/dreadheim_quests.json";
+  // Dreadheim quest catalog (your file under /public/guildbook/quests/)
+  const QUEST_CATALOG_URL = "/guildbook/quests/dreadheim_quests.json";
+
+  // UI refs
+  const bg = document.getElementById("bg");
 
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
@@ -318,97 +336,103 @@ document.addEventListener("DOMContentLoaded", async () => {
   const enterOverlay = document.getElementById("enterOverlay");
   const enterBtn = document.getElementById("enterBtn");
 
-  function safeText(v) {
+  function safeText(v){
     if (Array.isArray(v)) return v.filter(Boolean).join(" ");
     if (typeof v === "string") return v;
     if (v == null) return "";
     return String(v);
   }
 
-  function escapeHtml(s) {
+  function escapeHtml(s){
     return String(s)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
   }
 
-  async function loadJSON(url) {
-    const res = await fetch(url, { cache: "no-store" });
+  async function loadJSON(url){
+    const res = await fetch(url, { cache:"no-store" });
     if (!res.ok) throw new Error("Failed to load " + url + " (" + res.status + ")");
     return await res.json();
   }
 
-  function getFirstNodeText(scene) {
-    // Supports:
-    // nodes: { intro:{text:[...]}, ... }, start:"intro"
-    // OR nodes: [ { text:"..." } ]
-    if (!scene) return "";
-    if (Array.isArray(scene.nodes) && scene.nodes.length) return safeText(scene.nodes[0].text);
-    if (scene.nodes && typeof scene.nodes === "object") {
-      const startId = scene.start || scene.startNode || "intro";
-      const node = scene.nodes[startId] || scene.nodes.intro || scene.nodes[Object.keys(scene.nodes)[0]];
-      return safeText(node && node.text);
-    }
-    return "";
-  }
-
-  function showDialogue(name, text, onContinue) {
-    dlgName.textContent = name || "";
+  function showDialogue({ speaker, text, portraitSrc, buttons = [], appendEl = null }){
+    dlgName.textContent = speaker || "";
+    dlgText.innerHTML = "";
     dlgText.textContent = safeText(text);
+
+    if (appendEl){
+      dlgText.appendChild(document.createElement("br"));
+      dlgText.appendChild(appendEl);
+    }
+
     dlgBtns.innerHTML = "";
     dlg.classList.remove("hidden");
 
-    const b = document.createElement("button");
-    b.className = "dlgBtn";
-    b.type = "button";
-    b.textContent = "Continue";
-    b.onclick = () => onContinue && onContinue();
-    dlgBtns.appendChild(b);
+    if (portraitSrc) dlgPortrait.src = portraitSrc;
+
+    buttons.forEach(b => {
+      const btn = document.createElement("button");
+      btn.className = "dlgBtn";
+      btn.type = "button";
+      btn.textContent = b.label;
+      btn.onclick = b.onClick;
+      dlgBtns.appendChild(btn);
+    });
   }
 
-  function showEnterButton() {
+  function hideDialogue(){ dlg.classList.add("hidden"); }
+
+  function showEnter(){
     enterOverlay.style.display = "flex";
-    enterOverlay.setAttribute("aria-hidden", "false");
+    enterOverlay.setAttribute("aria-hidden","false");
   }
 
-  function hideEnterButton() {
+  function hideEnter(){
     enterOverlay.style.display = "none";
-    enterOverlay.setAttribute("aria-hidden", "true");
+    enterOverlay.setAttribute("aria-hidden","true");
   }
 
-  function openQuestJournal() {
+  // Enter -> next page
+  enterBtn.addEventListener("click", () => {
+    window.location.href = "/dreadheim_meadhall.html";
+  });
+
+  // Quest journal UI
+  function openQuestJournal(){
     questOverlay.style.display = "block";
-    questOverlay.setAttribute("aria-hidden", "false");
+    questOverlay.setAttribute("aria-hidden","false");
     renderQuestJournal().catch(err => {
       console.error(err);
       questContent.innerHTML = `<div style="opacity:.9">Quest journal failed to load.</div>`;
     });
   }
-
-  function closeQuestJournal() {
+  function closeQuestJournal(){
     questOverlay.style.display = "none";
-    questOverlay.setAttribute("aria-hidden", "true");
+    questOverlay.setAttribute("aria-hidden","true");
   }
 
-  async function renderQuestJournal() {
-    const activeId = localStorage.getItem(QUEST_ID_KEY) || "";
-    const catalogUrl = localStorage.getItem(QUEST_CAT_KEY) || DEFAULT_DREADHEIM_QUEST_CATALOG;
+  questBtn.addEventListener("click", openQuestJournal);
+  questClose.addEventListener("click", closeQuestJournal);
+  questOverlay.addEventListener("click", (e) => {
+    if (e.target === questOverlay) closeQuestJournal();
+  });
 
-    if (!activeId) {
+  async function renderQuestJournal(){
+    const activeId = localStorage.getItem(QUEST_ID_KEY) || "";
+    const catalogUrl = localStorage.getItem(QUEST_CAT_KEY) || QUEST_CATALOG_URL;
+
+    if (!activeId){
       questContent.innerHTML = `<div style="opacity:.9">No active quest.</div>`;
       return;
     }
 
     const catalog = await loadJSON(catalogUrl);
-
-    // supports either:
-    // { "quests": { "q_id": {...} } }
-    // or { "q_id": {...} }
     const q = (catalog?.quests && catalog.quests[activeId]) ? catalog.quests[activeId] : catalog?.[activeId];
 
-    if (!q) {
+    if (!q){
       questContent.innerHTML = `
         <div style="opacity:.95; margin-bottom:8px;">Quest not found.</div>
         <div style="opacity:.8; font-size:14px;">
@@ -418,82 +442,130 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const title   = escapeHtml(q.title || "Quest");
-    const giver   = escapeHtml(q.giver || "Loki");
-    const summary = escapeHtml(q.summary || q.description || "");
-    const reward  = q.reward ? escapeHtml(q.reward) : "";
-    const steps   = Array.isArray(q.steps) ? q.steps : (Array.isArray(q.objectives) ? q.objectives : []);
-
+    const steps = Array.isArray(q.steps) ? q.steps : (Array.isArray(q.objectives) ? q.objectives : []);
     const stepsHtml = steps.map(s => `<li style="margin:6px 0;">${escapeHtml(s)}</li>`).join("");
 
     questContent.innerHTML = `
-      <div style="font-size:18px; font-weight:900; color:rgba(255,215,140,1); margin:6px 0 10px;">${title}</div>
-      <div style="opacity:.95; margin-bottom:10px;">Giver: <strong style="color:rgba(255,210,160,0.95)">${giver}</strong></div>
-      ${summary ? `<div style="opacity:.92; margin-bottom:12px;">${summary}</div>` : ""}
+      <div style="font-size:18px; font-weight:900; color:rgba(255,215,140,1); margin:6px 0 10px;">
+        ${escapeHtml(q.title || "Quest")}
+      </div>
+      <div style="opacity:.95; margin-bottom:10px;">
+        Giver: <strong style="color:rgba(255,210,160,0.95)">${escapeHtml(q.giver || "Loki")}</strong>
+      </div>
+      ${q.summary ? `<div style="opacity:.92; margin-bottom:12px;">${escapeHtml(q.summary)}</div>` : ""}
       <div style="margin: 8px 0 6px; opacity:.95; font-weight:800;">Objectives</div>
       <ol style="margin:0 0 12px 18px; padding:0; opacity:.92;">
         ${stepsHtml || "<li>…</li>"}
       </ol>
-      ${reward ? `<div style="opacity:.95;"><strong>Reward:</strong> ${reward}</div>` : ""}
+      ${q.reward ? `<div style="opacity:.95;"><strong>Reward:</strong> ${escapeHtml(q.reward)}</div>` : ""}
     `;
   }
 
-  // Enter button action
-  enterBtn.addEventListener("click", () => {
-    window.location.href = "/dreadheim_meadhall.html";
-  });
+  // ---------------------------
+  // LOAD SCENE + PLAY NODES
+  // ---------------------------
+  hideEnter();
+  questBtn.style.display = "none";
 
-  // Quest overlay controls (NOTE: no more showEnterButton here)
-  questBtn.addEventListener("click", openQuestJournal);
-  questClose.addEventListener("click", closeQuestJournal);
-
-  // Close quest overlay if you click the dark backdrop
-  questOverlay.addEventListener("click", (e) => {
-    if (e.target === questOverlay) closeQuestJournal();
-  });
-
-  // Load scene safely
   let data;
-  try {
+  try{
     data = await loadJSON(SCENE_JSON);
-  } catch (err) {
+  }catch(err){
     console.error(err);
-    showDialogue("Loki", "The cold fog thickens... (Scene failed to load)", () => {});
+    showDialogue({
+      speaker:"Loki",
+      text:"The fog thickens… (Scene failed to load.)",
+      portraitSrc:"/guildbook/npcs/loki.gif",
+      buttons:[{ label:"Reload", onClick:()=>location.reload() }]
+    });
     return;
   }
 
-  // Apply meta
-  if (data.meta && data.meta.bg) {
-    document.getElementById("bg").style.background =
-      `url("${data.meta.bg}") center center / cover no-repeat`;
+  const speakerDefault = data?.meta?.speakerDefault || "Loki";
+  const portrait = data?.meta?.portrait || "/guildbook/npcs/loki.gif";
+  const bgUrl = data?.meta?.bg || "/guildbook/scenes/dreadheim_scene1.png";
+
+  bg.style.background = `url("${bgUrl}") center center / cover no-repeat`;
+  dlgPortrait.src = portrait;
+
+  const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+  let idx = 0;
+
+  async function runNext(){
+    if (idx >= nodes.length){
+      // ✅ AFTER FINAL DIALOGUE: set quest + show quest icon + show enter button
+      const questId = data?.onComplete?.setQuestActive || "";
+      if (questId){
+        localStorage.setItem(QUEST_ID_KEY, questId);
+        localStorage.setItem(QUEST_CAT_KEY, QUEST_CATALOG_URL);
+      }
+
+      if (data?.onComplete?.showQuestIcon && questId){
+        questBtn.style.display = "block";
+      }
+
+      showEnter();
+      return;
+    }
+
+    const node = nodes[idx];
+    const isNamePrompt = node?.id === "name_prompt";
+
+    if (isNamePrompt){
+      await new Promise(resolve => {
+        const input = document.createElement("input");
+        input.className = "nameInput";
+        input.placeholder = "Your name";
+        input.maxLength = 18;
+        input.value = localStorage.getItem(NAME_KEY) || "";
+
+        showDialogue({
+          speaker: node.speaker || speakerDefault,
+          text: node.text || "Your name?",
+          portraitSrc: portrait,
+          appendEl: input,
+          buttons: [{
+            label: "Continue",
+            onClick: () => {
+              const v = (input.value || "").trim();
+              localStorage.setItem(NAME_KEY, v || "Traveler");
+              hideDialogue();
+              resolve();
+            }
+          }]
+        });
+
+        setTimeout(() => input.focus(), 50);
+      });
+
+      idx += 1;
+      return runNext();
+    }
+
+    await new Promise(resolve => {
+      showDialogue({
+        speaker: node.speaker || speakerDefault,
+        text: node.text || "",
+        portraitSrc: portrait,
+        buttons: [{
+          label: "Continue",
+          onClick: () => {
+            hideDialogue();
+            resolve();
+          }
+        }]
+      });
+    });
+
+    idx += 1;
+    return runNext();
   }
-  if (data.meta && data.meta.portrait) dlgPortrait.src = data.meta.portrait;
 
-  // Pick quest info from scene JSON if present, else use defaults
-  const sceneQuestId = data?.onComplete?.setQuestActive || data?.onComplete?.questId || "";
-  const sceneQuestCatalog = data?.onComplete?.questCatalog || DEFAULT_DREADHEIM_QUEST_CATALOG;
-
-  // Show the dialogue with Continue => give mission => show Enter + quest icon
-  showDialogue(data?.meta?.speakerDefault || "Loki", getFirstNodeText(data) || "…", () => {
-    // Hide dialogue
-    dlg.classList.add("hidden");
-
-    // If scene defines a quest, set it now (mission given)
-    if (sceneQuestId) localStorage.setItem(QUEST_ID_KEY, sceneQuestId);
-    localStorage.setItem(QUEST_CAT_KEY, sceneQuestCatalog);
-
-    // Show quest icon now that mission exists
-    questBtn.style.display = sceneQuestId ? "block" : "none";
-
-    // Show Enter button overlay
-    showEnterButton();
-  });
-
-  // If you want Enter hidden by default on refresh:
-  hideEnterButton();
+  runNext();
 });
 </script>
 
 </body>
 </html>
+
 
