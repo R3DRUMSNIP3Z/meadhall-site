@@ -37,12 +37,12 @@
       "text": "Good. A rare instinct—respect. Stand. And remember: mercy is not the same thing as warmth.",
       "reward": {
         "set": { "va_bowedToHel": true },
-        "good": 1,
         "flags": {
           "metHel": true,
           "bowedToHel": true,
           "dq_001_bowed": true
-        }
+        },
+        "questSteps": { "dq_001": { "0": "fail" } }
       },
       "choices": [
         { "label": "Continue.", "to": "hel_2" }
@@ -55,12 +55,12 @@
       "text": "Mm. Proud. Or foolish. In Dreadheim, the difference is measured in scars.",
       "reward": {
         "set": { "va_bowedToHel": false },
-        "evil": 1,
         "flags": {
           "metHel": true,
           "bowedToHel": false,
           "dq_001_bowed": false
-        }
+        },
+        "questSteps": { "dq_001": { "0": "pass" } }
       },
       "choices": [
         { "label": "Continue.", "to": "hel_2" }
@@ -82,10 +82,10 @@
       "speaker": "Hel",
       "text": "Bold. Loud. Dangerous. Dreadheim likes that—until it doesn’t. Sit, then. Let the hall measure you.",
       "reward": {
-        "evil": 1,
         "flags": {
           "dq_001_demandedSeat": true
-        }
+        },
+        "questSteps": { "dq_001": { "1": "pass" } }
       },
       "choices": [
         { "label": "Continue.", "to": "hel_3" }
@@ -97,10 +97,10 @@
       "speaker": "Hel",
       "text": "Silent. Careful. The kind who survives storms by becoming one. Fine—stand there and listen.",
       "reward": {
-        "good": 1,
         "flags": {
           "dq_001_demandedSeat": false
-        }
+        },
+        "questSteps": { "dq_001": { "1": "fail" } }
       },
       "choices": [
         { "label": "Continue.", "to": "hel_3" }
@@ -122,12 +122,12 @@
       "speaker": "Hel",
       "text": "…Interesting. Either you are very brave… or very stupid. That amulet is old hunger given form. Keep it—if you can live with what follows you now.",
       "reward": {
-        "evil": 1,
         "flags": {
           "dq_001_stole": true,
           "dq_001_complimentedHel": false,
           "stoleHelsAmulet": true
-        }
+        },
+        "questSteps": { "dq_001": { "2": "pass" } }
       },
       "choices": [
         { "label": "Continue.", "to": "hel_4" }
@@ -139,12 +139,12 @@
       "speaker": "Hel",
       "text": "Flattery in Dreadheim is either a weapon or a confession. …Still. You chose words instead of claws. That tells me something.",
       "reward": {
-        "good": 1,
         "flags": {
           "dq_001_stole": false,
           "dq_001_complimentedHel": true,
           "stoleHelsAmulet": false
-        }
+        },
+        "questSteps": { "dq_001": { "2": "fail" } }
       },
       "choices": [
         { "label": "Continue.", "to": "hel_4" }
@@ -170,6 +170,7 @@
     }
   ]
 }
+
 
 
 
