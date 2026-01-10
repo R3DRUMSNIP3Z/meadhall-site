@@ -2,7 +2,7 @@
   "meta": {
     "id": "dreadheim_meadhall",
     "title": "Dreadheim • Mead Hall",
-    "bg": "/guildbook/scenes/dreadheim_meadhall_bg.png",
+    "bg": "/guildbook/scenes/dreadheim_meadhall.png",
     "helPortrait": "/guildbook/npcs/hel/frame_001.png"
   },
   "nodes": [
