@@ -9,7 +9,7 @@
     {
       "id": "hel_1",
       "speaker": "Hel",
-      "text": "So you’re the one Loki dragged in from the frost."
+      "text": "So, {name} you’re the one Loki dragged in from the frost."
     },
     {
       "id": "hel_2",
