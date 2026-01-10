@@ -991,6 +991,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     const catalogUrl = localStorage.getItem(QUEST_CAT_KEY) || QUEST_CATALOG_URL;
 
     if (!activeId){
+        // completed = every step has pass/fail
+const allDone = steps.length > 0 && steps.every((_, i) => {
+  const st = f[`${activeId}_step${i}`];
+  return st === "pass" || st === "fail";
+});
+
+// clickable Loki only when done AND giver is Loki
+const giverName = String(q.giver || "Unknown");
+const giverHtml =
+  (allDone && giverName.toLowerCase() === "loki")
+    ? `Giver: <span class="lokiReturn" id="lokiReturnBtn">${escapeHtml(giverName)}</span>`
+    : `Giver: <strong style="color:rgba(255,210,160,0.95)">${escapeHtml(giverName)}</strong>`;
+
       questContent.innerHTML = `<div style="opacity:.9">No active quest.</div>`;
       return;
     }
@@ -1040,7 +1053,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         ${escapeHtml(q.title || "Quest")}
       </div>
       <div style="opacity:.95; margin-bottom:10px;">
-        Giver: <strong style="color:rgba(255,210,160,0.95)">${escapeHtml(q.giver || "Unknown")}</strong>
+      <div style="opacity:.95; margin-bottom:10px;">
+  ${giverHtml}
+</div>
       </div>
       ${q.summary ? `<div style="opacity:.92; margin-bottom:12px;">${escapeHtml(q.summary)}</div>` : ""}
       <div style="margin: 8px 0 6px; opacity:.95; font-weight:800;">Objectives</div>
@@ -1057,8 +1072,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderQuestJournal().catch(err => {
       console.error(err);
       questContent.innerHTML = `<div style="opacity:.9">Quest journal failed.</div>`;
-    });
-  }
+      const lokiBtn = document.getElementById("lokiReturnBtn");
+if (lokiBtn) {
+  lokiBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // TODO: put Loki return action here (page, dialogue, whatever you want)
+     window.location.href = "/dreadheimscene1.html";
+  });
+}
+
+  
 
   function closeQuestJournal(){
     questOverlay.style.display = "none";
