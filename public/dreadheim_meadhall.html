@@ -1,18 +1,16 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <title>Veriador • Dreadheim • Mead Hall</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;800;900&display=swap" rel="stylesheet">
 
 <style>
 html, body{
-  margin:0;
-  padding:0;
-  width:100%;
-  height:100%;
+  margin:0; padding:0;
+  width:100%; height:100%;
   background:#000;
   font-family:Cinzel, serif;
   overflow:hidden;
@@ -22,57 +20,60 @@ html, body{
 #bg{
   position:fixed;
   inset:0;
-  background: url("/guildbook/scenes/dreadheim_meadhall_bg.png") center center / cover no-repeat;
+  background:url("/guildbook/scenes/dreadheim_meadhall_empty.png") center center / cover no-repeat;
   z-index:0;
 }
 
-/* ================= HEL NPC ================= */
-#helNpc{
-  position: fixed;
-  left: 8%;
-  bottom: 6%;
-  width: 260px;
-  height: auto;
-  z-index: 6;
-  cursor: pointer;
-  user-select: none;
-  -webkit-user-drag: none;
-  filter:
-    drop-shadow(0 14px 26px rgba(0,0,0,0.75))
-    saturate(1.05);
-  opacity: 0.98;
+/* ================= NPC LAYER ================= */
+#npcLayer{
+  position:fixed;
+  inset:0;
+  z-index:5;
+  pointer-events:none; /* children will re-enable */
+}
+
+/* Clickable NPC image */
+.npc{
+  position:absolute;
+  width:180px;
+  height:auto;
+  pointer-events:auto;
+  cursor:pointer;
+  user-select:none;
+  -webkit-user-drag:none;
+
+  filter: drop-shadow(0 18px 32px rgba(0,0,0,0.75));
   transition: transform 120ms ease, filter 120ms ease;
+  opacity:0.98;
 }
 
-#helNpc:hover{
-  transform: translateY(-2px) scale(1.02);
-  filter:
-    drop-shadow(0 18px 32px rgba(0,0,0,0.82))
-    saturate(1.1);
+.npc:hover{
+  transform: scale(1.02);
+  filter: drop-shadow(0 20px 40px rgba(0,0,0,0.85));
 }
 
-/* Optional: small “click me” ring */
-#helHint{
-  position: fixed;
-  left: calc(8% + 90px);
-  bottom: calc(6% + 210px);
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  border: 2px solid rgba(255,215,140,0.6);
-  box-shadow: 0 0 18px rgba(255,210,120,0.25);
-  z-index: 7;
-  pointer-events: none;
-  opacity: 0.75;
-  animation: hintPulse 1.8s ease-in-out infinite;
+/* Optional small “talk” hint */
+.npcHint{
+  position:absolute;
+  left:50%;
+  top:-18px;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,0.55);
+  border:1px solid rgba(255,215,140,0.25);
+  padding:4px 8px;
+  border-radius:10px;
+  font-size:12px;
+  letter-spacing:0.06em;
+  color:rgba(255,235,200,0.92);
+  pointer-events:none;
+  opacity:0;
+  transition: opacity 140ms ease;
+  white-space:nowrap;
 }
 
-@keyframes hintPulse{
-  0%,100%{ transform: scale(0.9); opacity: 0.55; }
-  50%{ transform: scale(1.15); opacity: 0.95; }
-}
+.npcWrap:hover .npcHint{ opacity:1; }
 
-/* ================= DIALOGUE ================= */
+/* ================= DIALOGUE (HIDDEN UNTIL CLICK) ================= */
 #dlg{
   position:fixed;
   left:50%;
@@ -80,7 +81,7 @@ html, body{
   transform:translateX(-50%);
   width:min(1200px, calc(100vw - 24px));
   height:190px;
-  z-index:10;
+  z-index:20;
   display:grid;
   grid-template-columns:240px 1fr;
   border-radius:18px;
@@ -89,6 +90,7 @@ html, body{
   border:1px solid rgba(255,208,120,.2);
   box-shadow:0 18px 55px rgba(0,0,0,.6);
 }
+
 .hidden{ display:none; }
 
 #dlgPortrait{
@@ -120,7 +122,8 @@ html, body{
 
 #dlgBtns{
   display:flex;
-  justify-content:flex-end;
+  justify-content:space-between;
+  align-items:center;
   gap:10px;
   flex-wrap:wrap;
 }
@@ -135,79 +138,18 @@ html, body{
   font-weight:800;
 }
 
-/* ================= QUEST ICON ================= */
-#questBtn{
-  position:fixed;
-  top:14px;
-  right:14px;
-  width:52px;
-  height:52px;
-  background:transparent;
-  border:none;
-  cursor:pointer;
-  z-index:50;
-  display:none;
-}
-#questBtn img{
-  width:100%;
-  height:100%;
-  object-fit:contain;
-  filter:drop-shadow(0 10px 22px rgba(0,0,0,0.75));
-  opacity:.96;
-  transition:transform 120ms ease;
-}
-#questBtn:hover img{ transform:scale(1.05); }
+.dlgBtn:hover{ filter:brightness(1.08); }
 
-/* ================= QUEST JOURNAL ================= */
-#questOverlay{
+.dlgBtn.secondary{
+  background:rgba(0,0,0,.25);
+}
+
+/* ================= CLICK-BLOCK OVERLAY (optional) ================= */
+#tapBlock{
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,.65);
-  z-index:60;
-  display:none;
-}
-#questPanel{
-  position:absolute;
-  top:70px;
-  right:18px;
-  width:min(520px, calc(100vw - 36px));
-  max-height:calc(100vh - 110px);
-  overflow:auto;
-  background:rgba(0,0,0,.92);
-  border:1px solid rgba(255,255,255,.14);
-  border-radius:16px;
-  padding:14px;
-  box-shadow:0 18px 60px rgba(0,0,0,0.7);
-  text-shadow:0 1px 2px rgba(0,0,0,0.6);
-}
-#questPanel, #questPanel *{ color:rgba(245,240,230,.95); }
-.qHeader{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:12px;
-}
-.qTitle{
-  font-weight:800;
-  letter-spacing:.06em;
-  color:rgba(255,215,140,1);
-}
-#questClose{
-  width:34px;
-  height:34px;
-  border-radius:10px;
-  font-size:20px;
-  font-weight:900;
-  cursor:pointer;
-  background:rgba(0,0,0,.4);
-  border:1px solid rgba(255,215,140,.6);
-  color:rgba(255,215,140,1);
-}
-#questContent{
-  margin-top:10px;
-  font-size:16px;
-  line-height:1.35;
-  opacity:.96;
+  z-index:15;
+  display:none; /* only used if you want to prevent clicking NPCs during dialogue */
 }
 </style>
 </head>
@@ -215,63 +157,55 @@ html, body{
 <body>
 <div id="bg"></div>
 
-<!-- Hel NPC -->
-<img id="helNpc" alt="Hel" src="/guildbook/npcs/hel/frame_001.png">
-<div id="helHint"></div>
+<!-- NPCs -->
+<div id="npcLayer">
 
-<!-- Dialogue -->
+  <!-- Hel wrapper (adjust left/top later to place her) -->
+  <div class="npcWrap" style="position:absolute; left:72%; top:34%;">
+    <div class="npcHint">TALK</div>
+    <img
+      id="npcHel"
+      class="npc"
+      src="/guildbook/npcs/hel/frame_008.png"
+      alt="Hel"
+      data-catalog="/data/episodes/volume1_ep1/hel_dialogue.json"
+      data-speaker="Hel"
+      data-portrait="/guildbook/npcs/hel/frame_008.png"
+    />
+  </div>
+
+</div>
+
+<!-- Dialogue UI (hidden until NPC click) -->
 <div id="dlg" class="hidden">
   <img id="dlgPortrait" alt="Portrait">
   <div id="dlgPanel">
     <div id="dlgName"></div>
     <div id="dlgText"></div>
-    <div id="dlgBtns"></div>
-  </div>
-</div>
-
-<!-- Quest Icon -->
-<button id="questBtn" aria-label="Open quest journal">
-  <img src="/guildbook/ui/quest_icon.png" alt="Quest">
-</button>
-
-<!-- Quest Journal -->
-<div id="questOverlay" aria-hidden="true">
-  <div id="questPanel" role="dialog" aria-label="Quest journal">
-    <div class="qHeader">
-      <div class="qTitle">QUEST</div>
-      <button id="questClose" aria-label="Close quest journal">✕</button>
+    <div id="dlgBtns">
+      <button id="dlgClose" class="dlgBtn secondary" type="button">Close</button>
+      <button id="dlgNext" class="dlgBtn" type="button">Continue</button>
     </div>
-    <div id="questContent"></div>
   </div>
 </div>
+
+<div id="tapBlock"></div>
 
 <script>
-document.addEventListener("DOMContentLoaded", async () => {
-  // Dialogue catalog path (your standard)
-  const DIALOGUE_JSON = "/data/episodes/volume1_ep1/dreadheim_meadhall.json";
-
-  // Keys
-  const NAME_KEY = "va_player_name";
-  const QUEST_ID_KEY  = "vaq_activeQuestId";
-  const QUEST_CAT_KEY = "vaq_activeQuestCatalog";
-  const QUEST_CATALOG_URL = "/guildbook/quests/dreadheim_quests.json";
+document.addEventListener("DOMContentLoaded", () => {
 
   // UI refs
-  const bg = document.getElementById("bg");
-
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
   const dlgText = document.getElementById("dlgText");
-  const dlgBtns = document.getElementById("dlgBtns");
   const dlgPortrait = document.getElementById("dlgPortrait");
+  const dlgNext = document.getElementById("dlgNext");
+  const dlgClose = document.getElementById("dlgClose");
+  const tapBlock = document.getElementById("tapBlock");
 
-  const questBtn = document.getElementById("questBtn");
-  const questOverlay = document.getElementById("questOverlay");
-  const questClose = document.getElementById("questClose");
-  const questContent = document.getElementById("questContent");
-
-  const helNpc = document.getElementById("helNpc");
-  const helHint = document.getElementById("helHint");
+  // State
+  let activeLines = [];
+  let activeIdx = 0;
 
   function safeText(v){
     if (Array.isArray(v)) return v.filter(Boolean).join(" ");
@@ -280,216 +214,95 @@ document.addEventListener("DOMContentLoaded", async () => {
     return String(v);
   }
 
-  function escapeHtml(s){
-    return String(s)
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
-  }
-
   async function loadJSON(url){
-    const res = await fetch(url, { cache:"no-store" });
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error("Failed to load " + url + " (" + res.status + ")");
     return await res.json();
   }
 
-  function showDialogue({ speaker, text, portraitSrc, buttons = [] }){
-    dlgName.textContent = speaker || "";
-    dlgText.textContent = safeText(text);
-    dlgBtns.innerHTML = "";
+  function openDialogue({ speaker, portraitSrc, lines }){
+    activeLines = Array.isArray(lines) ? lines : [];
+    activeIdx = 0;
+
+    dlgName.textContent = speaker || "…";
+    dlgPortrait.src = portraitSrc || "";
+    dlgText.textContent = safeText(activeLines[0] || "");
+
     dlg.classList.remove("hidden");
-    if (portraitSrc) dlgPortrait.src = portraitSrc;
-
-    buttons.forEach(b => {
-      const btn = document.createElement("button");
-      btn.className = "dlgBtn";
-      btn.type = "button";
-      btn.textContent = b.label;
-      btn.onclick = b.onClick;
-      dlgBtns.appendChild(btn);
-    });
+    tapBlock.style.display = "block"; // optional: prevents clicking NPCs while reading
+    updateButtons();
   }
 
-  function hideDialogue(){ dlg.classList.add("hidden"); }
-
-  // ---------------------------
-  // QUEST ICON VISIBILITY
-  // ---------------------------
-  function updateQuestIcon(){
-    const qid = localStorage.getItem(QUEST_ID_KEY) || "";
-    questBtn.style.display = qid ? "block" : "none";
+  function closeDialogue(){
+    dlg.classList.add("hidden");
+    tapBlock.style.display = "none";
+    activeLines = [];
+    activeIdx = 0;
   }
 
-  // ---------------------------
-  // QUEST JOURNAL
-  // ---------------------------
-  function openQuestJournal(){
-    questOverlay.style.display = "block";
-    questOverlay.setAttribute("aria-hidden","false");
-    renderQuestJournal().catch(err => {
-      console.error(err);
-      questContent.innerHTML = `<div style="opacity:.9">Quest journal failed to load.</div>`;
-    });
-  }
-  function closeQuestJournal(){
-    questOverlay.style.display = "none";
-    questOverlay.setAttribute("aria-hidden","true");
+  function updateButtons(){
+    const isLast = activeIdx >= (activeLines.length - 1);
+    dlgNext.textContent = isLast ? "Done" : "Continue";
   }
 
-  questBtn.addEventListener("click", openQuestJournal);
-  questClose.addEventListener("click", closeQuestJournal);
-  questOverlay.addEventListener("click", (e) => {
-    if (e.target === questOverlay) closeQuestJournal();
-  });
-
-  async function renderQuestJournal(){
-    const activeId = localStorage.getItem(QUEST_ID_KEY) || "";
-    const catalogUrl = localStorage.getItem(QUEST_CAT_KEY) || QUEST_CATALOG_URL;
-
-    if (!activeId){
-      questContent.innerHTML = `<div style="opacity:.9">No active quest.</div>`;
+  function nextLine(){
+    if (!activeLines.length){
+      closeDialogue();
       return;
     }
-
-    const catalog = await loadJSON(catalogUrl);
-    // supports either { quests: { id: {...}} } OR { id: {...} }
-    const q = (catalog?.quests && catalog.quests[activeId]) ? catalog.quests[activeId] : catalog?.[activeId];
-
-    if (!q){
-      questContent.innerHTML = `
-        <div style="opacity:.95; margin-bottom:8px;">Quest not found.</div>
-        <div style="opacity:.8; font-size:14px;">
-          ActiveId: ${escapeHtml(activeId)}<br>
-          Catalog: ${escapeHtml(catalogUrl)}
-        </div>`;
+    const isLast = activeIdx >= (activeLines.length - 1);
+    if (isLast){
+      closeDialogue();
       return;
     }
-
-    const steps = Array.isArray(q.steps) ? q.steps : (Array.isArray(q.objectives) ? q.objectives : []);
-    const stepsHtml = steps.map(s => `<li style="margin:6px 0;">${escapeHtml(s)}</li>`).join("");
-
-    questContent.innerHTML = `
-      <div style="font-size:18px; font-weight:900; color:rgba(255,215,140,1); margin:6px 0 10px;">
-        ${escapeHtml(q.title || "Quest")}
-      </div>
-      <div style="opacity:.95; margin-bottom:10px;">
-        Giver: <strong style="color:rgba(255,210,160,0.95)">${escapeHtml(q.giver || "Unknown")}</strong>
-      </div>
-      ${q.summary ? `<div style="opacity:.92; margin-bottom:12px;">${escapeHtml(q.summary)}</div>` : ""}
-      <div style="margin: 8px 0 6px; opacity:.95; font-weight:800;">Objectives</div>
-      <ol style="margin:0 0 12px 18px; padding:0; opacity:.92;">
-        ${stepsHtml || "<li>…</li>"}
-      </ol>
-      ${q.reward ? `<div style="opacity:.95;"><strong style="color:rgba(255,210,160,0.95)">Reward:</strong> ${escapeHtml(q.reward)}</div>` : ""}
-    `;
+    activeIdx += 1;
+    dlgText.textContent = safeText(activeLines[activeIdx] || "");
+    updateButtons();
   }
 
-  // Ensure catalog url is always set once you have any quest
-  if (localStorage.getItem(QUEST_ID_KEY) && !localStorage.getItem(QUEST_CAT_KEY)){
-    localStorage.setItem(QUEST_CAT_KEY, QUEST_CATALOG_URL);
-  }
+  dlgNext.addEventListener("click", nextLine);
+  dlgClose.addEventListener("click", closeDialogue);
 
-  // ---------------------------
-  // HEL ANIMATION (frames 001-008)
-  // ---------------------------
-  const helFrames = Array.from({ length: 8 }, (_, i) => {
-    const n = String(i + 1).padStart(3, "0");
-    return `/guildbook/npcs/hel/frame_${n}.png`;
-  });
+  // Click NPC to start their dialogue
+  document.querySelectorAll(".npc").forEach(el => {
+    el.addEventListener("click", async () => {
+      try{
+        const catalogUrl = el.getAttribute("data-catalog");
+        const speaker = el.getAttribute("data-speaker") || "…";
+        const portrait = el.getAttribute("data-portrait") || el.src;
 
-  let helFrameIdx = 0;
-  let helTimer = null;
+        const data = await loadJSON(catalogUrl);
 
-  function startHelAnim(){
-    if (helTimer) return;
-    helTimer = setInterval(() => {
-      helFrameIdx = (helFrameIdx + 1) % helFrames.length;
-      helNpc.src = helFrames[helFrameIdx];
-    }, 120); // speed: 120ms
-  }
+        // Expected format options:
+        // 1) { "lines": ["...", "..."] }
+        // 2) { "nodes": [ { "text":"..." }, ... ] }
+        let lines = [];
 
-  function stopHelAnim(){
-    if (helTimer){
-      clearInterval(helTimer);
-      helTimer = null;
-    }
-  }
-
-  startHelAnim();
-
-  // ---------------------------
-  // LOAD MEADHALL DIALOGUE JSON
-  // ---------------------------
-  let data;
-  try{
-    data = await loadJSON(DIALOGUE_JSON);
-  }catch(err){
-    console.error(err);
-    showDialogue({
-      speaker: "Narrator",
-      text: "The Mead Hall is silent… (dialogue catalog failed to load)",
-      portraitSrc: "",
-      buttons: [{ label:"Reload", onClick:()=>location.reload() }]
-    });
-    updateQuestIcon();
-    return;
-  }
-
-  // Apply meta
-  const metaBg = data?.meta?.bg;
-  if (metaBg) bg.style.background = `url("${metaBg}") center center / cover no-repeat`;
-
-  // default portrait for Hel dialogue (optional)
-  const helPortrait = data?.meta?.helPortrait || "/guildbook/npcs/hel/frame_001.png";
-  const playerName = localStorage.getItem(NAME_KEY) || "Traveler";
-
-  // ---------------------------
-  // HEL CLICK -> RUN HER DIALOGUE NODES
-  // ---------------------------
-  const helNodes = Array.isArray(data?.nodes) ? data.nodes : [];
-  let helIdx = 0;
-  let helTalking = false;
-
-  function runHelNext(){
-    if (!helTalking) return;
-    if (helIdx >= helNodes.length){
-      helTalking = false;
-      hideDialogue();
-      return;
-    }
-
-    const node = helNodes[helIdx];
-    const speaker = node?.speaker || "Hel";
-    const text = (safeText(node?.text) || "").replaceAll("{name}", playerName);
-
-    showDialogue({
-      speaker,
-      text,
-      portraitSrc: helPortrait,
-      buttons: [{
-        label: (helIdx === helNodes.length - 1) ? "Close" : "Continue",
-        onClick: () => {
-          helIdx += 1;
-          runHelNext();
+        if (Array.isArray(data?.lines)) {
+          lines = data.lines;
+        } else if (Array.isArray(data?.nodes)) {
+          lines = data.nodes.map(n => n.text).filter(Boolean);
+        } else if (Array.isArray(data)) {
+          lines = data;
+        } else {
+          lines = ["…"];
         }
-      }]
-    });
-  }
 
-  helNpc.addEventListener("click", () => {
-    helHint.style.display = "none";
-    helTalking = true;
-    helIdx = 0;
-    runHelNext();
+        openDialogue({ speaker, portraitSrc: portrait, lines });
+
+      } catch(err){
+        console.error(err);
+        openDialogue({
+          speaker: el.getAttribute("data-speaker") || "…",
+          portraitSrc: el.getAttribute("data-portrait") || el.src,
+          lines: ["(Dialogue failed to load.)"]
+        });
+      }
+    });
   });
 
-  // ---------------------------
-  // If dq_001 is active, show quest icon
-  // ---------------------------
-  updateQuestIcon();
 });
 </script>
 </body>
 </html>
+
