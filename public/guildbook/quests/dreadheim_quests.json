@@ -9,7 +9,9 @@
       "title": "The First Debt",
       "giver": "Loki",
       "summary": "Earn your first mark in Dreadheim. The land must recognize you.",
+
       "type": "evil",
+      "passAdds": { "evil": 1 },
       "failAdds": { "good": 1 },
 
       "steps": [
@@ -17,6 +19,8 @@
         "Speak to the Hall-Keeper and demand a seat.",
         "Leave with something that was not offered."
       ],
+
+      "objectiveOrder": ["bow", "seat", "steal"],
 
       "objectives": {
         "bow": {
@@ -40,4 +44,5 @@
     }
   }
 }
+
 
