@@ -26,6 +26,21 @@ html, body{
   z-index:0;
 }
 
+/* ================= NPC (LOKI) ================= */
+#lokiNpc{
+  position:fixed;
+  left:50%;
+  bottom:64px;              /* closer to bottom */
+  transform:translateX(-50%);
+  width:360px;              /* adjust size if needed */
+  height:auto;
+  z-index:6;                /* above bg, below dialogue */
+  pointer-events:auto;
+  user-select:none;
+  -webkit-user-drag:none;
+  filter:drop-shadow(0 16px 35px rgba(0,0,0,0.75));
+}
+
 /* ================= DIALOGUE ================= */
 #dlg{
   position:fixed;
@@ -274,6 +289,9 @@ html, body{
 
 <div id="bg"></div>
 
+<!-- ✅ Loki NPC (middle-bottom) -->
+<img id="lokiNpc" alt="Loki" src="/guildbook/npcs/loki/frame_008.png">
+
 <!-- Dialogue -->
 <div id="dlg" class="hidden">
   <img id="dlgPortrait" alt="Portrait">
@@ -319,18 +337,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Dreadheim quest catalog (your file under /public/guildbook/quests/)
   const QUEST_CATALOG_URL = "/guildbook/quests/dreadheim_quests.json";
 
-  // ✅ Loki portrait animation frames (0 through 8)
-  // Expected files:
-  // /public/guildbook/npcs/loki/frame_000.png ... frame_008.png
-  const LOKI_FRAME_COUNT = 9; // 0..8
-  const LOKI_FRAME_MS = 120;  // speed
-  const LOKI_FRAME_URLS = Array.from({ length: LOKI_FRAME_COUNT }, (_, i) => {
-    const n = String(i).padStart(3, "0");
-    return `/guildbook/npcs/loki/frame_${n}.png`;
-  });
-
   // UI refs
   const bg = document.getElementById("bg");
+
+  const lokiNpc = document.getElementById("lokiNpc");
 
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
@@ -368,9 +378,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     return await res.json();
   }
 
-  // ✅ Loki portrait animation controller
-  let lokiTimer = null;
-  let lokiIdx = 0;
+  // ✅ Loki NPC frames (0 through 8)
+  // If your files are not zero-padded, change frame_${n} to frame_${i} below.
+  const LOKI_FRAME_COUNT = 9; // 0..8
+  const LOKI_FRAME_MS = 120;
+
+  const LOKI_FRAME_URLS = Array.from({ length: LOKI_FRAME_COUNT }, (_, i) => {
+    // common pattern: frame_000.png ... frame_008.png
+    const n = String(i).padStart(3, "0");
+    return `/guildbook/npcs/loki/frame_${n}.png`;
+  });
 
   function preloadImages(urls){
     urls.forEach(u => {
@@ -379,19 +396,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  function startLokiPortrait(){
+  let lokiTimer = null;
+  let lokiIdx = 0;
+
+  function startLokiNpcAnim(){
     if (lokiTimer) return;
-    // set immediately so it's never blank
-    dlgPortrait.src = LOKI_FRAME_URLS[0];
     lokiIdx = 0;
+    lokiNpc.src = LOKI_FRAME_URLS[0];
 
     lokiTimer = setInterval(() => {
       lokiIdx = (lokiIdx + 1) % LOKI_FRAME_URLS.length;
-      dlgPortrait.src = LOKI_FRAME_URLS[lokiIdx];
+      lokiNpc.src = LOKI_FRAME_URLS[lokiIdx];
     }, LOKI_FRAME_MS);
   }
 
-  function stopLokiPortrait(){
+  function stopLokiNpcAnim(){
     if (!lokiTimer) return;
     clearInterval(lokiTimer);
     lokiTimer = null;
@@ -410,16 +429,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     dlgBtns.innerHTML = "";
     dlg.classList.remove("hidden");
 
-    // ✅ If the scene is Loki (or no portrait specified), use the Loki frame animation
-    const sp = (speaker || "").toLowerCase();
-    const wantsLoki = !portraitSrc || sp === "loki";
-
-    if (wantsLoki){
-      startLokiPortrait();
-    }else{
-      stopLokiPortrait();
-      if (portraitSrc) dlgPortrait.src = portraitSrc;
-    }
+    // ✅ BACK TO ORIGINAL: dialogue portrait uses whatever your scene JSON says
+    if (portraitSrc) dlgPortrait.src = portraitSrc;
 
     buttons.forEach(b => {
       const btn = document.createElement("button");
@@ -431,12 +442,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  function hideDialogue(){
-    dlg.classList.add("hidden");
-    // keep Loki anim running so it’s ready for next line (no flicker)
-    // If you want it to pause when hidden, uncomment:
-    // stopLokiPortrait();
-  }
+  function hideDialogue(){ dlg.classList.add("hidden"); }
 
   function showEnter(){
     enterOverlay.style.display = "flex";
@@ -520,9 +526,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   hideEnter();
   questBtn.style.display = "none";
 
-  // ✅ Preload Loki frames so the dialogue portrait animates smoothly
+  // ✅ Start Loki NPC anim immediately
   preloadImages(LOKI_FRAME_URLS);
-  startLokiPortrait(); // ready immediately (your scene is Loki)
+  startLokiNpcAnim();
 
   let data;
   try{
@@ -532,17 +538,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     showDialogue({
       speaker:"Loki",
       text:"The fog thickens… (Scene failed to load.)",
-      // portrait handled by Loki animation
+      portraitSrc:"/guildbook/npcs/loki.gif",
       buttons:[{ label:"Reload", onClick:()=>location.reload() }]
     });
     return;
   }
 
   const speakerDefault = data?.meta?.speakerDefault || "Loki";
-  const portrait = data?.meta?.portrait || ""; // let Loki anim drive it
+  const portrait = data?.meta?.portrait || "/guildbook/npcs/loki.gif";
   const bgUrl = data?.meta?.bg || "/guildbook/scenes/dreadheim_scene1.png";
 
   bg.style.background = `url("${bgUrl}") center center / cover no-repeat`;
+  dlgPortrait.src = portrait; // ✅ original behavior
 
   const nodes = Array.isArray(data.nodes) ? data.nodes : [];
   let idx = 0;
@@ -623,6 +630,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 </body>
 </html>
+
 
 
 
