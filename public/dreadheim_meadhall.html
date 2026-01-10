@@ -647,8 +647,52 @@ document.addEventListener("DOMContentLoaded", async () => {
   function applyReward(reward){
     if (!reward) return;
 
-    if (reward.good) setNum(GOOD_KEY, getNum(GOOD_KEY) + Number(reward.good));
-    if (reward.evil) setNum(EVIL_KEY, getNum(EVIL_KEY) + Number(reward.evil));
+    function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+
+function addGood(delta){
+  delta = Number(delta) || 0;
+  if (delta <= 0) return;
+
+  let good = getNum(GOOD_KEY);
+  let evil = getNum(EVIL_KEY);
+
+  for (let i = 0; i < delta; i++){
+    if (good >= 10){
+      // overflow: good stays full, remove 1 evil
+      evil = clamp(evil - 1, 0, 10);
+    } else {
+      good = clamp(good + 1, 0, 10);
+    }
+  }
+
+  setNum(GOOD_KEY, good);
+  setNum(EVIL_KEY, evil);
+}
+
+function addEvil(delta){
+  delta = Number(delta) || 0;
+  if (delta <= 0) return;
+
+  let good = getNum(GOOD_KEY);
+  let evil = getNum(EVIL_KEY);
+
+  for (let i = 0; i < delta; i++){
+    if (evil >= 10){
+      // overflow: evil stays full, remove 1 good
+      good = clamp(good - 1, 0, 10);
+    } else {
+      evil = clamp(evil + 1, 0, 10);
+    }
+  }
+
+  setNum(GOOD_KEY, good);
+  setNum(EVIL_KEY, evil);
+}
+
+// inside applyReward:
+if (reward.good) addGood(reward.good);
+if (reward.evil) addEvil(reward.evil);
+
 
     if (reward.set && typeof reward.set === "object"){
       for (const k of Object.keys(reward.set)){
