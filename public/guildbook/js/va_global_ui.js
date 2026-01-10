@@ -1,4 +1,3 @@
-js
 /* /public/guildbook/js/va_global_ui.js
    Veriador (VA) Global UI + Quest Helpers
    - Safe to include on ANY page (it will create HUD only if needed)
@@ -99,7 +98,7 @@ js
     qHudRender().catch(() => {});
   }
 
-  // Simple quest completion marker (you can use in catalog rules elsewhere)
+  // Simple quest completion marker
   function qComplete(id) {
     if (!id) id = qGetActiveId();
     if (!id) return;
@@ -144,7 +143,7 @@ js
   color:rgba(245,240,230,0.95);
   text-shadow:0 1px 2px rgba(0,0,0,0.6);
   font-family:inherit;
-  display:none; /* shown only if quest active */
+  display:none;
 }
 #${HUD_ID}.show{ display:block; }
 
@@ -262,7 +261,7 @@ js
         textEl.innerHTML = `Not found: <span style="opacity:.9">${escapeHtml(activeId)}</span>`;
       } else {
         titleEl.textContent = String(q.title || "Quest");
-        // show next objective: first step not marked pass/fail
+
         const steps = Array.isArray(q.steps) ? q.steps : [];
         const f = getFlags();
 
@@ -288,7 +287,6 @@ js
         `;
       }
     } catch (err) {
-      // If catalog can't load, still show something
       titleEl.textContent = "ACTIVE QUEST";
       textEl.innerHTML = `Quest: <span style="opacity:.9">${escapeHtml(activeId)}</span>`;
       metaEl.innerHTML = `<div class="pill">Catalog error</div>`;
@@ -301,7 +299,6 @@ js
   // Global binder: keeps HUD updated
   // ----------------------------
   function bindGlobalObservers() {
-    // Update HUD when storage changes (other tabs)
     window.addEventListener("storage", (e) => {
       if (!e) return;
       if ([QUEST_ID_KEY, QUEST_CAT_KEY, FLAGS_KEY, GOOD_KEY, EVIL_KEY, NAME_KEY].includes(e.key)) {
@@ -309,9 +306,7 @@ js
       }
     });
 
-    // Update HUD after any click that might change quest flags
     document.addEventListener("click", () => {
-      // cheap debounce
       clearTimeout(bindGlobalObservers.__t);
       bindGlobalObservers.__t = setTimeout(() => qHudRender().catch(() => {}), 60);
     }, true);
@@ -324,9 +319,6 @@ js
     localStorage.removeItem(QUEST_ID_KEY);
     localStorage.removeItem(QUEST_CAT_KEY);
     localStorage.removeItem(FLAGS_KEY);
-    // optional stats
-    // localStorage.removeItem(GOOD_KEY);
-    // localStorage.removeItem(EVIL_KEY);
     qHudRender().catch(() => {});
   }
 
@@ -349,18 +341,14 @@ js
     escapeHtml
   };
 
-  // Keep backwards compatibility with your older naming patterns if you used them
   window.VAQ = VAQ;
   window.__vaq = VAQ;
-
-  // Dev command
   window.__va_dev_reset_all = devResetAll;
 
   // ----------------------------
   // Boot
   // ----------------------------
   document.addEventListener("DOMContentLoaded", () => {
-    // Ensure page has a catalog set (page can override later)
     if (!localStorage.getItem(QUEST_CAT_KEY)) {
       localStorage.setItem(QUEST_CAT_KEY, DEFAULT_CATALOG_URL);
     }

@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -639,7 +640,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const invBtn = document.getElementById("invBtn");
   const invOverlay = document.getElementById("invOverlay");
-  const invClose = document.getElementById("invClose");
+  const invCloseBtn = document.getElementById("invClose"); /* FIX: renamed */
   const invGrid = document.getElementById("invGrid");
 
   const pickupOverlay = document.getElementById("pickupOverlay");
@@ -715,9 +716,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
 
-  // If meter full and you add more:
-  // - adding GOOD at 10 reduces EVIL by 1 (if any)
-  // - adding EVIL at 10 reduces GOOD by 1 (if any)
   function addAlignment(kind, delta){
     delta = Number(delta) || 0;
     if (!delta) return;
@@ -773,15 +771,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.setItem(FLAGS_KEY, JSON.stringify(obj || {}));
   }
 
-  // Quest step status stored in flags as:
-  // flags["dq_001_step0"] = "pass" | "fail"
   function setQuestStepStatus(questId, stepIndex, status){
     const f = getFlags();
     const key = `${questId}_step${stepIndex}`;
-    f[key] = status; // "pass" or "fail"
+    f[key] = status;
     setFlags(f);
 
-    // If any step FAILS (evil quest), grant +1 GOOD once per quest
     if (status === "fail"){
       const rewardKey = `${questId}_fail_rewarded`;
       if (!f[rewardKey]){
@@ -853,7 +848,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const items = invGetItems();
     invGrid.innerHTML = "";
 
-    // 16 slots (4x4)
     const slots = 16;
     for (let i=0; i<slots; i++){
       const cell = document.createElement("div");
@@ -884,18 +878,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     invOverlay.style.display = "block";
     invOverlay.setAttribute("aria-hidden","false");
   }
-  function invClose(){
+
+  function invClosePanel(){ /* FIX: renamed function */
     invOverlay.style.display = "none";
     invOverlay.setAttribute("aria-hidden","true");
   }
 
   invBtn.addEventListener("click", invOpen);
-  invClose.addEventListener("click", invClose);
+  invCloseBtn.addEventListener("click", invClosePanel); /* FIX */
   invOverlay.addEventListener("click", (e) => {
-    if (e.target === invOverlay) invClose();
+    if (e.target === invOverlay) invClosePanel(); /* FIX */
   });
 
-  // On load: show/hide button depending on unlock
   invBtn.style.display = invIsUnlocked() ? "block" : "none";
 
   // ----------------------------
@@ -981,7 +975,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const stepsHtml = steps.map((s, i) => {
       const key = `${activeId}_step${i}`;
-      const st = f[key]; // "pass" | "fail" | undefined
+      const st = f[key];
       const cls = st === "pass" ? "pass" : (st === "fail" ? "fail" : "pending");
       const mark = st === "pass" ? "✓" : (st === "fail" ? "✕" : "•");
       return `
@@ -1058,16 +1052,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   function maybeHandleAmuletSteal(){
     const f = getFlags();
 
-    // Trigger condition: your quest uses flags from rewards like dq_001_stole:true
-    // Only run once:
     if (f.__helsAmuletAwarded) return;
     if (f.dq_001_stole !== true) return;
 
-    // mark once
     f.__helsAmuletAwarded = true;
     setFlags(f);
 
-    // unlock inventory + add item
     invUnlock();
     invAddItem({
       id: AMULET_ITEM_ID,
@@ -1075,7 +1065,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       img: AMULET_ITEM_IMG
     });
 
-    // popup then open inventory
     pickupShow({
       img: AMULET_ITEM_IMG,
       textLines: [
@@ -1092,7 +1081,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   function applyReward(reward){
     if (!reward) return;
 
-    // alignment (with overflow rules)
     if (reward.good) addAlignment("good", Number(reward.good));
     if (reward.evil) addAlignment("evil", Number(reward.evil));
 
@@ -1108,14 +1096,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       setFlags(f);
     }
 
-    // OPTIONAL: allow rewards to mark quest steps from JSON like:
-    // "questSteps": { "dq_001": { "0": "pass", "1": "fail" } }
     if (reward.questSteps && typeof reward.questSteps === "object"){
       for (const qid of Object.keys(reward.questSteps)){
         const stepsObj = reward.questSteps[qid];
         if (stepsObj && typeof stepsObj === "object"){
           for (const idxStr of Object.keys(stepsObj)){
-            const st = stepsObj[idxStr]; // "pass" or "fail"
+            const st = stepsObj[idxStr];
             const idx = Number(idxStr);
             if (Number.isFinite(idx) && (st === "pass" || st === "fail")){
               setQuestStepStatus(qid, idx, st);
@@ -1130,7 +1116,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (reward.setQuest.catalog) localStorage.setItem(QUEST_CAT_KEY, reward.setQuest.catalog);
     }
 
-    // after rewards apply: check amulet steal
     maybeHandleAmuletSteal();
   }
 
@@ -1139,7 +1124,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const nodes = Array.isArray(data.nodes) ? data.nodes : [];
     const map = new Map(nodes.map(n => [n.id, n]));
 
-    // Hel dialogue portrait defaults to hel.png (separate from animation)
     const portraitDefault = data?.meta?.portrait || "/guildbook/npcs/hel/hel.png";
     const speakerDefault = data?.meta?.speakerDefault || "…";
     const startId = data?.start || (nodes[0]?.id);
@@ -1166,7 +1150,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       applyReward(node.reward);
 
-      // Kickout condition: good >= 10 triggers Loki sequence
       const good = clamp(getNum(GOOD_KEY), 0, 10);
       if (good >= 10 && url !== KICKED_JSON){
         runDialogueFromJson(KICKED_JSON).catch(console.error);
@@ -1203,7 +1186,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  // In case the flag was already set from previous session, apply on load:
   try{ maybeHandleAmuletSteal(); }catch{}
 
   // Optional: press ESC to close dialogue/journal/meters/inventory/popup
@@ -1212,7 +1194,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       hideDialogue();
       closeQuestJournal();
       closeMeters();
-      invClose();
+      invClosePanel(); /* FIX: use renamed function */
       pickupHide();
     }
   });
@@ -1224,6 +1206,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 </body>
 </html>
+```
+
 
 
 
