@@ -213,6 +213,99 @@ html, body{
   text-shadow:0 2px 10px rgba(0,0,0,0.8);
   pointer-events:none;
 }
+
+/* ================= METER ICON (ADDED) ================= */
+#meterBtn{
+  position:fixed;
+  top:14px;
+  right:74px; /* sits beside quest icon */
+  width:52px;
+  height:52px;
+  background:transparent;
+  border:none;
+  cursor:pointer;
+  z-index:60;
+  display:block;
+}
+#meterBtn img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  filter:drop-shadow(0 10px 22px rgba(0,0,0,0.75));
+  opacity:.96;
+  transition:transform 120ms ease;
+}
+#meterBtn:hover img{ transform:scale(1.05); }
+
+/* ================= METER OVERLAY (ADDED) ================= */
+#meterOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.65);
+  z-index:80; /* above quest overlay */
+  display:none;
+}
+#meterPanel{
+  position:absolute;
+  top:70px;
+  right:18px;
+  width:min(520px, calc(100vw - 36px));
+  background:rgba(0,0,0,.92);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:16px;
+  padding:14px;
+  box-shadow:0 18px 60px rgba(0,0,0,0.7);
+  text-shadow:0 1px 2px rgba(0,0,0,0.6);
+}
+#meterPanel, #meterPanel *{
+  color:rgba(245,240,230,.95);
+}
+.mHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+}
+.mTitle{
+  font-weight:800;
+  letter-spacing:.06em;
+  color:rgba(255,215,140,1);
+}
+#meterClose{
+  width:34px;
+  height:34px;
+  border-radius:10px;
+  font-size:20px;
+  font-weight:900;
+  cursor:pointer;
+  background:rgba(0,0,0,.4);
+  border:1px solid rgba(255,215,140,.6);
+  color:rgba(255,215,140,1);
+}
+.mRow{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+  margin-top:12px;
+}
+.mLabel{
+  font-weight:900;
+  opacity:.95;
+  margin:4px 0 6px;
+}
+.mImg{
+  width:100%;
+  height:auto;
+  display:block;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 10px 28px rgba(0,0,0,.55);
+}
+.mSmall{
+  font-size:13px;
+  opacity:.75;
+  margin-top:10px;
+}
 </style>
 </head>
 
@@ -242,6 +335,11 @@ html, body{
   <img src="/guildbook/ui/quest_icon.png" alt="Quest">
 </button>
 
+<!-- METER Icon (ADDED) -->
+<button id="meterBtn" aria-label="Open alignment meters">
+  <img src="/guildbook/ui/metericon.png" alt="Meters">
+</button>
+
 <!-- Quest Journal -->
 <div id="questOverlay" aria-hidden="true">
   <div id="questPanel" role="dialog" aria-label="Quest journal">
@@ -250,6 +348,30 @@ html, body{
       <button id="questClose" aria-label="Close quest journal">✕</button>
     </div>
     <div id="questContent"></div>
+  </div>
+</div>
+
+<!-- METER Overlay (ADDED) -->
+<div id="meterOverlay" aria-hidden="true">
+  <div id="meterPanel" role="dialog" aria-label="Alignment meters">
+    <div class="mHeader">
+      <div class="mTitle">ALIGNMENT</div>
+      <button id="meterClose" aria-label="Close meters">✕</button>
+    </div>
+
+    <div class="mRow">
+      <div>
+        <div class="mLabel">EVIL</div>
+        <img id="evilMeterImg" class="mImg" src="/guildbook/ui/evilmeter/0.png" alt="Evil meter">
+      </div>
+
+      <div>
+        <div class="mLabel">GOOD</div>
+        <img id="goodMeterImg" class="mImg" src="/guildbook/ui/goodmeter/0.png" alt="Good meter">
+      </div>
+    </div>
+
+    <div id="meterDebug" class="mSmall"></div>
   </div>
 </div>
 
@@ -286,6 +408,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const questOverlay = document.getElementById("questOverlay");
   const questClose = document.getElementById("questClose");
   const questContent = document.getElementById("questContent");
+
+  // (ADDED) meter refs
+  const meterBtn = document.getElementById("meterBtn");
+  const meterOverlay = document.getElementById("meterOverlay");
+  const meterClose = document.getElementById("meterClose");
+  const evilMeterImg = document.getElementById("evilMeterImg");
+  const goodMeterImg = document.getElementById("goodMeterImg");
+  const meterDebug = document.getElementById("meterDebug");
 
   // ----------------------------
   // Helpers
@@ -465,6 +595,46 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.setItem(FLAGS_KEY, JSON.stringify(obj || {}));
   }
 
+  // ----------------------------
+  // (ADDED) METER UI + KNOWLEDGE
+  // ----------------------------
+  function clamp010(n){
+    n = Number(n);
+    if (!Number.isFinite(n)) return 0;
+    if (n < 0) return 0;
+    if (n > 10) return 10;
+    return Math.round(n);
+  }
+
+  function renderMeters(){
+    const evil = clamp010(getNum(EVIL_KEY));
+    const good = clamp010(getNum(GOOD_KEY));
+
+    evilMeterImg.src = `/guildbook/ui/evilmeter/${evil}.png`;
+    goodMeterImg.src = `/guildbook/ui/goodmeter/${good}.png`;
+
+    if (meterDebug){
+      meterDebug.textContent = `Evil: ${evil}/10 • Good: ${good}/10`;
+    }
+  }
+
+  function openMeters(){
+    renderMeters();
+    meterOverlay.style.display = "block";
+    meterOverlay.setAttribute("aria-hidden","false");
+  }
+
+  function closeMeters(){
+    meterOverlay.style.display = "none";
+    meterOverlay.setAttribute("aria-hidden","true");
+  }
+
+  meterBtn.addEventListener("click", openMeters);
+  meterClose.addEventListener("click", closeMeters);
+  meterOverlay.addEventListener("click", (e) => {
+    if (e.target === meterOverlay) closeMeters();
+  });
+
   function applyReward(reward){
     if (!reward) return;
 
@@ -488,6 +658,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (reward.setQuest.catalog) localStorage.setItem(QUEST_CAT_KEY, reward.setQuest.catalog);
     }
 
+    // (ADDED) keep meter overlay in sync if it's open
+    if (meterOverlay.style.display === "block"){
+      renderMeters();
+    }
+
     // coins/items are left for your future inventory system
   }
 
@@ -496,7 +671,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const nodes = Array.isArray(data.nodes) ? data.nodes : [];
     const map = new Map(nodes.map(n => [n.id, n]));
 
-    // Hel dialogue portrait defaults to hel.png (separate from animation)
+    // Your Hel portrait file (separate from animation)
     const portraitDefault = data?.meta?.portrait || "/guildbook/npcs/hel/hel.png";
     const speakerDefault = data?.meta?.speakerDefault || "…";
     const startId = data?.start || (nodes[0]?.id);
@@ -559,17 +734,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       showDialogue({
         speaker: "Hel",
         text: "…",
-        portraitSrc: "/guildbook/npcs/hel.gif",
+        portraitSrc: "/guildbook/npcs/hel/hel.png",
         buttons: [{ label: "Close", onClick: hideDialogue }]
       });
     });
   });
 
-  // Optional: press ESC to close dialogue/journal
+  // Optional: press ESC to close dialogue/journal/meters
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape"){
       hideDialogue();
       closeQuestJournal();
+      closeMeters(); // (ADDED)
     }
   });
 
@@ -578,6 +754,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 </body>
 </html>
+
+
 
 
 
