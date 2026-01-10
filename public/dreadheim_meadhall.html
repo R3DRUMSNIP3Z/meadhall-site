@@ -324,8 +324,12 @@ btn.addEventListener("click", (e) => {
   }
 
   function hideDialogue(){
-    dlg.classList.add("hidden");
-  }
+  dlg.classList.add("hidden");
+  dlgName.textContent = "";
+  dlgText.textContent = "";
+  dlgBtns.innerHTML = "";
+}
+
 
   // Hide dialogue on load (IMPORTANT)
   hideDialogue();
