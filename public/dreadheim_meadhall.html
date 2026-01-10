@@ -70,7 +70,10 @@ html, body{
   border:1px solid rgba(255,208,120,.2);
   box-shadow:0 18px 55px rgba(0,0,0,.6);
 }
-.hidden{ display:none; }
+/* Force dialogue hidden until an NPC opens it */
+#dlg.hidden{
+  display:none !important;
+}
 
 #dlgPortrait{
   width:240px;
@@ -311,7 +314,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       btn.className = "dlgBtn";
       btn.type = "button";
       btn.textContent = b.label;
-      btn.onclick = b.onClick;
+btn.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (typeof b.onClick === "function") b.onClick();
+});
       dlgBtns.appendChild(btn);
     });
   }
