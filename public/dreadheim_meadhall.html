@@ -314,6 +314,91 @@ html, body{
   max-width:340px !important;
   margin:0 auto !important;
 }
+/* HUD icons placement (adjust to match your layout) */
+#hudIcons{
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  z-index: 50;
+}
+
+#hudIcons img{
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  cursor: pointer;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.65));
+}
+
+/* Inventory starts hidden until unlocked */
+#inventoryIcon{
+  display: none;
+}
+
+/* Modal overlay */
+.mhModal{
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: rgba(0,0,0,0.72);
+  z-index: 9999;
+}
+
+.mhModal.is-open{
+  display: grid;
+}
+
+.mhModalCard{
+  width: min(560px, calc(100vw - 28px));
+  border-radius: 18px;
+  background: rgba(10,10,10,0.92);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 22px 70px rgba(0,0,0,0.75);
+  position: relative;
+  padding: 18px 18px 16px;
+}
+
+.mhModalClose{
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mhModalBody{
+  display: grid;
+  gap: 12px;
+  align-items: center;
+  justify-items: center;
+}
+
+.mhModalImg{
+  width: min(360px, 85vw);
+  height: auto;
+  image-rendering: auto;
+  filter: drop-shadow(0 14px 28px rgba(0,0,0,0.7));
+}
+
+.mhModalText{
+  text-align: center;
+  color: rgba(255,255,255,0.92);
+  font-size: 18px;
+  letter-spacing: 0.3px;
+  padding: 2px 6px;
+}
+
 
 </style>
 </head>
@@ -801,9 +886,135 @@ if (reward.evil) addEvil(reward.evil);
       closeMeters(); // (ADDED)
     }
   });
+  // ---- Storage keys
+  const HELS_AMULET_STOLEN_KEY = "mh_helsAmuletStolen";
+  const INVENTORY_UNLOCKED_KEY = "mh_inventoryUnlocked";
+
+  // ---- Elements
+  const modal = document.getElementById("mhModal");
+  const modalCloseBtn = modal.querySelector(".mhModalClose");
+  const modalImg = document.getElementById("mhModalImg");
+  const modalText = document.getElementById("mhModalText");
+
+  const inventoryIcon = document.getElementById("inventoryIcon");
+
+  // ---- Modal helpers
+  function openModal({ text, imgSrc = "" }) {
+    modalText.textContent = text;
+
+    if (imgSrc) {
+      modalImg.src = imgSrc;
+      modalImg.style.display = "block";
+      modalImg.alt = "Popup image";
+    } else {
+      modalImg.removeAttribute("src");
+      modalImg.style.display = "none";
+      modalImg.alt = "";
+    }
+
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeModal() {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  function setInventoryUnlocked(unlocked) {
+    localStorage.setItem(INVENTORY_UNLOCKED_KEY, unlocked ? "1" : "0");
+    inventoryIcon.style.display = unlocked ? "block" : "none";
+    if (unlocked) inventoryIcon.title = "Inventory";
+  }
+
+  // Close actions
+  modalCloseBtn.addEventListener("click", closeModal);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // ---- On page load: restore inventory state
+  (function restoreState() {
+    const invUnlocked = localStorage.getItem(INVENTORY_UNLOCKED_KEY) === "1";
+    setInventoryUnlocked(invUnlocked);
+  })();
+
+  // ---- Call this when the player successfully steals Hel's amulet
+  // Example: handleHelsAmuletStolen();
+  function handleHelsAmuletStolen() {
+    // Prevent repeating the steal flow if already stolen
+    if (localStorage.getItem(HELS_AMULET_STOLEN_KEY) === "1") return;
+
+    localStorage.setItem(HELS_AMULET_STOLEN_KEY, "1");
+
+    // 1) Show amulet popup
+    openModal({
+      text: "Stole Hel’s amulet successfully.",
+      imgSrc: "/guildbook/props/helsamulet/helsamulet.png"
+    });
+
+    // When the player closes first popup -> show unlock inventory popup
+    const onFirstClose = () => {
+      // Remove listener so it runs once
+      modalCloseBtn.removeEventListener("click", onFirstClose);
+      modal.removeEventListener("click", onBackdropCloseFirst);
+
+      // 2) Show inventory unlock message (no image)
+      openModal({
+        text: "You have unlocked inventory.",
+        imgSrc: ""
+      });
+
+      // When they close second popup -> unlock icon
+      const onSecondClose = () => {
+        modalCloseBtn.removeEventListener("click", onSecondClose);
+        modal.removeEventListener("click", onBackdropCloseSecond);
+
+        setInventoryUnlocked(true);
+      };
+
+      const onBackdropCloseSecond = (e) => {
+        if (e.target === modal) onSecondClose();
+      };
+
+      modalCloseBtn.addEventListener("click", onSecondClose);
+      modal.addEventListener("click", onBackdropCloseSecond);
+    };
+
+    const onBackdropCloseFirst = (e) => {
+      if (e.target === modal) onFirstClose();
+    };
+
+    modalCloseBtn.addEventListener("click", onFirstClose);
+    modal.addEventListener("click", onBackdropCloseFirst);
+  }
+
+  // OPTIONAL: Example hookup — replace this with your actual “steal” click
+  // document.getElementById("stealBtn")?.addEventListener("click", handleHelsAmuletStolen);
 
 });
 </script>
+<!-- HUD icons row (meter + inventory) -->
+<div id="hudIcons">
+  <!-- Replace this meter icon markup with YOUR existing one if you already have it -->
+  <img id="meterIcon" src="/meter.png" alt="Meter" title="Meter">
+  
+  <!-- Inventory icon (hidden until unlocked) -->
+  <img id="inventoryIcon" src="/inventory.png" alt="Inventory" title="Inventory">
+</div>
+
+<!-- Modal / popup -->
+<div id="mhModal" class="mhModal" aria-hidden="true">
+  <div class="mhModalCard" role="dialog" aria-modal="true">
+    <button class="mhModalClose" type="button" aria-label="Close">×</button>
+
+    <div class="mhModalBody">
+      <img id="mhModalImg" class="mhModalImg" alt="">
+      <div id="mhModalText" class="mhModalText"></div>
+    </div>
+  </div>
+</div>
+
 
 
 </body>
