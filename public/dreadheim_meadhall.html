@@ -214,7 +214,7 @@ html, body{
   pointer-events:none;
 }
 
-/* ================= METER ICON (ADDED) ================= */
+/* ================= METER ICON ================= */
 #meterBtn{
   position:fixed;
   top:14px;
@@ -237,7 +237,30 @@ html, body{
 }
 #meterBtn:hover img{ transform:scale(1.05); }
 
-/* ================= METER OVERLAY (ADDED) ================= */
+/* ================= INVENTORY ICON (UNLOCKED LATER) ================= */
+#inventoryBtn{
+  position:fixed;
+  top:14px;
+  right:134px; /* left of meter icon */
+  width:52px;
+  height:52px;
+  background:transparent;
+  border:none;
+  cursor:pointer;
+  z-index:60;
+  display:none; /* hidden until unlocked */
+}
+#inventoryBtn img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  filter:drop-shadow(0 10px 22px rgba(0,0,0,0.75));
+  opacity:.96;
+  transition:transform 120ms ease;
+}
+#inventoryBtn:hover img{ transform:scale(1.05); }
+
+/* ================= METER OVERLAY ================= */
 #meterOverlay{
   position:fixed;
   inset:0;
@@ -249,11 +272,11 @@ html, body{
   position:absolute;
   top:70px;
   right:18px;
-  width:min(520px, calc(100vw - 36px));
+  width:min(360px, calc(100vw - 36px));
   background:rgba(0,0,0,.92);
   border:1px solid rgba(255,255,255,.14);
   border-radius:16px;
-  padding:14px;
+  padding:12px;
   box-shadow:0 18px 60px rgba(0,0,0,0.7);
   text-shadow:0 1px 2px rgba(0,0,0,0.6);
 }
@@ -295,8 +318,10 @@ html, body{
 }
 .mImg{
   width:100%;
+  max-width:340px;
   height:auto;
   display:block;
+  margin:0 auto;
   border-radius:12px;
   border:1px solid rgba(255,255,255,.10);
   box-shadow:0 10px 28px rgba(0,0,0,.55);
@@ -306,39 +331,8 @@ html, body{
   opacity:.75;
   margin-top:10px;
 }
-#meterPanel{
-  width:min(360px, calc(100vw - 36px)) !important;
-  padding:12px !important;
-}
-.mImg{
-  max-width:340px !important;
-  margin:0 auto !important;
-}
-/* HUD icons placement (adjust to match your layout) */
-#hudIcons{
-  position: fixed;
-  top: 14px;
-  right: 14px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  z-index: 50;
-}
 
-#hudIcons img{
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  cursor: pointer;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.65));
-}
-
-/* Inventory starts hidden until unlocked */
-#inventoryIcon{
-  display: none;
-}
-
-/* Modal overlay */
+/* ================= MODAL (AMULET + UNLOCK) ================= */
 .mhModal{
   position: fixed;
   inset: 0;
@@ -347,11 +341,9 @@ html, body{
   background: rgba(0,0,0,0.72);
   z-index: 9999;
 }
-
 .mhModal.is-open{
   display: grid;
 }
-
 .mhModalCard{
   width: min(560px, calc(100vw - 28px));
   border-radius: 18px;
@@ -361,7 +353,6 @@ html, body{
   position: relative;
   padding: 18px 18px 16px;
 }
-
 .mhModalClose{
   position: absolute;
   top: 10px;
@@ -376,21 +367,18 @@ html, body{
   line-height: 1;
   cursor: pointer;
 }
-
 .mhModalBody{
   display: grid;
   gap: 12px;
   align-items: center;
   justify-items: center;
 }
-
 .mhModalImg{
   width: min(360px, 85vw);
   height: auto;
   image-rendering: auto;
   filter: drop-shadow(0 14px 28px rgba(0,0,0,0.7));
 }
-
 .mhModalText{
   text-align: center;
   color: rgba(255,255,255,0.92);
@@ -398,8 +386,6 @@ html, body{
   letter-spacing: 0.3px;
   padding: 2px 6px;
 }
-
-
 </style>
 </head>
 
@@ -429,9 +415,14 @@ html, body{
   <img src="/guildbook/ui/quest_icon.png" alt="Quest">
 </button>
 
-<!-- METER Icon (ADDED) -->
+<!-- METER Icon -->
 <button id="meterBtn" aria-label="Open alignment meters" title="Good / Evil Meter">
   <img src="/guildbook/ui/metericon.png" alt="Meters">
+</button>
+
+<!-- INVENTORY Icon (UNLOCKED AFTER AMULET) -->
+<button id="inventoryBtn" aria-label="Open inventory" title="Inventory">
+  <img src="/inventory.png" alt="Inventory">
 </button>
 
 <!-- Quest Journal -->
@@ -445,7 +436,7 @@ html, body{
   </div>
 </div>
 
-<!-- METER Overlay (ADDED) -->
+<!-- METER Overlay -->
 <div id="meterOverlay" aria-hidden="true">
   <div id="meterPanel" role="dialog" aria-label="Alignment meters">
     <div class="mHeader">
@@ -466,6 +457,17 @@ html, body{
     </div>
 
     <div id="meterDebug" class="mSmall"></div>
+  </div>
+</div>
+
+<!-- Modal / popup (amulet + inventory unlock) -->
+<div id="mhModal" class="mhModal" aria-hidden="true">
+  <div class="mhModalCard" role="dialog" aria-modal="true">
+    <button class="mhModalClose" type="button" aria-label="Close">×</button>
+    <div class="mhModalBody">
+      <img id="mhModalImg" class="mhModalImg" alt="">
+      <div id="mhModalText" class="mhModalText"></div>
+    </div>
   </div>
 </div>
 
@@ -503,13 +505,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   const questClose = document.getElementById("questClose");
   const questContent = document.getElementById("questContent");
 
-  // (ADDED) meter refs
+  // meter refs
   const meterBtn = document.getElementById("meterBtn");
   const meterOverlay = document.getElementById("meterOverlay");
   const meterClose = document.getElementById("meterClose");
   const evilMeterImg = document.getElementById("evilMeterImg");
   const goodMeterImg = document.getElementById("goodMeterImg");
   const meterDebug = document.getElementById("meterDebug");
+
+  // inventory button (hidden until unlocked)
+  const inventoryBtn = document.getElementById("inventoryBtn");
+
+  // modal refs
+  const modal = document.getElementById("mhModal");
+  const modalCloseBtn = modal.querySelector(".mhModalClose");
+  const modalImg = document.getElementById("mhModalImg");
+  const modalText = document.getElementById("mhModalText");
 
   // ----------------------------
   // Helpers
@@ -690,7 +701,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ----------------------------
-  // (ADDED) METER UI + KNOWLEDGE
+  // METER UI
   // ----------------------------
   function clamp010(n){
     n = Number(n);
@@ -734,50 +745,46 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
 
-function addGood(delta){
-  delta = Number(delta) || 0;
-  if (delta <= 0) return;
+    function addGood(delta){
+      delta = Number(delta) || 0;
+      if (delta <= 0) return;
 
-  let good = getNum(GOOD_KEY);
-  let evil = getNum(EVIL_KEY);
+      let good = getNum(GOOD_KEY);
+      let evil = getNum(EVIL_KEY);
 
-  for (let i = 0; i < delta; i++){
-    if (good >= 10){
-      // overflow: good stays full, remove 1 evil
-      evil = clamp(evil - 1, 0, 10);
-    } else {
-      good = clamp(good + 1, 0, 10);
+      for (let i = 0; i < delta; i++){
+        if (good >= 10){
+          evil = clamp(evil - 1, 0, 10);
+        } else {
+          good = clamp(good + 1, 0, 10);
+        }
+      }
+
+      setNum(GOOD_KEY, good);
+      setNum(EVIL_KEY, evil);
     }
-  }
 
-  setNum(GOOD_KEY, good);
-  setNum(EVIL_KEY, evil);
-}
+    function addEvil(delta){
+      delta = Number(delta) || 0;
+      if (delta <= 0) return;
 
-function addEvil(delta){
-  delta = Number(delta) || 0;
-  if (delta <= 0) return;
+      let good = getNum(GOOD_KEY);
+      let evil = getNum(EVIL_KEY);
 
-  let good = getNum(GOOD_KEY);
-  let evil = getNum(EVIL_KEY);
+      for (let i = 0; i < delta; i++){
+        if (evil >= 10){
+          good = clamp(good - 1, 0, 10);
+        } else {
+          evil = clamp(evil + 1, 0, 10);
+        }
+      }
 
-  for (let i = 0; i < delta; i++){
-    if (evil >= 10){
-      // overflow: evil stays full, remove 1 good
-      good = clamp(good - 1, 0, 10);
-    } else {
-      evil = clamp(evil + 1, 0, 10);
+      setNum(GOOD_KEY, good);
+      setNum(EVIL_KEY, evil);
     }
-  }
 
-  setNum(GOOD_KEY, good);
-  setNum(EVIL_KEY, evil);
-}
-
-// inside applyReward:
-if (reward.good) addGood(reward.good);
-if (reward.evil) addEvil(reward.evil);
-
+    if (reward.good) addGood(reward.good);
+    if (reward.evil) addEvil(reward.evil);
 
     if (reward.set && typeof reward.set === "object"){
       for (const k of Object.keys(reward.set)){
@@ -796,12 +803,9 @@ if (reward.evil) addEvil(reward.evil);
       if (reward.setQuest.catalog) localStorage.setItem(QUEST_CAT_KEY, reward.setQuest.catalog);
     }
 
-    // (ADDED) keep meter overlay in sync if it's open
     if (meterOverlay.style.display === "block"){
       renderMeters();
     }
-
-    // coins/items are left for your future inventory system
   }
 
   async function runDialogueFromJson(url){
@@ -878,27 +882,12 @@ if (reward.evil) addEvil(reward.evil);
     });
   });
 
-  // Optional: press ESC to close dialogue/journal/meters
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape"){
-      hideDialogue();
-      closeQuestJournal();
-      closeMeters(); // (ADDED)
-    }
-  });
-  // ---- Storage keys
+  // ----------------------------
+  // AMULET STEAL POPUP -> INVENTORY UNLOCK
+  // ----------------------------
   const HELS_AMULET_STOLEN_KEY = "mh_helsAmuletStolen";
   const INVENTORY_UNLOCKED_KEY = "mh_inventoryUnlocked";
 
-  // ---- Elements
-  const modal = document.getElementById("mhModal");
-  const modalCloseBtn = modal.querySelector(".mhModalClose");
-  const modalImg = document.getElementById("mhModalImg");
-  const modalText = document.getElementById("mhModalText");
-
-  const inventoryIcon = document.getElementById("inventoryIcon");
-
-  // ---- Modal helpers
   function openModal({ text, imgSrc = "" }) {
     modalText.textContent = text;
 
@@ -921,28 +910,26 @@ if (reward.evil) addEvil(reward.evil);
     modal.setAttribute("aria-hidden", "true");
   }
 
-  function setInventoryUnlocked(unlocked) {
-    localStorage.setItem(INVENTORY_UNLOCKED_KEY, unlocked ? "1" : "0");
-    inventoryIcon.style.display = unlocked ? "block" : "none";
-    if (unlocked) inventoryIcon.title = "Inventory";
-  }
-
   // Close actions
   modalCloseBtn.addEventListener("click", closeModal);
   modal.addEventListener("click", (e) => {
     if (e.target === modal) closeModal();
   });
 
-  // ---- On page load: restore inventory state
-  (function restoreState() {
+  function setInventoryUnlocked(unlocked) {
+    localStorage.setItem(INVENTORY_UNLOCKED_KEY, unlocked ? "1" : "0");
+    inventoryBtn.style.display = unlocked ? "block" : "none";
+    if (unlocked) inventoryBtn.title = "Inventory";
+  }
+
+  // Restore inventory icon on load
+  (function restoreInventory(){
     const invUnlocked = localStorage.getItem(INVENTORY_UNLOCKED_KEY) === "1";
     setInventoryUnlocked(invUnlocked);
   })();
 
-  // ---- Call this when the player successfully steals Hel's amulet
-  // Example: handleHelsAmuletStolen();
-  function handleHelsAmuletStolen() {
-    // Prevent repeating the steal flow if already stolen
+  // Call this when the player successfully steals Hel's amulet
+  window.handleHelsAmuletStolen = function handleHelsAmuletStolen() {
     if (localStorage.getItem(HELS_AMULET_STOLEN_KEY) === "1") return;
 
     localStorage.setItem(HELS_AMULET_STOLEN_KEY, "1");
@@ -955,17 +942,14 @@ if (reward.evil) addEvil(reward.evil);
 
     // When the player closes first popup -> show unlock inventory popup
     const onFirstClose = () => {
-      // Remove listener so it runs once
       modalCloseBtn.removeEventListener("click", onFirstClose);
       modal.removeEventListener("click", onBackdropCloseFirst);
 
-      // 2) Show inventory unlock message (no image)
       openModal({
         text: "You have unlocked inventory.",
         imgSrc: ""
       });
 
-      // When they close second popup -> unlock icon
       const onSecondClose = () => {
         modalCloseBtn.removeEventListener("click", onSecondClose);
         modal.removeEventListener("click", onBackdropCloseSecond);
@@ -987,38 +971,28 @@ if (reward.evil) addEvil(reward.evil);
 
     modalCloseBtn.addEventListener("click", onFirstClose);
     modal.addEventListener("click", onBackdropCloseFirst);
-  }
+  };
 
-  // OPTIONAL: Example hookup — replace this with your actual “steal” click
-  // document.getElementById("stealBtn")?.addEventListener("click", handleHelsAmuletStolen);
+  // ----------------------------
+  // ESC key closes dialogue/journal/meters/modal
+  // ----------------------------
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape"){
+      hideDialogue();
+      closeQuestJournal();
+      closeMeters();
+      closeModal();
+    }
+  });
 
+  // OPTIONAL TEST:
+  // window.handleHelsAmuletStolen();
 });
 </script>
-<!-- HUD icons row (meter + inventory) -->
-<div id="hudIcons">
-  <!-- Replace this meter icon markup with YOUR existing one if you already have it -->
-  <img id="meterIcon" src="/meter.png" alt="Meter" title="Meter">
-  
-  <!-- Inventory icon (hidden until unlocked) -->
-  <img id="inventoryIcon" src="/inventory.png" alt="Inventory" title="Inventory">
-</div>
-
-<!-- Modal / popup -->
-<div id="mhModal" class="mhModal" aria-hidden="true">
-  <div class="mhModalCard" role="dialog" aria-modal="true">
-    <button class="mhModalClose" type="button" aria-label="Close">×</button>
-
-    <div class="mhModalBody">
-      <img id="mhModalImg" class="mhModalImg" alt="">
-      <div id="mhModalText" class="mhModalText"></div>
-    </div>
-  </div>
-</div>
-
-
 
 </body>
 </html>
+
 
 
 
