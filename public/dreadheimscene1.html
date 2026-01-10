@@ -319,6 +319,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Dreadheim quest catalog (your file under /public/guildbook/quests/)
   const QUEST_CATALOG_URL = "/guildbook/quests/dreadheim_quests.json";
 
+  // ✅ Loki portrait animation frames (0 through 8)
+  // Expected files:
+  // /public/guildbook/npcs/loki/frame_000.png ... frame_008.png
+  const LOKI_FRAME_COUNT = 9; // 0..8
+  const LOKI_FRAME_MS = 120;  // speed
+  const LOKI_FRAME_URLS = Array.from({ length: LOKI_FRAME_COUNT }, (_, i) => {
+    const n = String(i).padStart(3, "0");
+    return `/guildbook/npcs/loki/frame_${n}.png`;
+  });
+
   // UI refs
   const bg = document.getElementById("bg");
 
@@ -358,6 +368,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     return await res.json();
   }
 
+  // ✅ Loki portrait animation controller
+  let lokiTimer = null;
+  let lokiIdx = 0;
+
+  function preloadImages(urls){
+    urls.forEach(u => {
+      const img = new Image();
+      img.src = u;
+    });
+  }
+
+  function startLokiPortrait(){
+    if (lokiTimer) return;
+    // set immediately so it's never blank
+    dlgPortrait.src = LOKI_FRAME_URLS[0];
+    lokiIdx = 0;
+
+    lokiTimer = setInterval(() => {
+      lokiIdx = (lokiIdx + 1) % LOKI_FRAME_URLS.length;
+      dlgPortrait.src = LOKI_FRAME_URLS[lokiIdx];
+    }, LOKI_FRAME_MS);
+  }
+
+  function stopLokiPortrait(){
+    if (!lokiTimer) return;
+    clearInterval(lokiTimer);
+    lokiTimer = null;
+  }
+
   function showDialogue({ speaker, text, portraitSrc, buttons = [], appendEl = null }){
     dlgName.textContent = speaker || "";
     dlgText.innerHTML = "";
@@ -371,7 +410,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     dlgBtns.innerHTML = "";
     dlg.classList.remove("hidden");
 
-    if (portraitSrc) dlgPortrait.src = portraitSrc;
+    // ✅ If the scene is Loki (or no portrait specified), use the Loki frame animation
+    const sp = (speaker || "").toLowerCase();
+    const wantsLoki = !portraitSrc || sp === "loki";
+
+    if (wantsLoki){
+      startLokiPortrait();
+    }else{
+      stopLokiPortrait();
+      if (portraitSrc) dlgPortrait.src = portraitSrc;
+    }
 
     buttons.forEach(b => {
       const btn = document.createElement("button");
@@ -383,7 +431,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  function hideDialogue(){ dlg.classList.add("hidden"); }
+  function hideDialogue(){
+    dlg.classList.add("hidden");
+    // keep Loki anim running so it’s ready for next line (no flicker)
+    // If you want it to pause when hidden, uncomment:
+    // stopLokiPortrait();
+  }
 
   function showEnter(){
     enterOverlay.style.display = "flex";
@@ -467,6 +520,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   hideEnter();
   questBtn.style.display = "none";
 
+  // ✅ Preload Loki frames so the dialogue portrait animates smoothly
+  preloadImages(LOKI_FRAME_URLS);
+  startLokiPortrait(); // ready immediately (your scene is Loki)
+
   let data;
   try{
     data = await loadJSON(SCENE_JSON);
@@ -475,18 +532,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     showDialogue({
       speaker:"Loki",
       text:"The fog thickens… (Scene failed to load.)",
-      portraitSrc:"/guildbook/npcs/loki.gif",
+      // portrait handled by Loki animation
       buttons:[{ label:"Reload", onClick:()=>location.reload() }]
     });
     return;
   }
 
   const speakerDefault = data?.meta?.speakerDefault || "Loki";
-  const portrait = data?.meta?.portrait || "/guildbook/npcs/loki.gif";
+  const portrait = data?.meta?.portrait || ""; // let Loki anim drive it
   const bgUrl = data?.meta?.bg || "/guildbook/scenes/dreadheim_scene1.png";
 
   bg.style.background = `url("${bgUrl}") center center / cover no-repeat`;
-  dlgPortrait.src = portrait;
 
   const nodes = Array.isArray(data.nodes) ? data.nodes : [];
   let idx = 0;
@@ -567,5 +623,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 </body>
 </html>
+
 
 

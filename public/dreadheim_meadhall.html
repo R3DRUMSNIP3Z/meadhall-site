@@ -497,6 +497,55 @@ html, body{
   text-shadow:0 2px 10px rgba(0,0,0,0.8);
   pointer-events:none;
 }
+/* Clickable Loki return link (only shows when quest objectives complete) */
+.lokiReturn{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,215,140,.55);
+  background:rgba(0,0,0,.28);
+  color:rgba(255,215,140,1) !important;
+  font-weight:900;
+  letter-spacing:.04em;
+  cursor:pointer;
+  text-decoration:none;
+  position:relative;
+  animation:lokiGlow 1.35s ease-in-out infinite;
+  box-shadow:
+    0 0 0 rgba(255,215,140,0),
+    0 0 0 rgba(180,200,255,0);
+}
+
+.lokiReturn::before{
+  content:"";
+  position:absolute;
+  inset:-6px;
+  border-radius:999px;
+  background:radial-gradient(circle at 50% 50%, rgba(255,215,140,.18), rgba(0,0,0,0));
+  filter:blur(8px);
+  opacity:.65;
+  pointer-events:none;
+  animation:lokiPulse 1.35s ease-in-out infinite;
+}
+
+.lokiReturn:hover{
+  filter:brightness(1.12);
+  transform:translateY(-1px);
+}
+
+@keyframes lokiGlow{
+  0%   { box-shadow:0 0 0 rgba(255,215,140,0), 0 0 0 rgba(180,200,255,0); }
+  50%  { box-shadow:0 0 18px rgba(255,215,140,.22), 0 0 28px rgba(180,200,255,.18); }
+  100% { box-shadow:0 0 0 rgba(255,215,140,0), 0 0 0 rgba(180,200,255,0); }
+}
+@keyframes lokiPulse{
+  0%   { opacity:.35; transform:scale(0.98); }
+  50%  { opacity:.75; transform:scale(1.02); }
+  100% { opacity:.35; transform:scale(0.98); }
+}
+
 </style>
 </head>
 
