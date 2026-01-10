@@ -3,9 +3,8 @@
     "id": "dreadheim_meadhall",
     "title": "Dreadheim • Mead Hall",
     "bg": "/guildbook/scenes/dreadheim_meadhall.png",
-    "portrait": "/guildbook/npcs/hel.gif",
+    "portrait": "/guildbook/npcs/hel/hel.png",
     "speakerDefault": "Hel",
-
     "keys": {
       "nameKey": "va_player_name",
       "goodKey": "va_good",
@@ -15,7 +14,6 @@
       "questIdKey": "vaq_activeQuestId",
       "questCatKey": "vaq_activeQuestCatalog"
     },
-
     "goodKickThreshold": 10,
     "kickedOutByLokiJson": "/data/episodes/volume1_ep1/kickedoutbyloki.json"
   },
@@ -29,8 +27,7 @@
       "text": "So, you’re the one Loki dragged in from the frost. Tell me—do you not bow when you enter the presence of Hel herself, or has the cold stolen even that much sense?",
       "choices": [
         { "label": "Bow before Hel.", "to": "hel_bow" },
-        { "label": "I bow to no one.", "to": "hel_no_bow" },
-        { "label": "Is Hel supposed to be important to me?", "to": "hel_important" }
+        { "label": "I bow to no one.", "to": "hel_no_bow" }
       ]
     },
 
@@ -41,7 +38,11 @@
       "reward": {
         "set": { "va_bowedToHel": true },
         "good": 1,
-        "flags": { "metHel": true, "bowedToHel": true, "dq_001_bow_complete": true }
+        "flags": {
+          "metHel": true,
+          "bowedToHel": true,
+          "dq_001_bowed": true
+        }
       },
       "choices": [
         { "label": "Continue.", "to": "hel_2" }
@@ -55,47 +56,13 @@
       "reward": {
         "set": { "va_bowedToHel": false },
         "evil": 1,
-        "flags": { "metHel": true, "bowedToHel": false }
+        "flags": {
+          "metHel": true,
+          "bowedToHel": false,
+          "dq_001_bowed": false
+        }
       },
       "choices": [
-        { "label": "Continue.", "to": "hel_2" },
-        { "label": "Try again…", "to": "hel_1" }
-      ]
-    },
-
-    {
-      "id": "hel_important",
-      "speaker": "Hel",
-      "text": "I am the silence beneath laughter. The daughter of endings. And tonight, I watch you.",
-      "reward": {
-        "flags": { "metHel": true }
-      },
-      "choices": [
-        { "label": "Bow before Hel.", "to": "hel_bow" },
-        { "label": "I bow to no one.", "to": "hel_no_bow" },
-        { "label": "Why are you watching me?", "to": "hel_watch" }
-      ]
-    },
-
-    {
-      "id": "hel_watch",
-      "speaker": "Hel",
-      "text": "Because Loki doesn’t drag in strays unless they bite back. Prove you’re not a pet.",
-      "choices": [
-        { "label": "Give me a task.", "to": "hel_quest" },
-        { "label": "I answer to no one.", "to": "hel_proud" }
-      ]
-    },
-
-    {
-      "id": "hel_proud",
-      "speaker": "Hel",
-      "text": "Good. Keep that. But don’t confuse pride with power.",
-      "reward": {
-        "flags": { "helPride": true }
-      },
-      "choices": [
-        { "label": "I need work. A quest.", "to": "hel_quest" },
         { "label": "Continue.", "to": "hel_2" }
       ]
     },
@@ -103,56 +70,81 @@
     {
       "id": "hel_2",
       "speaker": "Hel",
-      "text": "Do not mistake warmth for mercy, {name}. In Dreadheim, even the hearth has teeth.",
+      "text": "Do not mistake warmth for mercy, {name}. In Dreadheim, even the hearth has teeth. Speak—what do you want?",
       "choices": [
-        { "label": "I need work. A quest.", "to": "hel_quest" },
-        { "label": "Say nothing.", "to": "hel_3" }
+        { "label": "Demand a seat. Now.", "to": "hel_demand_seat" },
+        { "label": "Say nothing.", "to": "hel_say_nothing" }
       ]
     },
 
     {
-      "id": "hel_quest",
+      "id": "hel_demand_seat",
       "speaker": "Hel",
-      "text": "If you want a mark in this hall—take something small, and take it clean. Then return to me.",
+      "text": "Bold. Loud. Dangerous. Dreadheim likes that—until it doesn’t. Sit, then. Let the hall measure you.",
       "reward": {
-        "setQuest": {
-          "id": "dq_001",
-          "catalog": "/guildbook/quests/dreadheim_quests.json"
-        },
-        "flags": { "dq_001_started": true }
+        "evil": 1,
+        "flags": {
+          "dq_001_demandedSeat": true
+        }
       },
       "choices": [
-        { "label": "I’ll do it.", "to": "hel_3" },
-        { "label": "What if I refuse?", "to": "hel_refuse" }
+        { "label": "Continue.", "to": "hel_3" }
       ]
     },
 
     {
-      "id": "hel_refuse",
+      "id": "hel_say_nothing",
       "speaker": "Hel",
-      "text": "Then you stay unmarked. And in Dreadheim, the unmarked are easy to erase.",
+      "text": "Silent. Careful. The kind who survives storms by becoming one. Fine—stand there and listen.",
+      "reward": {
+        "good": 1,
+        "flags": {
+          "dq_001_demandedSeat": false
+        }
+      },
       "choices": [
-        { "label": "Fine. I’ll do it.", "to": "hel_3" },
-        { "label": "Leave the hall.", "to": "hel_end_leave" }
+        { "label": "Continue.", "to": "hel_3" }
       ]
     },
 
     {
       "id": "hel_3",
       "speaker": "Hel",
-      "text": "Keep your voice low. Watch the benches. The ones who smile first are usually hungry.",
+      "text": "Watch the benches. The ones who smile first are usually hungry. And you… you have the look of someone deciding what they can get away with.",
       "choices": [
-        { "label": "Who’s hungry for me?", "to": "hel_hungry" },
+        { "label": "Wait until Hel isn’t looking and steal her amulet.", "to": "hel_steal_amulet" },
+        { "label": "Don’t steal. Compliment Hel instead.", "to": "hel_compliment" }
+      ]
+    },
+
+    {
+      "id": "hel_steal_amulet",
+      "speaker": "Hel",
+      "text": "…Interesting. Either you are very brave… or very stupid. That amulet is old hunger given form. Keep it—if you can live with what follows you now.",
+      "reward": {
+        "evil": 1,
+        "flags": {
+          "dq_001_stole": true,
+          "dq_001_complimentedHel": false,
+          "stoleHelsAmulet": true
+        }
+      },
+      "choices": [
         { "label": "Continue.", "to": "hel_4" }
       ]
     },
 
     {
-      "id": "hel_hungry",
+      "id": "hel_compliment",
       "speaker": "Hel",
-      "text": "Everyone. Some want your gold. Some want your fear. A few want your name in their mouth.",
+      "text": "Flattery in Dreadheim is either a weapon or a confession. …Still. You chose words instead of claws. That tells me something.",
       "reward": {
-        "flags": { "warnedByHel": true }
+        "good": 1,
+        "flags": {
+          "dq_001_stole": false,
+          "dq_001_complimentedHel": true,
+          "stoleHelsAmulet": false
+        }
       },
       "choices": [
         { "label": "Continue.", "to": "hel_4" }
@@ -162,59 +154,22 @@
     {
       "id": "hel_4",
       "speaker": "Hel",
-      "text": "If you’re here, you’ve already chosen survival over innocence. Good.",
-      "choices": [
-        { "label": "I chose survival.", "to": "hel_survival" },
-        { "label": "I chose power.", "to": "hel_power" }
-      ]
-    },
-
-    {
-      "id": "hel_survival",
-      "speaker": "Hel",
-      "text": "Then you’ll learn faster than most. Survive long enough and the hall will bow back.",
+      "text": "Loki likes debts. So do I. If you want to wear Dreadheim’s mark, you will earn it in choices—small ones that rot or shine over time.",
       "reward": {
-        "coins": 10,
-        "items": [{ "id": "sigil_fragment", "name": "Sigil Fragment", "qty": 1 }],
-        "flags": { "path": "survival" }
+        "setQuest": {
+          "id": "dq_001",
+          "catalog": "/guildbook/quests/dreadheim_quests.json"
+        },
+        "flags": {
+          "dq_001_started": true
+        }
       },
-      "choices": [
-        { "label": "Continue.", "to": "hel_5" }
-      ]
-    },
-
-    {
-      "id": "hel_power",
-      "speaker": "Hel",
-      "text": "Power takes payment. If you want it, bleed for it—quietly.",
-      "reward": {
-        "coins": 10,
-        "items": [{ "id": "ashen_token", "name": "Ashen Token", "qty": 1 }],
-        "flags": { "path": "power" }
-      },
-      "choices": [
-        { "label": "Continue.", "to": "hel_5" }
-      ]
-    },
-
-    {
-      "id": "hel_5",
-      "speaker": "Hel",
-      "text": "Now go. Dreadheim is waiting to see what you become.",
-      "choices": [
-        { "label": "Close", "to": "__close" }
-      ]
-    },
-
-    {
-      "id": "hel_end_leave",
-      "speaker": "Hel",
-      "text": "Run, then. The frost always remembers names.",
       "choices": [
         { "label": "Close", "to": "__close" }
       ]
     }
   ]
 }
+
 
 
