@@ -3,7 +3,7 @@
     "id": "dreadheim_meadhall",
     "title": "Dreadheim • Mead Hall",
     "bg": "/guildbook/scenes/dreadheim_meadhall.png",
-    "portrait": "/guildbook/npcs/hel/frame_008.png",
+    "portrait": "/guildbook/npcs/hel.gif",
     "speakerDefault": "Hel",
 
     "keys": {
