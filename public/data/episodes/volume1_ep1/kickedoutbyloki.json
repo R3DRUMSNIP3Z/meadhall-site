@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "id": "kickedoutbyloki",
+    "title": "Kicked Out by Loki",
+    "portrait": "/guildbook/npcs/loki/frame_008.png",
+    "speakerDefault": "Loki",
+    "gotoOnEnd": "/helheim_wasteland.html"
+  },
+  "start": "loki_1",
+  "nodes": [
+    {
+      "id": "loki_1",
+      "speaker": "Loki",
+      "text": "{name}… ten little steps toward “good.” How sweet. How predictable.",
+      "choices": [
+        { "label": "What did I do?", "to": "loki_2" },
+        { "label": "I did what was right.", "to": "loki_2" }
+      ]
+    },
+    {
+      "id": "loki_2",
+      "speaker": "Loki",
+      "text": "You forgot where you are. Dreadheim doesn’t reward saints. It devours them.",
+      "choices": [
+        { "label": "…", "to": "loki_3" }
+      ]
+    },
+    {
+      "id": "loki_3",
+      "speaker": "Loki",
+      "text": "So I’m doing you a favor. Out. Before you embarrass yourself with mercy.",
+      "choices": [
+        { "label": "Where am I going?", "to": "loki_4" }
+      ]
+    },
+    {
+      "id": "loki_4",
+      "speaker": "Loki",
+      "text": "Helheim’s wasteland. Quiet. Cold. Honest. It suits your new little halo.",
+      "choices": [
+        { "label": "Close", "to": "__close" }
+      ]
+    }
+  ]
+}

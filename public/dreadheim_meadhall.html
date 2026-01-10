@@ -61,7 +61,7 @@ html, body{
   transform:translateX(-50%);
   width:min(1200px, calc(100vw - 24px));
   height:190px;
-  z-index:50;
+  z-index:999; /* raised to guarantee clicks */
   display:grid;
   grid-template-columns:240px 1fr;
   border-radius:18px;
@@ -108,10 +108,10 @@ html, body{
   gap:10px;
   flex-wrap:wrap;
 }
+
 #dlg, #dlgPanel, #dlgBtns, .dlgBtn{
   pointer-events:auto;
 }
-
 
 .dlgBtn{
   padding:10px 16px;
@@ -268,9 +268,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ----------------------------
   // NPC DIALOGUE CATALOG (Hel)
   // ----------------------------
-  // Put Hel dialogue here (recommended):
-  // C:\Users\Lisa\meadhall-site\public\data\episodes\volume1_ep1\hel_meadhall.json
   const HEL_DIALOGUE_JSON = "/data/episodes/volume1_ep1/hel_meadhall.json";
+  const KICKED_JSON = "/data/episodes/volume1_ep1/kickedoutbyloki.json";
 
   // ----------------------------
   // UI refs
@@ -318,22 +317,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       btn.className = "dlgBtn";
       btn.type = "button";
       btn.textContent = b.label;
-btn.addEventListener("click", (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  if (typeof b.onClick === "function") b.onClick();
-});
+
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof b.onClick === "function") b.onClick();
+      });
+
       dlgBtns.appendChild(btn);
     });
   }
 
   function hideDialogue(){
-  dlg.classList.add("hidden");
-  dlgName.textContent = "";
-  dlgText.textContent = "";
-  dlgBtns.innerHTML = "";
-}
-
+    dlg.classList.add("hidden");
+    dlgName.textContent = "";
+    dlgText.textContent = "";
+    dlgBtns.innerHTML = "";
+  }
 
   // Hide dialogue on load (IMPORTANT)
   hideDialogue();
@@ -413,7 +413,7 @@ btn.addEventListener("click", (e) => {
     if (e.target === questOverlay) closeQuestJournal();
   });
 
-  // If you want Mead Hall to FORCE set the quest catalog each time:
+  // Force set the quest catalog each time:
   localStorage.setItem(QUEST_CAT_KEY, QUEST_CATALOG_URL);
 
   // ----------------------------
@@ -434,78 +434,136 @@ btn.addEventListener("click", (e) => {
   setInterval(() => {
     helIdx = (helIdx + 1) % helFrames.length;
     npcHel.src = helFrames[helIdx];
-  }, 120); // adjust speed if you want slower (e.g. 160)
+  }, 120);
 
   // ----------------------------
-  // HEL CLICK -> OPEN DIALOGUE (NO AUTOPLAY)
+  // DIALOGUE ENGINE (choices + rewards + good/evil + kickout)
   // ----------------------------
-  let helDialogue = null;
-  let helLine = 0;
+  const GOOD_KEY  = "va_good";
+  const EVIL_KEY  = "va_evil";
+  const NAME_KEY  = "va_player_name";
+  const FLAGS_KEY = "va_flags";
 
-  async function openHelDialogue(){
-    // Load once
-    if (!helDialogue){
-      try{
-        helDialogue = await loadJSON(HEL_DIALOGUE_JSON);
-      }catch(err){
-        console.error(err);
+  function getNum(key){
+    const v = Number(localStorage.getItem(key) || "0");
+    return Number.isFinite(v) ? v : 0;
+  }
+  function setNum(key, n){
+    localStorage.setItem(key, String(n));
+  }
+  function getName(){
+    return (localStorage.getItem(NAME_KEY) || "").trim() || "Traveler";
+  }
+  function txt(t){
+    return String(t ?? "").replaceAll("{name}", getName());
+  }
+  function getFlags(){
+    try{ return JSON.parse(localStorage.getItem(FLAGS_KEY) || "{}"); }
+    catch{ return {}; }
+  }
+  function setFlags(obj){
+    localStorage.setItem(FLAGS_KEY, JSON.stringify(obj || {}));
+  }
+
+  function applyReward(reward){
+    if (!reward) return;
+
+    if (reward.good) setNum(GOOD_KEY, getNum(GOOD_KEY) + Number(reward.good));
+    if (reward.evil) setNum(EVIL_KEY, getNum(EVIL_KEY) + Number(reward.evil));
+
+    if (reward.set && typeof reward.set === "object"){
+      for (const k of Object.keys(reward.set)){
+        localStorage.setItem(k, String(reward.set[k]));
+      }
+    }
+
+    if (reward.flags && typeof reward.flags === "object"){
+      const f = getFlags();
+      for (const k of Object.keys(reward.flags)) f[k] = reward.flags[k];
+      setFlags(f);
+    }
+
+    if (reward.setQuest?.id){
+      localStorage.setItem(QUEST_ID_KEY, reward.setQuest.id);
+      if (reward.setQuest.catalog) localStorage.setItem(QUEST_CAT_KEY, reward.setQuest.catalog);
+    }
+
+    // coins/items are left for your future inventory system
+  }
+
+  async function runDialogueFromJson(url){
+    const data = await loadJSON(url);
+    const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+    const map = new Map(nodes.map(n => [n.id, n]));
+
+    // Hel dialogue portrait defaults to hel.png (separate from animation)
+    const portraitDefault = data?.meta?.portrait || "/guildbook/npcs/hel/hel.png";
+    const speakerDefault = data?.meta?.speakerDefault || "…";
+    const startId = data?.start || (nodes[0]?.id);
+
+    function showNode(id){
+      if (id === "__close"){
+        hideDialogue();
+        if (data?.meta?.gotoOnEnd){
+          window.location.href = data.meta.gotoOnEnd;
+        }
+        return;
+      }
+
+      const node = map.get(id);
+      if (!node){
         showDialogue({
-          speaker: "Hel",
+          speaker: speakerDefault,
           text: "…",
-          portraitSrc: "/guildbook/npcs/hel/frame_008.png",
+          portraitSrc: portraitDefault,
           buttons: [{ label: "Close", onClick: hideDialogue }]
         });
         return;
       }
-    }
 
-    const speaker = helDialogue?.meta?.speakerDefault || "Hel";
-    const portrait = helDialogue?.meta?.portrait || "/guildbook/npcs/hel/frame_008.png";
-    const lines = Array.isArray(helDialogue?.nodes) ? helDialogue.nodes : [];
+      applyReward(node.reward);
 
-    if (!lines.length){
+      // Kickout condition: good >= 10 triggers Loki sequence
+      const good = getNum(GOOD_KEY);
+      if (good >= 10 && url !== KICKED_JSON){
+        runDialogueFromJson(KICKED_JSON).catch(console.error);
+        return;
+      }
+
+      const speaker = node.speaker || speakerDefault;
+      const text = txt(node.text || "…");
+      const portrait = node.portrait || portraitDefault;
+      const choices = Array.isArray(node.choices) ? node.choices : [];
+
+      const btns = choices.length
+        ? choices.map(c => ({
+            label: c.label || "Continue",
+            onClick: () => showNode(c.to || "__close")
+          }))
+        : [{ label: "Close", onClick: hideDialogue }];
+
       showDialogue({
         speaker,
-        text: "…",
+        text,
         portraitSrc: portrait,
-        buttons: [{ label: "Close", onClick: hideDialogue }]
+        buttons: btns
       });
-      return;
     }
 
-    helLine = 0;
-    showHelLine();
+    showNode(startId || "__close");
   }
 
-  function showHelLine(){
-    const speaker = helDialogue?.meta?.speakerDefault || "Hel";
-    const portrait = helDialogue?.meta?.portrait || "/guildbook/npcs/hel/frame_008.png";
-    const lines = Array.isArray(helDialogue?.nodes) ? helDialogue.nodes : [];
-
-    const node = lines[helLine];
-    const text = node?.text || "…";
-
-    showDialogue({
-      speaker,
-      text,
-      portraitSrc: portrait,
-      buttons: [
-        {
-          label: (helLine < lines.length - 1) ? "Continue" : "Close",
-          onClick: () => {
-            if (helLine < lines.length - 1){
-              helLine += 1;
-              showHelLine();
-            } else {
-              hideDialogue();
-            }
-          }
-        }
-      ]
+  npcHel.addEventListener("click", () => {
+    runDialogueFromJson(HEL_DIALOGUE_JSON).catch(err => {
+      console.error(err);
+      showDialogue({
+        speaker: "Hel",
+        text: "…",
+        portraitSrc: "/guildbook/npcs/hel.gif",
+        buttons: [{ label: "Close", onClick: hideDialogue }]
+      });
     });
-  }
-
-  npcHel.addEventListener("click", openHelDialogue);
+  });
 
   // Optional: press ESC to close dialogue/journal
   window.addEventListener("keydown", (e) => {
@@ -520,5 +578,6 @@ btn.addEventListener("click", (e) => {
 
 </body>
 </html>
+
 
 
