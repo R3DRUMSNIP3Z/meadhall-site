@@ -170,6 +170,29 @@ html, body{
 }
 #meterBtn:hover img{ transform:scale(1.05); }
 
+/* ================= INVENTORY ICON (beside meter) ================= */
+#invBtn{
+  position:fixed;
+  top:14px;
+  right:134px; /* 14 + 52 + 8 + 52 + 8 gap */
+  width:52px;
+  height:52px;
+  background:transparent;
+  border:none;
+  cursor:pointer;
+  z-index:60;
+  display:none; /* unlocked later */
+}
+#invBtn img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  filter:drop-shadow(0 10px 22px rgba(0,0,0,0.75));
+  opacity:.96;
+  transition:transform 120ms ease;
+}
+#invBtn:hover img{ transform:scale(1.05); }
+
 /* ================= QUEST JOURNAL ================= */
 #questOverlay{
   position:fixed;
@@ -334,6 +357,133 @@ html, body{
   opacity:.98;
 }
 
+/* ================= INVENTORY OVERLAY ================= */
+#invOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.65);
+  z-index:85;
+  display:none;
+}
+#invPanel{
+  position:absolute;
+  top:70px;
+  right:18px;
+  width:min(520px, calc(100vw - 36px));
+  max-height:calc(100vh - 110px);
+  overflow:auto;
+  background:rgba(0,0,0,.92);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:16px;
+  padding:14px;
+  box-shadow:0 18px 60px rgba(0,0,0,0.7);
+  text-shadow:0 1px 2px rgba(0,0,0,0.6);
+}
+#invPanel, #invPanel *{
+  color:rgba(245,240,230,.95);
+}
+.iHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+}
+.iTitle{
+  font-weight:800;
+  letter-spacing:.06em;
+  color:rgba(255,215,140,1);
+}
+#invClose{
+  width:34px;
+  height:34px;
+  border-radius:10px;
+  font-size:20px;
+  font-weight:900;
+  cursor:pointer;
+  background:rgba(0,0,0,.4);
+  border:1px solid rgba(255,215,140,.6);
+  color:rgba(255,215,140,1);
+}
+#invGrid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns:repeat(4, 86px);
+  gap:6px;
+  justify-content:start;
+}
+.invCell{
+  width:86px;
+  height:86px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(0,0,0,.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+.invCell img{
+  width:70px;
+  height:70px;
+  object-fit:contain;
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.65));
+}
+
+/* ================= AMULET POPUP ================= */
+#pickupOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.72);
+  z-index:90;
+  display:none;
+}
+#pickupCard{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  width:min(520px, calc(100vw - 36px));
+  border-radius:18px;
+  overflow:hidden;
+  background:linear-gradient(180deg, rgba(35,20,10,.96), rgba(10,8,8,.92));
+  border:1px solid rgba(255,208,120,.22);
+  box-shadow:0 24px 80px rgba(0,0,0,.75);
+  padding:16px;
+}
+#pickupRow{
+  display:flex;
+  gap:14px;
+  align-items:center;
+}
+#pickupImg{
+  width:96px;
+  height:96px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(0,0,0,.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+#pickupImg img{
+  width:78px;
+  height:78px;
+  object-fit:contain;
+}
+#pickupText{
+  flex:1;
+  line-height:1.35;
+  font-size:18px;
+}
+#pickupBtns{
+  margin-top:12px;
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
 /* Tiny hint text */
 #hint{
   position:fixed;
@@ -350,7 +500,6 @@ html, body{
 </head>
 
 <body>
-
 <div id="bg"></div>
 
 <div id="npcs">
@@ -378,6 +527,11 @@ html, body{
 <!-- Meter Icon -->
 <button id="meterBtn" aria-label="Open good/evil meter" title="Good / Evil Meter">
   <img src="/guildbook/ui/metericon.png" alt="Meter">
+</button>
+
+<!-- Inventory Icon (unlocked after amulet steal) -->
+<button id="invBtn" aria-label="Open inventory" title="Inventory">
+  <img src="/guildbook/ui/inventory.png" alt="Inventory">
 </button>
 
 <!-- Quest Journal -->
@@ -411,9 +565,30 @@ html, body{
   </div>
 </div>
 
+<!-- Inventory Overlay -->
+<div id="invOverlay" aria-hidden="true">
+  <div id="invPanel" role="dialog" aria-label="Inventory">
+    <div class="iHeader">
+      <div class="iTitle">INVENTORY</div>
+      <button id="invClose" aria-label="Close inventory">✕</button>
+    </div>
+    <div id="invGrid"></div>
+  </div>
+</div>
+
+<!-- Amulet pickup popup -->
+<div id="pickupOverlay" aria-hidden="true">
+  <div id="pickupCard" role="dialog" aria-label="Item acquired">
+    <div id="pickupRow">
+      <div id="pickupImg"><img id="pickupImgInner" alt="Item"></div>
+      <div id="pickupText"></div>
+    </div>
+    <div id="pickupBtns"></div>
+  </div>
+</div>
+
 <script>
 document.addEventListener("DOMContentLoaded", async () => {
-
   // ----------------------------
   // QUEST STORAGE KEYS (same system)
   // ----------------------------
@@ -428,6 +603,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ----------------------------
   const HEL_DIALOGUE_JSON = "/data/episodes/volume1_ep1/hel_meadhall.json";
   const KICKED_JSON = "/data/episodes/volume1_ep1/kickedoutbyloki.json";
+
+  // ----------------------------
+  // INVENTORY (localStorage)
+  // ----------------------------
+  const INV_UNLOCK_KEY = "va_inv_unlocked";
+  const INV_ITEMS_KEY  = "va_inv_items"; // JSON array of items
+
+  // Amulet item definition (change paths if yours differ)
+  const AMULET_ITEM_ID  = "hels_amulet";
+  const AMULET_ITEM_IMG = "/guildbook/items/hels_amulet.png"; // <-- make sure this exists (or change it)
+  const AMULET_ITEM_NAME = "Hel’s Amulet";
 
   // ----------------------------
   // UI refs
@@ -450,6 +636,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   const meterClose = document.getElementById("meterClose");
   const goodMeterImg = document.getElementById("goodMeterImg");
   const evilMeterImg = document.getElementById("evilMeterImg");
+
+  const invBtn = document.getElementById("invBtn");
+  const invOverlay = document.getElementById("invOverlay");
+  const invClose = document.getElementById("invClose");
+  const invGrid = document.getElementById("invGrid");
+
+  const pickupOverlay = document.getElementById("pickupOverlay");
+  const pickupImgInner = document.getElementById("pickupImgInner");
+  const pickupText = document.getElementById("pickupText");
+  const pickupBtns = document.getElementById("pickupBtns");
 
   // ----------------------------
   // Helpers
@@ -537,7 +733,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           } else {
             g += 1;
           }
-        } else { // delta < 0
+        } else {
           if (g > 0) g -= 1;
         }
 
@@ -626,6 +822,122 @@ document.addEventListener("DOMContentLoaded", async () => {
   meterClose.addEventListener("click", closeMeters);
   meterOverlay.addEventListener("click", (e) => {
     if (e.target === meterOverlay) closeMeters();
+  });
+
+  // ----------------------------
+  // INVENTORY
+  // ----------------------------
+  function invGetItems(){
+    try{
+      const arr = JSON.parse(localStorage.getItem(INV_ITEMS_KEY) || "[]");
+      return Array.isArray(arr) ? arr : [];
+    }catch{
+      return [];
+    }
+  }
+  function invSetItems(items){
+    localStorage.setItem(INV_ITEMS_KEY, JSON.stringify(Array.isArray(items) ? items : []));
+  }
+  function invHasItem(id){
+    return invGetItems().some(it => it && it.id === id);
+  }
+  function invAddItem(item){
+    if (!item || !item.id) return;
+    if (invHasItem(item.id)) return;
+    const items = invGetItems();
+    items.push(item);
+    invSetItems(items);
+  }
+
+  function invRender(){
+    const items = invGetItems();
+    invGrid.innerHTML = "";
+
+    // 16 slots (4x4)
+    const slots = 16;
+    for (let i=0; i<slots; i++){
+      const cell = document.createElement("div");
+      cell.className = "invCell";
+
+      const it = items[i];
+      if (it && it.img){
+        const img = document.createElement("img");
+        img.src = it.img;
+        img.alt = it.name || it.id;
+        cell.appendChild(img);
+      }
+
+      invGrid.appendChild(cell);
+    }
+  }
+
+  function invUnlock(){
+    localStorage.setItem(INV_UNLOCK_KEY, "1");
+    invBtn.style.display = "block";
+  }
+  function invIsUnlocked(){
+    return localStorage.getItem(INV_UNLOCK_KEY) === "1";
+  }
+
+  function invOpen(){
+    invRender();
+    invOverlay.style.display = "block";
+    invOverlay.setAttribute("aria-hidden","false");
+  }
+  function invClose(){
+    invOverlay.style.display = "none";
+    invOverlay.setAttribute("aria-hidden","true");
+  }
+
+  invBtn.addEventListener("click", invOpen);
+  invClose.addEventListener("click", invClose);
+  invOverlay.addEventListener("click", (e) => {
+    if (e.target === invOverlay) invClose();
+  });
+
+  // On load: show/hide button depending on unlock
+  invBtn.style.display = invIsUnlocked() ? "block" : "none";
+
+  // ----------------------------
+  // AMULET PICKUP POPUP
+  // ----------------------------
+  function pickupShow({ img, textLines = [], primaryLabel = "Open Inventory", onPrimary, secondaryLabel = "Close", onSecondary }){
+    pickupImgInner.src = img || "";
+    pickupText.innerHTML = textLines.map(line => `<div>${escapeHtml(line)}</div>`).join("");
+    pickupBtns.innerHTML = "";
+
+    const b1 = document.createElement("button");
+    b1.className = "dlgBtn";
+    b1.type = "button";
+    b1.textContent = primaryLabel;
+    b1.addEventListener("click", () => {
+      pickupHide();
+      if (typeof onPrimary === "function") onPrimary();
+    });
+
+    const b2 = document.createElement("button");
+    b2.className = "dlgBtn";
+    b2.type = "button";
+    b2.textContent = secondaryLabel;
+    b2.addEventListener("click", () => {
+      pickupHide();
+      if (typeof onSecondary === "function") onSecondary();
+    });
+
+    pickupBtns.appendChild(b1);
+    pickupBtns.appendChild(b2);
+
+    pickupOverlay.style.display = "block";
+    pickupOverlay.setAttribute("aria-hidden","false");
+  }
+
+  function pickupHide(){
+    pickupOverlay.style.display = "none";
+    pickupOverlay.setAttribute("aria-hidden","true");
+  }
+
+  pickupOverlay.addEventListener("click", (e) => {
+    if (e.target === pickupOverlay) pickupHide();
   });
 
   // ----------------------------
@@ -741,7 +1053,42 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ----------------------------
   // DIALOGUE ENGINE (choices + rewards + good/evil + kickout)
+  // + AMULET -> POPUP -> UNLOCK INVENTORY -> ADD ITEM -> OPEN INVENTORY
   // ----------------------------
+  function maybeHandleAmuletSteal(){
+    const f = getFlags();
+
+    // Trigger condition: your quest uses flags from rewards like dq_001_stole:true
+    // Only run once:
+    if (f.__helsAmuletAwarded) return;
+    if (f.dq_001_stole !== true) return;
+
+    // mark once
+    f.__helsAmuletAwarded = true;
+    setFlags(f);
+
+    // unlock inventory + add item
+    invUnlock();
+    invAddItem({
+      id: AMULET_ITEM_ID,
+      name: AMULET_ITEM_NAME,
+      img: AMULET_ITEM_IMG
+    });
+
+    // popup then open inventory
+    pickupShow({
+      img: AMULET_ITEM_IMG,
+      textLines: [
+        "Stole Hel’s amulet successfully.",
+        "You have unlocked Inventory."
+      ],
+      primaryLabel: "Open Inventory",
+      onPrimary: () => invOpen(),
+      secondaryLabel: "Close",
+      onSecondary: () => {}
+    });
+  }
+
   function applyReward(reward){
     if (!reward) return;
 
@@ -783,7 +1130,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (reward.setQuest.catalog) localStorage.setItem(QUEST_CAT_KEY, reward.setQuest.catalog);
     }
 
-    // coins/items are left for your future inventory system
+    // after rewards apply: check amulet steal
+    maybeHandleAmuletSteal();
   }
 
   async function runDialogueFromJson(url){
@@ -837,12 +1185,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           }))
         : [{ label: "Close", onClick: hideDialogue }];
 
-      showDialogue({
-        speaker,
-        text,
-        portraitSrc: portrait,
-        buttons: btns
-      });
+      showDialogue({ speaker, text, portraitSrc: portrait, buttons: btns });
     }
 
     showNode(startId || "__close");
@@ -860,22 +1203,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  // Optional: press ESC to close dialogue/journal/meters
+  // In case the flag was already set from previous session, apply on load:
+  try{ maybeHandleAmuletSteal(); }catch{}
+
+  // Optional: press ESC to close dialogue/journal/meters/inventory/popup
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape"){
       hideDialogue();
       closeQuestJournal();
       closeMeters();
+      invClose();
+      pickupHide();
     }
   });
-
 });
 </script>
-<script src="/guildbook/js/va_global_ui.js"></script>
 
+<!-- Your global UI -->
+<script src="/guildbook/js/va_global_ui.js"></script>
 
 </body>
 </html>
+
 
 
 
