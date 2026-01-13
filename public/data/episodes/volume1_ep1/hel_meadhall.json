@@ -24,7 +24,7 @@
     {
       "id": "hel_1",
       "speaker": "Hel",
-      "text": "So, you’re the one Loki dragged in from the frost. Tell me—do you not bow when you enter the presence of Hel herself, or has the cold stolen even that much sense?",
+      "text": "So. This is the soul Loki drags from frost and fate. You stand before Hel—queen of rot, keeper of endings—and still your spine forgets how to bend. Tell me, {name}: is it pride that holds you upright… or ignorance?",
       "choices": [
         { "label": "Bow before Hel.", "to": "hel_bow" },
         { "label": "I bow to no one.", "to": "hel_no_bow" }
@@ -34,7 +34,7 @@
     {
       "id": "hel_bow",
       "speaker": "Hel",
-      "text": "Good. A rare instinct—respect. Stand. And remember: mercy is not the same thing as warmth.",
+      "text": "Good. Instinct survives where wisdom fails. Rise. But do not confuse respect with safety—mercy does not live long in my halls.",
       "reward": {
         "set": { "va_bowedToHel": true },
         "flags": {
@@ -52,7 +52,7 @@
     {
       "id": "hel_no_bow",
       "speaker": "Hel",
-      "text": "Mm. Proud. Or foolish. In Dreadheim, the difference is measured in scars.",
+      "text": "Mm. Defiance. A pretty word for those who have not yet paid its cost. In Dreadheim, pride is carved away—slowly—until only scars remember it existed.",
       "reward": {
         "set": { "va_bowedToHel": false },
         "flags": {
@@ -70,7 +70,7 @@
     {
       "id": "hel_2",
       "speaker": "Hel",
-      "text": "Do not mistake warmth for mercy, {name}. In Dreadheim, even the hearth has teeth. Speak—what do you want?",
+      "text": "Do not mistake fire for kindness, {name}. Even the hearth in Dreadheim bites the careless. Speak now. Why do you stain my hall with your breath?",
       "choices": [
         { "label": "Demand a seat. Now.", "to": "hel_demand_seat" },
         { "label": "Say nothing.", "to": "hel_say_nothing" }
@@ -80,7 +80,7 @@
     {
       "id": "hel_demand_seat",
       "speaker": "Hel",
-      "text": "Bold. Loud. Dangerous. Dreadheim likes that—until it doesn’t. Sit, then. Let the hall measure you.",
+      "text": "Ah. Volume instead of value. Dangerous, but honest. Sit, then. Let the benches weigh you… and decide how long you belong among the living.",
       "reward": {
         "flags": {
           "dq_001_demandedSeat": true
@@ -95,7 +95,7 @@
     {
       "id": "hel_say_nothing",
       "speaker": "Hel",
-      "text": "Silent. Careful. The kind who survives storms by becoming one. Fine—stand there and listen.",
+      "text": "Silence. The language of those who listen before they strike. Stand still, then. Dreadheim will speak for you.",
       "reward": {
         "flags": {
           "dq_001_demandedSeat": false
@@ -110,7 +110,7 @@
     {
       "id": "hel_3",
       "speaker": "Hel",
-      "text": "Watch the benches. The ones who smile first are usually hungry. And you… you have the look of someone deciding what they can get away with.",
+      "text": "Watch them closely. The first to smile are always starving. And you… you look like someone testing how much sin the room will forgive.",
       "choices": [
         { "label": "Wait until Hel isn’t looking and steal her amulet.", "to": "hel_steal_amulet" },
         { "label": "Don’t steal. Compliment Hel instead.", "to": "hel_compliment" }
@@ -120,7 +120,7 @@
     {
       "id": "hel_steal_amulet",
       "speaker": "Hel",
-      "text": "…Interesting. Either you are very brave… or very stupid. That amulet is old hunger given form. Keep it—if you can live with what follows you now.",
+      "text": "…Interesting. Courage that borders on madness. That amulet is hunger bound in iron and memory. Take it—if you are prepared to be followed by everything it remembers.",
       "reward": {
         "flags": {
           "dq_001_stole": true,
@@ -137,7 +137,7 @@
     {
       "id": "hel_compliment",
       "speaker": "Hel",
-      "text": "Flattery in Dreadheim is either a weapon or a confession. …Still. You chose words instead of claws. That tells me something.",
+      "text": "Flattery. Either a blade seeking a soft place… or a soul afraid to draw blood. Still—you chose words over theft. That restraint will either save you… or delay your ruin.",
       "reward": {
         "flags": {
           "dq_001_stole": false,
@@ -154,7 +154,7 @@
     {
       "id": "hel_4",
       "speaker": "Hel",
-      "text": "Loki likes debts. So do I. If you want to wear Dreadheim’s mark, you will earn it in choices—small ones that rot or shine over time.",
+      "text": "Loki trades in debts. I collect them. If you wish to bear Dreadheim’s mark, you will earn it not in glory—but in choices. Small ones. Quiet ones. The kind that rot… or harden into legend.",
       "reward": {
         "setQuest": {
           "id": "dq_001",
@@ -170,6 +170,7 @@
     }
   ]
 }
+
 
 
 

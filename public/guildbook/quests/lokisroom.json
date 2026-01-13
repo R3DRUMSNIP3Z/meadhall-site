@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "id": "lokisroom",
+    "title": "Loki’s Room",
+    "portrait": "/guildbook/npcs/loki/frame_008.png",
+    "speakerDefault": "Loki"
+  },
+
+  "start": "loki_check",
+
+  "nodes": [
+    {
+      "id": "loki_check",
+      "speaker": "Loki",
+      "text": "Ahhh. There you are, {name}. Come closer. Let’s see what you brought me… not gifts—results.",
+      "choices": [
+        { "label": "Show Loki what I did in Hel’s hall.", "to": "loki_score" },
+        { "label": "Leave.", "to": "__close" }
+      ]
+    },
+
+    {
+      "id": "loki_score",
+      "speaker": "Loki",
+      "text": "Three marks. Three little decisions… and each one tells me what you really are.",
+      "choices": [
+        { "label": "Continue.", "to": "loki_branch" }
+      ]
+    },
+
+    {
+      "id": "loki_branch",
+      "speaker": "Loki",
+      "text": "Now—did you prove you can be wicked… or did you disappoint me with virtue?",
+      "choices": [
+        { "label": "Hear Loki’s verdict.", "to": "loki_verdict" }
+      ]
+    },
+
+    {
+      "id": "loki_verdict",
+      "speaker": "Loki",
+      "text": "If you earned *two or more* green checks, you’re worth sharpening. If you earned *three red checks*… I will not pretend you’re anything but a problem.",
+      "choices": [
+        { "label": "Verdict (3/3 green).", "to": "v_3_green" },
+        { "label": "Verdict (2/3 green).", "to": "v_2_green" },
+        { "label": "Verdict (3/3 red).", "to": "v_3_red" }
+      ]
+    },
+
+    {
+      "id": "v_3_green",
+      "speaker": "Loki",
+      "text": "Perfect. Three green checks. Not a flicker of softness. That’s the kind of evil Dreadheim remembers—quiet, clean, and smiling while it happens.",
+      "reward": {
+        "flags": {
+          "lokiVerdict": "perfect",
+          "dq_001_resolved": true
+        }
+      },
+      "choices": [
+        { "label": "What’s next?", "to": "__to_lokislaki" }
+      ]
+    },
+
+    {
+      "id": "v_2_green",
+      "speaker": "Loki",
+      "text": "Two green checks. Hm. Not terrible… but not devotion either. You hesitated somewhere. You flinched. Don’t do that again.",
+      "reward": {
+        "flags": {
+          "lokiVerdict": "partial",
+          "dq_001_resolved": true
+        }
+      },
+      "choices": [
+        { "label": "I’ll prove it.", "to": "__to_lokislaki" }
+      ]
+    },
+
+    {
+      "id": "v_3_red",
+      "speaker": "Loki",
+      "text": "Three red checks?! You walked into my world and chose goodness like a lost child choosing a warm blanket. I don’t reward that. I correct it.",
+      "reward": {
+        "flags": {
+          "lokiVerdict": "failed",
+          "dq_001_resolved": true
+        }
+      },
+      "choices": [
+        { "label": "…", "to": "__to_failedloki" }
+      ]
+    }
+  ]
+}

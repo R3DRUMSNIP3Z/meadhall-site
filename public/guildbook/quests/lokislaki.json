@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "id": "lokislaki_quests",
+    "title": "Loki’s Next Trials"
+  },
+  "quests": {
+    "dq_002": {
+      "id": "dq_002",
+      "title": "Blood-Tithe Courtesy",
+      "giver": "Loki",
+      "summary": "Prove you can take what you want without asking—and leave the room smiling.",
+
+      "type": "evil",
+      "passAdds": { "evil": 1 },
+      "failAdds": { "good": 1 },
+
+      "steps": [
+        "Take a token from the hall without permission.",
+        "Lie about it when questioned.",
+        "Leave someone else carrying the blame."
+      ],
+
+      "objectiveOrder": ["take", "lie", "blame"],
+
+      "objectives": {
+        "take": {
+          "label": "Take a token from the hall without permission.",
+          "flag": "dq_002_tookToken",
+          "passWhen": true
+        },
+        "lie": {
+          "label": "Lie about it when questioned.",
+          "flag": "dq_002_lied",
+          "passWhen": true
+        },
+        "blame": {
+          "label": "Leave someone else carrying the blame.",
+          "flag": "dq_002_shiftedBlame",
+          "passWhen": true
+        }
+      },
+
+      "reward": "Loki’s favor (for now)"
+    },
+
+    "dq_003": {
+      "id": "dq_003",
+      "title": "A Whispered Cruelty",
+      "giver": "Loki",
+      "summary": "Dreadheim rewards those who rot the heart first. A single rumor can do what steel cannot.",
+
+      "type": "evil",
+      "passAdds": { "evil": 1 },
+      "failAdds": { "good": 1 },
+
+      "steps": [
+        "Plant a lie that turns friend against friend.",
+        "Watch the fallout without intervening.",
+        "Claim credit only in private."
+      ],
+
+      "objectiveOrder": ["plant", "watch", "claim"],
+
+      "objectives": {
+        "plant": {
+          "label": "Plant a lie that turns friend against friend.",
+          "flag": "dq_003_plantedLie",
+          "passWhen": true
+        },
+        "watch": {
+          "label": "Watch the fallout without intervening.",
+          "flag": "dq_003_watchedFallout",
+          "passWhen": true
+        },
+        "claim": {
+          "label": "Claim credit only in private.",
+          "flag": "dq_003_claimedCredit",
+          "passWhen": true
+        }
+      },
+
+      "reward": "A black thread (for binding oaths)"
+    }
+  }
+}
+
+

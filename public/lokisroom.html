@@ -1,0 +1,443 @@
+```html
+<!-- /public/guildbook/scenes/lokisroom.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Veriador • Loki’s Room</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+html, body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  background:#000;
+  font-family:Cinzel, serif;
+  overflow:hidden;
+}
+
+/* ================= BACKGROUND ================= */
+#bg{
+  position:fixed;
+  inset:0;
+  background:url("/guildbook/scenes/lokisroom.png") center center / cover no-repeat;
+  z-index:0;
+}
+
+/* ================= NPCS LAYER ================= */
+#npcs{
+  position:fixed;
+  inset:0;
+  z-index:20;
+  pointer-events:none;
+}
+
+/* LOKI NPC (center of room, closer to bottom) */
+#npcLoki{
+  position:absolute;
+  left:50%;
+  top:58%;
+  transform:translate(-50%, -50%);
+  width:270px;
+  height:auto;
+  z-index:25;
+  pointer-events:auto;
+  cursor:pointer;
+  user-select:none;
+  filter: drop-shadow(0 18px 32px rgba(0,0,0,0.78));
+  transition: transform 120ms ease, filter 120ms ease;
+}
+#npcLoki:hover{
+  transform:translate(-50%, -50%) scale(1.02);
+  filter: drop-shadow(0 22px 38px rgba(0,0,0,0.85))
+          drop-shadow(0 0 14px rgba(180,200,255,0.22));
+}
+
+/* ================= DIALOGUE ================= */
+#dlg{
+  position:fixed;
+  left:50%;
+  bottom:14px;
+  transform:translateX(-50%);
+  width:min(1200px, calc(100vw - 24px));
+  height:190px;
+  z-index:999;
+  display:grid;
+  grid-template-columns:240px 1fr;
+  border-radius:18px;
+  overflow:hidden;
+  background:linear-gradient(90deg, rgba(35,20,10,.95), rgba(15,10,8,.88));
+  border:1px solid rgba(255,208,120,.2);
+  box-shadow:0 18px 55px rgba(0,0,0,.6);
+}
+#dlg.hidden{ display:none !important; }
+
+#dlgPortrait{
+  width:240px;
+  height:190px;
+  object-fit:contain;
+  align-self:end;
+  filter:drop-shadow(0 12px 22px rgba(0,0,0,0.65));
+}
+
+#dlgPanel{
+  padding:16px 18px;
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  gap:10px;
+}
+
+#dlgName{
+  font-size:28px;
+  font-weight:900;
+  color:rgba(255,225,170,.95);
+}
+
+#dlgText{
+  font-size:20px;
+  line-height:1.35;
+  color:rgba(255,255,255,.95);
+}
+
+#dlgBtns{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+#dlg, #dlgPanel, #dlgBtns, .dlgBtn{ pointer-events:auto; }
+
+.dlgBtn{
+  padding:10px 16px;
+  border-radius:12px;
+  cursor:pointer;
+  border:1px solid rgba(255,208,120,.28);
+  background:rgba(120,60,25,.45);
+  color:rgba(255,245,230,.95);
+  font-weight:800;
+}
+.dlgBtn:hover{ filter:brightness(1.1); }
+
+/* Tiny hint text */
+#hint{
+  position:fixed;
+  left:14px;
+  bottom:14px;
+  z-index:15;
+  font-size:14px;
+  letter-spacing:.03em;
+  color:rgba(255,255,255,0.55);
+  text-shadow:0 2px 10px rgba(0,0,0,0.8);
+  pointer-events:none;
+}
+</style>
+</head>
+
+<body>
+<div id="bg"></div>
+
+<div id="npcs">
+  <!-- Loki NPC animation frames (frame_008 confirmed) -->
+  <img id="npcLoki" src="/guildbook/npcs/loki/frame_008.png" alt="Loki">
+</div>
+
+<div id="hint">Tip: Click Loki to speak.</div>
+
+<!-- Dialogue (hidden until NPC click) -->
+<div id="dlg" class="hidden">
+  <img id="dlgPortrait" alt="Portrait">
+  <div id="dlgPanel">
+    <div id="dlgName"></div>
+    <div id="dlgText"></div>
+    <div id="dlgBtns"></div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  // ----------------------------
+  // Storage keys (canonical)
+  // ----------------------------
+  const QUEST_ID_KEY  = "vaq_activeQuestId";
+  const QUEST_CAT_KEY = "vaq_activeQuestCatalog";
+  const FLAGS_KEY     = "va_flags";
+  const NAME_KEY      = "va_player_name";
+
+  // ----------------------------
+  // File paths
+  // ----------------------------
+  const LOKI_ROOM_JSON        = "/data/episodes/volume1_ep1/lokisroom.json";      // verdict dialogue
+  const LOKI_SLAKI_DIALOGUE   = "/data/episodes/volume1_ep1/lokislaki.json";      // follow-up dialogue
+  const FAILED_LOKI_DIALOGUE  = "/data/episodes/volume1_ep1/failedloki.json";     // punishment dialogue
+
+  const LOKI_SLAKI_QUEST_CATALOG  = "/guildbook/quests/lokislaki_quests.json";    // replacement quest catalog
+  const FAILED_LOKI_QUEST_CATALOG = "/guildbook/quests/failedloki_quests.json";  // replacement quest catalog
+
+  // ----------------------------
+  // UI refs
+  // ----------------------------
+  const dlg = document.getElementById("dlg");
+  const dlgName = document.getElementById("dlgName");
+  const dlgText = document.getElementById("dlgText");
+  const dlgBtns = document.getElementById("dlgBtns");
+  const dlgPortrait = document.getElementById("dlgPortrait");
+  const npcLoki = document.getElementById("npcLoki");
+
+  // ----------------------------
+  // Helpers
+  // ----------------------------
+  function escapeHtml(s){
+    return String(s ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function getName(){
+    return (localStorage.getItem(NAME_KEY) || "").trim() || "Traveler";
+  }
+
+  function txt(t){
+    return String(t ?? "").replaceAll("{name}", getName());
+  }
+
+  function getFlags(){
+    try{ return JSON.parse(localStorage.getItem(FLAGS_KEY) || "{}"); }
+    catch{ return {}; }
+  }
+
+  function setFlags(obj){
+    localStorage.setItem(FLAGS_KEY, JSON.stringify(obj || {}));
+  }
+
+  async function loadJSON(url){
+    const res = await fetch(url, { cache:"no-store" });
+    if (!res.ok) throw new Error("Failed to load " + url + " (" + res.status + ")");
+    return await res.json();
+  }
+
+  function showDialogue({ speaker, text, portraitSrc, buttons = [] }){
+    dlgName.textContent = speaker || "";
+    dlgText.textContent = (typeof text === "string") ? text : String(text ?? "");
+    dlgBtns.innerHTML = "";
+    if (portraitSrc) dlgPortrait.src = portraitSrc;
+    dlg.classList.remove("hidden");
+
+    buttons.forEach(b => {
+      const btn = document.createElement("button");
+      btn.className = "dlgBtn";
+      btn.type = "button";
+      btn.textContent = b.label;
+
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof b.onClick === "function") b.onClick();
+      });
+
+      dlgBtns.appendChild(btn);
+    });
+  }
+
+  function hideDialogue(){
+    dlg.classList.add("hidden");
+    dlgName.textContent = "";
+    dlgText.textContent = "";
+    dlgBtns.innerHTML = "";
+  }
+
+  hideDialogue();
+
+  function setActiveQuest(id, catalogUrl){
+    if (id) localStorage.setItem(QUEST_ID_KEY, String(id));
+    if (catalogUrl) localStorage.setItem(QUEST_CAT_KEY, String(catalogUrl));
+  }
+
+  // ----------------------------
+  // Loki NPC animation (frames 1-8 assumed; frame_008 confirmed)
+  // ----------------------------
+  const lokiFrames = [
+    "/guildbook/npcs/loki/frame_001.png",
+    "/guildbook/npcs/loki/frame_002.png",
+    "/guildbook/npcs/loki/frame_003.png",
+    "/guildbook/npcs/loki/frame_004.png",
+    "/guildbook/npcs/loki/frame_005.png",
+    "/guildbook/npcs/loki/frame_006.png",
+    "/guildbook/npcs/loki/frame_007.png",
+    "/guildbook/npcs/loki/frame_008.png"
+  ];
+  let lokiIdx = 7; // start at 008
+  setInterval(() => {
+    lokiIdx = (lokiIdx + 1) % lokiFrames.length;
+    npcLoki.src = lokiFrames[lokiIdx];
+  }, 120);
+
+  // ----------------------------
+  // Score dq_001 (3 objectives)
+  // green check = "pass"
+  // red check   = "fail"
+  // NOTE: these are the quest journal flags you already write:
+  // dq_001_step0, dq_001_step1, dq_001_step2
+  // ----------------------------
+  function getDq001Score(){
+    const f = getFlags();
+    const s0 = f["dq_001_step0"];
+    const s1 = f["dq_001_step1"];
+    const s2 = f["dq_001_step2"];
+
+    const steps = [s0, s1, s2];
+    const complete = steps.every(v => v === "pass" || v === "fail");
+    const passCount = steps.filter(v => v === "pass").length;
+    const failCount = steps.filter(v => v === "fail").length;
+
+    return { complete, passCount, failCount, steps };
+  }
+
+  // ----------------------------
+  // Dialogue Engine (same format as Hel)
+  // Supports special routing tokens:
+  //  "__to_failed_dialogue" -> open failedloki.json
+  //  "__to_slaki_dialogue"  -> open lokislaki.json
+  // ----------------------------
+  async function runDialogueFromJson(url){
+    const data = await loadJSON(url);
+    const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+    const map = new Map(nodes.map(n => [n.id, n]));
+
+    const portraitDefault = data?.meta?.portrait || "/guildbook/npcs/loki/frame_008.png";
+    const speakerDefault = data?.meta?.speakerDefault || "Loki";
+    const startId = data?.start || (nodes[0]?.id);
+
+    function applyReward(reward){
+      if (!reward) return;
+
+      if (reward.set && typeof reward.set === "object"){
+        for (const k of Object.keys(reward.set)){
+          localStorage.setItem(k, String(reward.set[k]));
+        }
+      }
+
+      if (reward.flags && typeof reward.flags === "object"){
+        const f = getFlags();
+        for (const k of Object.keys(reward.flags)) f[k] = reward.flags[k];
+        setFlags(f);
+      }
+
+      if (reward.setQuest?.id){
+        setActiveQuest(reward.setQuest.id, reward.setQuest.catalog);
+      }
+    }
+
+    function showNode(id){
+      if (id === "__close"){
+        hideDialogue();
+        if (data?.meta?.gotoOnEnd) window.location.href = data.meta.gotoOnEnd;
+        return;
+      }
+
+      const node = map.get(id);
+      if (!node){
+        showDialogue({
+          speaker: speakerDefault,
+          text: "…",
+          portraitSrc: portraitDefault,
+          buttons: [{ label: "Close", onClick: hideDialogue }]
+        });
+        return;
+      }
+
+      applyReward(node.reward);
+
+      const speaker = node.speaker || speakerDefault;
+      const text = txt(node.text || "…");
+      const portrait = node.portrait || portraitDefault;
+      const choices = Array.isArray(node.choices) ? node.choices : [];
+
+      const btns = choices.length
+        ? choices.map(c => ({
+            label: c.label || "Continue",
+            onClick: () => {
+              if (c.to === "__to_failed_dialogue"){ runDialogueFromJson(FAILED_LOKI_DIALOGUE).catch(console.error); return; }
+              if (c.to === "__to_slaki_dialogue"){  runDialogueFromJson(LOKI_SLAKI_DIALOGUE).catch(console.error);  return; }
+              showNode(c.to || "__close");
+            }
+          }))
+        : [{ label: "Close", onClick: hideDialogue }];
+
+      showDialogue({ speaker, text, portraitSrc: portrait, buttons: btns });
+    }
+
+    showNode(startId || "__close");
+  }
+
+  // ----------------------------
+  // Loki click: require dq_001 completed first
+  // Then:
+  // - 3 green (passCount === 3): praise + set quests to lokislaki (dq_002) catalog
+  // - 2 green (passCount === 2): mean praise + set quests to lokislaki (dq_002) catalog
+  // - 3 red   (failCount === 3): furious + set quests to failedloki (dq_001b) catalog
+  // ----------------------------
+  npcLoki.addEventListener("click", async () => {
+    const score = getDq001Score();
+
+    if (!score.complete){
+      showDialogue({
+        speaker: "Loki",
+        text: txt("Not yet, {name}. Three marks. Three checks. I want them all in that journal before you stand in my room begging for judgment."),
+        portraitSrc: "/guildbook/npcs/loki/frame_008.png",
+        buttons: [
+          { label: "Back to Mead Hall", onClick: () => { window.location.href = "/guildbook/scenes/dreadheim_meadhall.html"; } },
+          { label: "Close", onClick: hideDialogue }
+        ]
+      });
+      return;
+    }
+
+    // Persist counts for debugging / future rules
+    const f = getFlags();
+    f.dq_001_passCount = score.passCount;
+    f.dq_001_failCount = score.failCount;
+    setFlags(f);
+
+    // Set quest replacement BEFORE dialogue so the quest button updates immediately
+    if (score.passCount >= 2){
+      // success / partial success -> next trials
+      setActiveQuest("dq_002", LOKI_SLAKI_QUEST_CATALOG);
+    } else if (score.failCount === 3){
+      // total failure -> punishment quest catalog
+      setActiveQuest("dq_001b", FAILED_LOKI_QUEST_CATALOG);
+    }
+
+    // Open verdict dialogue (lokisroom.json should have the 3 branches)
+    runDialogueFromJson(LOKI_ROOM_JSON).catch(err => {
+      console.error(err);
+      showDialogue({
+        speaker: "Loki",
+        text: "…",
+        portraitSrc: "/guildbook/npcs/loki/frame_008.png",
+        buttons: [{ label: "Close", onClick: hideDialogue }]
+      });
+    });
+  });
+
+  // ESC closes
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hideDialogue();
+  });
+});
+</script>
+
+<!-- Safe helpers (no UI) -->
+<script src="/guildbook/js/va_global_ui.js"></script>
+
+</body>
+</html>
+```
+
