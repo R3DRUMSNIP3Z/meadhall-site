@@ -311,7 +311,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const nodes = Array.isArray(data.nodes) ? data.nodes : [];
     const map = new Map(nodes.map(n => [n.id, n]));
 
-    const portraitDefault = data?.meta?.portrait || "/guildbook/npcs/loki/frame_008.png";
+    const portraitDefault = data?.meta?.portrait || "/guildbook/npcs/loki.gif";
     const speakerDefault = data?.meta?.speakerDefault || "Loki";
     const startId = data?.start || (nodes[0]?.id);
 
@@ -391,7 +391,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       showDialogue({
         speaker: "Loki",
         text: txt("Not yet, {name}. Three marks. Three checks. I want them all in that journal before you stand in my room begging for judgment."),
-        portraitSrc: "/guildbook/npcs/loki/frame_008.png",
+        portraitSrc: "//guildbook/npcs/loki.gif",
         buttons: [
           { label: "Back to Mead Hall", onClick: () => { window.location.href = "/guildbook/scenes/dreadheim_meadhall.html"; } },
           { label: "Close", onClick: hideDialogue }
@@ -421,7 +421,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       showDialogue({
         speaker: "Loki",
         text: "…",
-        portraitSrc: "/guildbook/npcs/loki/frame_008.png",
+        portraitSrc: "/guildbook/npcs/loki.gif",
         buttons: [{ label: "Close", onClick: hideDialogue }]
       });
     });
