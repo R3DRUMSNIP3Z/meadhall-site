@@ -1,50 +1,60 @@
 {
   "meta": {
     "id": "defaultdialoguenpc",
-    "title": "Default NPC Dialogue (fallback)",
-    "speakerDefault": "NPC",
-    "portraitDefault": "/guildbook/ui/portraits/default_npc.png"
+    "title": "Default NPC Dialogue (After First Conversation)",
+    "notes": "Each NPC/cutscene can have a default set. Used after the 'once' dialogue has already been played."
   },
 
   "defaults": {
-    "hel": {
+    "hel_meadhall": {
       "speaker": "Hel",
       "portrait": "/guildbook/npcs/hel/hel.png",
       "lines": [
         "How fare thee, evil one?",
-        "Mmm… your footsteps sound heavier today.",
-        "Dreadheim remembers what you choose."
+        "My hall remembers your choices, {name}.",
+        "Do not grow comfortable. Comfort rots first."
       ]
     },
-    "loki": {
-      "speaker": "Loki",
-      "portrait": "/guildbook/npcs/loki/frame_008.png",
-      "lines": [
-        "Back again, {name}? Careful—my patience is decorative.",
-        "Tell me… did you behave badly, or merely loudly?",
-        "Good. Keep walking the wrong way. It suits you."
-      ]
-    }
-  },
 
-  "placeholders": {
-    "npc_id_here": {
-      "speaker": "NPC Name",
-      "portrait": "/guildbook/npcs/npc_id_here/frame_001.png",
+    "loki_room": {
+      "speaker": "Loki",
+      "portrait": "/guildbook/npcs/loki.gif",
       "lines": [
-        "Default line 1.",
-        "Default line 2.",
-        "Default line 3."
+        "Back again, {name}? Good. I was starting to miss the sound of bad decisions.",
+        "If you’re here for praise, try somewhere holy. This is Dreadheim.",
+        "Go on—prove you didn’t survive by accident."
       ]
     },
-    "another_npc_id": {
-      "speaker": "Another NPC",
-      "portrait": "/guildbook/npcs/another_npc_id/portrait.png",
+
+    "cutscene_dreadheim_scene1": {
+      "speaker": "Loki",
+      "portrait": "/guildbook/npcs/loki.gif",
       "lines": [
-        "Default greeting.",
-        "Default comment.",
-        "Default farewell."
+        "We’ve already spoken. Now move.",
+        "Dreadheim doesn’t repeat itself for free.",
+        "Earn your mark, {name}."
+      ]
+    },
+
+    "npc_placeholder_1": {
+      "speaker": "???",
+      "portrait": "/guildbook/npcs/placeholder.png",
+      "lines": [
+        "…",
+        "Placeholder dialogue. Replace me.",
+        "Add more lines here."
+      ]
+    },
+
+    "npc_placeholder_2": {
+      "speaker": "???",
+      "portrait": "/guildbook/npcs/placeholder.png",
+      "lines": [
+        "…",
+        "Placeholder dialogue. Replace me.",
+        "Add more lines here."
       ]
     }
   }
 }
+
