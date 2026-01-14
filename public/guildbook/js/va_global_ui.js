@@ -1,10 +1,4 @@
-/* /public/guildbook/js/va_global_ui.js
-   Veriador (VA) Global Helpers ONLY (NO HUD)
-   - Safe to include on ANY page
-   - Exposes window.VAQ helpers for quests/flags/text
-   - Does NOT create any UI
-   - Includes GLOBAL Resume (save last page so player returns where they left off)
-*/
+
 
 (() => {
   "use strict";
