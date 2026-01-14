@@ -18,8 +18,16 @@
   // Default catalog (page can override by setting localStorage[QUEST_CAT_KEY])
   const DEFAULT_CATALOG_URL = "/guildbook/quests/dreadheim_quests.json";
 
-  // Resume storage
+  // ----------------------------
+  // Resume (global "return where I left off")
+  // ----------------------------
   const RESUME_KEY = "va_resume_state";
+
+  // ----------------------------
+  // Once-only dialogue + default dialogue
+  // ----------------------------
+  const DIALOGUE_ONCE_KEY = "va_dialogue_once"; // object map { [dialogueId]: true }
+  const DEFAULT_DIALOGUE_URL = "/data/episodes/volume1_ep1/defaultdialoguenpc.json";
 
   // ----------------------------
   // Utilities
@@ -65,8 +73,6 @@
 
   // ----------------------------
   // Resume System (GLOBAL)
-  // - saves the last visited URL automatically
-  // - optional extra data (sceneId, nodeId, etc.)
   // ----------------------------
   function saveResumeState(extra = {}) {
     try {
@@ -82,15 +88,97 @@
   }
 
   function getResumeState() {
-    try {
-      return JSON.parse(localStorage.getItem(RESUME_KEY) || "null");
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(localStorage.getItem(RESUME_KEY) || "null"); }
+    catch { return null; }
   }
 
   function clearResumeState() {
     localStorage.removeItem(RESUME_KEY);
+  }
+
+  // ----------------------------
+  // Once-only Dialogue Helpers
+  // ----------------------------
+  function _getOnceMap() {
+    try {
+      const m = JSON.parse(localStorage.getItem(DIALOGUE_ONCE_KEY) || "{}");
+      return (m && typeof m === "object") ? m : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function _setOnceMap(m) {
+    localStorage.setItem(DIALOGUE_ONCE_KEY, JSON.stringify(m || {}));
+  }
+
+  // Example dialogueId: "hel_meadhall", "loki_room", "cutscene_dreadheim_scene1"
+  function dlgHasPlayed(dialogueId) {
+    if (!dialogueId) return false;
+    const m = _getOnceMap();
+    return !!m[String(dialogueId)];
+  }
+
+  function dlgMarkPlayed(dialogueId) {
+    if (!dialogueId) return;
+    const m = _getOnceMap();
+    m[String(dialogueId)] = true;
+    _setOnceMap(m);
+  }
+
+  // Allow dev/testing resets for one dialogue only
+  function dlgUnmarkPlayed(dialogueId) {
+    if (!dialogueId) return;
+    const m = _getOnceMap();
+    delete m[String(dialogueId)];
+    _setOnceMap(m);
+  }
+
+  // Default dialogue cache
+  let __defaultDialogueCache = null;
+  let __defaultDialogueCacheUrl = DEFAULT_DIALOGUE_URL;
+
+  function dlgSetDefaultUrl(url) {
+    if (!url) return;
+    __defaultDialogueCacheUrl = String(url);
+    __defaultDialogueCache = null; // reset cache
+  }
+
+  async function dlgLoadDefaults(url) {
+    const u = url ? String(url) : __defaultDialogueCacheUrl;
+    if (__defaultDialogueCache && __defaultDialogueCache.__url === u) return __defaultDialogueCache.data;
+
+    const data = await loadJSON(u);
+    __defaultDialogueCache = { __url: u, data };
+    return data;
+  }
+
+  // Returns {speaker, portrait, line} for a given npcKey from defaultdialoguenpc.json
+  // npcKey examples must match your JSON defaults keys:
+  // "hel_meadhall", "loki_room", etc.
+  async function dlgGetDefault(npcKey, url) {
+    const data = await dlgLoadDefaults(url);
+    const defaults = data?.defaults || {};
+    const entry = defaults?.[npcKey];
+
+    if (!entry) {
+      return {
+        speaker: "…",
+        portrait: "/guildbook/npcs/placeholder.png",
+        line: "…"
+      };
+    }
+
+    const lines = Array.isArray(entry.lines) ? entry.lines : [];
+    const line = lines.length
+      ? lines[Math.floor(Math.random() * lines.length)]
+      : "…";
+
+    return {
+      speaker: entry.speaker || "…",
+      portrait: entry.portrait || "/guildbook/npcs/placeholder.png",
+      line: txt(line)
+    };
   }
 
   // ----------------------------
@@ -160,6 +248,7 @@
     localStorage.removeItem(QUEST_CAT_KEY);
     localStorage.removeItem(FLAGS_KEY);
     localStorage.removeItem(RESUME_KEY);
+    localStorage.removeItem(DIALOGUE_ONCE_KEY);
     // optional stats:
     // localStorage.removeItem(GOOD_KEY);
     // localStorage.removeItem(EVIL_KEY);
@@ -169,7 +258,15 @@
   // Expose public API
   // ----------------------------
   const VAQ = {
-    keys: { QUEST_ID_KEY, QUEST_CAT_KEY, FLAGS_KEY, NAME_KEY, GOOD_KEY, EVIL_KEY, RESUME_KEY },
+    keys: {
+      QUEST_ID_KEY, QUEST_CAT_KEY, FLAGS_KEY,
+      NAME_KEY, GOOD_KEY, EVIL_KEY,
+      RESUME_KEY,
+      DIALOGUE_ONCE_KEY,
+      DEFAULT_DIALOGUE_URL
+    },
+
+    // utils
     clamp,
     getNum,
     escapeHtml,
@@ -191,7 +288,15 @@
     // resume
     saveResumeState,
     getResumeState,
-    clearResumeState
+    clearResumeState,
+
+    // dialogue once + defaults
+    dlgHasPlayed,
+    dlgMarkPlayed,
+    dlgUnmarkPlayed,
+    dlgSetDefaultUrl,
+    dlgLoadDefaults,
+    dlgGetDefault
   };
 
   window.VAQ = VAQ;
@@ -213,6 +318,8 @@
     saveResumeState();
   });
 })();
+
+
 
 
 
