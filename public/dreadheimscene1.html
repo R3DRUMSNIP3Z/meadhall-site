@@ -307,11 +307,14 @@ html, body{
   </button>
 </div>
 
+<!-- ✅ Global helpers MUST load BEFORE inline script uses VAQ -->
+<script src="/guildbook/js/va_global_ui.js"></script>
+
 <script>
 document.addEventListener("DOMContentLoaded", async () => {
   const SCENE_JSON = "/data/episodes/volume1_ep1/dreadheim_scene1.json";
 
-  // ✅ ONCE-THEN-DEFAULT CONFIG (treat this cutscene as an NPC run)
+  // ✅ ONCE-THEN-DEFAULT CONFIG
   const NPC_ID = "cutscene_dreadheim_scene1";
   const DEFAULT_NPC_JSON = "/data/episodes/volume1_ep1/defaultdialoguenpc.json";
 
@@ -446,7 +449,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const steps = Array.isArray(q.steps) ? q.steps : (Array.isArray(q.objectives) ? q.objectives : []);
+    const steps = Array.isArray(q.steps) ? q.steps : [];
     const stepsHtml = steps.map(s => `<li style="margin:6px 0;">${escapeHtml(s)}</li>`).join("");
 
     questContent.innerHTML = `
@@ -471,32 +474,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   hideEnter();
   questBtn.style.display = "none";
 
-  // If VAQ is missing, fail loudly (means va_global_ui.js isn't loaded)
-  if (!window.VAQ || !window.VAQ.npcRunOnceThenDefault){
+  // Must exist
+  if (!window.VAQ || typeof window.VAQ.npcRunOnceThenDefault !== "function"){
     showDialogue({
       speaker: "System",
-      text: "VAQ helpers missing. Make sure /guildbook/js/va_global_ui.js is included.",
+      text: "VAQ helpers missing. Make sure /guildbook/js/va_global_ui.js is included BEFORE this script.",
       portraitSrc: "/guildbook/npcs/loki.gif",
       buttons: [{ label:"Reload", onClick:()=>location.reload() }]
     });
     return;
   }
 
-  // This function plays your cutscene JSON exactly like before
   async function runCutsceneJson(url){
-    let data;
-    try{
-      data = await loadJSON(url);
-    }catch(err){
-      console.error(err);
-      showDialogue({
-        speaker:"Loki",
-        text:"The fog thickens… (Scene failed to load.)",
-        portraitSrc:"/guildbook/npcs/loki.gif",
-        buttons:[{ label:"Reload", onClick:()=>location.reload() }]
-      });
-      return;
-    }
+    const data = await loadJSON(url);
 
     const speakerDefault = data?.meta?.speakerDefault || "Loki";
     const portrait = data?.meta?.portrait || "/guildbook/npcs/loki.gif";
@@ -510,7 +500,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function runNext(){
       if (idx >= nodes.length){
-        // After final dialogue: set quest + show quest icon + show enter button
         const questId = data?.onComplete?.setQuestActive || "";
         if (questId){
           localStorage.setItem(QUEST_ID_KEY, questId);
@@ -564,10 +553,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           portraitSrc: portrait,
           buttons: [{
             label: "Continue",
-            onClick: () => {
-              hideDialogue();
-              resolve();
-            }
+            onClick: () => { hideDialogue(); resolve(); }
           }]
         });
       });
@@ -579,31 +565,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     runNext();
   }
 
-  // ✅ ONCE -> plays the full cutscene JSON
-  // ✅ AFTER -> shows ONLY default dialogue (from defaultdialoguenpc.json under defaults.cutscene_dreadheim_scene1)
   await VAQ.npcRunOnceThenDefault({
     npcId: NPC_ID,
     onceJson: SCENE_JSON,
     defaultJson: DEFAULT_NPC_JSON,
-    runDialogueFromJson: runCutsceneJson,
+    defaultNpcKey: NPC_ID, // must match defaults key in defaultdialoguenpc.json
+    runOnce: runCutsceneJson,
     showDialogue,
     hideDialogue,
-    portraitFallback: "/guildbook/npcs/loki.gif",
-    speakerFallback: "Loki"
+    speakerFallback: "Loki",
+    portraitFallback: "/guildbook/npcs/loki.gif"
   });
 });
 </script>
 
-<!-- Safe helpers (no UI) -->
-<script src="/guildbook/js/va_global_ui.js"></script>
-
-
-
-
-
-
 </body>
 </html>
+
 
 
 
