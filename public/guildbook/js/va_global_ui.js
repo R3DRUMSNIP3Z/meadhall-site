@@ -1,3 +1,10 @@
+/* /public/guildbook/js/va_global_ui.js
+   Veriador (VA) Global Helpers ONLY (NO HUD)
+   - Safe to include on ANY page
+   - Exposes window.VAQ helpers for quests/flags/text
+   - Does NOT create any UI
+   - Includes GLOBAL Resume (save last page so player returns where they left off)
+*/
 
 (() => {
   "use strict";
@@ -17,8 +24,8 @@
   // Default catalog (page can override by setting localStorage[QUEST_CAT_KEY])
   const DEFAULT_CATALOG_URL = "/guildbook/quests/dreadheim_quests.json";
 
-  // Default NPC fallback dialogue JSON
-  const DEFAULT_NPC_DIALOGUE_URL = "/data/episodes/volume1_ep1/defaultdialoguenpc.json";
+  // Resume storage
+  const RESUME_KEY = "va_resume_state";
 
   // ----------------------------
   // Utilities
@@ -60,6 +67,36 @@
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`Failed to load ${url} (${res.status})`);
     return await res.json();
+  }
+
+  // ----------------------------
+  // Resume System (GLOBAL)
+  // - saves the last visited URL automatically
+  // - optional extra data (sceneId, nodeId, etc.)
+  // ----------------------------
+  function saveResumeState(extra = {}) {
+    try {
+      const state = {
+        url: window.location.pathname + window.location.search,
+        time: Date.now(),
+        ...extra
+      };
+      localStorage.setItem(RESUME_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn("Resume save failed", e);
+    }
+  }
+
+  function getResumeState() {
+    try {
+      return JSON.parse(localStorage.getItem(RESUME_KEY) || "null");
+    } catch {
+      return null;
+    }
+  }
+
+  function clearResumeState() {
+    localStorage.removeItem(RESUME_KEY);
   }
 
   // ----------------------------
@@ -122,100 +159,13 @@
   }
 
   // ----------------------------
-  // NPC Dialogue: Once-Then-Default Fallback
-  // ----------------------------
-  function npcOnceKey(npcId) {
-    return `__npc_once_done_${String(npcId || "").trim().toLowerCase()}`;
-  }
-
-  // Reads a random default line for npcId from defaultdialoguenpc.json
-  async function npcGetDefaultLine(npcId, defaultUrl = DEFAULT_NPC_DIALOGUE_URL) {
-    const id = String(npcId || "").trim().toLowerCase();
-    if (!id) return { speaker: "NPC", portrait: "", line: "…" };
-
-    const data = await loadJSON(defaultUrl);
-
-    const entry =
-      (data?.defaults && data.defaults[id]) ||
-      (data?.placeholders && data.placeholders[id]) ||
-      null;
-
-    const speaker = entry?.speaker || data?.meta?.speakerDefault || "NPC";
-    const portrait = entry?.portrait || data?.meta?.portraitDefault || "";
-    const lines = Array.isArray(entry?.lines) ? entry.lines : ["…"];
-    const line = lines[Math.floor(Math.random() * lines.length)];
-
-    return { speaker, portrait, line };
-  }
-
-  // Runs a JSON dialogue ONCE for an NPC, then forever after uses defaultdialoguenpc.json
-  // Requires you to pass in your page's functions:
-  // - runDialogueFromJson(url)  (your JSON dialogue engine)
-  // - showDialogue({speaker,text,portraitSrc,buttons})
-  // - hideDialogue()
-  async function npcRunOnceThenDefault(opts) {
-    const npcId = String(opts?.npcId || "").trim().toLowerCase();
-    if (!npcId) throw new Error("npcRunOnceThenDefault: npcId missing");
-
-    const onceJson = opts?.onceJson;
-    const defaultJson = opts?.defaultJson || DEFAULT_NPC_DIALOGUE_URL;
-
-    const runDialogueFromJson = opts?.runDialogueFromJson;
-    const showDialogue = opts?.showDialogue;
-    const hideDialogue = opts?.hideDialogue;
-
-    const portraitFallback = opts?.portraitFallback || "";
-    const speakerFallback = opts?.speakerFallback || npcId;
-
-    if (typeof showDialogue !== "function") throw new Error("npcRunOnceThenDefault: showDialogue missing");
-    if (typeof hideDialogue !== "function") throw new Error("npcRunOnceThenDefault: hideDialogue missing");
-
-    const f = getFlags();
-    const key = npcOnceKey(npcId);
-
-    // 1) Not done yet -> run the "once" dialogue
-    if (!f[key]) {
-      if (typeof runDialogueFromJson !== "function") {
-        throw new Error("npcRunOnceThenDefault: runDialogueFromJson missing (needed for first-time dialogue)");
-      }
-      if (!onceJson) throw new Error("npcRunOnceThenDefault: onceJson missing");
-
-      await runDialogueFromJson(onceJson);
-
-      // Mark it as done (you can move this into your JSON reward if you prefer)
-      const f2 = getFlags();
-      f2[key] = true;
-      setFlags(f2);
-      return;
-    }
-
-    // 2) Already done -> show default fallback line
-    const d = await npcGetDefaultLine(npcId, defaultJson);
-
-    showDialogue({
-      speaker: d.speaker || speakerFallback,
-      text: txt(d.line || "…"),
-      portraitSrc: d.portrait || portraitFallback,
-      buttons: [{ label: "Close", onClick: hideDialogue }]
-    });
-  }
-
-  // Manual helpers in case you want to mark/unmark from console
-  function npcMarkOnceDone(npcId, done = true) {
-    const id = String(npcId || "").trim().toLowerCase();
-    if (!id) return;
-    const f = getFlags();
-    f[npcOnceKey(id)] = !!done;
-    setFlags(f);
-  }
-
-  // ----------------------------
   // Dev Helpers (console)
   // ----------------------------
   function devResetAll() {
     localStorage.removeItem(QUEST_ID_KEY);
     localStorage.removeItem(QUEST_CAT_KEY);
     localStorage.removeItem(FLAGS_KEY);
+    localStorage.removeItem(RESUME_KEY);
     // optional stats:
     // localStorage.removeItem(GOOD_KEY);
     // localStorage.removeItem(EVIL_KEY);
@@ -225,8 +175,7 @@
   // Expose public API
   // ----------------------------
   const VAQ = {
-    keys: { QUEST_ID_KEY, QUEST_CAT_KEY, FLAGS_KEY, NAME_KEY, GOOD_KEY, EVIL_KEY },
-
+    keys: { QUEST_ID_KEY, QUEST_CAT_KEY, FLAGS_KEY, NAME_KEY, GOOD_KEY, EVIL_KEY, RESUME_KEY },
     clamp,
     getNum,
     escapeHtml,
@@ -235,6 +184,7 @@
     setFlags,
     loadJSON,
 
+    // quests
     qGetActiveId,
     qGetCatalogUrl,
     qSetCatalog,
@@ -244,21 +194,17 @@
     qSetStepStatus,
     qGetActiveQuest,
 
-    // NPC once-then-default system
-    DEFAULT_NPC_DIALOGUE_URL,
-    npcOnceKey,
-    npcGetDefaultLine,
-    npcRunOnceThenDefault,
-    npcMarkOnceDone
+    // resume
+    saveResumeState,
+    getResumeState,
+    clearResumeState
   };
 
   window.VAQ = VAQ;
   window.__vaq = VAQ;
 
-  // Dev commands
+  // Dev command
   window.__va_dev_reset_all = devResetAll;
-  window.__va_npc_once_done = (npcId) => npcMarkOnceDone(npcId, true);
-  window.__va_npc_once_reset = (npcId) => npcMarkOnceDone(npcId, false);
 
   // ----------------------------
   // Boot (no UI)
@@ -268,8 +214,12 @@
     if (!localStorage.getItem(QUEST_CAT_KEY)) {
       localStorage.setItem(QUEST_CAT_KEY, DEFAULT_CATALOG_URL);
     }
+
+    // Auto-save resume location on every page load
+    saveResumeState();
   });
 })();
+
 
 
 
