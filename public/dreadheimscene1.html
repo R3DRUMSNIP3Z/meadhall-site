@@ -311,12 +311,16 @@ html, body{
 document.addEventListener("DOMContentLoaded", async () => {
   const SCENE_JSON = "/data/episodes/volume1_ep1/dreadheim_scene1.json";
 
+  // ✅ ONCE-THEN-DEFAULT CONFIG (treat this cutscene as an NPC run)
+  const NPC_ID = "cutscene_dreadheim_scene1";
+  const DEFAULT_NPC_JSON = "/data/episodes/volume1_ep1/defaultdialoguenpc.json";
+
   // Keys
   const NAME_KEY = "va_player_name";
   const QUEST_ID_KEY  = "vaq_activeQuestId";
   const QUEST_CAT_KEY = "vaq_activeQuestCatalog";
 
-  // Dreadheim quest catalog (your file under /public/guildbook/quests/)
+  // Dreadheim quest catalog
   const QUEST_CATALOG_URL = "/guildbook/quests/dreadheim_quests.json";
 
   // UI refs
@@ -462,104 +466,131 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // ---------------------------
-  // LOAD SCENE + PLAY NODES
+  // SCENE PLAYBACK (ONCE-THEN-DEFAULT)
   // ---------------------------
   hideEnter();
   questBtn.style.display = "none";
 
-  let data;
-  try{
-    data = await loadJSON(SCENE_JSON);
-  }catch(err){
-    console.error(err);
+  // If VAQ is missing, fail loudly (means va_global_ui.js isn't loaded)
+  if (!window.VAQ || !window.VAQ.npcRunOnceThenDefault){
     showDialogue({
-      speaker:"Loki",
-      text:"The fog thickens… (Scene failed to load.)",
-      portraitSrc:"/guildbook/npcs/loki.gif",
-      buttons:[{ label:"Reload", onClick:()=>location.reload() }]
+      speaker: "System",
+      text: "VAQ helpers missing. Make sure /guildbook/js/va_global_ui.js is included.",
+      portraitSrc: "/guildbook/npcs/loki.gif",
+      buttons: [{ label:"Reload", onClick:()=>location.reload() }]
     });
     return;
   }
 
-  const speakerDefault = data?.meta?.speakerDefault || "Loki";
-  const portrait = data?.meta?.portrait || "/guildbook/npcs/loki.gif";
-  const bgUrl = data?.meta?.bg || "/guildbook/scenes/dreadheim_scene1.png";
-
-  bg.style.background = `url("${bgUrl}") center center / cover no-repeat`;
-  dlgPortrait.src = portrait;
-
-  const nodes = Array.isArray(data.nodes) ? data.nodes : [];
-  let idx = 0;
-
-  async function runNext(){
-    if (idx >= nodes.length){
-      // AFTER FINAL DIALOGUE: set quest + show quest icon + show enter button
-      const questId = data?.onComplete?.setQuestActive || "";
-      if (questId){
-        localStorage.setItem(QUEST_ID_KEY, questId);
-        localStorage.setItem(QUEST_CAT_KEY, QUEST_CATALOG_URL);
-      }
-      if (data?.onComplete?.showQuestIcon && questId){
-        questBtn.style.display = "block";
-      }
-      showEnter();
+  // This function plays your cutscene JSON exactly like before
+  async function runCutsceneJson(url){
+    let data;
+    try{
+      data = await loadJSON(url);
+    }catch(err){
+      console.error(err);
+      showDialogue({
+        speaker:"Loki",
+        text:"The fog thickens… (Scene failed to load.)",
+        portraitSrc:"/guildbook/npcs/loki.gif",
+        buttons:[{ label:"Reload", onClick:()=>location.reload() }]
+      });
       return;
     }
 
-    const node = nodes[idx];
-    const isNamePrompt = node?.id === "name_prompt";
+    const speakerDefault = data?.meta?.speakerDefault || "Loki";
+    const portrait = data?.meta?.portrait || "/guildbook/npcs/loki.gif";
+    const bgUrl = data?.meta?.bg || "/guildbook/scenes/dreadheim_scene1.png";
 
-    if (isNamePrompt){
+    bg.style.background = `url("${bgUrl}") center center / cover no-repeat`;
+    dlgPortrait.src = portrait;
+
+    const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+    let idx = 0;
+
+    async function runNext(){
+      if (idx >= nodes.length){
+        // After final dialogue: set quest + show quest icon + show enter button
+        const questId = data?.onComplete?.setQuestActive || "";
+        if (questId){
+          localStorage.setItem(QUEST_ID_KEY, questId);
+          localStorage.setItem(QUEST_CAT_KEY, QUEST_CATALOG_URL);
+        }
+        if (data?.onComplete?.showQuestIcon && questId){
+          questBtn.style.display = "block";
+        }
+        showEnter();
+        return;
+      }
+
+      const node = nodes[idx];
+      const isNamePrompt = node?.id === "name_prompt";
+
+      if (isNamePrompt){
+        await new Promise(resolve => {
+          const input = document.createElement("input");
+          input.className = "nameInput";
+          input.placeholder = "Your name";
+          input.maxLength = 18;
+          input.value = localStorage.getItem(NAME_KEY) || "";
+
+          showDialogue({
+            speaker: node.speaker || speakerDefault,
+            text: node.text || "Your name?",
+            portraitSrc: portrait,
+            appendEl: input,
+            buttons: [{
+              label: "Continue",
+              onClick: () => {
+                const v = (input.value || "").trim();
+                localStorage.setItem(NAME_KEY, v || "Traveler");
+                hideDialogue();
+                resolve();
+              }
+            }]
+          });
+
+          setTimeout(() => input.focus(), 50);
+        });
+
+        idx += 1;
+        return runNext();
+      }
+
       await new Promise(resolve => {
-        const input = document.createElement("input");
-        input.className = "nameInput";
-        input.placeholder = "Your name";
-        input.maxLength = 18;
-        input.value = localStorage.getItem(NAME_KEY) || "";
-
         showDialogue({
           speaker: node.speaker || speakerDefault,
-          text: node.text || "Your name?",
+          text: node.text || "",
           portraitSrc: portrait,
-          appendEl: input,
           buttons: [{
             label: "Continue",
             onClick: () => {
-              const v = (input.value || "").trim();
-              localStorage.setItem(NAME_KEY, v || "Traveler");
               hideDialogue();
               resolve();
             }
           }]
         });
-
-        setTimeout(() => input.focus(), 50);
       });
 
       idx += 1;
       return runNext();
     }
 
-    await new Promise(resolve => {
-      showDialogue({
-        speaker: node.speaker || speakerDefault,
-        text: node.text || "",
-        portraitSrc: portrait,
-        buttons: [{
-          label: "Continue",
-          onClick: () => {
-            hideDialogue();
-            resolve();
-          }
-        }]
-      });
-    });
-
-    idx += 1;
-    return runNext();
+    runNext();
   }
 
-  runNext();
+  // ✅ ONCE -> plays the full cutscene JSON
+  // ✅ AFTER -> shows ONLY default dialogue (from defaultdialoguenpc.json under defaults.cutscene_dreadheim_scene1)
+  await VAQ.npcRunOnceThenDefault({
+    npcId: NPC_ID,
+    onceJson: SCENE_JSON,
+    defaultJson: DEFAULT_NPC_JSON,
+    runDialogueFromJson: runCutsceneJson,
+    showDialogue,
+    hideDialogue,
+    portraitFallback: "/guildbook/npcs/loki.gif",
+    speakerFallback: "Loki"
+  });
 });
 </script>
 
@@ -568,6 +599,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 </body>
 </html>
+
 
 
 
