@@ -566,16 +566,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await VAQ.npcRunOnceThenDefault({
-    npcId: NPC_ID,
-    onceJson: SCENE_JSON,
-    defaultJson: DEFAULT_NPC_JSON,
-    defaultNpcKey: NPC_ID, // must match defaults key in defaultdialoguenpc.json
-    runOnce: runCutsceneJson,
-    showDialogue,
-    hideDialogue,
-    speakerFallback: "Loki",
-    portraitFallback: "/guildbook/npcs/loki.gif"
-  });
+  npcId: NPC_ID,
+  onceJson: SCENE_JSON,
+  defaultJson: DEFAULT_NPC_JSON,
+  runDialogueFromJson: runCutsceneJson,
+  showDialogue,
+  hideDialogue,
+  portraitFallback: "/guildbook/npcs/loki.gif",
+  speakerFallback: "Loki"
+});
+
 });
 </script>
 <script src="/guildbook/js/va_global_ui.js" defer></script>
