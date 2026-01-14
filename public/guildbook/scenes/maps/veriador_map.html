@@ -1,0 +1,372 @@
+<!-- /public/guildbook/scenes/maps/veriador_map.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Veriador • World Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+  html, body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    background:#000;
+    font-family:Cinzel, serif;
+    overflow:hidden;
+  }
+
+  /* ===== MAP BACKGROUND ===== */
+  #mapWrap{
+    position:fixed;
+    inset:0;
+    background:#000;
+  }
+  #mapImg{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    user-select:none;
+    -webkit-user-drag:none;
+    pointer-events:none;
+  }
+
+  /* ===== HUD ===== */
+  #hud{
+    position:fixed;
+    left:14px;
+    top:14px;
+    z-index:20;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    pointer-events:none;
+  }
+  .hudPill{
+    pointer-events:auto;
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border-radius:14px;
+    border:1px solid rgba(255,208,120,.18);
+    background:linear-gradient(180deg, rgba(25,14,10,.88), rgba(10,6,6,.82));
+    box-shadow:0 16px 45px rgba(0,0,0,.55);
+    color:rgba(255,240,225,.92);
+    font-weight:800;
+    letter-spacing:.03em;
+    text-shadow:0 2px 10px rgba(0,0,0,.75);
+  }
+  .hudHint{
+    font-size:13px;
+    opacity:.75;
+    font-weight:700;
+  }
+
+  /* ===== MAP WORDS (you drag these) ===== */
+  .mapWord{
+    position:absolute;
+    z-index:30;
+    padding:8px 12px;
+    border-radius:14px;
+    cursor:pointer;
+    user-select:none;
+    pointer-events:auto;
+    font-weight:900;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+
+    color:rgba(255,235,210,.95);
+    background:rgba(0,0,0,.38);
+    border:1px solid rgba(255,215,140,.30);
+    box-shadow:0 18px 55px rgba(0,0,0,.60);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    transition:transform 120ms ease, filter 120ms ease, opacity 120ms ease;
+  }
+  .mapWord:hover{
+    transform:translateY(-1px) scale(1.02);
+    filter:drop-shadow(0 0 14px rgba(255,210,120,.18));
+  }
+
+  /* Locked look */
+  .mapWord.locked{
+    opacity:.45;
+    filter:grayscale(1);
+  }
+
+  /* Tiny lock badge */
+  .lockBadge{
+    margin-left:8px;
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:900;
+    letter-spacing:.08em;
+    color:rgba(255,215,140,.92);
+    border:1px solid rgba(255,215,140,.35);
+    background:rgba(0,0,0,.45);
+    vertical-align:middle;
+  }
+
+  /* ===== TOAST ===== */
+  #toast{
+    position:fixed;
+    left:50%;
+    bottom:18px;
+    transform:translateX(-50%);
+    z-index:50;
+    padding:12px 14px;
+    border-radius:14px;
+    border:1px solid rgba(255,208,120,.20);
+    background:rgba(0,0,0,.72);
+    color:rgba(255,240,225,.92);
+    box-shadow:0 16px 55px rgba(0,0,0,.65);
+    font-weight:800;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 180ms ease;
+    text-shadow:0 2px 12px rgba(0,0,0,.8);
+    max-width:min(640px, calc(100vw - 24px));
+    text-align:center;
+  }
+  #toast.show{ opacity:1; }
+
+  /* DEV drag visual */
+  .dragging{
+    outline:2px dashed rgba(255,215,140,.7) !important;
+    box-shadow:0 0 0 6px rgba(255,215,140,.12), 0 18px 55px rgba(0,0,0,.60) !important;
+  }
+</style>
+</head>
+
+<body>
+
+<div id="mapWrap">
+  <!-- ✅ Your Veriador map image -->
+  <img id="mapImg" src="/guildbook/scenes/maps/Veriador.png" alt="Veriador Map">
+</div>
+
+<div id="hud">
+  <div class="hudPill">
+    Veriador Map
+    <span class="hudHint">DEV: Press <b>M</b> to toggle drag mode</span>
+  </div>
+</div>
+
+<!-- =========================
+     PLACEHOLDER WORDS
+     Move these anywhere you want (DEV drag mode)
+     ========================= -->
+
+<!-- Dreadheim side entry -->
+<div class="mapWord" id="wordDreadheim" data-id="Dreadheim" style="left:18%; top:58%;">
+  Dreadheim <span class="lockBadge" id="badgeDreadheim">LOCKED</span>
+</div>
+
+<!-- Myriador side entry -->
+<div class="mapWord" id="wordMyriador" data-id="Myriador" style="left:62%; top:52%;">
+  Myriador <span class="lockBadge" id="badgeMyriador">LOCKED</span>
+</div>
+
+<!-- Example extra placeholders (delete or keep) -->
+<div class="mapWord" data-id="Place A" style="left:36%; top:34%;">PLACE A</div>
+<div class="mapWord" data-id="Place B" style="left:45%; top:72%;">PLACE B</div>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // =========================
+  // LOCK / UNLOCK FLAGS
+  // You said keywords:
+  //  - "dreadheim open"
+  //  - "myriador open"
+  //
+  // So we store them like this:
+  // =========================
+  const DREAD_OPEN_KEY = "dreadheim_open";
+  const MYRI_OPEN_KEY  = "myriador_open";
+
+  // Map links (change these to your real pages)
+  const DREADHEIM_MAP_URL = "/guildbook/scenes/maps/dreadheim_map.html";
+  const MYRIADOR_MAP_URL  = "/guildbook/scenes/maps/myriador_map.html";
+
+  // =========================
+  // UI refs
+  // =========================
+  const toast = document.getElementById("toast");
+  const wordDreadheim = document.getElementById("wordDreadheim");
+  const wordMyriador  = document.getElementById("wordMyriador");
+  const badgeDreadheim = document.getElementById("badgeDreadheim");
+  const badgeMyriador  = document.getElementById("badgeMyriador");
+
+  function showToast(msg){
+    toast.textContent = String(msg || "");
+    toast.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove("show"), 1400);
+  }
+
+  function isOpen(key){
+    return localStorage.getItem(key) === "1" || localStorage.getItem(key) === "true";
+  }
+
+  function setBadge(elWord, elBadge, open){
+    if (open){
+      elWord.classList.remove("locked");
+      elBadge.textContent = "OPEN";
+    } else {
+      elWord.classList.add("locked");
+      elBadge.textContent = "LOCKED";
+    }
+  }
+
+  function refreshLocks(){
+    setBadge(wordDreadheim, badgeDreadheim, isOpen(DREAD_OPEN_KEY));
+    setBadge(wordMyriador,  badgeMyriador,  isOpen(MYRI_OPEN_KEY));
+  }
+
+  refreshLocks();
+
+  // Click handlers (only navigate if open)
+  wordDreadheim.addEventListener("click", (e) => {
+    // If in dev drag mode, dragging system will block normal click anyway
+    if (!isOpen(DREAD_OPEN_KEY)){
+      showToast("Dreadheim is locked.");
+      return;
+    }
+    window.location.href = DREADHEIM_MAP_URL;
+  });
+
+  wordMyriador.addEventListener("click", (e) => {
+    if (!isOpen(MYRI_OPEN_KEY)){
+      showToast("Myriador is locked.");
+      return;
+    }
+    window.location.href = MYRIADOR_MAP_URL;
+  });
+
+  // ============================================================
+  // DEV “drag to position” mode
+  // - Press M to toggle
+  // - Drags .mapWord elements
+  // - Saves per page (pathname) in localStorage
+  // ============================================================
+  const DEV_KEY = "va_map_dev_mode";
+  const POS_KEY = "va_map_positions_" + location.pathname;
+
+  const labels = Array.from(document.querySelectorAll(".mapWord"));
+  if (!labels.length) return;
+
+  let devMode = localStorage.getItem(DEV_KEY) === "1";
+  let dragging = null;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  const mapEl = document.body;
+
+  function loadPositions(){
+    try { return JSON.parse(localStorage.getItem(POS_KEY) || "{}"); }
+    catch { return {}; }
+  }
+  function savePositions(pos){
+    localStorage.setItem(POS_KEY, JSON.stringify(pos));
+  }
+
+  const positions = loadPositions();
+
+  // Apply saved positions
+  labels.forEach(el => {
+    const id = el.dataset.id || el.textContent.trim();
+    el.dataset.id = id;
+
+    if (positions[id]){
+      el.style.left = positions[id].left;
+      el.style.top  = positions[id].top;
+    }
+  });
+
+  function setDevMode(on){
+    devMode = on;
+    localStorage.setItem(DEV_KEY, on ? "1" : "0");
+
+    labels.forEach(el => {
+      el.style.cursor = on ? "move" : "pointer";
+      el.style.outline = on ? "1px dashed rgba(255,215,140,0.55)" : "";
+    });
+
+    showToast(on ? "DEV DRAG MODE: ON (drag words)" : "DEV DRAG MODE: OFF");
+    console.log(on ? "🛠️ MAP DEV MODE ON — drag words to position them" : "🧭 MAP DEV MODE OFF");
+  }
+
+  setDevMode(devMode);
+
+  window.addEventListener("keydown", e => {
+    if (e.key.toLowerCase() === "m") setDevMode(!devMode);
+  });
+
+  labels.forEach(el => {
+    el.addEventListener("mousedown", e => {
+      if (!devMode) return;
+
+      dragging = el;
+      const rect = el.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+
+      el.classList.add("dragging");
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+
+  window.addEventListener("mousemove", e => {
+    if (!dragging) return;
+
+    const mapRect = mapEl.getBoundingClientRect();
+    const x = ((e.clientX - offsetX - mapRect.left) / mapRect.width) * 100;
+    const y = ((e.clientY - offsetY - mapRect.top) / mapRect.height) * 100;
+
+    dragging.style.left = x.toFixed(2) + "%";
+    dragging.style.top  = y.toFixed(2) + "%";
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+
+    const id = dragging.dataset.id;
+    positions[id] = { left: dragging.style.left, top: dragging.style.top };
+    savePositions(positions);
+
+    console.log(`📍 ${id}: left:${positions[id].left}; top:${positions[id].top};`);
+
+    dragging.classList.remove("dragging");
+    dragging = null;
+  });
+
+  // =========================
+  // DEV convenience commands
+  // =========================
+  window.VA_MAP_DEV = {
+    openDreadheim(){ localStorage.setItem(DREAD_OPEN_KEY, "1"); refreshLocks(); showToast("Dreadheim unlocked"); },
+    openMyriador(){  localStorage.setItem(MYRI_OPEN_KEY,  "1"); refreshLocks(); showToast("Myriador unlocked"); },
+    lockAll(){ localStorage.removeItem(DREAD_OPEN_KEY); localStorage.removeItem(MYRI_OPEN_KEY); refreshLocks(); showToast("Both locked"); },
+    clearPositions(){ localStorage.removeItem(POS_KEY); showToast("Positions cleared (reload)"); }
+  };
+
+})();
+</script>
+
+</body>
+</html>
+
+

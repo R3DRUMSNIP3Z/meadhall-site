@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "id": "veriador_map_unlocks",
+    "title": "Veriador Map Unlock Rules"
+  },
+
+  "keys": {
+    "alignmentKey": "va_alignment",
+    "flagsKey": "va_flags"
+  },
+
+  "unlockPhrases": {
+    "dreadheim": "dreadheim open",
+    "myriador": "myriador open"
+  },
+
+  "worlds": {
+    "dreadheim": {
+      "openIf": [
+        { "type": "alignment", "equals": "dreadheim" },
+        { "type": "phrase", "equals": "dreadheim open" },
+        { "type": "flag", "key": "unlocked_dreadheim", "equals": true }
+      ],
+      "url": "/guildbook/scenes/maps/dreadheim_map.html"
+    },
+    "myriador": {
+      "openIf": [
+        { "type": "alignment", "equals": "myriador" },
+        { "type": "phrase", "equals": "myriador open" },
+        { "type": "flag", "key": "unlocked_myriador", "equals": true }
+      ],
+      "url": "/guildbook/scenes/maps/myriador_map.html"
+    }
+  }
+}
