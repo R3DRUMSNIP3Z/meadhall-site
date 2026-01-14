@@ -1,0 +1,50 @@
+{
+  "meta": {
+    "id": "defaultdialoguenpc",
+    "title": "Default NPC Dialogue (fallback)",
+    "speakerDefault": "NPC",
+    "portraitDefault": "/guildbook/ui/portraits/default_npc.png"
+  },
+
+  "defaults": {
+    "hel": {
+      "speaker": "Hel",
+      "portrait": "/guildbook/npcs/hel/hel.png",
+      "lines": [
+        "How fare thee, evil one?",
+        "Mmm… your footsteps sound heavier today.",
+        "Dreadheim remembers what you choose."
+      ]
+    },
+    "loki": {
+      "speaker": "Loki",
+      "portrait": "/guildbook/npcs/loki/frame_008.png",
+      "lines": [
+        "Back again, {name}? Careful—my patience is decorative.",
+        "Tell me… did you behave badly, or merely loudly?",
+        "Good. Keep walking the wrong way. It suits you."
+      ]
+    }
+  },
+
+  "placeholders": {
+    "npc_id_here": {
+      "speaker": "NPC Name",
+      "portrait": "/guildbook/npcs/npc_id_here/frame_001.png",
+      "lines": [
+        "Default line 1.",
+        "Default line 2.",
+        "Default line 3."
+      ]
+    },
+    "another_npc_id": {
+      "speaker": "Another NPC",
+      "portrait": "/guildbook/npcs/another_npc_id/portrait.png",
+      "lines": [
+        "Default greeting.",
+        "Default comment.",
+        "Default farewell."
+      ]
+    }
+  }
+}
