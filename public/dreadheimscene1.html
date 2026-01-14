@@ -26,21 +26,6 @@ html, body{
   z-index:0;
 }
 
-/* ================= NPC (LOKI) ================= */
-#lokiNpc{
-  position:fixed;
-  left:50%;
-  bottom:64px;              /* closer to bottom */
-  transform:translateX(-50%);
-  width:360px;              /* adjust size if needed */
-  height:auto;
-  z-index:6;                /* above bg, below dialogue */
-  pointer-events:auto;
-  user-select:none;
-  -webkit-user-drag:none;
-  filter:drop-shadow(0 16px 35px rgba(0,0,0,0.75));
-}
-
 /* ================= DIALOGUE ================= */
 #dlg{
   position:fixed;
@@ -289,9 +274,6 @@ html, body{
 
 <div id="bg"></div>
 
-<!-- ✅ Loki NPC (middle-bottom) -->
-<img id="lokiNpc" alt="Loki" src="/guildbook/npcs/loki/frame_008.png">
-
 <!-- Dialogue -->
 <div id="dlg" class="hidden">
   <img id="dlgPortrait" alt="Portrait">
@@ -340,8 +322,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   // UI refs
   const bg = document.getElementById("bg");
 
-  const lokiNpc = document.getElementById("lokiNpc");
-
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
   const dlgText = document.getElementById("dlgText");
@@ -378,44 +358,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return await res.json();
   }
 
-  // ✅ Loki NPC frames (0 through 8)
-  // If your files are not zero-padded, change frame_${n} to frame_${i} below.
-  const LOKI_FRAME_COUNT = 9; // 0..8
-  const LOKI_FRAME_MS = 120;
-
-  const LOKI_FRAME_URLS = Array.from({ length: LOKI_FRAME_COUNT }, (_, i) => {
-    // common pattern: frame_000.png ... frame_008.png
-    const n = String(i).padStart(3, "0");
-    return `/guildbook/npcs/loki/frame_${n}.png`;
-  });
-
-  function preloadImages(urls){
-    urls.forEach(u => {
-      const img = new Image();
-      img.src = u;
-    });
-  }
-
-  let lokiTimer = null;
-  let lokiIdx = 0;
-
-  function startLokiNpcAnim(){
-    if (lokiTimer) return;
-    lokiIdx = 0;
-    lokiNpc.src = LOKI_FRAME_URLS[0];
-
-    lokiTimer = setInterval(() => {
-      lokiIdx = (lokiIdx + 1) % LOKI_FRAME_URLS.length;
-      lokiNpc.src = LOKI_FRAME_URLS[lokiIdx];
-    }, LOKI_FRAME_MS);
-  }
-
-  function stopLokiNpcAnim(){
-    if (!lokiTimer) return;
-    clearInterval(lokiTimer);
-    lokiTimer = null;
-  }
-
   function showDialogue({ speaker, text, portraitSrc, buttons = [], appendEl = null }){
     dlgName.textContent = speaker || "";
     dlgText.innerHTML = "";
@@ -429,7 +371,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     dlgBtns.innerHTML = "";
     dlg.classList.remove("hidden");
 
-    // ✅ BACK TO ORIGINAL: dialogue portrait uses whatever your scene JSON says
     if (portraitSrc) dlgPortrait.src = portraitSrc;
 
     buttons.forEach(b => {
@@ -526,10 +467,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   hideEnter();
   questBtn.style.display = "none";
 
-  // ✅ Start Loki NPC anim immediately
-  preloadImages(LOKI_FRAME_URLS);
-  startLokiNpcAnim();
-
   let data;
   try{
     data = await loadJSON(SCENE_JSON);
@@ -549,24 +486,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   const bgUrl = data?.meta?.bg || "/guildbook/scenes/dreadheim_scene1.png";
 
   bg.style.background = `url("${bgUrl}") center center / cover no-repeat`;
-  dlgPortrait.src = portrait; // ✅ original behavior
+  dlgPortrait.src = portrait;
 
   const nodes = Array.isArray(data.nodes) ? data.nodes : [];
   let idx = 0;
 
   async function runNext(){
     if (idx >= nodes.length){
-      // ✅ AFTER FINAL DIALOGUE: set quest + show quest icon + show enter button
+      // AFTER FINAL DIALOGUE: set quest + show quest icon + show enter button
       const questId = data?.onComplete?.setQuestActive || "";
       if (questId){
         localStorage.setItem(QUEST_ID_KEY, questId);
         localStorage.setItem(QUEST_CAT_KEY, QUEST_CATALOG_URL);
       }
-
       if (data?.onComplete?.showQuestIcon && questId){
         questBtn.style.display = "block";
       }
-
       showEnter();
       return;
     }
@@ -628,8 +563,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 </script>
 
+<!-- ✅ Global helpers (quests/flags/npc-once system) -->
+<script src="/guildbook/js/va_global_ui.js"></script>
+
 </body>
 </html>
+
 
 
 
