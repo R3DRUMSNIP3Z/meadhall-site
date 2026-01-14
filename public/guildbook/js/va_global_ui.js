@@ -254,6 +254,61 @@
     // localStorage.removeItem(EVIL_KEY);
   }
 
+    // ----------------------------
+  // ✅ ONCE-THEN-DEFAULT runner
+  // ----------------------------
+  // Plays a "onceJson" exactly once. After that, shows default NPC dialogue (one line)
+  // from defaultdialoguenpc.json (data.defaults[npcKey]).
+  async function npcRunOnceThenDefault(opts) {
+    const {
+      npcId,
+      onceJson,
+      defaultJson,
+      defaultNpcKey,      // optional override; if omitted uses npcId
+      runDialogueFromJson, // async (onceJsonUrl) => void
+      showDialogue,        // ({speaker,text,portraitSrc,buttons,appendEl}) => void
+      hideDialogue,        // () => void
+      speakerFallback = "…",
+      portraitFallback = ""
+    } = opts || {};
+
+    if (!npcId) throw new Error("npcRunOnceThenDefault: npcId required");
+    if (typeof runDialogueFromJson !== "function") {
+      throw new Error("npcRunOnceThenDefault: runDialogueFromJson required");
+    }
+    if (typeof showDialogue !== "function") throw new Error("npcRunOnceThenDefault: showDialogue required");
+    if (typeof hideDialogue !== "function") throw new Error("npcRunOnceThenDefault: hideDialogue required");
+
+    // First time: play the full once dialogue JSON, then mark played.
+    if (!dlgHasPlayed(npcId)) {
+      await runDialogueFromJson(onceJson);
+      dlgMarkPlayed(npcId);
+      return;
+    }
+
+    // After: show default one-liner.
+    const key = defaultNpcKey || npcId;
+
+    try {
+      const d = await dlgGetDefault(key, defaultJson);
+      showDialogue({
+        speaker: d.speaker || speakerFallback,
+        text: d.line || "…",
+        portraitSrc: d.portrait || portraitFallback,
+        buttons: [{ label: "Close", onClick: () => hideDialogue() }]
+      });
+    } catch (e) {
+      console.error("Default dialogue failed:", e);
+      showDialogue({
+        speaker: speakerFallback,
+        text: "…",
+        portraitSrc: portraitFallback,
+        buttons: [{ label: "Close", onClick: () => hideDialogue() }]
+      });
+    }
+  }
+
+
   // ----------------------------
   // Expose public API
   // ----------------------------
@@ -263,7 +318,10 @@
       NAME_KEY, GOOD_KEY, EVIL_KEY,
       RESUME_KEY,
       DIALOGUE_ONCE_KEY,
-      DEFAULT_DIALOGUE_URL
+      DEFAULT_DIALOGUE_URL,
+      
+         
+
     },
 
     // utils
@@ -296,7 +354,9 @@
     dlgUnmarkPlayed,
     dlgSetDefaultUrl,
     dlgLoadDefaults,
-    dlgGetDefault
+    dlgGetDefault,
+    npcRunOnceThenDefault
+
   };
 
   window.VAQ = VAQ;
