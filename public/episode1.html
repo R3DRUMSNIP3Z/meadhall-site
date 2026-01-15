@@ -1,4 +1,3 @@
-```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -356,6 +355,37 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.warn("DEV: Episode I reset complete");
       console.warn("DEV: Reloading page…");
       location.reload();
+    },
+
+    /* ✅ ADDED: wipe ALL play history (quests, flags, maps, once-dialogue, resume, etc.) */
+    resetAllProgress() {
+      console.warn("DEV: Resetting ALL Veriador history…");
+
+      // remove anything that belongs to your systems
+      const killPrefixes = ["va_", "vaq_"];
+      const killExact = new Set([
+        "va_flags",
+        "va_resume_state",
+        "va_dialogue_once",
+        "va_map_dev_mode"
+      ]);
+
+      // remove per-page map positions keys: va_map_positions_/path
+      const killContains = ["va_map_positions_"];
+
+      Object.keys(localStorage).forEach((k) => {
+        const hitPrefix = killPrefixes.some(p => k.startsWith(p));
+        const hitExact = killExact.has(k);
+        const hitContains = killContains.some(s => k.includes(s));
+
+        if (hitPrefix || hitExact || hitContains) {
+          localStorage.removeItem(k);
+        }
+      });
+
+      console.warn("DEV: FULL RESET complete");
+      console.warn("DEV: Reloading page…");
+      location.reload();
     }
   };
 
@@ -363,7 +393,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 </script>
 </body>
 </html>
-```
+
+
 
 
 
