@@ -139,6 +139,61 @@ html, body {
 </div>
 
 <script>
+/* =========================================================
+   ✅ DEV TOOLS (ALWAYS AVAILABLE, even if JSON fetch fails)
+   ========================================================= */
+(() => {
+  // Make sure the object exists immediately (before any awaits)
+  const DEV = (globalThis.VA_DEV = globalThis.VA_DEV || {});
+
+  // Episode I keys only
+  DEV.resetEpisode1 = function resetEpisode1(){
+    console.warn("DEV: Resetting Episode I");
+    [
+      "va_player_name",
+      "va_alignment",
+      "va_episode",
+      "va_screen",
+      "va_save_active",
+      "va_oath_idx",
+      "va_oath_good",
+      "va_oath_evil",
+      "va_oath_done"
+    ].forEach(k => localStorage.removeItem(k));
+
+    console.warn("DEV: Episode I reset complete");
+    console.warn("DEV: Reloading page…");
+    location.reload();
+  };
+
+  // Full wipe for testing (quests, flags, maps, once-dialogue, resume, etc.)
+  DEV.resetAllProgress = function resetAllProgress(){
+    console.warn("DEV: Resetting ALL Veriador history…");
+
+    const killPrefixes = ["va_", "vaq_"];
+    const killExact = new Set([
+      "va_flags",
+      "va_resume_state",
+      "va_dialogue_once",
+      "va_map_dev_mode"
+    ]);
+    const killContains = ["va_map_positions_"];
+
+    Object.keys(localStorage).forEach((k) => {
+      const hitPrefix = killPrefixes.some(p => k.startsWith(p));
+      const hitExact = killExact.has(k);
+      const hitContains = killContains.some(s => k.includes(s));
+      if (hitPrefix || hitExact || hitContains) localStorage.removeItem(k);
+    });
+
+    console.warn("DEV: FULL RESET complete");
+    console.warn("DEV: Reloading page…");
+    location.reload();
+  };
+})();
+</script>
+
+<script>
 document.addEventListener("DOMContentLoaded", async () => {
 
   const NAME_KEY = "va_player_name";
@@ -333,66 +388,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     }]
   });
 
-  // ===============================
-  // DEV TOOLS (F12)
-  // ===============================
-  window.VA_DEV = {
-    resetEpisode1() {
-      console.warn("DEV: Resetting Episode I");
-
-      [
-        "va_player_name",
-        "va_alignment",
-        "va_episode",
-        "va_screen",
-        "va_save_active",
-        "va_oath_idx",
-        "va_oath_good",
-        "va_oath_evil",
-        "va_oath_done"
-      ].forEach(k => localStorage.removeItem(k));
-
-      console.warn("DEV: Episode I reset complete");
-      console.warn("DEV: Reloading page…");
-      location.reload();
-    },
-
-    /* ✅ ADDED: wipe ALL play history (quests, flags, maps, once-dialogue, resume, etc.) */
-    resetAllProgress() {
-      console.warn("DEV: Resetting ALL Veriador history…");
-
-      // remove anything that belongs to your systems
-      const killPrefixes = ["va_", "vaq_"];
-      const killExact = new Set([
-        "va_flags",
-        "va_resume_state",
-        "va_dialogue_once",
-        "va_map_dev_mode"
-      ]);
-
-      // remove per-page map positions keys: va_map_positions_/path
-      const killContains = ["va_map_positions_"];
-
-      Object.keys(localStorage).forEach((k) => {
-        const hitPrefix = killPrefixes.some(p => k.startsWith(p));
-        const hitExact = killExact.has(k);
-        const hitContains = killContains.some(s => k.includes(s));
-
-        if (hitPrefix || hitExact || hitContains) {
-          localStorage.removeItem(k);
-        }
-      });
-
-      console.warn("DEV: FULL RESET complete");
-      console.warn("DEV: Reloading page…");
-      location.reload();
-    }
-  };
-
 });
 </script>
 </body>
 </html>
+
 
 
 
