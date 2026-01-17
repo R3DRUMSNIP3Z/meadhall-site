@@ -171,6 +171,30 @@ html, body{
 }
 #meterBtn:hover img{ transform:scale(1.05); }
 
+/* ================= MAP ICON (beside quest/meter/inv) ================= */
+#mapBtn{
+  position:fixed;
+  top:14px;
+  right:194px; /* 14 + (3 icons * 52) + (3 gaps * 8)  -> after inv (134), next is 194 */
+  width:52px;
+  height:52px;
+  background:transparent;
+  border:none;
+  cursor:pointer;
+  z-index:60;
+  display:block;
+}
+#mapBtn img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  filter:drop-shadow(0 10px 22px rgba(0,0,0,0.75));
+  opacity:.96;
+  transition:transform 120ms ease;
+}
+#mapBtn:hover img{ transform:scale(1.05); }
+
+
 /* ================= INVENTORY ICON (beside meter) ================= */
 #invBtn{
   position:fixed;
@@ -701,6 +725,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const pickupImgInner = document.getElementById("pickupImgInner");
   const pickupText = document.getElementById("pickupText");
   const pickupBtns = document.getElementById("pickupBtns");
+    const mapBtn = document.getElementById("mapBtn");
+      mapBtn.addEventListener("click", () => {
+    // go to the map page (web path)
+    window.location.href = "/guildbook/scenes/maps/veriador_map.html";
+  });
+
+
 
   // ----------------------------
   // Helpers
