@@ -167,17 +167,24 @@ html, body{
   color:rgba(255,215,140,1);
 }
 
-#questClose{
-  width:34px;
-  height:34px;
-  border-radius:10px;
-  font-size:20px;
-  font-weight:900;
+#questEnter{
+  padding:10px 14px;
+  border-radius:12px;
   cursor:pointer;
-  background:rgba(0,0,0,.4);
+  font-weight:900;
+  letter-spacing:.08em;
   border:1px solid rgba(255,215,140,.6);
+  background:linear-gradient(180deg, rgba(40,18,12,.9), rgba(15,8,8,.85));
   color:rgba(255,215,140,1);
+  box-shadow:0 8px 28px rgba(0,0,0,.6);
+  transition:transform 120ms ease, box-shadow 120ms ease;
 }
+
+#questEnter:hover{
+  transform:translateY(-1px);
+  box-shadow:0 12px 38px rgba(0,0,0,.75);
+}
+
 
 #questContent{
   margin-top:10px;
