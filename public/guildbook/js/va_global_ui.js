@@ -295,7 +295,10 @@
         speaker: d.speaker || speakerFallback,
         text: d.line || "…",
         portraitSrc: d.portrait || portraitFallback,
-        buttons: [{ label: "Close", onClick: () => hideDialogue() }]
+        buttons: [{
+  label: "ENTER DREADHEIM CASTLE",
+  onClick: () => { window.location.href = "/dreadheim_meadhall.html"; }
+}]
       });
     } catch (e) {
       console.error("Default dialogue failed:", e);
@@ -303,7 +306,10 @@
         speaker: speakerFallback,
         text: "…",
         portraitSrc: portraitFallback,
-        buttons: [{ label: "Close", onClick: () => hideDialogue() }]
+        buttons: [{
+  label: "ENTER DREADHEIM CASTLE",
+  onClick: () => { window.location.href = "/dreadheim_meadhall.html"; }
+}]
       });
     }
   }
