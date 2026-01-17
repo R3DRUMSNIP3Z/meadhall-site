@@ -294,7 +294,10 @@ html, body{
   <div id="questPanel" role="dialog" aria-label="Quest journal">
     <div class="qHeader">
       <div class="qTitle">QUEST</div>
-      <button id="questClose" aria-label="Close quest journal">✕</button>
+      <button id="questEnter" aria-label="Enter Dreadheim Castle">
+  ENTER DREADHEIM CASTLE
+</button>
+
     </div>
     <div id="questContent"></div>
   </div>
@@ -337,7 +340,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const questBtn = document.getElementById("questBtn");
   const questOverlay = document.getElementById("questOverlay");
-  const questClose = document.getElementById("questClose");
+  const questEnter = document.getElementById("questEnter");
   const questContent = document.getElementById("questContent");
 
   const enterOverlay = document.getElementById("enterOverlay");
@@ -422,8 +425,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   questBtn.addEventListener("click", openQuestJournal);
-  questClose.addEventListener("click", closeQuestJournal);
-  questOverlay.addEventListener("click", (e) => {
+  questEnter.addEventListener("click", () => {
+  window.location.href = "/dreadheim_meadhall.html";
+});  questOverlay.addEventListener("click", (e) => {
     if (e.target === questOverlay) closeQuestJournal();
   });
 

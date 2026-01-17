@@ -192,6 +192,11 @@ html, body {
   };
 })();
 </script>
+<script>
+// ✅ Make VA_DEV exist immediately (so console commands work even before DOMContentLoaded)
+window.VA_DEV = window.VA_DEV || {};
+</script>
+
 
 <script>
 document.addEventListener("DOMContentLoaded", async () => {
