@@ -287,7 +287,9 @@
     }
 
     // After: show default one-liner.
-    try {
+const key = defaultNpcKey || npcId;
+
+try {
   const d = await dlgGetDefault(key, defaultJson);
   showDialogue({
     speaker: d.speaker || speakerFallback,
@@ -310,6 +312,8 @@
     }]
   });
 }
+  }
+
 
 
 
