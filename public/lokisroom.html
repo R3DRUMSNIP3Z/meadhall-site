@@ -365,8 +365,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             label: c.label || "Continue",
             onClick: () => {
               if (c.to === "__to_failed_dialogue"){ runDialogueFromJson(FAILED_LOKI_DIALOGUE).catch(console.error); return; }
-              if (c.to === "__to_slaki_dialogue"){  runDialogueFromJson(LOKI_SLAKI_DIALOGUE).catch(console.error);  return; }
-              showNode(c.to || "__close");
+if (c.to === "__to_slaki_dialogue"){  runDialogueFromJson(LOKI_SLAKI_DIALOGUE).catch(console.error);  return; }
+
+if (c.to === "__auto_verdict"){
+  const score = getDq001Score();
+  if (score.passCount === 3) showNode("v_3_green");
+  else if (score.passCount === 2) showNode("v_2_green");
+  else showNode("v_3_red");
+  return;
+}
+
+showNode(c.to || "__close");
+
             }
           }))
         : [{ label: "Close", onClick: hideDialogue }];
