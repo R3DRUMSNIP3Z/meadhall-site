@@ -7,13 +7,44 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&display=swap" rel="stylesheet">
 
 <style>
-  html, body{ margin:0; padding:0; width:100%; height:100%; background:#000; overflow:hidden; font-family:Cinzel, serif; }
+  html, body{
+    margin:0; padding:0; width:100%; height:100%;
+    background:#000; overflow:hidden; font-family:Cinzel, serif;
+  }
+
+  /* ===== MAP ===== */
   #mapWrap{
     position:fixed; inset:0;
     background:url("/guildbook/scenes/maps/Myriador.png") center center / cover no-repeat;
   }
+
+  /* ===== HUD ===== */
+  #hud{
+    position:fixed;
+    left:14px; top:14px;
+    z-index:40;
+    pointer-events:none;
+  }
+  .hudPill{
+    pointer-events:auto;
+    padding:10px 12px;
+    border-radius:14px;
+    border:1px solid rgba(255,208,120,.18);
+    background:linear-gradient(180deg, rgba(25,14,10,.88), rgba(10,6,6,.82));
+    box-shadow:0 16px 45px rgba(0,0,0,.55);
+    color:rgba(255,240,225,.92);
+    font-weight:800;
+  }
+  .hudHint{
+    font-size:13px;
+    opacity:.75;
+    font-weight:700;
+  }
+
+  /* ===== POIs ===== */
   .poi{
     position:absolute;
+    z-index:30;
     padding:10px 14px;
     border-radius:14px;
     font-weight:900;
@@ -25,30 +56,80 @@
     background:linear-gradient(180deg, rgba(30,14,10,0.78), rgba(10,6,6,0.70));
     box-shadow:0 18px 55px rgba(0,0,0,0.55);
     color:rgba(255,225,170,.95);
+    transition:transform 120ms ease, filter 120ms ease;
   }
-  .locked{ opacity:.28; cursor:not-allowed; filter:grayscale(1); }
+  .poi:hover{
+    transform:translateY(-1px) scale(1.02);
+    filter:drop-shadow(0 0 14px rgba(255,210,120,.18));
+  }
+
+  .locked{
+    opacity:.28;
+    cursor:not-allowed;
+    filter:grayscale(1);
+  }
+
+  /* DEV drag visual */
+  .dragging{
+    outline:2px dashed rgba(255,215,140,.7) !important;
+    box-shadow:0 0 0 6px rgba(255,215,140,.12),
+               0 18px 55px rgba(0,0,0,.60) !important;
+  }
+
+  /* ===== TOAST ===== */
+  #toast{
+    position:fixed;
+    left:50%;
+    bottom:18px;
+    transform:translateX(-50%);
+    z-index:80;
+    padding:12px 14px;
+    border-radius:14px;
+    border:1px solid rgba(255,208,120,.20);
+    background:rgba(0,0,0,.72);
+    color:rgba(255,240,225,.92);
+    box-shadow:0 16px 55px rgba(0,0,0,.65);
+    font-weight:800;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 180ms ease;
+  }
+  #toast.show{ opacity:1; }
 </style>
 </head>
 
 <body>
 <div id="mapWrap">
 
-  <!-- MOVE ME: change left/top. Add more of these anytime. -->
-  <div class="poi" data-href="/guildbook/scenes/myriador_capital.html"
+  <div class="poi" data-id="Capital"
+       data-href="/guildbook/scenes/myriador_capital.html"
        style="left:10%; top:12%;">Capital</div>
 
-  <!-- Example locked POI (requires flag). MOVE ME. -->
-  <div class="poi locked" data-req-flag="myriador_forest_open" data-href="/guildbook/scenes/myriador_forest.html"
+  <div class="poi locked" data-id="Forest"
+       data-req-flag="myriador_forest_open"
+       data-href="/guildbook/scenes/myriador_forest.html"
        style="left:10%; top:22%;">Forest</div>
 
-  <!-- Back button word. MOVE ME. -->
-  <div class="poi" data-href="/guildbook/scenes/maps/veriador_map.html"
+  <div class="poi" data-id="Back"
+       data-href="/guildbook/scenes/maps/veriador_map.html"
        style="left:10%; top:32%;">Back</div>
 
 </div>
 
+<div id="hud">
+  <div class="hudPill">
+    Myriador Map
+    <span class="hudHint">DEV: Press <b>M</b> to toggle drag</span>
+  </div>
+</div>
+
+<div id="toast"></div>
+
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+(() => {
+  "use strict";
+
+  /* ===== FLAGS ===== */
   const FLAGS_KEY = "va_flags";
 
   function getFlags(){
@@ -56,24 +137,103 @@ document.addEventListener("DOMContentLoaded", () => {
     catch { return {}; }
   }
 
-  const flags = getFlags();
+  function applyLocks(){
+    const flags = getFlags();
+    document.querySelectorAll(".poi").forEach(el => {
+      const req = el.dataset.reqFlag;
+      const href = el.dataset.href;
+      const ok = !req || flags[req] === true;
 
-  document.querySelectorAll(".poi").forEach(el => {
-    const req = el.getAttribute("data-req-flag");
-    const href = el.getAttribute("data-href");
-    const ok = !req || flags[req] === true;
+      if (!ok){
+        el.classList.add("locked");
+        el.onclick = () => {};
+      } else {
+        el.classList.remove("locked");
+        el.onclick = () => href && (window.location.href = href);
+      }
+    });
+  }
 
-    if (!ok){
-      el.classList.add("locked");
-      el.onclick = () => {};
-      el.title = "Locked";
-    } else {
-      el.classList.remove("locked");
-      el.onclick = () => { if (href) window.location.href = href; };
-      el.title = "Open";
+  /* ===== TOAST ===== */
+  const toast = document.getElementById("toast");
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove("show"), 1400);
+  }
+
+  applyLocks();
+
+  /* ===== DEV DRAG MODE ===== */
+  const DEV_KEY = "va_map_dev_mode";
+  const POS_KEY = "va_map_positions_" + location.pathname;
+
+  const pois = Array.from(document.querySelectorAll(".poi"));
+  let devMode = localStorage.getItem(DEV_KEY) === "1";
+  let dragging = null, ox = 0, oy = 0;
+
+  function loadPos(){
+    try { return JSON.parse(localStorage.getItem(POS_KEY) || "{}"); }
+    catch { return {}; }
+  }
+  function savePos(p){ localStorage.setItem(POS_KEY, JSON.stringify(p)); }
+
+  const positions = loadPos();
+
+  pois.forEach(el => {
+    const id = el.dataset.id;
+    if (positions[id]){
+      el.style.left = positions[id].left;
+      el.style.top  = positions[id].top;
     }
   });
-});
+
+  function setDev(on){
+    devMode = on;
+    localStorage.setItem(DEV_KEY, on ? "1" : "0");
+    showToast(on ? "DEV DRAG MODE ON" : "DEV DRAG MODE OFF");
+    pois.forEach(el => el.style.cursor = on ? "move" : "pointer");
+  }
+  setDev(devMode);
+
+  window.addEventListener("keydown", e => {
+    if (e.key.toLowerCase() === "m") setDev(!devMode);
+  });
+
+  pois.forEach(el => {
+    el.addEventListener("mousedown", e => {
+      if (!devMode) return;
+      dragging = el;
+      const r = el.getBoundingClientRect();
+      ox = e.clientX - r.left;
+      oy = e.clientY - r.top;
+      el.classList.add("dragging");
+      e.preventDefault();
+    });
+  });
+
+  window.addEventListener("mousemove", e => {
+    if (!dragging) return;
+    const x = ((e.clientX - ox) / innerWidth) * 100;
+    const y = ((e.clientY - oy) / innerHeight) * 100;
+    dragging.style.left = x.toFixed(2) + "%";
+    dragging.style.top  = y.toFixed(2) + "%";
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    positions[dragging.dataset.id] = {
+      left: dragging.style.left,
+      top: dragging.style.top
+    };
+    savePos(positions);
+    dragging.classList.remove("dragging");
+    dragging = null;
+  });
+
+})();
 </script>
 </body>
 </html>
+

@@ -8,12 +8,72 @@
 
 <style>
   html, body{ margin:0; padding:0; width:100%; height:100%; background:#000; overflow:hidden; font-family:Cinzel, serif; }
+
+  /* ===== MAP BACKGROUND ===== */
   #mapWrap{
     position:fixed; inset:0;
     background:url("/guildbook/scenes/maps/dreadheim.png") center center / cover no-repeat;
   }
+
+  /* ===== HUD ===== */
+  #hud{
+    position:fixed;
+    left:14px;
+    top:14px;
+    z-index:40;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    pointer-events:none;
+  }
+  .hudPill{
+    pointer-events:auto;
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border-radius:14px;
+    border:1px solid rgba(255,208,120,.18);
+    background:linear-gradient(180deg, rgba(25,14,10,.88), rgba(10,6,6,.82));
+    box-shadow:0 16px 45px rgba(0,0,0,.55);
+    color:rgba(255,240,225,.92);
+    font-weight:800;
+    letter-spacing:.03em;
+    text-shadow:0 2px 10px rgba(0,0,0,.75);
+  }
+  .hudHint{
+    font-size:13px;
+    opacity:.75;
+    font-weight:700;
+  }
+
+  /* ===== TOAST ===== */
+  #toast{
+    position:fixed;
+    left:50%;
+    bottom:18px;
+    transform:translateX(-50%);
+    z-index:80;
+    padding:12px 14px;
+    border-radius:14px;
+    border:1px solid rgba(255,208,120,.20);
+    background:rgba(0,0,0,.72);
+    color:rgba(255,240,225,.92);
+    box-shadow:0 16px 55px rgba(0,0,0,.65);
+    font-weight:800;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 180ms ease;
+    text-shadow:0 2px 12px rgba(0,0,0,.8);
+    max-width:min(640px, calc(100vw - 24px));
+    text-align:center;
+  }
+  #toast.show{ opacity:1; }
+
+  /* ===== POIs ===== */
   .poi{
     position:absolute;
+    z-index:30;
     padding:10px 14px;
     border-radius:14px;
     font-weight:900;
@@ -25,8 +85,20 @@
     background:linear-gradient(180deg, rgba(30,14,10,0.78), rgba(10,6,6,0.70));
     box-shadow:0 18px 55px rgba(0,0,0,0.55);
     color:rgba(255,225,170,.95);
+    transition:transform 120ms ease, filter 120ms ease;
   }
+  .poi:hover{
+    transform:translateY(-1px) scale(1.02);
+    filter:drop-shadow(0 0 14px rgba(255,210,120,.18));
+  }
+
   .locked{ opacity:.28; cursor:not-allowed; filter:grayscale(1); }
+
+  /* DEV drag visual */
+  .dragging{
+    outline:2px dashed rgba(255,215,140,.7) !important;
+    box-shadow:0 0 0 6px rgba(255,215,140,.12), 0 18px 55px rgba(0,0,0,.60) !important;
+  }
 </style>
 </head>
 
@@ -34,21 +106,35 @@
 <div id="mapWrap">
 
   <!-- MOVE ME: change left/top. Add more of these anytime. -->
-  <div class="poi" data-href="/guildbook/scenes/dreadheim_meadhall.html"
+  <div class="poi" data-id="Mead Hall" data-href="/guildbook/scenes/dreadheim_meadhall.html"
        style="left:10%; top:12%;">Mead Hall</div>
 
   <!-- Example locked POI (requires flag). MOVE ME. -->
-  <div class="poi locked" data-req-flag="dreadheim_dock_open" data-href="/guildbook/scenes/dreadheim_dock.html"
+  <div class="poi locked" data-id="Dock" data-req-flag="dreadheim_dock_open" data-href="/guildbook/scenes/dreadheim_dock.html"
        style="left:10%; top:22%;">Dock</div>
 
   <!-- Back button word. MOVE ME. -->
-  <div class="poi" data-href="/guildbook/scenes/maps/veriador_map.html"
+  <div class="poi" data-id="Back" data-href="/guildbook/scenes/maps/veriador_map.html"
        style="left:10%; top:32%;">Back</div>
 
 </div>
 
+<div id="hud">
+  <div class="hudPill">
+    Dreadheim Map
+    <span class="hudHint">DEV: Press <b>M</b> to toggle drag mode</span>
+  </div>
+</div>
+
+<div id="toast"></div>
+
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+(() => {
+  "use strict";
+
+  // =========================
+  // LOCKING (your existing flags logic)
+  // =========================
   const FLAGS_KEY = "va_flags";
 
   function getFlags(){
@@ -56,24 +142,147 @@ document.addEventListener("DOMContentLoaded", () => {
     catch { return {}; }
   }
 
-  const flags = getFlags();
+  function applyLocks(){
+    const flags = getFlags();
 
-  document.querySelectorAll(".poi").forEach(el => {
-    const req = el.getAttribute("data-req-flag");
-    const href = el.getAttribute("data-href");
-    const ok = !req || flags[req] === true;
+    document.querySelectorAll(".poi").forEach(el => {
+      const req = el.getAttribute("data-req-flag");
+      const href = el.getAttribute("data-href");
+      const ok = !req || flags[req] === true;
 
-    if (!ok){
-      el.classList.add("locked");
-      el.onclick = () => {};
-      el.title = "Locked";
-    } else {
-      el.classList.remove("locked");
-      el.onclick = () => { if (href) window.location.href = href; };
-      el.title = "Open";
+      if (!ok){
+        el.classList.add("locked");
+        el.onclick = () => {};
+        el.title = "Locked";
+      } else {
+        el.classList.remove("locked");
+        // click is handled below (and blocked during dev drag mode)
+        el.title = "Open";
+        el.onclick = () => { if (href) window.location.href = href; };
+      }
+    });
+  }
+
+  // =========================
+  // Toast
+  // =========================
+  const toast = document.getElementById("toast");
+  function showToast(msg){
+    toast.textContent = String(msg || "");
+    toast.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove("show"), 1400);
+  }
+
+  applyLocks();
+
+  // ============================================================
+  // DEV “drag to position” mode (same idea as Veriador map)
+  // - Press M to toggle
+  // - Drags .poi elements
+  // - Saves per page (pathname) in localStorage
+  // ============================================================
+  const DEV_KEY = "va_map_dev_mode";
+  const POS_KEY = "va_map_positions_" + location.pathname;
+
+  const labels = Array.from(document.querySelectorAll(".poi"));
+  if (!labels.length) return;
+
+  let devMode = localStorage.getItem(DEV_KEY) === "1";
+  let dragging = null;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  const mapEl = document.body;
+
+  function loadPositions(){
+    try { return JSON.parse(localStorage.getItem(POS_KEY) || "{}"); }
+    catch { return {}; }
+  }
+  function savePositions(pos){
+    localStorage.setItem(POS_KEY, JSON.stringify(pos));
+  }
+
+  const positions = loadPositions();
+
+  // Ensure each POI has a stable id for saving positions
+  labels.forEach(el => {
+    const id = el.dataset.id || el.textContent.trim();
+    el.dataset.id = id;
+
+    if (positions[id]){
+      el.style.left = positions[id].left;
+      el.style.top  = positions[id].top;
     }
   });
-});
+
+  function setDevMode(on){
+    devMode = on;
+    localStorage.setItem(DEV_KEY, on ? "1" : "0");
+
+    labels.forEach(el => {
+      el.style.cursor = on ? "move" : (el.classList.contains("locked") ? "not-allowed" : "pointer");
+      el.style.outline = on ? "1px dashed rgba(255,215,140,0.55)" : "";
+    });
+
+    showToast(on ? "DEV DRAG MODE: ON (drag POIs)" : "DEV DRAG MODE: OFF");
+    console.log(on ? "🛠️ DREADHEIM MAP DEV MODE ON — drag POIs" : "🧭 DREADHEIM MAP DEV MODE OFF");
+  }
+
+  setDevMode(devMode);
+
+  window.addEventListener("keydown", e => {
+    if (e.key.toLowerCase() === "m") setDevMode(!devMode);
+  });
+
+  // Block navigation clicks while dev dragging
+  labels.forEach(el => {
+    el.addEventListener("mousedown", e => {
+      if (!devMode) return;
+
+      dragging = el;
+      const rect = el.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+
+      el.classList.add("dragging");
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+
+  window.addEventListener("mousemove", e => {
+    if (!dragging) return;
+
+    const mapRect = mapEl.getBoundingClientRect();
+    const x = ((e.clientX - offsetX - mapRect.left) / mapRect.width) * 100;
+    const y = ((e.clientY - offsetY - mapRect.top) / mapRect.height) * 100;
+
+    dragging.style.left = x.toFixed(2) + "%";
+    dragging.style.top  = y.toFixed(2) + "%";
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+
+    const id = dragging.dataset.id;
+    positions[id] = { left: dragging.style.left, top: dragging.style.top };
+    savePositions(positions);
+
+    console.log(`📍 ${id}: left:${positions[id].left}; top:${positions[id].top};`);
+
+    dragging.classList.remove("dragging");
+    dragging = null;
+  });
+
+  // Dev convenience
+  window.VA_DREAD_MAP_DEV = {
+    clearPositions(){ localStorage.removeItem(POS_KEY); showToast("Positions cleared (reload)"); },
+    refreshLocks(){ applyLocks(); showToast("Locks refreshed"); }
+  };
+
+})();
 </script>
 </body>
 </html>
+
