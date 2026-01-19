@@ -1,4 +1,3 @@
-```html
 <!-- /public/guildbook/scenes/lokisroom.html -->
 <!doctype html>
 <html lang="en">
@@ -136,7 +135,7 @@ html, body{
   pointer-events:none;
 }
 
-/* ================= QUEST TOAST (ADDED) ================= */
+/* ================= QUEST TOAST ================= */
 #questToast{
   position:fixed;
   top:24px;
@@ -163,11 +162,72 @@ html, body{
 #questToast.hidden{
   display:none;
 }
+
+/* ================= HAMBURGER MENU ================= */
+#hamburger{
+  position:fixed;
+  top:16px;
+  right:18px;
+  z-index:1001;
+  font-size:28px;
+  cursor:pointer;
+  color:rgba(255,230,180,.95);
+  text-shadow:0 4px 14px rgba(0,0,0,.9);
+  user-select:none;
+}
+
+#menuPanel{
+  position:fixed;
+  top:60px;
+  right:18px;
+  z-index:1000;
+  padding:16px;
+  border-radius:16px;
+  background:rgba(20,10,5,.95);
+  border:1px solid rgba(255,208,120,.35);
+  box-shadow:0 18px 45px rgba(0,0,0,.7);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+#menuPanel.hidden{
+  display:none;
+}
+
+.menuBtn{
+  padding:10px 18px;
+  border-radius:12px;
+  border:1px solid rgba(255,208,120,.25);
+  background:rgba(120,60,25,.45);
+  color:rgba(255,245,230,.95);
+  font-family:Cinzel, serif;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.menuBtn:hover{
+  filter:brightness(1.15);
+}
 </style>
 </head>
 
 <body>
 <div id="bg"></div>
+
+<!-- ================= HAMBURGER MENU ================= -->
+<div id="hamburger">☰</div>
+<div id="menuPanel" class="hidden">
+  <button class="menuBtn" onclick="window.location.href='/guildbook/scenes/dreadheim_meadhall.html'">
+    Mead Hall
+  </button>
+  <button class="menuBtn" onclick="window.location.href='/guildbook/scenes/maps/veriador_map.html'">
+    World Map
+  </button>
+  <button class="menuBtn" onclick="document.getElementById('menuPanel').classList.add('hidden')">
+    Close
+  </button>
+</div>
 
 <div id="npcs">
   <!-- Loki NPC animation frames (frame_008 confirmed) -->
@@ -186,7 +246,7 @@ html, body{
   </div>
 </div>
 
-<!-- Quest toast (ADDED) -->
+<!-- Quest toast -->
 <div id="questToast" class="hidden">New quests added</div>
 
 <script>
@@ -200,14 +260,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const NAME_KEY      = "va_player_name";
 
   // ----------------------------
-// File paths (FIXED)
-// ----------------------------
-const LOKI_ROOM_JSON         = "/guildbook/quests/lokisroom.json";
-const LOKI_SLAKI_DIALOGUE    = "/guildbook/quests/lokislaki.json";
-const FAILED_LOKI_DIALOGUE   = "/data/episodes/volume1_ep1/failedloki.json";
+  // File paths (FIXED)
+  // ----------------------------
+  const LOKI_ROOM_JSON         = "/guildbook/quests/lokisroom.json";
+  const LOKI_SLAKI_DIALOGUE    = "/guildbook/quests/lokislaki.json";
+  const FAILED_LOKI_DIALOGUE   = "/data/episodes/volume1_ep1/failedloki.json";
 
-const LOKI_SLAKI_QUEST_CATALOG  = "/guildbook/quests/lokislaki_quests.json";
-const FAILED_LOKI_QUEST_CATALOG = "/guildbook/quests/failedloki_quests.json";
+  const LOKI_SLAKI_QUEST_CATALOG  = "/guildbook/quests/lokislaki_quests.json";
+  const FAILED_LOKI_QUEST_CATALOG = "/guildbook/quests/failedloki_quests.json";
 
   // ----------------------------
   // UI refs
@@ -218,6 +278,22 @@ const FAILED_LOKI_QUEST_CATALOG = "/guildbook/quests/failedloki_quests.json";
   const dlgBtns = document.getElementById("dlgBtns");
   const dlgPortrait = document.getElementById("dlgPortrait");
   const npcLoki = document.getElementById("npcLoki");
+
+  // ----------------------------
+  // Hamburger menu toggle
+  // ----------------------------
+  const hamburger = document.getElementById("hamburger");
+  const menuPanel = document.getElementById("menuPanel");
+
+  hamburger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    menuPanel.classList.toggle("hidden");
+  });
+
+  // Close menu when clicking anywhere else
+  document.addEventListener("click", () => {
+    menuPanel.classList.add("hidden");
+  });
 
   // ----------------------------
   // Helpers
@@ -292,7 +368,7 @@ const FAILED_LOKI_QUEST_CATALOG = "/guildbook/quests/failedloki_quests.json";
   }
 
   // ----------------------------
-  // Quest toast helper (ADDED)
+  // Quest toast helper
   // ----------------------------
   function showQuestToast(message = "New quests added", duration = 5000){
     const toast = document.getElementById("questToast");
@@ -355,10 +431,11 @@ const FAILED_LOKI_QUEST_CATALOG = "/guildbook/quests/failedloki_quests.json";
   }
 
   // ----------------------------
-  // Dialogue Engine (same format as Hel)
+  // Dialogue Engine
   // Supports special routing tokens:
   //  "__to_failed_dialogue" -> open failedloki.json
   //  "__to_slaki_dialogue"  -> open lokislaki.json
+  //  "__auto_verdict"       -> auto-branch based on score
   // ----------------------------
   async function runDialogueFromJson(url){
     const data = await loadJSON(url);
@@ -442,10 +519,7 @@ const FAILED_LOKI_QUEST_CATALOG = "/guildbook/quests/failedloki_quests.json";
 
   // ----------------------------
   // Loki click: require dq_001 completed first
-  // Then:
-  // - 3 green (passCount === 3): praise + set quests to lokislaki (dq_002) catalog
-  // - 2 green (passCount === 2): mean praise + set quests to lokislaki (dq_002) catalog
-  // - 3 red   (failCount === 3): furious + set quests to failedloki (dq_001b) catalog
+  // Then set quests + show toast, and run Loki dialogue once then default
   // ----------------------------
   npcLoki.addEventListener("click", async () => {
     const score = getDq001Score();
@@ -471,16 +545,14 @@ const FAILED_LOKI_QUEST_CATALOG = "/guildbook/quests/failedloki_quests.json";
 
     // Set quest replacement BEFORE dialogue so the quest button updates immediately
     if (score.passCount >= 2){
-      // success / partial success -> next trials
       setActiveQuest("dq_002", LOKI_SLAKI_QUEST_CATALOG);
-      showQuestToast("New quests added", 5000); // ADDED
+      showQuestToast("New quests added", 5000);
     } else if (score.failCount === 3){
-      // total failure -> punishment quest catalog
       setActiveQuest("dq_001b", FAILED_LOKI_QUEST_CATALOG);
-      showQuestToast("New quests added", 5000); // ADDED
+      showQuestToast("New quests added", 5000);
     }
 
-    // ✅ ONCE-THEN-DEFAULT (ADDED)
+    // Loki dialogue: once then default
     await VAQ.npcRunOnceThenDefault({
       npcId: "loki_room",
       onceJson: LOKI_ROOM_JSON,
@@ -503,7 +575,7 @@ const FAILED_LOKI_QUEST_CATALOG = "/guildbook/quests/failedloki_quests.json";
 
 </body>
 </html>
-```
+
 
 
 
