@@ -40,7 +40,7 @@
     {
       "id": "loki_verdict",
       "speaker": "Loki",
-      "text": "If you earned *two or more* green checks, you’re worth sharpening. If you earned *three red checks*… I will not pretend you’re anything but a problem.",
+      "text": "I’ve seen enough. Some of your choices pleased me. Some nearly bored me. Either way—the verdict is decided.",
       "choices": [
         { "label": "Verdict (3/3 green).", "to": "v_3_green" },
         { "label": "Verdict (2/3 green).", "to": "v_2_green" },
@@ -59,7 +59,7 @@
         }
       },
       "choices": [
-        { "label": "What’s next?", "to": "__to_lokislaki" }
+        { "label": "What’s next?", "to": "__to_slaki_dialogue" }
       ]
     },
 
@@ -74,14 +74,14 @@
         }
       },
       "choices": [
-        { "label": "I’ll prove it.", "to": "__to_lokislaki" }
+        { "label": "I’ll prove it.", "to": "__to_slaki_dialogue" }
       ]
     },
 
     {
       "id": "v_3_red",
       "speaker": "Loki",
-      "text": "Three red checks?! You walked into my world and chose goodness like a lost child choosing a warm blanket. I don’t reward that. I correct it.",
+      "text": "Three red checks. You walked into my world and chose goodness like a lost child choosing a warm blanket. I don’t reward that. I correct it.",
       "reward": {
         "flags": {
           "lokiVerdict": "failed",
@@ -89,8 +89,9 @@
         }
       },
       "choices": [
-        { "label": "…", "to": "__to_failedloki" }
+        { "label": "…", "to": "__to_failed_dialogue" }
       ]
     }
   ]
 }
+
