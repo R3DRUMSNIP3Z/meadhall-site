@@ -38,15 +38,14 @@
     },
 
     {
-      "id": "loki_verdict",
-      "speaker": "Loki",
-      "text": "I’ve seen enough. Some of your choices pleased me. Some nearly bored me. Either way—the verdict is decided.",
-      "choices": [
-        { "label": "Verdict (3/3 green).", "to": "v_3_green" },
-        { "label": "Verdict (2/3 green).", "to": "v_2_green" },
-        { "label": "Verdict (3/3 red).", "to": "v_3_red" }
-      ]
-    },
+  "id": "loki_verdict",
+  "speaker": "Loki",
+  "text": "I’ve seen enough. Some of your choices pleased me. Some nearly bored me. Either way—the verdict is decided.",
+  "choices": [
+    { "label": "…", "to": "__auto_verdict" }
+  ]
+},
+
 
     {
       "id": "v_3_green",
