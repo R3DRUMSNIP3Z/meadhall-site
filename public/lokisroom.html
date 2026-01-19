@@ -135,6 +135,34 @@ html, body{
   text-shadow:0 2px 10px rgba(0,0,0,0.8);
   pointer-events:none;
 }
+
+/* ================= QUEST TOAST (ADDED) ================= */
+#questToast{
+  position:fixed;
+  top:24px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:1000;
+  padding:14px 26px;
+  border-radius:14px;
+  background:rgba(20,10,5,0.92);
+  border:1px solid rgba(255,208,120,0.35);
+  color:rgba(255,235,190,0.95);
+  font-weight:800;
+  font-size:18px;
+  letter-spacing:.04em;
+  box-shadow:0 16px 40px rgba(0,0,0,0.65);
+  opacity:0;
+  transition:opacity .4s ease, transform .4s ease;
+  pointer-events:none;
+}
+#questToast.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}
+#questToast.hidden{
+  display:none;
+}
 </style>
 </head>
 
@@ -157,6 +185,9 @@ html, body{
     <div id="dlgBtns"></div>
   </div>
 </div>
+
+<!-- Quest toast (ADDED) -->
+<div id="questToast" class="hidden">New quests added</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", async () => {
@@ -258,6 +289,29 @@ const FAILED_LOKI_QUEST_CATALOG = "/guildbook/quests/failedloki_quests.json";
   function setActiveQuest(id, catalogUrl){
     if (id) localStorage.setItem(QUEST_ID_KEY, String(id));
     if (catalogUrl) localStorage.setItem(QUEST_CAT_KEY, String(catalogUrl));
+  }
+
+  // ----------------------------
+  // Quest toast helper (ADDED)
+  // ----------------------------
+  function showQuestToast(message = "New quests added", duration = 5000){
+    const toast = document.getElementById("questToast");
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.classList.remove("hidden");
+
+    // force reflow so transition works
+    toast.offsetHeight;
+
+    toast.classList.add("show");
+
+    setTimeout(() => {
+      toast.classList.remove("show");
+      setTimeout(() => {
+        toast.classList.add("hidden");
+      }, 400);
+    }, duration);
   }
 
   // ----------------------------
@@ -365,18 +419,17 @@ const FAILED_LOKI_QUEST_CATALOG = "/guildbook/quests/failedloki_quests.json";
             label: c.label || "Continue",
             onClick: () => {
               if (c.to === "__to_failed_dialogue"){ runDialogueFromJson(FAILED_LOKI_DIALOGUE).catch(console.error); return; }
-if (c.to === "__to_slaki_dialogue"){  runDialogueFromJson(LOKI_SLAKI_DIALOGUE).catch(console.error);  return; }
+              if (c.to === "__to_slaki_dialogue"){  runDialogueFromJson(LOKI_SLAKI_DIALOGUE).catch(console.error);  return; }
 
-if (c.to === "__auto_verdict"){
-  const score = getDq001Score();
-  if (score.passCount === 3) showNode("v_3_green");
-  else if (score.passCount === 2) showNode("v_2_green");
-  else showNode("v_3_red");
-  return;
-}
+              if (c.to === "__auto_verdict"){
+                const score = getDq001Score();
+                if (score.passCount === 3) showNode("v_3_green");
+                else if (score.passCount === 2) showNode("v_2_green");
+                else showNode("v_3_red");
+                return;
+              }
 
-showNode(c.to || "__close");
-
+              showNode(c.to || "__close");
             }
           }))
         : [{ label: "Close", onClick: hideDialogue }];
@@ -420,20 +473,21 @@ showNode(c.to || "__close");
     if (score.passCount >= 2){
       // success / partial success -> next trials
       setActiveQuest("dq_002", LOKI_SLAKI_QUEST_CATALOG);
+      showQuestToast("New quests added", 5000); // ADDED
     } else if (score.failCount === 3){
       // total failure -> punishment quest catalog
       setActiveQuest("dq_001b", FAILED_LOKI_QUEST_CATALOG);
+      showQuestToast("New quests added", 5000); // ADDED
     }
 
-    // Open verdict dialogue (lokisroom.json should have the 3 branches)
-    runDialogueFromJson(LOKI_ROOM_JSON).catch(err => {
-      console.error(err);
-      showDialogue({
-        speaker: "Loki",
-        text: "…",
-        portraitSrc: "/guildbook/npcs/loki.gif",
-        buttons: [{ label: "Close", onClick: hideDialogue }]
-      });
+    // ✅ ONCE-THEN-DEFAULT (ADDED)
+    await VAQ.npcRunOnceThenDefault({
+      npcId: "loki_room",
+      onceJson: LOKI_ROOM_JSON,
+      defaultJson: "/data/episodes/volume1_ep1/defaultdialoguenpc.json",
+      runDialogueFromJson,
+      showDialogue,
+      hideDialogue
     });
   });
 
@@ -449,5 +503,7 @@ showNode(c.to || "__close");
 
 </body>
 </html>
+```
+
 
 
