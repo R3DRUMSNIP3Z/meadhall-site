@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "id": "failedloki_quests",
+    "title": "Loki’s Corrections"
+  },
+
+  "quests": {
+    "dq_001b": {
+      "id": "dq_001b",
+      "title": "Correction of the Weak",
+      "giver": "Loki",
+      "summary": "You failed Hel’s test. Loki sends you into Dreadheim City to unlearn mercy.",
+
+      "type": "evil",
+      "passAdds": { "evil": 2 },
+      "failAdds": { "good": 1 },
+
+      "steps": [
+        "Intimidate a Dreadheim citizen into silence.",
+        "Take something from a citizen who resists.",
+        "Report back without apology."
+      ],
+
+      "objectiveOrder": ["intimidate", "take", "return"],
+
+      "objectives": {
+        "intimidate": {
+          "label": "Intimidate a Dreadheim citizen into silence.",
+          "flag": "dq_001b_intimidatedCitizen",
+          "passWhen": true
+        },
+
+        "take": {
+          "label": "Take something from a citizen who resists.",
+          "flag": "dq_001b_stoleFromCitizen",
+          "passWhen": true
+        },
+
+        "return": {
+          "label": "Return without apology or explanation.",
+          "flag": "dq_001b_returnedCold",
+          "passWhen": true
+        }
+      },
+
+      "reward": "Loki’s Mark (failure corrected)"
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "id": "lokislaki_quests",
+    "title": "Loki Slaki Quest Catalog"
+  },
+
+  "quests": {
+    "dq_002": {
+      "id": "dq_002",
+      "title": "The City’s Smile",
+      "giver": "Loki",
+      "summary": "You pleased Loki enough to continue. Now Dreadheim City must learn your name—through fear, not kindness.",
+
+      "type": "evil",
+      "passAdds": { "evil": 1 },
+      "failAdds": { "good": 1 },
+
+      "steps": [
+        "Enter Dreadheim City and blend in like a predator.",
+        "Make a citizen obey you without raising your voice.",
+        "Leave the city with a token taken, not given."
+      ],
+
+      "objectiveOrder": ["enter", "obey", "token"],
+
+      "objectives": {
+        "enter": {
+          "label": "Enter Dreadheim City and blend in like a predator.",
+          "flag": "dq_002_enteredCity",
+          "passWhen": true
+        },
+
+        "obey": {
+          "label": "Make a citizen obey you without raising your voice.",
+          "flag": "dq_002_madeCitizenObey",
+          "passWhen": true
+        },
+
+        "token": {
+          "label": "Leave the city with a token taken, not given.",
+          "flag": "dq_002_tookToken",
+          "passWhen": true
+        }
+      },
+
+      "reward": "A whisper-name among Dreadheim’s streets"
+    }
+  }
+}
