@@ -158,8 +158,8 @@ html, body{
 #menuPanel{
   position:fixed;
   top:14px;
-  left:14px;
-  width:min(340px, calc(100vw - 28px));
+  left:72px; /* ✅ moved right (52px button + gap) */
+  width:min(340px, calc(100vw - 86px));
   max-height:calc(100vh - 28px);
   overflow:auto;
   border-radius:18px;
@@ -168,6 +168,7 @@ html, body{
   box-shadow:0 18px 60px rgba(0,0,0,.75);
   padding:12px;
 }
+
 
 .menuHeader{
   display:flex;
@@ -705,8 +706,8 @@ html, body{
         Mead Hall <span class="menuHint">You are here</span>
       </div>
 
-      <div class="menuItem" data-href="/guildbook/scenes/dreadheim_throne.html">
-        Throne Room <span class="menuHint">room</span>
+      <div class="menuItem" data-href="/lokisroom.html">
+        Lokis Room <span class="menuHint">room</span>
       </div>
 
       <div class="menuItem" data-href="/guildbook/scenes/dreadheim_vault.html">
