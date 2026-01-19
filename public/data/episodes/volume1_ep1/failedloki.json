@@ -1,0 +1,92 @@
+{
+  "meta": {
+    "id": "failedloki",
+    "title": "Loki’s Correction",
+    "portrait": "/guildbook/npcs/loki/frame_008.png",
+    "speakerDefault": "Loki",
+    "gotoOnEnd": "/guildbook/scenes/dreadheimcity.html"
+  },
+
+  "start": "f_1",
+
+  "nodes": [
+    {
+      "id": "f_1",
+      "speaker": "Loki",
+      "text": "Three red checks. In my hall. Do you know what that makes you, {name}? Not “good.” Not “pure.” Just… unfinished.",
+      "choices": [
+        { "label": "Say nothing.", "to": "f_2" },
+        { "label": "I did what I thought was right.", "to": "f_2" }
+      ]
+    },
+
+    {
+      "id": "f_2",
+      "speaker": "Loki",
+      "text": "Right is a lullaby for children. Dreadheim doesn’t sleep. Dreadheim watches. So I won’t reward you… I’ll correct you.",
+      "choices": [
+        { "label": "Correct me, then.", "to": "f_3" },
+        { "label": "I won’t become what you want.", "to": "f_3" }
+      ]
+    },
+
+    {
+      "id": "f_3",
+      "speaker": "Loki",
+      "text": "You will—because you’re going to repeat Hel’s little test… but this time the targets are Dreadheim’s own citizens. If you can’t break strangers, you’ll learn to break neighbors.",
+      "choices": [
+        { "label": "What do I have to do?", "to": "f_rules" }
+      ]
+    },
+
+    {
+      "id": "f_rules",
+      "speaker": "Loki",
+      "text": "Three marks again. Three outcomes. No speeches. No mercy. You’ll do each task in Dreadheim City—then come back here when your journal shows all three decisions.",
+      "reward": {
+        "flags": {
+          "failedLoki_introSeen": true,
+          "failedLoki_active": true,
+          "dq_001b_assigned": true
+        },
+        "setQuest": {
+          "id": "dq_001b",
+          "catalog": "/guildbook/quests/failedloki_quests.json"
+        }
+      },
+      "choices": [
+        { "label": "Give me the tasks.", "to": "f_tasks" },
+        { "label": "Send me to the city.", "to": "__close" }
+      ]
+    },
+
+    {
+      "id": "f_tasks",
+      "speaker": "Loki",
+      "text": "Here’s your correction:\n\n• **Mark One:** Take something from a citizen—and make them believe they deserved it.\n• **Mark Two:** Force a citizen to betray a friend. A whisper. A lie. A planted fear.\n• **Mark Three:** Hurt their pride without lifting a blade. Make them thank you for it.\n\nWhen you’re done, your journal will show three marks. Then you return to me.",
+      "reward": {
+        "flags": {
+          "dq_001b_hintShown": true
+        }
+      },
+      "choices": [
+        { "label": "I’ll do it.", "to": "__close" },
+        { "label": "I refuse.", "to": "f_refuse" }
+      ]
+    },
+
+    {
+      "id": "f_refuse",
+      "speaker": "Loki",
+      "text": "Refuse? Fine. Stay soft. But understand this: Dreadheim will still shape you—only it won’t be gentle about it. Go. Before I get bored.",
+      "reward": {
+        "flags": {
+          "dq_001b_refusedOnce": true
+        }
+      },
+      "choices": [
+        { "label": "…Go to Dreadheim City.", "to": "__close" }
+      ]
+    }
+  ]
+}
