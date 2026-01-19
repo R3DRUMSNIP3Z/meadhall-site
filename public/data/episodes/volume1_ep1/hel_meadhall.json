@@ -161,9 +161,10 @@
           "catalog": "/guildbook/quests/dreadheim_quests.json"
         },
         "flags": {
-          "dq_001_started": true
-        }
-      },
+    "dq_001_started": true,
+    "unlocked_dreadheim": true
+  }
+},
       "choices": [
         { "label": "Close", "to": "__close" }
       ]
