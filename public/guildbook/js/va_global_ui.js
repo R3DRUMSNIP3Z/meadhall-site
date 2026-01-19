@@ -314,6 +314,419 @@ try {
 }
   }
 
+  // ============================
+  // GLOBAL ICON HUD (NO HAMBURGER)
+  // ============================
+  function ensureGlobalIcons() {
+    // Prevent duplicates if a page already has its own icons
+    const hasQuestBtn = !!document.getElementById("questBtn");
+    const hasMeterBtn = !!document.getElementById("meterBtn");
+    const hasInvBtn   = !!document.getElementById("invBtn");
+    const hasMapBtn   = !!document.getElementById("mapBtn");
+
+    // If page already built its own full HUD, do nothing
+    // (You can remove this guard if you want global to always win)
+    if (hasQuestBtn && hasMeterBtn && hasInvBtn && hasMapBtn) return;
+
+    // --------- Assets / Links ----------
+    const QUEST_ICON = "/guildbook/ui/quest_icon.png";
+    const METER_ICON = "/guildbook/ui/metericon.png";
+    const INV_ICON   = "/guildbook/ui/inventory.png";
+    const MAP_ICON   = "/guildbook/scenes/maps/Veriador.png";
+    const MAP_URL    = "/guildbook/scenes/maps/veriador_map.html";
+
+    // --------- Inventory keys ----------
+    const INV_UNLOCK_KEY = "va_inv_unlocked";
+    const INV_ITEMS_KEY  = "va_inv_items";
+
+    // --------- Create minimal CSS once ----------
+    if (!document.getElementById("vaGlobalHudStyles")) {
+      const st = document.createElement("style");
+      st.id = "vaGlobalHudStyles";
+      st.textContent = `
+        /* ===== GLOBAL HUD ICONS ===== */
+        .vaHudBtn{
+          position:fixed;
+          top:14px;
+          width:52px;
+          height:52px;
+          background:transparent;
+          border:none;
+          cursor:pointer;
+          z-index:60;
+          display:block;
+        }
+        .vaHudBtn img{
+          width:100%;
+          height:100%;
+          object-fit:contain;
+          filter:drop-shadow(0 10px 22px rgba(0,0,0,0.75));
+          opacity:.96;
+          transition:transform 120ms ease;
+        }
+        .vaHudBtn:hover img{ transform:scale(1.05); }
+
+        /* ===== overlays ===== */
+        .vaOverlay{
+          position:fixed;
+          inset:0;
+          background:rgba(0,0,0,.65);
+          z-index:80;
+          display:none;
+        }
+        .vaPanel{
+          position:absolute;
+          top:70px;
+          right:18px;
+          width:min(520px, calc(100vw - 36px));
+          max-height:calc(100vh - 110px);
+          overflow:auto;
+          background:rgba(0,0,0,.92);
+          border:1px solid rgba(255,255,255,.14);
+          border-radius:16px;
+          padding:14px;
+          box-shadow:0 18px 60px rgba(0,0,0,0.7);
+          text-shadow:0 1px 2px rgba(0,0,0,0.6);
+          color:rgba(245,240,230,.95);
+          font-family:Cinzel, serif;
+        }
+        .vaHeader{
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:12px;
+        }
+        .vaTitle{
+          font-weight:900;
+          letter-spacing:.06em;
+          color:rgba(255,215,140,1);
+        }
+        .vaClose{
+          width:34px;
+          height:34px;
+          border-radius:10px;
+          font-size:20px;
+          font-weight:900;
+          cursor:pointer;
+          background:rgba(0,0,0,.4);
+          border:1px solid rgba(255,215,140,.6);
+          color:rgba(255,215,140,1);
+        }
+
+        /* Quest steps */
+        .vaStepRow{
+          display:grid;
+          grid-template-columns:22px 1fr;
+          gap:10px;
+          align-items:start;
+          margin:8px 0;
+        }
+        .vaMark{
+          width:22px;
+          height:22px;
+          border-radius:8px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-weight:900;
+          font-size:14px;
+          border:1px solid rgba(255,255,255,.12);
+          background:rgba(0,0,0,.35);
+          user-select:none;
+        }
+        .vaMark.pending{ color:rgba(255,255,255,.55); }
+        .vaMark.pass{
+          color:rgba(165,255,190,.95);
+          border-color:rgba(165,255,190,.45);
+          background:rgba(40,120,65,.25);
+        }
+        .vaMark.fail{
+          color:rgba(255,140,140,.95);
+          border-color:rgba(255,140,140,.45);
+          background:rgba(120,35,35,.25);
+        }
+
+        /* Inventory grid */
+        .vaInvGrid{
+          margin-top:12px;
+          display:grid;
+          grid-template-columns:repeat(4, 86px);
+          gap:6px;
+          justify-content:start;
+        }
+        .vaInvCell{
+          width:86px;
+          height:86px;
+          border-radius:12px;
+          border:1px solid rgba(255,255,255,.12);
+          background:rgba(0,0,0,.35);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          overflow:hidden;
+        }
+        .vaInvCell img{
+          width:70px;
+          height:70px;
+          object-fit:contain;
+          filter:drop-shadow(0 10px 18px rgba(0,0,0,.65));
+        }
+      `;
+      document.head.appendChild(st);
+    }
+
+    // Helper to make a button
+    function makeBtn(id, rightPx, imgSrc, title) {
+      if (document.getElementById(id)) return document.getElementById(id);
+      const btn = document.createElement("button");
+      btn.id = id;
+      btn.className = "vaHudBtn";
+      btn.style.right = rightPx + "px";
+      btn.setAttribute("aria-label", title);
+      btn.title = title;
+
+      const img = document.createElement("img");
+      img.src = imgSrc;
+      img.alt = title;
+      btn.appendChild(img);
+
+      document.body.appendChild(btn);
+      return btn;
+    }
+
+    // Helper overlay/panel
+    function makeOverlay(idOverlay, idPanel, titleText) {
+      let ov = document.getElementById(idOverlay);
+      if (!ov) {
+        ov = document.createElement("div");
+        ov.id = idOverlay;
+        ov.className = "vaOverlay";
+        ov.setAttribute("aria-hidden", "true");
+
+        const panel = document.createElement("div");
+        panel.id = idPanel;
+        panel.className = "vaPanel";
+        panel.setAttribute("role", "dialog");
+        panel.setAttribute("aria-label", titleText);
+
+        panel.innerHTML = `
+          <div class="vaHeader">
+            <div class="vaTitle">${escapeHtml(titleText)}</div>
+            <button class="vaClose" data-va-close="1" aria-label="Close">✕</button>
+          </div>
+          <div data-va-body="1" style="margin-top:10px;"></div>
+        `;
+
+        ov.appendChild(panel);
+        document.body.appendChild(ov);
+
+        // click outside closes
+        ov.addEventListener("click", (e) => {
+          if (e.target === ov) closeOverlay(ov);
+        });
+
+        // close button
+        panel.querySelector('[data-va-close="1"]').addEventListener("click", () => closeOverlay(ov));
+      }
+      return ov;
+    }
+
+    function openOverlay(ov) {
+      ov.style.display = "block";
+      ov.setAttribute("aria-hidden", "false");
+    }
+    function closeOverlay(ov) {
+      ov.style.display = "none";
+      ov.setAttribute("aria-hidden", "true");
+    }
+
+    // --------- Buttons positions (same as your Mead Hall layout) ----------
+    // right: 14 = quest
+    // meter: 74
+    // inv: 134
+    // map: 194
+    const questBtn = makeBtn("questBtn", 14, QUEST_ICON, "Quests");
+    const meterBtn = makeBtn("meterBtn", 74, METER_ICON, "Good / Evil Meter");
+    const invBtn   = makeBtn("invBtn",   134, INV_ICON, "Inventory");
+    const mapBtn   = makeBtn("mapBtn",   194, MAP_ICON, "World Map");
+
+    // --------- Overlays ----------
+    const questOv = makeOverlay("vaQuestOverlay", "vaQuestPanel", "QUEST");
+    const meterOv = makeOverlay("vaMeterOverlay", "vaMeterPanel", "METER");
+    const invOv   = makeOverlay("vaInvOverlay",   "vaInvPanel",   "INVENTORY");
+
+    const questBody = questOv.querySelector('[data-va-body="1"]');
+    const meterBody = meterOv.querySelector('[data-va-body="1"]');
+    const invBody   = invOv.querySelector('[data-va-body="1"]');
+
+    // --------- Map click ----------
+    mapBtn.addEventListener("click", () => {
+      window.location.href = MAP_URL;
+    });
+
+    // --------- Meter render ----------
+    function meterImgPath(type, n){
+      n = clamp(Number(n)||0, 0, 10);
+      if (type === "good") return `/guildbook/ui/goodmeter/${n}.png`;
+      return `/guildbook/ui/evilmeter/${n}.png`;
+    }
+
+    function renderMeters(){
+      const g = clamp(getNum(GOOD_KEY), 0, 10);
+      const e = clamp(getNum(EVIL_KEY), 0, 10);
+
+      meterBody.innerHTML = `
+        <div style="display:grid; grid-template-columns:1fr; gap:14px;">
+          <div style="border:1px solid rgba(255,255,255,.12); background:rgba(0,0,0,.35); border-radius:14px; padding:10px;">
+            <div style="font-weight:900; letter-spacing:.04em; opacity:.95; margin-bottom:8px;">GOOD</div>
+            <img src="${escapeHtml(meterImgPath("good", g))}" alt="Good meter" style="width:100%; height:auto; display:block; object-fit:contain; filter:drop-shadow(0 10px 22px rgba(0,0,0,0.75));">
+          </div>
+          <div style="border:1px solid rgba(255,255,255,.12); background:rgba(0,0,0,.35); border-radius:14px; padding:10px;">
+            <div style="font-weight:900; letter-spacing:.04em; opacity:.95; margin-bottom:8px;">EVIL</div>
+            <img src="${escapeHtml(meterImgPath("evil", e))}" alt="Evil meter" style="width:100%; height:auto; display:block; object-fit:contain; filter:drop-shadow(0 10px 22px rgba(0,0,0,0.75));">
+          </div>
+        </div>
+      `;
+    }
+
+    meterBtn.addEventListener("click", () => {
+      renderMeters();
+      openOverlay(meterOv);
+    });
+
+    // --------- Inventory ----------
+    function invIsUnlocked(){
+      return localStorage.getItem(INV_UNLOCK_KEY) === "1";
+    }
+    function invGetItems(){
+      try{
+        const arr = JSON.parse(localStorage.getItem(INV_ITEMS_KEY) || "[]");
+        return Array.isArray(arr) ? arr : [];
+      }catch{
+        return [];
+      }
+    }
+
+    function renderInventory(){
+      const items = invGetItems();
+      const slots = 16;
+
+      let html = `<div class="vaInvGrid">`;
+      for (let i=0; i<slots; i++){
+        const it = items[i];
+        html += `<div class="vaInvCell">`;
+        if (it && it.img){
+          html += `<img src="${escapeHtml(it.img)}" alt="${escapeHtml(it.name || it.id || "item")}">`;
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+      invBody.innerHTML = html;
+    }
+
+    function refreshInvBtn(){
+      invBtn.style.display = invIsUnlocked() ? "block" : "none";
+    }
+
+    invBtn.addEventListener("click", () => {
+      renderInventory();
+      openOverlay(invOv);
+    });
+
+    refreshInvBtn();
+
+    // --------- Quest journal ----------
+    async function renderQuestJournal(){
+      const activeId = localStorage.getItem(QUEST_ID_KEY) || "";
+      const catalogUrl = localStorage.getItem(QUEST_CAT_KEY) || DEFAULT_CATALOG_URL;
+
+      if (!activeId){
+        questBody.innerHTML = `<div style="opacity:.9">No active quest.</div>`;
+        return;
+      }
+
+      let catalog;
+      try{
+        catalog = await loadJSON(catalogUrl);
+      }catch{
+        questBody.innerHTML = `
+          <div style="opacity:.95; margin-bottom:8px;">Quest catalog missing / failed to load.</div>
+          <div style="opacity:.8; font-size:14px;">
+            ActiveId: ${escapeHtml(activeId)}<br>
+            Catalog: ${escapeHtml(catalogUrl)}
+          </div>`;
+        return;
+      }
+
+      const q = (catalog?.quests && catalog.quests[activeId]) ? catalog.quests[activeId] : null;
+      if (!q){
+        questBody.innerHTML = `
+          <div style="opacity:.95; margin-bottom:8px;">Quest not found.</div>
+          <div style="opacity:.8; font-size:14px;">
+            ActiveId: ${escapeHtml(activeId)}<br>
+            Catalog: ${escapeHtml(catalogUrl)}
+          </div>`;
+        return;
+      }
+
+      const steps = Array.isArray(q.steps) ? q.steps : [];
+      const f = getFlags();
+
+      const stepsHtml = steps.map((s, i) => {
+        const st = f[`${activeId}_step${i}`];
+        const cls = st === "pass" ? "pass" : (st === "fail" ? "fail" : "pending");
+        const mark = st === "pass" ? "✓" : (st === "fail" ? "✕" : "•");
+        return `
+          <div class="vaStepRow">
+            <div class="vaMark ${cls}">${mark}</div>
+            <div style="opacity:.92;">${escapeHtml(s)}</div>
+          </div>
+        `;
+      }).join("");
+
+      questBody.innerHTML = `
+        <div style="font-size:18px; font-weight:900; color:rgba(255,215,140,1); margin:6px 0 10px;">
+          ${escapeHtml(q.title || "Quest")}
+        </div>
+
+        <div style="opacity:.95; margin-bottom:10px;">
+          Giver:
+          <strong style="color:rgba(255,210,160,0.95)">${escapeHtml(q.giver || "Unknown")}</strong>
+        </div>
+
+        ${q.summary ? `<div style="opacity:.92; margin-bottom:12px;">${escapeHtml(q.summary)}</div>` : ""}
+
+        <div style="margin: 8px 0 6px; opacity:.95; font-weight:800;">Objectives</div>
+        <div style="opacity:.92;">
+          ${stepsHtml || "<div>…</div>"}
+        </div>
+
+        ${q.reward ? `<div style="opacity:.95; margin-top:12px;"><strong>Reward:</strong> ${escapeHtml(q.reward)}</div>` : ""}
+      `;
+    }
+
+    questBtn.addEventListener("click", () => {
+      openOverlay(questOv);
+      renderQuestJournal().catch(err => {
+        console.error(err);
+        questBody.innerHTML = `<div style="opacity:.9">Quest journal failed.</div>`;
+      });
+    });
+
+    // --------- ESC closes overlays ----------
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        try{ closeOverlay(questOv); }catch{}
+        try{ closeOverlay(meterOv); }catch{}
+        try{ closeOverlay(invOv); }catch{}
+      }
+    });
+
+    // Expose a tiny refresh hook (pages can call after unlocking inv, etc.)
+    window.__va_refresh_icons = () => {
+      try{ refreshInvBtn(); }catch{}
+    };
+  }
 
 
 
@@ -376,15 +789,17 @@ try {
   // ----------------------------
   // Boot (no UI)
   // ----------------------------
-  document.addEventListener("DOMContentLoaded", () => {
-    // Ensure a default catalog is set (pages can override later)
+    document.addEventListener("DOMContentLoaded", () => {
     if (!localStorage.getItem(QUEST_CAT_KEY)) {
       localStorage.setItem(QUEST_CAT_KEY, DEFAULT_CATALOG_URL);
     }
 
-    // Auto-save resume location on every page load
+    // ✅ icons on every page (no hamburger)
+    try{ ensureGlobalIcons(); }catch(e){ console.warn("Global icons failed", e); }
+
     saveResumeState();
   });
+
 })();
 
 
