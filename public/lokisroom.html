@@ -164,10 +164,12 @@ html, body{
 }
 
 /* ================= HAMBURGER MENU ================= */
+/* ================= HAMBURGER MENU ================= */
 #hamburger{
   position:fixed;
   top:16px;
-  right:18px;
+  left:18px;          /* ✅ moved to left */
+  right:auto;         /* ✅ safety reset */
   z-index:1001;
   font-size:28px;
   cursor:pointer;
@@ -176,10 +178,12 @@ html, body{
   user-select:none;
 }
 
+
 #menuPanel{
   position:fixed;
   top:60px;
-  right:18px;
+  left:18px;          /* ✅ opens from left */
+  right:auto;         /* ✅ safety reset */
   z-index:1000;
   padding:16px;
   border-radius:16px;
@@ -190,6 +194,7 @@ html, body{
   flex-direction:column;
   gap:10px;
 }
+
 
 #menuPanel.hidden{
   display:none;
