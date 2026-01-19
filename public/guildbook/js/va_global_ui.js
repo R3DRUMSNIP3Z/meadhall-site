@@ -287,32 +287,30 @@
     }
 
     // After: show default one-liner.
-    const key = defaultNpcKey || npcId;
-
     try {
-      const d = await dlgGetDefault(key, defaultJson);
-      showDialogue({
-        speaker: d.speaker || speakerFallback,
-        text: d.line || "…",
-        portraitSrc: d.portrait || portraitFallback,
-        buttons: [{
-  label: "ENTER DREADHEIM CASTLE",
-  onClick: () => { window.location.href = "/dreadheim_meadhall.html"; }
-}]
-      });
-    } catch (e) {
-      console.error("Default dialogue failed:", e);
-      showDialogue({
-        speaker: speakerFallback,
-        text: "…",
-        portraitSrc: portraitFallback,
-        buttons: [{
-  label: "ENTER DREADHEIM CASTLE",
-  onClick: () => { window.location.href = "/dreadheim_meadhall.html"; }
-}]
-      });
-    }
-  }
+  const d = await dlgGetDefault(key, defaultJson);
+  showDialogue({
+    speaker: d.speaker || speakerFallback,
+    text: d.line || "…",
+    portraitSrc: d.portrait || portraitFallback,
+    buttons: [{
+      label: "Close",
+      onClick: () => { hideDialogue(); }
+    }]
+  });
+} catch (e) {
+  console.error("Default dialogue failed:", e);
+  showDialogue({
+    speaker: speakerFallback,
+    text: "…",
+    portraitSrc: portraitFallback,
+    buttons: [{
+      label: "Close",
+      onClick: () => { hideDialogue(); }
+    }]
+  });
+}
+
 
 
   // ----------------------------

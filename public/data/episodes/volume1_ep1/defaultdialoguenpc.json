@@ -8,7 +8,7 @@
   "defaults": {
     "hel_meadhall": {
       "speaker": "Hel",
-      "portrait": "/guildbook/npcs/hel/hel.png",
+      "portrait": "/guildbook/npcs/hel.gif",
       "lines": [
         "How fare thee, evil one?",
         "My hall remembers your choices, {name}.",
