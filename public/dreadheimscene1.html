@@ -483,7 +483,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ---------------------------
   // SCENE PLAYBACK (ONCE-THEN-DEFAULT)
   // ---------------------------
-  hideEnter();
+showEnter();
   questBtn.style.display = "none";
 
   // Must exist
@@ -523,7 +523,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // ✅ CHANGED: do NOT show the big enter overlay at end
         // Player will enter via Quest Journal -> ENTER DREADHEIM CASTLE
-        hideEnter();
+        showEnter();
 
         return;
       }
