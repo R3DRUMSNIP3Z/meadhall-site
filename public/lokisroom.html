@@ -171,7 +171,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ----------------------------
   // File paths
   // ----------------------------
-  const LOKI_ROOM_JSON        = "/data/episodes/volume1_ep1/lokisroom.json";      // verdict dialogue
+  const LOKI_ROOM_JSON = "/guildbook/quests/lokisroom.json";
   const LOKI_SLAKI_DIALOGUE   = "/data/episodes/volume1_ep1/lokislaki.json";      // follow-up dialogue
   const FAILED_LOKI_DIALOGUE  = "/data/episodes/volume1_ep1/failedloki.json";     // punishment dialogue
 
@@ -391,7 +391,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       showDialogue({
         speaker: "Loki",
         text: txt("Not yet, {name}. Three marks. Three checks. I want them all in that journal before you stand in my room begging for judgment."),
-        portraitSrc: "//guildbook/npcs/loki.gif",
+        portraitSrc: "/guildbook/npcs/loki.gif",
         buttons: [
           { label: "Back to Mead Hall", onClick: () => { window.location.href = "/guildbook/scenes/dreadheim_meadhall.html"; } },
           { label: "Close", onClick: hideDialogue }
