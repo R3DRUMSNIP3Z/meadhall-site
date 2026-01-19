@@ -823,7 +823,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Your catalog location
   const QUEST_CATALOG_URL = "/guildbook/quests/dreadheim_quests.json";
 
-  <!-- ✅ ADD THIS JS inside your existing DOMContentLoaded (near your other button handlers) -->
+  // ✅ ADD THIS JS inside your existing DOMContentLoaded (near your other button handlers)
   const menuBtn = document.getElementById("menuBtn");
   const menuOverlay = document.getElementById("menuOverlay");
   const menuClose = document.getElementById("menuClose");
@@ -875,6 +875,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ----------------------------
   const HEL_DIALOGUE_JSON = "/data/episodes/volume1_ep1/hel_meadhall.json";
   const KICKED_JSON = "/data/episodes/volume1_ep1/kickedoutbyloki.json";
+  // ONCE-THEN-DEFAULT for Hel
+const DEFAULT_NPC_JSON = "/data/episodes/volume1_ep1/defaultdialoguenpc.json";
+const HEL_NPC_ID = "hel_meadhall"; // must match defaults.hel_meadhall
+
 
   // ----------------------------
   // INVENTORY (localStorage)
@@ -1498,17 +1502,36 @@ document.addEventListener("DOMContentLoaded", async () => {
     showNode(startId || "__close");
   }
 
-  npcHel.addEventListener("click", () => {
-    runDialogueFromJson(HEL_DIALOGUE_JSON).catch(err => {
-      console.error(err);
-      showDialogue({
-        speaker: "Hel",
-        text: "…",
-        portraitSrc: "/guildbook/npcs/hel/hel.png",
-        buttons: [{ label: "Close", onClick: hideDialogue }]
-      });
+  npcHel.addEventListener("click", async () => {
+  // Must exist (va_global_ui.js)
+  if (!window.VAQ || typeof window.VAQ.npcRunOnceThenDefault !== "function"){
+    console.warn("VAQ helpers missing; falling back to full hel dialogue.");
+    runDialogueFromJson(HEL_DIALOGUE_JSON).catch(console.error);
+    return;
+  }
+
+  try{
+    await VAQ.npcRunOnceThenDefault({
+      npcId: HEL_NPC_ID,
+      onceJson: HEL_DIALOGUE_JSON,
+      defaultJson: DEFAULT_NPC_JSON,
+
+      // your dialogue engine already handles JSON nodes
+      runDialogueFromJson,
+
+      // UI helpers for the VAQ helper
+      showDialogue,
+      hideDialogue,
+
+      portraitFallback: "/guildbook/npcs/hel/hel.png",
+      speakerFallback: "Hel"
     });
-  });
+  }catch(err){
+    console.error(err);
+    runDialogueFromJson(HEL_DIALOGUE_JSON).catch(console.error);
+  }
+});
+
 
   // In case the flag was already set from previous session, apply on load:
   try{ maybeHandleAmuletSteal(); }catch{}
