@@ -218,17 +218,118 @@
   }
 
   // Mark a step pass/fail (matches your journal logic)
+    // Cache quest catalogs to avoid refetch spam
+  const __questCatalogCache = new Map();
+
+  async function _loadCatalogCached(url){
+    const u = String(url || DEFAULT_CATALOG_URL);
+    if (__questCatalogCache.has(u)) return __questCatalogCache.get(u);
+    const data = await loadJSON(u);
+    __questCatalogCache.set(u, data);
+    return data;
+  }
+
+  function setNum(key, n){
+    localStorage.setItem(key, String(Number(n) || 0));
+  }
+
+  // Same overflow behavior you already designed:
+  // - If good is maxed and you add more good, it reduces evil (if any)
+  // - If evil is maxed and you add more evil, it reduces good (if any)
+  function addAlignment(kind, delta){
+    delta = Number(delta) || 0;
+    if (!delta) return;
+
+    for (let i = 0; i < Math.abs(delta); i++){
+      if (kind === "good"){
+        let g = clamp(getNum(GOOD_KEY), 0, 10);
+        let e = clamp(getNum(EVIL_KEY), 0, 10);
+
+        if (delta > 0){
+          if (g >= 10){
+            if (e > 0) e -= 1;
+          } else {
+            g += 1;
+          }
+        } else {
+          if (g > 0) g -= 1;
+        }
+
+        setNum(GOOD_KEY, g);
+        setNum(EVIL_KEY, e);
+      } else {
+        let g = clamp(getNum(GOOD_KEY), 0, 10);
+        let e = clamp(getNum(EVIL_KEY), 0, 10);
+
+        if (delta > 0){
+          if (e >= 10){
+            if (g > 0) g -= 1;
+          } else {
+            e += 1;
+          }
+        } else {
+          if (e > 0) e -= 1;
+        }
+
+        setNum(GOOD_KEY, g);
+        setNum(EVIL_KEY, e);
+      }
+    }
+  }
+
+  function _applyAdds(addsObj){
+    if (!addsObj || typeof addsObj !== "object") return;
+    if (addsObj.good) addAlignment("good", Number(addsObj.good) || 0);
+    if (addsObj.evil) addAlignment("evil", Number(addsObj.evil) || 0);
+  }
+
+  // Mark a step pass/fail (matches your journal logic)
+  // + GLOBAL alignment awarding using quest catalog passAdds/failAdds
   function qSetStepStatus(questId, stepIndex, status /* "pass"|"fail" */) {
     if (!questId && qGetActiveId()) questId = qGetActiveId();
     if (!questId) return;
+
     const idx = Number(stepIndex);
     if (!Number.isFinite(idx)) return;
     if (status !== "pass" && status !== "fail") return;
 
+    // Save status
     const f = getFlags();
-    f[`${questId}_step${idx}`] = status;
+    const key = `${questId}_step${idx}`;
+
+    // If already set to same value, do nothing (prevents repeats)
+    if (f[key] === status) return;
+
+    f[key] = status;
     setFlags(f);
+
+    // Award alignment ONCE per step (global)
+    const alignKey = `${questId}_step${idx}_aligned`;
+    const f2 = getFlags();
+    if (f2[alignKey]) return;
+    f2[alignKey] = true;
+    setFlags(f2);
+
+    // Load quest definition from catalog and apply passAdds/failAdds
+    // Fire-and-forget so qSetStepStatus stays sync
+    (async () => {
+      try{
+        const catalogUrl = qGetCatalogUrl();
+        const catalog = await _loadCatalogCached(catalogUrl);
+        const q = (catalog?.quests && catalog.quests[questId]) ? catalog.quests[questId] : null;
+        if (!q) return;
+
+        if (status === "pass") _applyAdds(q.passAdds);
+        else _applyAdds(q.failAdds);
+
+        // If global HUD exists, refresh inventory icon state, etc.
+        try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+      }catch(e){
+        console.warn("qSetStepStatus alignment apply failed:", e);
+      }
+    })();
   }
+
 
   // Convenience: read a quest from current catalog
   async function qGetActiveQuest() {
