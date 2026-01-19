@@ -480,22 +480,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     `;
   }
 
-  // ---------------------------
-  // SCENE PLAYBACK (ONCE-THEN-DEFAULT)
-  // ---------------------------
-showEnter();
-  questBtn.style.display = "none";
+  
+// ---------------------------
+// SCENE PLAYBACK (ONCE-THEN-DEFAULT)
+// ---------------------------
+hideEnter();              // ✅ ensure enter overlay does NOT appear until dialogue completes
+questBtn.style.display = "none";
 
-  // Must exist
-  if (!window.VAQ || typeof window.VAQ.npcRunOnceThenDefault !== "function"){
-    showDialogue({
-      speaker: "System",
-      text: "VAQ helpers missing. Make sure /guildbook/js/va_global_ui.js is included BEFORE this script.",
-      portraitSrc: "/guildbook/npcs/loki.gif",
-      buttons: [{ label:"Reload", onClick:()=>location.reload() }]
-    });
-    return;
-  }
+// Must exist
+if (!window.VAQ || typeof window.VAQ.npcRunOnceThenDefault !== "function"){
+  showDialogue({
+    speaker: "System",
+    text: "VAQ helpers missing. Make sure /guildbook/js/va_global_ui.js is included BEFORE this script.",
+    portraitSrc: "/guildbook/npcs/loki.gif",
+    buttons: [{ label:"Reload", onClick:()=>location.reload() }]
+  });
+  return;
+}
+
 
   async function runCutsceneJson(url){
     const data = await loadJSON(url);
