@@ -218,7 +218,7 @@ html, body{
 <!-- ================= HAMBURGER MENU ================= -->
 <div id="hamburger">☰</div>
 <div id="menuPanel" class="hidden">
-  <button class="menuBtn" onclick="window.location.href='/guildbook/scenes/dreadheim_meadhall.html'">
+  <button class="menuBtn" onclick="window.location.href='/dreadheim_meadhall.html'">
     Mead Hall
   </button>
   <button class="menuBtn" onclick="window.location.href='/guildbook/scenes/maps/veriador_map.html'">
@@ -530,7 +530,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         text: txt("Not yet, {name}. Three marks. Three checks. I want them all in that journal before you stand in my room begging for judgment."),
         portraitSrc: "/guildbook/npcs/loki.gif",
         buttons: [
-          { label: "Back to Mead Hall", onClick: () => { window.location.href = "/guildbook/scenes/dreadheim_meadhall.html"; } },
+          { label: "Back to Mead Hall", onClick: () => { window.location.href = "/dreadheim_meadhall.html"; } },
           { label: "Close", onClick: hideDialogue }
         ]
       });
