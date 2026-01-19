@@ -193,8 +193,10 @@
   //
   // So we store them like this:
   // =========================
-  const DREAD_OPEN_KEY = "dreadheim_open";
-  const MYRI_OPEN_KEY  = "myriador_open";
+  const FLAGS_KEY = "va_flags";
+const DREAD_OPEN_KEY = "unlocked_dreadheim";
+const MYRI_OPEN_KEY  = "unlocked_myriador";
+
 
   // Map links (change these to your real pages)
   const DREADHEIM_MAP_URL = "/guildbook/scenes/maps/dreadheim_map.html";
@@ -216,9 +218,15 @@
     showToast._t = setTimeout(() => toast.classList.remove("show"), 1400);
   }
 
-  function isOpen(key){
-    return localStorage.getItem(key) === "1" || localStorage.getItem(key) === "true";
+  function isOpen(flagKey){
+  try{
+    const f = JSON.parse(localStorage.getItem(FLAGS_KEY) || "{}");
+    return f[flagKey] === true;
+  }catch{
+    return false;
   }
+}
+
 
   function setBadge(elWord, elBadge, open){
     if (open){
@@ -354,19 +362,36 @@
   });
 
   // =========================
-  // DEV convenience commands
-  // =========================
-  window.VA_MAP_DEV = {
-    openDreadheim(){ localStorage.setItem(DREAD_OPEN_KEY, "1"); refreshLocks(); showToast("Dreadheim unlocked"); },
-    openMyriador(){  localStorage.setItem(MYRI_OPEN_KEY,  "1"); refreshLocks(); showToast("Myriador unlocked"); },
-    lockAll(){ localStorage.removeItem(DREAD_OPEN_KEY); localStorage.removeItem(MYRI_OPEN_KEY); refreshLocks(); showToast("Both locked"); },
-    clearPositions(){ localStorage.removeItem(POS_KEY); showToast("Positions cleared (reload)"); }
-  };
-
-})();
-</script>
-
-</body>
-</html>
+// DEV convenience commands
+// =========================
+window.VA_MAP_DEV = {
+  openDreadheim(){
+    const f = JSON.parse(localStorage.getItem(FLAGS_KEY) || "{}");
+    f[DREAD_OPEN_KEY] = true;
+    localStorage.setItem(FLAGS_KEY, JSON.stringify(f));
+    refreshLocks();
+    showToast("Dreadheim unlocked");
+  },
+  openMyriador(){
+    const f = JSON.parse(localStorage.getItem(FLAGS_KEY) || "{}");
+    f[MYRI_OPEN_KEY] = true;
+    localStorage.setItem(FLAGS_KEY, JSON.stringify(f));
+    refreshLocks();
+    showToast("Myriador unlocked");
+  },
+  lockAll(){
+    const f = JSON.parse(localStorage.getItem(FLAGS_KEY) || "{}");
+    delete f[DREAD_OPEN_KEY];
+    delete f[MYRI_OPEN_KEY];
+    localStorage.setItem(FLAGS_KEY, JSON.stringify(f));
+    refreshLocks();
+    showToast("Both locked");
+  },
+  clearPositions(){
+    localStorage.removeItem(POS_KEY);
+    showToast("Positions cleared (reload)");
+  }
+};
+})(); </script> </body> </html>
 
 
