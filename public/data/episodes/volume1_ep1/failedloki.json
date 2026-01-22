@@ -4,7 +4,7 @@
     "title": "Loki’s Correction",
     "portrait": "/guildbook/npcs/loki/frame_008.png",
     "speakerDefault": "Loki",
-    "gotoOnEnd": "/guildbook/scenes/dreadheimcity.html"
+    "gotoOnEnd": "/dreadheimcity.html"
   },
 
   "start": "f_1",

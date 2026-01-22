@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Veriador • Dreadheim • City</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+html, body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  background:#000;
+  font-family:Cinzel, serif;
+  overflow:hidden;
+}
+
+/* ================= BACKGROUND ================= */
+#bg{
+  position:fixed;
+  inset:0;
+  background:url("/dreadheimcityentrance.png") center center / cover no-repeat;
+  z-index:0;
+}
+
+/* ================= NPCS LAYER ================= */
+#npcs{
+  position:fixed;
+  inset:0;
+  z-index:20;
+  pointer-events:none;
+}
+
+/* Citizens (swap images later) */
+.npc{
+  position:absolute;
+  width:190px;
+  height:auto;
+  z-index:25;
+  pointer-events:auto;
+  cursor:pointer;
+  user-select:none;
+  filter: drop-shadow(0 18px 32px rgba(0,0,0,0.78));
+  transition: transform 120ms ease, filter 120ms ease;
+}
+.npc:hover{
+  transform: scale(1.02);
+  filter: drop-shadow(0 22px 38px rgba(0,0,0,0.85))
+          drop-shadow(0 0 14px rgba(180,200,255,0.18));
+}
+
+/* ================= DIALOGUE ================= */
+#dlg{
+  position:fixed;
+  left:50%;
+  bottom:14px;
+  transform:translateX(-50%);
+  width:min(1200px, calc(100vw - 24px));
+  height:190px;
+  z-index:999;
+  display:grid;
+  grid-template-columns:240px 1fr;
+  border-radius:18px;
+  overflow:hidden;
+  background:linear-gradient(90deg, rgba(35,20,10,.95), rgba(15,10,8,.88));
+  border:1px solid rgba(255,208,120,.2);
+  box-shadow:0 18px 55px rgba(0,0,0,.6);
+}
+#dlg.hidden{ display:none !important; }
+
+#dlgPortrait{
+  width:240px;
+  height:190px;
+  object-fit:contain;
+  align-self:end;
+  filter:drop-shadow(0 12px 22px rgba(0,0,0,0.65));
+}
+
+#dlgPanel{
+  padding:16px 18px;
+  display:grid;
+  grid-template-rows:auto minmax(0, 1fr) auto; /* ✅ scroll-safe */
+  gap:10px;
+  min-height:0;
+}
+
+#dlgName{
+  font-size:28px;
+  font-weight:900;
+  color:rgba(255,225,170,.95);
+}
+
+#dlgText{
+  font-size:20px;
+  line-height:1.35;
+  color:rgba(255,255,255,.95);
+  overflow:auto;          /* ✅ long text stays inside */
+  min-height:0;
+  padding-right:6px;
+}
+
+#dlgBtns{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+#dlg, #dlgPanel, #dlgBtns, .dlgBtn{ pointer-events:auto; }
+
+.dlgBtn{
+  padding:10px 16px;
+  border-radius:12px;
+  cursor:pointer;
+  border:1px solid rgba(255,208,120,.28);
+  background:rgba(120,60,25,.45);
+  color:rgba(255,245,230,.95);
+  font-weight:800;
+}
+.dlgBtn:hover{ filter:brightness(1.1); }
+
+/* Tiny hint text */
+#hint{
+  position:fixed;
+  left:14px;
+  bottom:14px;
+  z-index:15;
+  font-size:14px;
+  letter-spacing:.03em;
+  color:rgba(255,255,255,0.55);
+  text-shadow:0 2px 10px rgba(0,0,0,0.8);
+  pointer-events:none;
+}
+
+/* ================= HAMBURGER MENU ================= */
+#hamburger{
+  position:fixed;
+  top:16px;
+  left:18px;
+  z-index:1001;
+  font-size:28px;
+  cursor:pointer;
+  color:rgba(255,230,180,.95);
+  text-shadow:0 4px 14px rgba(0,0,0,.9);
+  user-select:none;
+}
+#menuPanel{
+  position:fixed;
+  top:60px;
+  left:18px;
+  z-index:1000;
+  padding:16px;
+  border-radius:16px;
+  background:rgba(20,10,5,.95);
+  border:1px solid rgba(255,208,120,.35);
+  box-shadow:0 18px 45px rgba(0,0,0,.7);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+#menuPanel.hidden{ display:none; }
+.menuBtn{
+  padding:10px 18px;
+  border-radius:12px;
+  border:1px solid rgba(255,208,120,.25);
+  background:rgba(120,60,25,.45);
+  color:rgba(255,245,230,.95);
+  font-family:Cinzel, serif;
+  font-weight:800;
+  cursor:pointer;
+}
+.menuBtn:hover{ filter:brightness(1.15); }
+
+/* Optional subtle vignette */
+#vignette{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:5;
+  background:radial-gradient(ellipse at center,
+    rgba(0,0,0,0.00) 0%,
+    rgba(0,0,0,0.25) 55%,
+    rgba(0,0,0,0.65) 100%);
+}
+</style>
+</head>
+
+<body>
+<div id="bg"></div>
+<div id="vignette"></div>
+
+<!-- ================= HAMBURGER MENU ================= -->
+<div id="hamburger">☰</div>
+<div id="menuPanel" class="hidden">
+  <button class="menuBtn" onclick="window.location.href='/dreadheim_meadhall.html'">Mead Hall</button>
+  <button class="menuBtn" onclick="window.location.href='/guildbook/scenes/maps/dreadheim_map.html'">Dreadheim Map</button>
+  <button class="menuBtn" onclick="window.location.href='/guildbook/scenes/maps/veriador_map.html'">World Map</button>
+  <button class="menuBtn" onclick="document.getElementById('menuPanel').classList.add('hidden')">Close</button>
+</div>
+
+<!-- ================= NPCS ================= -->
+<div id="npcs">
+  <!-- Replace these with your real NPC PNGs later -->
+  <img class="npc" id="npcCitizen1" src="/guildbook/npcs/placeholder.png" alt="Citizen"
+       style="left:18%; top:56%;">
+  <img class="npc" id="npcCitizen2" src="/guildbook/npcs/placeholder.png" alt="Citizen"
+       style="left:46%; top:60%;">
+  <img class="npc" id="npcCitizen3" src="/guildbook/npcs/placeholder.png" alt="Citizen"
+       style="left:73%; top:58%;">
+</div>
+
+<div id="hint">Tip: Click a citizen.</div>
+
+<!-- Dialogue -->
+<div id="dlg" class="hidden">
+  <img id="dlgPortrait" alt="Portrait">
+  <div id="dlgPanel">
+    <div id="dlgName"></div>
+    <div id="dlgText"></div>
+    <div id="dlgBtns"></div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  "use strict";
+
+  // Dialogue refs
+  const dlg = document.getElementById("dlg");
+  const dlgName = document.getElementById("dlgName");
+  const dlgText = document.getElementById("dlgText");
+  const dlgBtns = document.getElementById("dlgBtns");
+  const dlgPortrait = document.getElementById("dlgPortrait");
+
+  // Hamburger
+  const hamburger = document.getElementById("hamburger");
+  const menuPanel = document.getElementById("menuPanel");
+
+  hamburger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    menuPanel.classList.toggle("hidden");
+  });
+
+  document.addEventListener("click", () => {
+    menuPanel.classList.add("hidden");
+  });
+
+  function showDialogue({ speaker, text, portraitSrc, buttons = [] }){
+    dlgName.textContent = speaker || "";
+    dlgText.textContent = (typeof text === "string") ? text : String(text ?? "");
+    dlgBtns.innerHTML = "";
+    if (portraitSrc) dlgPortrait.src = portraitSrc;
+    dlg.classList.remove("hidden");
+
+    buttons.forEach(b => {
+      const btn = document.createElement("button");
+      btn.className = "dlgBtn";
+      btn.type = "button";
+      btn.textContent = b.label;
+
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof b.onClick === "function") b.onClick();
+      });
+
+      dlgBtns.appendChild(btn);
+    });
+  }
+
+  function hideDialogue(){
+    dlg.classList.add("hidden");
+    dlgName.textContent = "";
+    dlgText.textContent = "";
+    dlgBtns.innerHTML = "";
+  }
+
+  hideDialogue();
+
+  // ESC closes
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hideDialogue();
+  });
+
+  // ----------------------------
+  // Citizens -> Quest objective flags for dq_001b
+  // ----------------------------
+  // These match your failedloki_quests.json:
+  // intimidate.flag = dq_001b_intimidatedCitizen
+  // take.flag       = dq_001b_stoleFromCitizen
+  // return.flag     = dq_001b_returnedCold
+  //
+  // We'll set flags + ALSO mark steps as "pass" using VAQ.qSetStepStatus
+  // (works with your journal step display everywhere)
+  // ----------------------------
+
+  function setFlag(flagKey, value=true){
+    const f = VAQ.getFlags();
+    f[String(flagKey)] = value;
+    VAQ.setFlags(f);
+  }
+
+  function doIntimidate(){
+    setFlag("dq_001b_intimidatedCitizen", true);
+    // step 0 = intimidate
+    VAQ.qSetStepStatus("dq_001b", 0, "pass");
+
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/placeholder.png",
+      text: VAQ.txt("Y-yes… I’ll be silent. Please—don’t draw attention to me, {name}."),
+      buttons: [
+        { label: "Close", onClick: hideDialogue }
+      ]
+    });
+  }
+
+  function doTake(){
+    setFlag("dq_001b_stoleFromCitizen", true);
+    // step 1 = take
+    VAQ.qSetStepStatus("dq_001b", 1, "pass");
+
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/placeholder.png",
+      text: VAQ.txt("Take it… just—take it. I should have known better than to resist in Dreadheim."),
+      buttons: [
+        { label: "Close", onClick: hideDialogue }
+      ]
+    });
+  }
+
+  function doReturn(){
+    setFlag("dq_001b_returnedCold", true);
+    // step 2 = return
+    VAQ.qSetStepStatus("dq_001b", 2, "pass");
+
+    showDialogue({
+      speaker: "You",
+      portraitSrc: "/guildbook/npcs/placeholder.png",
+      text: VAQ.txt("No apology. No explanation. Only the mark, and the memory of fear."),
+      buttons: [
+        { label: "Return to Loki", onClick: () => { window.location.href = "/guildbook/scenes/lokisroom.html"; } },
+        { label: "Close", onClick: hideDialogue }
+      ]
+    });
+  }
+
+  // NPC clicks (each one offers the right action)
+  document.getElementById("npcCitizen1").addEventListener("click", () => {
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/placeholder.png",
+      text: VAQ.txt("You there… what do you want from me?"),
+      buttons: [
+        { label: "Intimidate", onClick: doIntimidate },
+        { label: "Close", onClick: hideDialogue }
+      ]
+    });
+  });
+
+  document.getElementById("npcCitizen2").addEventListener("click", () => {
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/placeholder.png",
+      text: VAQ.txt("Please… I have nothing worth taking."),
+      buttons: [
+        { label: "Take Something", onClick: doTake },
+        { label: "Close", onClick: hideDialogue }
+      ]
+    });
+  });
+
+  document.getElementById("npcCitizen3").addEventListener("click", () => {
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/placeholder.png",
+      text: VAQ.txt("You’ve already done enough… leave me be."),
+      buttons: [
+        { label: "Report Back (Cold)", onClick: doReturn },
+        { label: "Close", onClick: hideDialogue }
+      ]
+    });
+  });
+});
+</script>
+
+<!-- ✅ GLOBAL HUD ICONS / QUEST JOURNAL / METER / INVENTORY -->
+<script src="/guildbook/js/va_global_ui.js"></script>
+
+</body>
+</html>
