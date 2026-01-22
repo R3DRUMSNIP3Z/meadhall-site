@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="en">
 <head>
@@ -26,15 +27,27 @@ html, body{
   z-index:0;
 }
 
+/* Optional subtle vignette */
+#vignette{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:5;
+  background:radial-gradient(ellipse at center,
+    rgba(0,0,0,0.00) 0%,
+    rgba(0,0,0,0.25) 55%,
+    rgba(0,0,0,0.65) 100%);
+}
+
 /* ================= NPCS LAYER ================= */
 #npcs{
   position:fixed;
   inset:0;
   z-index:20;
-  pointer-events:none;
+  pointer-events:none; /* allow only NPCs to receive clicks */
 }
 
-/* Citizens (swap images later) */
+/* Citizens placeholders */
 .npc{
   position:absolute;
   width:190px;
@@ -60,7 +73,7 @@ html, body{
   transform:translateX(-50%);
   width:min(1200px, calc(100vw - 24px));
   height:190px;
-  z-index:999;
+  z-index:999; /* keep above everything */
   display:grid;
   grid-template-columns:240px 1fr;
   border-radius:18px;
@@ -82,7 +95,7 @@ html, body{
 #dlgPanel{
   padding:16px 18px;
   display:grid;
-  grid-template-rows:auto minmax(0, 1fr) auto; /* ✅ scroll-safe */
+  grid-template-rows:auto minmax(0, 1fr) auto; /* scroll-safe */
   gap:10px;
   min-height:0;
 }
@@ -97,7 +110,7 @@ html, body{
   font-size:20px;
   line-height:1.35;
   color:rgba(255,255,255,.95);
-  overflow:auto;          /* ✅ long text stays inside */
+  overflow:auto;
   min-height:0;
   padding-right:6px;
 }
@@ -108,6 +121,7 @@ html, body{
   gap:10px;
   flex-wrap:wrap;
 }
+
 #dlg, #dlgPanel, #dlgBtns, .dlgBtn{ pointer-events:auto; }
 
 .dlgBtn{
@@ -134,55 +148,107 @@ html, body{
   pointer-events:none;
 }
 
-/* ================= HAMBURGER MENU ================= */
-#hamburger{
+/* ================= OVERLAY HAMBURGER MENU (Mead Hall style) ================= */
+#menuBtn{
   position:fixed;
-  top:16px;
-  left:18px;
-  z-index:1001;
-  font-size:28px;
+  top:14px;
+  left:14px;
+  width:52px;
+  height:52px;
+  background:transparent;
+  border:none;
   cursor:pointer;
-  color:rgba(255,230,180,.95);
-  text-shadow:0 4px 14px rgba(0,0,0,.9);
-  user-select:none;
+  z-index:95;
+  display:block;
 }
+#menuBtn svg{
+  width:100%;
+  height:100%;
+  filter:drop-shadow(0 10px 22px rgba(0,0,0,0.75));
+  opacity:.96;
+  transition:transform 120ms ease;
+}
+#menuBtn:hover svg{ transform:scale(1.05); }
+
+#menuOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.55);
+  z-index:94;
+  display:none;
+}
+
 #menuPanel{
   position:fixed;
-  top:60px;
-  left:18px;
-  z-index:1000;
-  padding:16px;
-  border-radius:16px;
-  background:rgba(20,10,5,.95);
-  border:1px solid rgba(255,208,120,.35);
-  box-shadow:0 18px 45px rgba(0,0,0,.7);
+  top:14px;
+  left:72px; /* 52px button + gap */
+  width:min(340px, calc(100vw - 86px));
+  max-height:calc(100vh - 28px);
+  overflow:auto;
+  border-radius:18px;
+  border:1px solid rgba(255,215,140,.22);
+  background:linear-gradient(180deg, rgba(18,10,8,.92), rgba(0,0,0,.86));
+  box-shadow:0 18px 60px rgba(0,0,0,.75);
+  padding:12px;
+
+  transform:translateX(-10px);
+  opacity:0;
+  transition:transform 140ms ease, opacity 140ms ease;
+}
+#menuOverlay.show #menuPanel{
+  transform:translateX(0);
+  opacity:1;
+}
+
+.menuHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+.menuTitle{
+  font-weight:900;
+  letter-spacing:.10em;
+  color:rgba(255,215,140,1);
+}
+#menuClose{
+  width:34px;
+  height:34px;
+  border-radius:10px;
+  font-size:20px;
+  font-weight:900;
+  cursor:pointer;
+  background:rgba(0,0,0,.4);
+  border:1px solid rgba(255,215,140,.6);
+  color:rgba(255,215,140,1);
+}
+
+.menuList{
   display:flex;
   flex-direction:column;
   gap:10px;
 }
-#menuPanel.hidden{ display:none; }
-.menuBtn{
-  padding:10px 18px;
-  border-radius:12px;
-  border:1px solid rgba(255,208,120,.25);
-  background:rgba(120,60,25,.45);
-  color:rgba(255,245,230,.95);
-  font-family:Cinzel, serif;
-  font-weight:800;
+.menuItem{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:12px 12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(0,0,0,.35);
   cursor:pointer;
+  user-select:none;
+  color:rgba(245,240,230,.95);
+  font-weight:900;
+  letter-spacing:.04em;
 }
-.menuBtn:hover{ filter:brightness(1.15); }
-
-/* Optional subtle vignette */
-#vignette{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:5;
-  background:radial-gradient(ellipse at center,
-    rgba(0,0,0,0.00) 0%,
-    rgba(0,0,0,0.25) 55%,
-    rgba(0,0,0,0.65) 100%);
+.menuItem:hover{ filter:brightness(1.08); }
+.menuHint{
+  font-size:12px;
+  opacity:.75;
+  font-weight:800;
 }
 </style>
 </head>
@@ -191,13 +257,45 @@ html, body{
 <div id="bg"></div>
 <div id="vignette"></div>
 
-<!-- ================= HAMBURGER MENU ================= -->
-<div id="hamburger">☰</div>
-<div id="menuPanel" class="hidden">
-  <button class="menuBtn" onclick="window.location.href='/dreadheim_meadhall.html'">Mead Hall</button>
-  <button class="menuBtn" onclick="window.location.href='/guildbook/scenes/maps/dreadheim_map.html'">Dreadheim Map</button>
-  <button class="menuBtn" onclick="window.location.href='/guildbook/scenes/maps/veriador_map.html'">World Map</button>
-  <button class="menuBtn" onclick="document.getElementById('menuPanel').classList.add('hidden')">Close</button>
+<!-- ================= HAMBURGER MENU (placeholders) ================= -->
+<button id="menuBtn" aria-label="Open scene menu" title="Menu">
+  <svg viewBox="0 0 64 64" aria-hidden="true">
+    <rect x="14" y="18" width="36" height="5" rx="2.5" fill="rgba(255,215,140,0.95)"></rect>
+    <rect x="14" y="29.5" width="36" height="5" rx="2.5" fill="rgba(255,215,140,0.95)"></rect>
+    <rect x="14" y="41" width="36" height="5" rx="2.5" fill="rgba(255,215,140,0.95)"></rect>
+  </svg>
+</button>
+
+<div id="menuOverlay" aria-hidden="true">
+  <div id="menuPanel" role="dialog" aria-label="Scene rooms menu">
+    <div class="menuHeader">
+      <div class="menuTitle">ROOMS</div>
+      <button id="menuClose" aria-label="Close menu">✕</button>
+    </div>
+
+    <div class="menuList" id="menuList">
+      <!-- ✅ placeholders: change text + data-href -->
+      <div class="menuItem" data-href="/dreadheimcity.html">
+        Dreadheim City <span class="menuHint">You are here</span>
+      </div>
+
+      <div class="menuItem" data-href="/dreadheim_meadhall.html">
+        Placeholder 1 <span class="menuHint">room</span>
+      </div>
+
+      <div class="menuItem" data-href="/lokisroom.html">
+        Placeholder 2 <span class="menuHint">room</span>
+      </div>
+
+      <div class="menuItem" data-href="/guildbook/scenes/placeholder3.html">
+        Placeholder 3 <span class="menuHint">room</span>
+      </div>
+
+      <div class="menuItem" data-href="/guildbook/scenes/maps/veriador_map.html">
+        World Map <span class="menuHint">map</span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ================= NPCS ================= -->
@@ -227,25 +325,46 @@ html, body{
 document.addEventListener("DOMContentLoaded", () => {
   "use strict";
 
+  // ----------------------------
+  // Overlay Hamburger Menu
+  // ----------------------------
+  const menuBtn = document.getElementById("menuBtn");
+  const menuOverlay = document.getElementById("menuOverlay");
+  const menuClose = document.getElementById("menuClose");
+
+  function openMenu(){
+    menuOverlay.style.display = "block";
+    menuOverlay.classList.add("show");
+    menuOverlay.setAttribute("aria-hidden","false");
+  }
+  function closeMenu(){
+    menuOverlay.classList.remove("show");
+    menuOverlay.style.display = "none";
+    menuOverlay.setAttribute("aria-hidden","true");
+  }
+
+  menuBtn.addEventListener("click", (e) => { e.preventDefault(); openMenu(); });
+  menuClose.addEventListener("click", (e) => { e.preventDefault(); closeMenu(); });
+
+  menuOverlay.addEventListener("click", (e) => {
+    if (e.target === menuOverlay) closeMenu();
+  });
+
+  document.querySelectorAll("#menuList .menuItem").forEach(item => {
+    item.addEventListener("click", () => {
+      const href = item.getAttribute("data-href");
+      if (href) window.location.href = href;
+    });
+  });
+
+  // ----------------------------
   // Dialogue refs
+  // ----------------------------
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
   const dlgText = document.getElementById("dlgText");
   const dlgBtns = document.getElementById("dlgBtns");
   const dlgPortrait = document.getElementById("dlgPortrait");
-
-  // Hamburger
-  const hamburger = document.getElementById("hamburger");
-  const menuPanel = document.getElementById("menuPanel");
-
-  hamburger.addEventListener("click", (e) => {
-    e.stopPropagation();
-    menuPanel.classList.toggle("hidden");
-  });
-
-  document.addEventListener("click", () => {
-    menuPanel.classList.add("hidden");
-  });
 
   function showDialogue({ speaker, text, portraitSrc, buttons = [] }){
     dlgName.textContent = speaker || "";
@@ -279,62 +398,57 @@ document.addEventListener("DOMContentLoaded", () => {
 
   hideDialogue();
 
-  // ESC closes
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") hideDialogue();
-  });
+  // ----------------------------
+  // Require VAQ (global UI file) for flags/quest steps
+  // ----------------------------
+  function ensureVAQ(){
+    if (!window.VAQ){
+      console.warn("VAQ missing. Did /guildbook/js/va_global_ui.js load?");
+      return false;
+    }
+    return true;
+  }
 
   // ----------------------------
-  // Citizens -> Quest objective flags for dq_001b
+  // Citizens -> quest objective flags for dq_001b
+  // (matches your failedloki_quests.json flags/steps)
   // ----------------------------
-  // These match your failedloki_quests.json:
-  // intimidate.flag = dq_001b_intimidatedCitizen
-  // take.flag       = dq_001b_stoleFromCitizen
-  // return.flag     = dq_001b_returnedCold
-  //
-  // We'll set flags + ALSO mark steps as "pass" using VAQ.qSetStepStatus
-  // (works with your journal step display everywhere)
-  // ----------------------------
-
   function setFlag(flagKey, value=true){
+    if (!ensureVAQ()) return;
     const f = VAQ.getFlags();
     f[String(flagKey)] = value;
     VAQ.setFlags(f);
   }
 
   function doIntimidate(){
+    if (!ensureVAQ()) return;
     setFlag("dq_001b_intimidatedCitizen", true);
-    // step 0 = intimidate
     VAQ.qSetStepStatus("dq_001b", 0, "pass");
 
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/placeholder.png",
       text: VAQ.txt("Y-yes… I’ll be silent. Please—don’t draw attention to me, {name}."),
-      buttons: [
-        { label: "Close", onClick: hideDialogue }
-      ]
+      buttons: [{ label: "Close", onClick: hideDialogue }]
     });
   }
 
   function doTake(){
+    if (!ensureVAQ()) return;
     setFlag("dq_001b_stoleFromCitizen", true);
-    // step 1 = take
     VAQ.qSetStepStatus("dq_001b", 1, "pass");
 
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/placeholder.png",
       text: VAQ.txt("Take it… just—take it. I should have known better than to resist in Dreadheim."),
-      buttons: [
-        { label: "Close", onClick: hideDialogue }
-      ]
+      buttons: [{ label: "Close", onClick: hideDialogue }]
     });
   }
 
   function doReturn(){
+    if (!ensureVAQ()) return;
     setFlag("dq_001b_returnedCold", true);
-    // step 2 = return
     VAQ.qSetStepStatus("dq_001b", 2, "pass");
 
     showDialogue({
@@ -342,14 +456,23 @@ document.addEventListener("DOMContentLoaded", () => {
       portraitSrc: "/guildbook/npcs/placeholder.png",
       text: VAQ.txt("No apology. No explanation. Only the mark, and the memory of fear."),
       buttons: [
-        { label: "Return to Loki", onClick: () => { window.location.href = "/guildbook/scenes/lokisroom.html"; } },
+        { label: "Return (Placeholder)", onClick: () => { window.location.href = "/lokisroom.html"; } },
         { label: "Close", onClick: hideDialogue }
       ]
     });
   }
 
-  // NPC clicks (each one offers the right action)
+  // NPC clicks
   document.getElementById("npcCitizen1").addEventListener("click", () => {
+    if (!ensureVAQ()){
+      showDialogue({
+        speaker: "Citizen",
+        portraitSrc: "/guildbook/npcs/placeholder.png",
+        text: "VAQ missing (global ui not loaded).",
+        buttons: [{ label: "Close", onClick: hideDialogue }]
+      });
+      return;
+    }
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/placeholder.png",
@@ -362,6 +485,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("npcCitizen2").addEventListener("click", () => {
+    if (!ensureVAQ()) return;
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/placeholder.png",
@@ -374,6 +498,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("npcCitizen3").addEventListener("click", () => {
+    if (!ensureVAQ()) return;
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/placeholder.png",
@@ -384,6 +509,14 @@ document.addEventListener("DOMContentLoaded", () => {
       ]
     });
   });
+
+  // ESC closes dialogue + menu
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape"){
+      hideDialogue();
+      try{ closeMenu(); }catch{}
+    }
+  });
 });
 </script>
 
@@ -392,3 +525,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
 </body>
 </html>
+```
+
