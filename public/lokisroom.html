@@ -86,8 +86,9 @@ html, body{
 #dlgPanel{
   padding:16px 18px;
   display:grid;
-  grid-template-rows:auto 1fr auto;
+  grid-template-rows:auto minmax(0, 1fr) auto; /* ✅ change this line */
   gap:10px;
+  min-height:0; /* ✅ key for scroll in grid */
 }
 
 #dlgName{
@@ -100,6 +101,9 @@ html, body{
   font-size:20px;
   line-height:1.35;
   color:rgba(255,255,255,.95);
+  overflow:auto;     /* ✅ */
+  min-height:0;      /* ✅ */
+  padding-right:6px; /* ✅ keeps scrollbar off text */
 }
 
 #dlgBtns{
