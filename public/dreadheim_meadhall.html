@@ -1341,7 +1341,14 @@ const HEL_NPC_ID = "hel_meadhall"; // must match defaults.hel_meadhall
   });
 
   // Force set the quest catalog each time:
+  // ✅ Only set default catalog if none exists yet (do NOT overwrite Loki's)
+const curCat = localStorage.getItem(QUEST_CAT_KEY);
+
+// ✅ If missing, set default
+if (!curCat) {
   localStorage.setItem(QUEST_CAT_KEY, QUEST_CATALOG_URL);
+}
+
 
   // ----------------------------
   // HEL ANIMATION (frames 1-8)
