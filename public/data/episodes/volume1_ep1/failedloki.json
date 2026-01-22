@@ -47,7 +47,9 @@
         "flags": {
           "failedLoki_introSeen": true,
           "failedLoki_active": true,
-          "dq_001b_assigned": true
+          "dq_001b_assigned": true,
+              "dreadheim_city_open": true
+
         },
         "setQuest": {
           "id": "dq_001b",
