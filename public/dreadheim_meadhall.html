@@ -93,6 +93,32 @@ body.devMode .devHandle{ display:block; }
   display:none;
 }
 body.devMode #devHint{ display:block; }
+/* ================= ATMOSPHERIC FX ================= */
+#lightRays,
+#dustMotes{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  pointer-events:none;
+}
+
+/* Light beams */
+#lightRays{
+  z-index:5;                 /* above background */
+  opacity:0.30;
+  mix-blend-mode:screen;
+  filter:blur(1.5px);
+}
+
+/* Floating dust */
+#dustMotes{
+  z-index:6;                 /* above rays */
+  opacity:0.35;
+  filter:blur(0.5px);
+}
+
 
 /* ================= NPCS LAYER ================= */
 #npcs{
@@ -747,6 +773,10 @@ body.devMode #devHint{ display:block; }
 
 <body>
 <div id="bg"></div>
+<!-- ===== ATMOSPHERIC FX LAYERS ===== -->
+<video id="lightRays" autoplay loop muted playsinline></video>
+<video id="dustMotes" autoplay loop muted playsinline></video>
+
 
 <!-- ================= DEV PROPS (EDIT MODE: press M) =================
   ✅ Add as many .devItem blocks as you want.
@@ -906,6 +936,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ----------------------------
   // QUEST STORAGE KEYS (same system)
   // ----------------------------
+
+  // ================= ATMOSPHERIC FX =================
+const lightRays = document.getElementById("lightRays");
+const dustMotes = document.getElementById("dustMotes");
+
+if (lightRays) {
+  lightRays.src = "/guildbook/fx/light_rays.webm";
+}
+
+if (dustMotes) {
+  dustMotes.src = "/guildbook/fx/dust_motes.webm";
+}
+
   const QUEST_ID_KEY  = "vaq_activeQuestId";
   const QUEST_CAT_KEY = "vaq_activeQuestCatalog";
 
