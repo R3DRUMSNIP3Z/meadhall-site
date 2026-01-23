@@ -768,14 +768,110 @@ body.devMode #devHint{ display:block; }
   50%  { opacity:.75; transform:scale(1.02); }
   100% { opacity:.35; transform:scale(0.98); }
 }
+
+/* ================= VFX: LIGHT RAYS + DUST (NO IMAGES) ================= */
+#vfx{
+  position:fixed;
+  inset:0;
+  z-index:10;            /* behind NPCs (20) but above background (0) */
+  pointer-events:none;   /* never block clicks */
+  overflow:hidden;
+}
+
+/* ---- GOD RAYS ---- */
+#rays{
+  position:absolute;
+  inset:-10%;
+  opacity:.55;
+  mix-blend-mode:screen;   /* brightens without darkening */
+  filter: blur(0.6px);
+}
+
+/* Each beam */
+.ray{
+  position:absolute;
+  top:-25%;
+  width:22vw;
+  height:160vh;
+  transform: rotate(-10deg);
+  border-radius:999px;
+  background: radial-gradient(ellipse at 50% 10%,
+    rgba(255,235,200,0.22) 0%,
+    rgba(255,220,180,0.16) 22%,
+    rgba(255,200,140,0.10) 45%,
+    rgba(0,0,0,0) 72%);
+  animation: rayDrift 8s ease-in-out infinite;
+}
+
+/* Stagger beams */
+.ray:nth-child(1){ left:6%;  animation-delay:0s;   opacity:.40; width:18vw; }
+.ray:nth-child(2){ left:22%; animation-delay:-2s;  opacity:.55; width:24vw; }
+.ray:nth-child(3){ left:40%; animation-delay:-4s;  opacity:.45; width:20vw; }
+.ray:nth-child(4){ left:58%; animation-delay:-1s;  opacity:.35; width:26vw; }
+.ray:nth-child(5){ left:76%; animation-delay:-3s;  opacity:.50; width:18vw; }
+
+@keyframes rayDrift{
+  0%   { transform: translateY(0px) translateX(0px) rotate(-10deg); filter: blur(0.6px); }
+  50%  { transform: translateY(18px) translateX(-10px) rotate(-11deg); filter: blur(1.4px); }
+  100% { transform: translateY(0px) translateX(0px) rotate(-10deg); filter: blur(0.6px); }
+}
+
+/* ---- DUST MOTES ---- */
+#dust{
+  position:absolute;
+  inset:0;
+  mix-blend-mode:screen;
+  opacity:.75;
+}
+
+/* One mote */
+.mote{
+  position:absolute;
+  width:3px;
+  height:3px;
+  border-radius:50%;
+  background: radial-gradient(circle,
+    rgba(255,240,210,0.95) 0%,
+    rgba(255,230,185,0.35) 55%,
+    rgba(0,0,0,0) 75%);
+  filter: blur(.2px);
+  opacity:.0;
+  animation: moteFloat 7.5s linear infinite;
+}
+
+/* Gentle flicker + falling drift */
+@keyframes moteFloat{
+  0%   { transform: translate3d(0, -20px, 0) scale(.7); opacity:0; }
+  10%  { opacity:.55; }
+  50%  { opacity:.25; }
+  90%  { opacity:.45; }
+  100% { transform: translate3d(30px, 110vh, 0) scale(1.25); opacity:0; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .ray, .mote{ animation:none !important; }
+}
+
 </style>
 </head>
 
 <body>
 <div id="bg"></div>
-<!-- ===== ATMOSPHERIC FX LAYERS ===== -->
-<video id="lightRays" autoplay loop muted playsinline></video>
-<video id="dustMotes" autoplay loop muted playsinline></video>
+
+<!-- VFX layer (no images/videos) -->
+<div id="vfx" aria-hidden="true">
+  <div id="rays">
+    <div class="ray"></div>
+    <div class="ray"></div>
+    <div class="ray"></div>
+    <div class="ray"></div>
+    <div class="ray"></div>
+  </div>
+  <div id="dust"></div>
+</div>
+
+
 
 
 <!-- ================= DEV PROPS (EDIT MODE: press M) =================
@@ -937,17 +1033,40 @@ document.addEventListener("DOMContentLoaded", async () => {
   // QUEST STORAGE KEYS (same system)
   // ----------------------------
 
-  // ================= ATMOSPHERIC FX =================
-const lightRays = document.getElementById("lightRays");
-const dustMotes = document.getElementById("dustMotes");
+  // =========================
+// VFX: build dust motes (no images/videos)
+// =========================
+(function initDust(){
+  const dust = document.getElementById("dust");
+  if (!dust) return;
 
-if (lightRays) {
-  lightRays.src = "/guildbook/fx/light_rays.webm";
-}
+  // How many motes (tweak this)
+  const COUNT = 90;
 
-if (dustMotes) {
-  dustMotes.src = "/guildbook/fx/dust_motes.webm";
-}
+  for (let i=0; i<COUNT; i++){
+    const m = document.createElement("div");
+    m.className = "mote";
+
+    // Randomize start position
+    const x = Math.random() * 100;          // vw
+    const y = Math.random() * 100;          // vh (start scattered)
+    const size = 2 + Math.random() * 3.2;   // px
+    const dur = 5 + Math.random() * 7;      // sec
+    const delay = -Math.random() * dur;     // negative so it's already in motion
+
+    m.style.left = x + "vw";
+    m.style.top = y + "vh";
+    m.style.width = size + "px";
+    m.style.height = size + "px";
+    m.style.animationDuration = dur + "s";
+    m.style.animationDelay = delay + "s";
+
+    dust.appendChild(m);
+  }
+})();
+
+
+ 
 
   const QUEST_ID_KEY  = "vaq_activeQuestId";
   const QUEST_CAT_KEY = "vaq_activeQuestCatalog";
