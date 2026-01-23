@@ -1354,7 +1354,6 @@ async function runDialogueFromPropJson(data, startId, speakerOverride = ""){
 
   showNode(startId || "__close");
 
-  bindPropClicks();
 
 }
 
@@ -1366,6 +1365,9 @@ async function runDialogueFromPropJson(data, startId, speakerOverride = ""){
   const POS_KEY = "va_scene_props_" + location.pathname; // per-page saved positions
   let devMode = localStorage.getItem(DEV_KEY) === "1";
   document.body.classList.toggle("devMode", devMode);
+
+  bindPropClicks(); // ✅ bind prop clicks once
+
 
   const props = [...document.querySelectorAll("#props .devItem")];
 
