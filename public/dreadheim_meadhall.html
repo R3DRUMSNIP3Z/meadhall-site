@@ -27,6 +27,73 @@ html, body{
   z-index:0;
 }
 
+/* ================= DEV PROPS LAYER (DRAG + RESIZE) ================= */
+#props{
+  position:fixed;
+  inset:0;
+  z-index:12;             /* behind NPCs (20) and UI */
+  pointer-events:none;    /* OFF by default */
+}
+body.devMode #props{
+  pointer-events:auto;    /* ON in dev mode */
+}
+
+/* Each prop is a DIV wrapper so we can have resize handles */
+.devItem{
+  position:absolute;
+  user-select:none;
+  -webkit-user-drag:none;
+  pointer-events:none;
+  filter:drop-shadow(0 14px 26px rgba(0,0,0,.65));
+}
+body.devMode .devItem{
+  pointer-events:auto;
+  cursor:move;
+  outline:1px dashed rgba(255,215,140,.55);
+}
+.devItem img{
+  display:block;
+  width:100%;
+  height:auto;
+  pointer-events:none; /* so drag happens on wrapper */
+}
+
+.devDragging{
+  outline:2px dashed rgba(255,215,140,.88) !important;
+  box-shadow:0 0 0 6px rgba(255,215,140,.12) !important;
+}
+
+/* resize handles */
+.devHandle{
+  position:absolute;
+  width:14px;
+  height:14px;
+  border-radius:6px;
+  background:rgba(255,215,140,.95);
+  border:1px solid rgba(0,0,0,.55);
+  display:none;
+}
+body.devMode .devHandle{ display:block; }
+.devHandle.br{ right:-7px; bottom:-7px; cursor:nwse-resize; }
+.devHandle.bl{ left:-7px; bottom:-7px; cursor:nesw-resize; }
+.devHandle.tr{ right:-7px; top:-7px; cursor:nesw-resize; }
+.devHandle.tl{ left:-7px; top:-7px; cursor:nwse-resize; }
+
+/* Dev hint badge */
+#devHint{
+  position:fixed;
+  left:14px;
+  top:74px; /* below hamburger */
+  z-index:999;
+  font-size:12px;
+  letter-spacing:.05em;
+  color:rgba(255,255,255,.65);
+  text-shadow:0 2px 10px rgba(0,0,0,.85);
+  pointer-events:none;
+  display:none;
+}
+body.devMode #devHint{ display:block; }
+
 /* ================= NPCS LAYER ================= */
 #npcs{
   position:fixed;
@@ -169,7 +236,6 @@ html, body{
   padding:12px;
 }
 
-
 .menuHeader{
   display:flex;
   align-items:center;
@@ -231,7 +297,6 @@ html, body{
   transform:translateX(0);
   opacity:1;
 }
-
 
 /* ================= QUEST ICON ================= */
 #questBtn{
@@ -301,7 +366,6 @@ html, body{
   transition:transform 120ms ease;
 }
 #mapBtn:hover img{ transform:scale(1.05); }
-
 
 /* ================= INVENTORY ICON (beside meter) ================= */
 #invBtn{
@@ -683,6 +747,32 @@ html, body{
 
 <body>
 <div id="bg"></div>
+
+<!-- ================= DEV PROPS (EDIT MODE: press M) =================
+  ✅ Add as many .devItem blocks as you want.
+  ✅ Change the <img src="..."> to your furniture/props PNGs.
+  ✅ data-id MUST be unique per prop (used to save/load).
+-->
+<div id="props">
+  <!-- Example props (replace paths with your real ones) -->
+  <div class="devItem" data-id="table1" style="left:40%; top:66%; width:260px;">
+    <img src="/guildbook/props/furniture/table.png" alt="table">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
+
+  <div class="devItem" data-id="torch1" style="left:18%; top:38%; width:90px;">
+    <img src="/guildbook/props/furniture/torch.png" alt="torch">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
+
+  <div class="devItem" data-id="chest1" style="left:58%; top:70%; width:160px;">
+    <img src="/guildbook/props/furniture/chest.png" alt="chest">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
+</div>
+
+<div id="devHint">DEV MODE ON — drag props, resize corners, release to save (prints CSS in console)</div>
+
 <!-- ✅ ADD THIS HTML right after <div id="bg"></div> (or anywhere inside <body>) -->
 <button id="menuBtn" aria-label="Open scene menu" title="Menu">
   <!-- hamburger icon (inline SVG = no extra asset needed) -->
@@ -721,13 +811,12 @@ html, body{
   </div>
 </div>
 
-
 <div id="npcs">
   <!-- HEL (animated frames 1-8) -->
   <img id="npcHel" src="/guildbook/npcs/hel/frame_001.png" alt="Hel">
 </div>
 
-<div id="hint">Tip: Click Hel to speak.</div>
+<div id="hint">Tip: Click Hel to speak. (Press M for DEV prop edit mode.)</div>
 
 <!-- Dialogue (HIDDEN until NPC click) -->
 <div id="dlg" class="hidden">
@@ -858,17 +947,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   // (optional) Esc closes it too (you already have Esc handler — just add closeMenu() there)
   // closeMenu();
   window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape"){
-    hideDialogue();
-    closeQuestJournal();
-    closeMeters();
-    invClosePanel();
-    pickupHide();
-    closeMenu(); // ✅ closes hamburger menu too
-  }
-});
-
-
+    if (e.key === "Escape"){
+      hideDialogue();
+      closeQuestJournal();
+      closeMeters();
+      invClosePanel();
+      pickupHide();
+      closeMenu(); // ✅ closes hamburger menu too
+    }
+  });
 
   // ----------------------------
   // NPC DIALOGUE CATALOG (Hel)
@@ -876,9 +963,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const HEL_DIALOGUE_JSON = "/data/episodes/volume1_ep1/hel_meadhall.json";
   const KICKED_JSON = "/data/episodes/volume1_ep1/kickedoutbyloki.json";
   // ONCE-THEN-DEFAULT for Hel
-const DEFAULT_NPC_JSON = "/data/episodes/volume1_ep1/defaultdialoguenpc.json";
-const HEL_NPC_ID = "hel_meadhall"; // must match defaults.hel_meadhall
-
+  const DEFAULT_NPC_JSON = "/data/episodes/volume1_ep1/defaultdialoguenpc.json";
+  const HEL_NPC_ID = "hel_meadhall"; // must match defaults.hel_meadhall
 
   // ----------------------------
   // INVENTORY (localStorage)
@@ -922,13 +1008,11 @@ const HEL_NPC_ID = "hel_meadhall"; // must match defaults.hel_meadhall
   const pickupImgInner = document.getElementById("pickupImgInner");
   const pickupText = document.getElementById("pickupText");
   const pickupBtns = document.getElementById("pickupBtns");
-    const mapBtn = document.getElementById("mapBtn");
-      mapBtn.addEventListener("click", () => {
-    // go to the map page (web path)
+
+  const mapBtn = document.getElementById("mapBtn");
+  mapBtn.addEventListener("click", () => {
     window.location.href = "/guildbook/scenes/maps/veriador_map.html";
   });
-
-
 
   // ----------------------------
   // Helpers
@@ -980,6 +1064,146 @@ const HEL_NPC_ID = "hel_meadhall"; // must match defaults.hel_meadhall
 
   // Hide dialogue on load (IMPORTANT)
   hideDialogue();
+
+  // ----------------------------
+  // DEV: DRAG + RESIZE PROPS (press M)
+  // ----------------------------
+  const DEV_KEY = "va_scene_dev";                 // toggles dev mode globally
+  const POS_KEY = "va_scene_props_" + location.pathname; // per-page saved positions
+  let devMode = localStorage.getItem(DEV_KEY) === "1";
+  document.body.classList.toggle("devMode", devMode);
+
+  const props = [...document.querySelectorAll("#props .devItem")];
+
+  function pctX(px){ return (px / window.innerWidth * 100).toFixed(2) + "%"; }
+  function pctY(py){ return (py / window.innerHeight * 100).toFixed(2) + "%"; }
+
+  function getSaved(){
+    try{ return JSON.parse(localStorage.getItem(POS_KEY) || "{}"); }
+    catch{ return {}; }
+  }
+  function saveOne(el){
+    const id = el.dataset.id;
+    if (!id) return;
+
+    const s = getSaved();
+    s[id] = {
+      left: el.style.left,
+      top: el.style.top,
+      width: el.style.width,
+      height: el.style.height || "auto"
+    };
+    localStorage.setItem(POS_KEY, JSON.stringify(s));
+
+    console.log(
+      `📌 ${id} → left:${s[id].left}; top:${s[id].top}; width:${s[id].width}; height:${s[id].height};`
+    );
+  }
+  function applySaved(){
+    const s = getSaved();
+    props.forEach(el => {
+      const id = el.dataset.id;
+      const v = s[id];
+      if (!v) return;
+      if (v.left) el.style.left = v.left;
+      if (v.top) el.style.top = v.top;
+      if (v.width) el.style.width = v.width;
+      if (v.height && v.height !== "auto") el.style.height = v.height;
+    });
+  }
+  applySaved();
+
+  // drag/resize state
+  let active = null;
+  let mode = null; // "drag" | "resize"
+  let handle = "br";
+  let sx=0, sy=0, sl=0, st=0, sw=0, sh=0;
+
+  function onMouseMove(e){
+    if (!devMode || !active) return;
+
+    if (mode === "drag"){
+      const nl = sl + (e.clientX - sx);
+      const nt = st + (e.clientY - sy);
+      active.style.left = pctX(nl);
+      active.style.top  = pctY(nt);
+      return;
+    }
+
+    // resize: change width only (keeps aspect ratio)
+    const dx = e.clientX - sx;
+    let newW = sw;
+
+    if (handle === "br" || handle === "tr") newW = sw + dx;
+    if (handle === "bl" || handle === "tl") newW = sw - dx;
+
+    newW = Math.max(24, newW);
+    active.style.width = newW + "px";
+
+    // optional: if resizing from left corners, also adjust left to keep corner pinned
+    if (handle === "bl" || handle === "tl"){
+      const nl = sl + dx;
+      active.style.left = pctX(nl);
+    }
+  }
+
+  function onMouseUp(){
+    if (!active) return;
+    active.classList.remove("devDragging");
+    saveOne(active);
+    active = null;
+    mode = null;
+  }
+
+  props.forEach(el => {
+    // drag on wrapper (ignore handles)
+    el.addEventListener("mousedown", (e) => {
+      if (!devMode) return;
+      if (e.target && e.target.classList && e.target.classList.contains("devHandle")) return;
+
+      const r = el.getBoundingClientRect();
+      active = el;
+      mode = "drag";
+      sx = e.clientX; sy = e.clientY;
+      sl = r.left;   st = r.top;
+
+      el.classList.add("devDragging");
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    // resize handles
+    el.querySelectorAll(".devHandle").forEach(h => {
+      h.addEventListener("mousedown", (e) => {
+        if (!devMode) return;
+        const r = el.getBoundingClientRect();
+        active = el;
+        mode = "resize";
+        handle = [...h.classList].find(c => ["tl","tr","bl","br"].includes(c)) || "br";
+
+        sx = e.clientX; sy = e.clientY;
+        sl = r.left;   st = r.top;
+        sw = r.width;  sh = r.height;
+
+        el.classList.add("devDragging");
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    });
+  });
+
+  window.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("mouseup", onMouseUp);
+
+  // toggle dev mode with M
+  window.addEventListener("keydown", (e) => {
+    if (e.key && e.key.toLowerCase() === "m"){
+      devMode = !devMode;
+      localStorage.setItem(DEV_KEY, devMode ? "1" : "0");
+      document.body.classList.toggle("devMode", devMode);
+      console.log(devMode ? "🛠 DEV MODE ON" : "🧭 DEV MODE OFF");
+    }
+  });
 
   // ----------------------------
   // GOOD/EVIL + FLAGS
@@ -1342,13 +1566,12 @@ const HEL_NPC_ID = "hel_meadhall"; // must match defaults.hel_meadhall
 
   // Force set the quest catalog each time:
   // ✅ Only set default catalog if none exists yet (do NOT overwrite Loki's)
-const curCat = localStorage.getItem(QUEST_CAT_KEY);
+  const curCat = localStorage.getItem(QUEST_CAT_KEY);
 
-// ✅ If missing, set default
-if (!curCat) {
-  localStorage.setItem(QUEST_CAT_KEY, QUEST_CATALOG_URL);
-}
-
+  // ✅ If missing, set default
+  if (!curCat) {
+    localStorage.setItem(QUEST_CAT_KEY, QUEST_CATALOG_URL);
+  }
 
   // ----------------------------
   // HEL ANIMATION (frames 1-8)
@@ -1510,40 +1733,40 @@ if (!curCat) {
   }
 
   npcHel.addEventListener("click", async () => {
-  // Must exist (va_global_ui.js)
-  if (!window.VAQ || typeof window.VAQ.npcRunOnceThenDefault !== "function"){
-    console.warn("VAQ helpers missing; falling back to full hel dialogue.");
-    runDialogueFromJson(HEL_DIALOGUE_JSON).catch(console.error);
-    return;
-  }
+    // Must exist (va_global_ui.js)
+    if (!window.VAQ || typeof window.VAQ.npcRunOnceThenDefault !== "function"){
+      console.warn("VAQ helpers missing; falling back to full hel dialogue.");
+      runDialogueFromJson(HEL_DIALOGUE_JSON).catch(console.error);
+      return;
+    }
 
-  try{
-    await VAQ.npcRunOnceThenDefault({
-      npcId: HEL_NPC_ID,
-      onceJson: HEL_DIALOGUE_JSON,
-      defaultJson: DEFAULT_NPC_JSON,
+    try{
+      await VAQ.npcRunOnceThenDefault({
+        npcId: HEL_NPC_ID,
+        onceJson: HEL_DIALOGUE_JSON,
+        defaultJson: DEFAULT_NPC_JSON,
 
-      // your dialogue engine already handles JSON nodes
-      runDialogueFromJson,
+        // your dialogue engine already handles JSON nodes
+        runDialogueFromJson,
 
-      // UI helpers for the VAQ helper
-      showDialogue,
-      hideDialogue,
+        // UI helpers for the VAQ helper
+        showDialogue,
+        hideDialogue,
 
-      portraitFallback: "/guildbook/npcs/hel/hel.png",
-      speakerFallback: "Hel"
-    });
-  }catch(err){
-    console.error(err);
-    runDialogueFromJson(HEL_DIALOGUE_JSON).catch(console.error);
-  }
-});
-
+        portraitFallback: "/guildbook/npcs/hel/hel.png",
+        speakerFallback: "Hel"
+      });
+    }catch(err){
+      console.error(err);
+      runDialogueFromJson(HEL_DIALOGUE_JSON).catch(console.error);
+    }
+  });
 
   // In case the flag was already set from previous session, apply on load:
   try{ maybeHandleAmuletSteal(); }catch{}
 
   // Optional: press ESC to close dialogue/journal/meters/inventory/popup
+  // (NOTE: you already have an ESC listener above that also closes menu)
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape"){
       hideDialogue();
@@ -1562,6 +1785,7 @@ if (!curCat) {
 </body>
 </html>
 ```
+
 
 
 
