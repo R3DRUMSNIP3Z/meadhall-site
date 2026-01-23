@@ -1,12 +1,29 @@
 {
-  "meta": { "speakerDefault": "Mead Hall" },
+  "meta": {
+    "speakerDefault": "Mead Hall"
+  },
 
   "props": {
-    "mguard1": { "speaker": "Guard", "start": "mguard1_1" },
-    "fguard1": { "speaker": "Guard", "start": "fguard1_1" },
-    "slave":   { "speaker": "Servant", "start": "slave_1" },
-    "mslave1": { "speaker": "Servant", "start": "mslave1_1" },
-    "helschair": { "speaker": "Hel’s Throne", "start": "chair_1" }
+    "mguard1": {
+      "speaker": "Helheim Guard",
+      "start": "mguard1_1"
+    },
+    "fguard1": {
+      "speaker": "Helheim Guard",
+      "start": "fguard1_1"
+    },
+    "slave": {
+      "speaker": "Oath-Bound Servant",
+      "start": "slave_1"
+    },
+    "mslave1": {
+      "speaker": "Oath-Bound Servant",
+      "start": "mslave1_1"
+    },
+    "helschair": {
+      "speaker": "Hel",
+      "start": "chair_1"
+    }
   },
 
   "nodes": [
@@ -16,25 +33,114 @@
       "choices": [
         { "label": "Slap the guard", "to": "mguard1_slap" },
         { "label": "Compliment the guard", "to": "mguard1_comp" },
+        { "label": "Leave", "to": "__close" }
+      ]
+    },
+    {
+      "id": "mguard1_slap",
+      "text": "Your palm cracks across his cheek. He smiles — wrongly.",
+      "reward": { "evil": 1 },
+      "choices": [
         { "label": "Close", "to": "__close" }
       ]
     },
-    { "id": "mguard1_slap", "text": "Your palm cracks across his cheek. He smiles—wrongly.", "choices":[{ "label":"Close", "to":"__close" }] },
-    { "id": "mguard1_comp", "text": "“Your vigilance honors Hel.” He grunts, almost pleased.", "choices":[{ "label":"Close", "to":"__close" }] },
+    {
+      "id": "mguard1_comp",
+      "text": "“Your vigilance honors Hel.” He grunts, almost pleased.",
+      "reward": { "good": 1 },
+      "choices": [
+        { "label": "Close", "to": "__close" }
+      ]
+    },
+
+    {
+      "id": "fguard1_1",
+      "text": "The female guard shifts her grip on the spear. Her stare warns you.",
+      "choices": [
+        { "label": "Mock her", "to": "fguard1_mock" },
+        { "label": "Show respect", "to": "fguard1_respect" },
+        { "label": "Leave", "to": "__close" }
+      ]
+    },
+    {
+      "id": "fguard1_mock",
+      "text": "She steps closer. “Careful. I enjoy corrections.”",
+      "reward": { "evil": 1 },
+      "choices": [
+        { "label": "Close", "to": "__close" }
+      ]
+    },
+    {
+      "id": "fguard1_respect",
+      "text": "She inclines her head once. Respect is recorded.",
+      "reward": { "good": 1 },
+      "choices": [
+        { "label": "Close", "to": "__close" }
+      ]
+    },
 
     {
       "id": "slave_1",
-      "text": "The servant freezes, waiting for your command.",
+      "text": "The servant lowers their eyes and waits for your will.",
       "choices": [
-        { "label": "Ask for wine", "to": "slave_wine" },
-        { "label": "Order silence", "to": "slave_silence" },
+        { "label": "Ask their origin", "to": "slave_origin" },
+        { "label": "Order them away", "to": "slave_away" },
+        { "label": "Say nothing", "to": "__close" }
+      ]
+    },
+    {
+      "id": "slave_origin",
+      "text": "“Myriador,” they whisper. “An oath broken.”",
+      "choices": [
         { "label": "Close", "to": "__close" }
       ]
     },
-    { "id": "slave_wine", "text": "They rush away—barely breathing.", "choices":[{ "label":"Close", "to":"__close" }] },
-    { "id": "slave_silence", "text": "They lower their gaze and go still as ash.", "choices":[{ "label":"Close", "to":"__close" }] },
+    {
+      "id": "slave_away",
+      "text": "They bow deeply and retreat into shadow.",
+      "reward": { "evil": 1 },
+      "choices": [
+        { "label": "Close", "to": "__close" }
+      ]
+    },
 
-    { "id": "chair_1", "text": "Hel’s throne radiates cold authority.", "choices":[{ "label":"Close", "to":"__close" }] }
+    {
+      "id": "mslave1_1",
+      "text": "The male servant freezes, knuckles white around the tray.",
+      "choices": [
+        { "label": "Demand answers", "to": "mslave1_answers" },
+        { "label": "Dismiss him", "to": "__close" }
+      ]
+    },
+    {
+      "id": "mslave1_answers",
+      "text": "He opens his mouth — then closes it. Fear wins.",
+      "choices": [
+        { "label": "Close", "to": "__close" }
+      ]
+    },
+
+    {
+      "id": "chair_1",
+      "speaker": "Hel",
+      "text": "You stand before my throne. Speak — or kneel.",
+      "choices": [
+        { "label": "Sit", "to": "chair_sit" },
+        { "label": "Step back", "to": "__close" }
+      ]
+    },
+    {
+      "id": "chair_sit",
+      "speaker": "Hel",
+      "text": "“Stand.”",
+      "reward": {
+        "evil": 1,
+        "flags": { "sat_in_hels_chair": true }
+      },
+      "choices": [
+        { "label": "Close", "to": "__close" }
+      ]
+    }
   ]
 }
 
