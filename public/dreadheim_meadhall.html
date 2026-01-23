@@ -31,9 +31,10 @@ html, body{
 #props{
   position:fixed;
   inset:0;
-  z-index:12;             /* behind NPCs (20) and UI */
-  pointer-events:none;    /* OFF by default */
+  z-index:12;
+  pointer-events:auto; /* ✅ clickable in normal mode */
 }
+
 body.devMode #props{
   pointer-events:auto;    /* ON in dev mode */
 }
@@ -43,9 +44,11 @@ body.devMode #props{
   position:absolute;
   user-select:none;
   -webkit-user-drag:none;
-  pointer-events:none;
+  pointer-events:auto; /* ✅ clickable */
+  cursor:pointer;
   filter:drop-shadow(0 14px 26px rgba(0,0,0,.65));
 }
+
 body.devMode .devItem{
   pointer-events:auto;
   cursor:move;
@@ -1042,15 +1045,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ----------------------------
   // QUEST STORAGE KEYS (same system)
   // ----------------------------
-  // ================= PROP INTERACTIONS =================
-document.querySelectorAll(".devItem").forEach(item => {
-  item.addEventListener("click", (e) => {
-    e.stopPropagation();
-
-    const id = item.dataset.id;
-    handlePropInteraction(id);
-  });
-});
+  
 
 
   // =========================
@@ -1253,20 +1248,22 @@ document.querySelectorAll(".devItem").forEach(item => {
 const PROPS_DIALOGUE_URL = "/data/episodes/volume1_ep1/meadhall_props.json";
 
 function bindPropClicks(){
-  // Make devItem props clickable
   document.querySelectorAll("#props .devItem").forEach(el => {
-    el.style.pointerEvents = "auto";
-    el.style.cursor = "pointer";
-
     el.addEventListener("click", (e) => {
+      // ✅ In dev mode, clicking should NOT open dialogue (you're editing)
+      if (devMode) return;
+
       e.preventDefault();
       e.stopPropagation();
+
       const propId = el.getAttribute("data-id") || "";
       if (!propId) return;
+
       handlePropInteraction(propId).catch(console.error);
     });
   });
 }
+
 
 async function handlePropInteraction(propId){
   const data = await loadJSON(PROPS_DIALOGUE_URL);
