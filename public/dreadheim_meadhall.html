@@ -1266,16 +1266,29 @@ function bindPropClicks(){
 
 
 async function handlePropInteraction(propId){
-  const data = await loadJSON(PROPS_DIALOGUE_URL);
+  let data;
+  try{
+    data = await loadJSON(PROPS_DIALOGUE_URL);
+  }catch(err){
+    console.error("Props JSON failed:", err);
+
+    showDialogue({
+      speaker: "ERROR",
+      text: `Couldn't load: ${PROPS_DIALOGUE_URL}`,
+      portraitSrc: "",
+      buttons: [{ label:"Close", onClick: hideDialogue }]
+    });
+    return;
+  }
 
   const prop = (data?.props && data.props[propId]) ? data.props[propId] : null;
 
   if (!prop){
     showDialogue({
       speaker: "…",
-      text: "Nothing happens.",
+      text: `No prop entry found for "${propId}" in meadhall_props.json`,
       portraitSrc: "",
-      buttons: [{ label: "Close", onClick: hideDialogue }]
+      buttons: [{ label:"Close", onClick: hideDialogue }]
     });
     return;
   }
@@ -1283,7 +1296,17 @@ async function handlePropInteraction(propId){
   const startId = prop.start || "";
   const speakerOverride = prop.speaker || "";
 
-  await runDialogueFromPropJson(data, startId, speakerOverride);
+  try{
+    await runDialogueFromPropJson(data, startId, speakerOverride);
+  }catch(err){
+    console.error("Prop dialogue error:", err);
+    showDialogue({
+      speaker: "ERROR",
+      text: `Prop "${propId}" start "${startId}" failed. Check console.`,
+      portraitSrc: "",
+      buttons: [{ label:"Close", onClick: hideDialogue }]
+    });
+  }
 }
 
 // Runs dialogue from the prop JSON format (data.nodes with ids)
