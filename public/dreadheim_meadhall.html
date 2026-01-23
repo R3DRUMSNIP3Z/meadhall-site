@@ -1247,6 +1247,98 @@ document.querySelectorAll(".devItem").forEach(item => {
   // Hide dialogue on load (IMPORTANT)
   hideDialogue();
 
+  // =============================
+// PROPS: JSON-driven dialogue
+// =============================
+const PROPS_DIALOGUE_URL = "/data/episodes/volume1_ep1/meadhall_props.json";
+
+function bindPropClicks(){
+  // Make devItem props clickable
+  document.querySelectorAll("#props .devItem").forEach(el => {
+    el.style.pointerEvents = "auto";
+    el.style.cursor = "pointer";
+
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const propId = el.getAttribute("data-id") || "";
+      if (!propId) return;
+      handlePropInteraction(propId).catch(console.error);
+    });
+  });
+}
+
+async function handlePropInteraction(propId){
+  const data = await loadJSON(PROPS_DIALOGUE_URL);
+
+  const prop = (data?.props && data.props[propId]) ? data.props[propId] : null;
+
+  if (!prop){
+    showDialogue({
+      speaker: "…",
+      text: "Nothing happens.",
+      portraitSrc: "",
+      buttons: [{ label: "Close", onClick: hideDialogue }]
+    });
+    return;
+  }
+
+  const startId = prop.start || "";
+  const speakerOverride = prop.speaker || "";
+
+  await runDialogueFromPropJson(data, startId, speakerOverride);
+}
+
+// Runs dialogue from the prop JSON format (data.nodes with ids)
+async function runDialogueFromPropJson(data, startId, speakerOverride = ""){
+  const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+  const map = new Map(nodes.map(n => [n.id, n]));
+
+  const speakerDefault = speakerOverride || data?.meta?.speakerDefault || "…";
+  const portraitDefault = ""; // props usually don't need portraits
+
+  function showNode(id){
+    if (id === "__close"){
+      hideDialogue();
+      return;
+    }
+
+    const node = map.get(id);
+    if (!node){
+      showDialogue({
+        speaker: speakerDefault,
+        text: "…",
+        portraitSrc: portraitDefault,
+        buttons: [{ label: "Close", onClick: hideDialogue }]
+      });
+      return;
+    }
+
+    // optional: apply reward if present (uses your existing applyReward)
+    try{ applyReward(node.reward); }catch{}
+
+    const speaker = node.speaker || speakerDefault;
+    const text = txt(node.text || "…");
+    const portrait = node.portrait || portraitDefault;
+
+    const choices = Array.isArray(node.choices) ? node.choices : [];
+    const btns = choices.length
+      ? choices.map(c => ({
+          label: c.label || "Continue",
+          onClick: () => showNode(c.to || "__close")
+        }))
+      : [{ label: "Close", onClick: hideDialogue }];
+
+    showDialogue({ speaker, text, portraitSrc: portrait, buttons: btns });
+  }
+
+  showNode(startId || "__close");
+
+  bindPropClicks();
+
+}
+
+
   // ----------------------------
   // DEV: DRAG + RESIZE PROPS (press M)
   // ----------------------------
