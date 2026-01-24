@@ -5,7 +5,11 @@
     "portraitMaleGuard": "/guildbook/npcs/helheimguardians/portraits/maleguardp1.gif",
     "portraitFemaleGuard": "/guildbook/npcs/helheimguardians/portraits/femaleguardp1.gif",
     "portraitFemaleSlave": "/guildbook/npcs/slaves/portraits/femaleslavep1.gif",
-    "portraitMaleSlave": "/guildbook/npcs/slaves/portraits/maleslave1p.gif"
+    "portraitMaleSlave": "/guildbook/npcs/slaves/portraits/maleslave1p.gif",
+    "defaultPortraits": {
+  "Hel": "/guildbook/npcs/hel.gif"
+}
+
   },
 
   "props": {
@@ -121,7 +125,7 @@
     {
       "id": "chair_1",
       "speaker": "Hel",
-      "portrait": "/guildbook/npcs/hel/hel.png",
+  "portrait": "/guildbook/npcs/hel.gif",
       "text": "You stand before my throne. Speak — or kneel.",
       "choices": [
         { "label": "Sit", "to": "chair_sit" },
@@ -131,7 +135,7 @@
     {
       "id": "chair_sit",
       "speaker": "Hel",
-      "portrait": "/guildbook/npcs/hel/hel.png",
+  "portrait": "/guildbook/npcs/hel.gif",
       "text": "“Stand.”",
       "reward": {
         "evil": 1,
