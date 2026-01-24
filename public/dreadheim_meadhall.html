@@ -150,6 +150,19 @@ body.devMode #devHint{ display:block; }
           drop-shadow(0 0 14px rgba(180,200,255,0.22));
 }
 
+/* ================= TIBBOH (floor critter) ================= */
+#tibboh{
+  position:fixed;
+  width:46px;
+  height:auto;
+  z-index:22;
+  pointer-events:auto;
+  cursor:pointer;
+  image-rendering:auto;
+}
+
+
+
 /* ================= DIALOGUE ================= */
 #dlg{
   position:fixed;
@@ -884,6 +897,9 @@ body.devMode #devHint{ display:block; }
 -->
 <div id="props">
   <!-- Example props (replace paths with your real ones) -->
+  
+
+
   <div class="devItem" data-id="helschair" style="left:44.23%; top:33.82%; width:177px; height:auto;">
     <img src="/guildbook/furniture/helschair.gif" alt="helschair">
     <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
@@ -953,7 +969,11 @@ body.devMode #devHint{ display:block; }
 <div id="npcs">
   <!-- HEL (animated frames 1-8) -->
   <img id="npcHel" src="/guildbook/npcs/hel/frame_001.png" alt="Hel">
+
+  <!-- Tibboh (floor rodent) -->
+  <img id="tibboh" alt="Tibboh">
 </div>
+
 
 <div id="hint">Tip: Click Hel to speak. (Press M for DEV prop edit mode.)</div>
 
@@ -1366,7 +1386,56 @@ async function runDialogueFromPropJson(data, startId, speakerOverride = ""){
   let devMode = localStorage.getItem(DEV_KEY) === "1";
   document.body.classList.toggle("devMode", devMode);
 
-  bindPropClicks(); // ✅ bind prop clicks once
+bindPropClicks(); // existing line
+
+// =============================
+// TIBBOH (animated frames 000–048)
+// =============================
+(function initTibboh(){
+  const tib = document.getElementById("tibboh");
+  if (!tib) return;
+
+  const BASE = "/guildbook/npcs/rodents/";
+  const TOTAL = 49; // frame_000 → frame_048
+  let frame = 0;
+
+  // Movement
+  let x = window.innerWidth * 0.15;
+  let vx = 1.4 + Math.random() * 2.2;
+
+  function floorY(){
+    return window.innerHeight * 0.86;
+  }
+
+  // Click → dialogue
+  tib.addEventListener("click", (e) => {
+    if (devMode) return;
+    e.stopPropagation();
+    handlePropInteraction("tibboh").catch(console.error);
+  });
+
+  function tick(){
+    // Frame update
+    tib.src = `${BASE}frame_${String(frame).padStart(3,"0")}.png`;
+    frame = (frame + 1) % TOTAL;
+
+    // Move
+    x += vx;
+    const w = tib.getBoundingClientRect().width || 46;
+
+    if (x < 6 || x > window.innerWidth - w - 6){
+      vx *= -1;
+    }
+
+    tib.style.transform =
+      `translate3d(${x}px, ${floorY()}px, 0) scaleX(${vx < 0 ? -1 : 1})`;
+
+    requestAnimationFrame(tick);
+  }
+
+  tick();
+})();
+
 
 
   const props = [...document.querySelectorAll("#props .devItem")];

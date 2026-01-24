@@ -6,25 +6,25 @@
     "portraitFemaleGuard": "/guildbook/npcs/helheimguardians/portraits/femaleguardp1.gif",
     "portraitFemaleSlave": "/guildbook/npcs/slaves/portraits/femaleslavep1.gif",
     "portraitMaleSlave": "/guildbook/npcs/slaves/portraits/maleslave1p.gif",
-    "defaultPortraits": {
-  "Hel": "/guildbook/npcs/hel.gif"
-}
 
+    "defaultPortraits": {
+      "Hel": "/guildbook/npcs/hel.gif",
+      "Tibboh": "/guildbook/npcs/rodents/tibboh.gif"
+    }
   },
 
   "props": {
-    "mguard1": { "speaker": "Helheim Guard", "start": "mguard1_1" },
-    "fguard1": { "speaker": "Helheim Guard", "start": "fguard1_1" },
-    "slave": { "speaker": "Oath-Bound Servant", "start": "slave_1" },
-    "mslave1": { "speaker": "Oath-Bound Servant", "start": "mslave1_1" },
-    "helschair": { "speaker": "Hel", "start": "chair_1" }
+    "mguard1":   { "speaker": "Helheim Guard",      "start": "mguard1_1" },
+    "fguard1":   { "speaker": "Helheim Guard",      "start": "fguard1_1" },
+    "slave":     { "speaker": "Oath-Bound Servant", "start": "slave_1" },
+    "mslave1":   { "speaker": "Oath-Bound Servant", "start": "mslave1_1" },
+    "helschair": { "speaker": "Hel",                "start": "chair_1" },
+
+    "tibboh":    { "speaker": "Tibboh",             "start": "tibboh_1" }
   },
 
   "nodes": [
-    {
-      "id": "mguard1_1",
-      "speaker": "Helheim Guard",
-      "portrait": "/guildbook/npcs/helheimguardians/portraits/maleguardp1.gif",
+    { "id": "mguard1_1", "speaker": "Helheim Guard", "portrait": "/guildbook/npcs/helheimguardians/portraits/maleguardp1.gif",
       "text": "The guard’s eyes track you. He does not bow.",
       "choices": [
         { "label": "Slap the guard", "to": "mguard1_slap" },
@@ -32,27 +32,18 @@
         { "label": "Leave", "to": "__close" }
       ]
     },
-    {
-      "id": "mguard1_slap",
-      "speaker": "Helheim Guard",
-      "portrait": "/guildbook/npcs/helheimguardians/portraits/maleguardp1.gif",
+    { "id": "mguard1_slap", "speaker": "Helheim Guard", "portrait": "/guildbook/npcs/helheimguardians/portraits/maleguardp1.gif",
       "text": "Your palm cracks across his cheek. He smiles — wrongly.",
       "reward": { "evil": 1 },
       "choices": [{ "label": "Close", "to": "__close" }]
     },
-    {
-      "id": "mguard1_comp",
-      "speaker": "Helheim Guard",
-      "portrait": "/guildbook/npcs/helheimguardians/portraits/maleguardp1.gif",
+    { "id": "mguard1_comp", "speaker": "Helheim Guard", "portrait": "/guildbook/npcs/helheimguardians/portraits/maleguardp1.gif",
       "text": "“Your vigilance honors Hel.” He grunts, almost pleased.",
       "reward": { "good": 1 },
       "choices": [{ "label": "Close", "to": "__close" }]
     },
 
-    {
-      "id": "fguard1_1",
-      "speaker": "Helheim Guard",
-      "portrait": "/guildbook/npcs/helheimguardians/portraits/femaleguardp1.gif",
+    { "id": "fguard1_1", "speaker": "Helheim Guard", "portrait": "/guildbook/npcs/helheimguardians/portraits/femaleguardp1.gif",
       "text": "The female guard shifts her grip on the spear. Her stare warns you.",
       "choices": [
         { "label": "Mock her", "to": "fguard1_mock" },
@@ -60,27 +51,18 @@
         { "label": "Leave", "to": "__close" }
       ]
     },
-    {
-      "id": "fguard1_mock",
-      "speaker": "Helheim Guard",
-      "portrait": "/guildbook/npcs/helheimguardians/portraits/femaleguardp1.gif",
+    { "id": "fguard1_mock", "speaker": "Helheim Guard", "portrait": "/guildbook/npcs/helheimguardians/portraits/femaleguardp1.gif",
       "text": "She steps closer. “Careful. I enjoy corrections.”",
       "reward": { "evil": 1 },
       "choices": [{ "label": "Close", "to": "__close" }]
     },
-    {
-      "id": "fguard1_respect",
-      "speaker": "Helheim Guard",
-      "portrait": "/guildbook/npcs/helheimguardians/portraits/femaleguardp1.gif",
+    { "id": "fguard1_respect", "speaker": "Helheim Guard", "portrait": "/guildbook/npcs/helheimguardians/portraits/femaleguardp1.gif",
       "text": "She inclines her head once. Respect is recorded.",
       "reward": { "good": 1 },
       "choices": [{ "label": "Close", "to": "__close" }]
     },
 
-    {
-      "id": "slave_1",
-      "speaker": "Oath-Bound Servant",
-      "portrait": "/guildbook/npcs/slaves/portraits/femaleslavep1.gif",
+    { "id": "slave_1", "speaker": "Oath-Bound Servant", "portrait": "/guildbook/npcs/slaves/portraits/femaleslavep1.gif",
       "text": "The servant lowers their eyes and waits for your will.",
       "choices": [
         { "label": "Ask their origin", "to": "slave_origin" },
@@ -88,63 +70,62 @@
         { "label": "Say nothing", "to": "__close" }
       ]
     },
-    {
-      "id": "slave_origin",
-      "speaker": "Oath-Bound Servant",
-      "portrait": "/guildbook/npcs/slaves/portraits/femaleslavep1.gif",
+    { "id": "slave_origin", "speaker": "Oath-Bound Servant", "portrait": "/guildbook/npcs/slaves/portraits/femaleslavep1.gif",
       "text": "“Myriador,” they whisper. “An oath broken.”",
       "choices": [{ "label": "Close", "to": "__close" }]
     },
-    {
-      "id": "slave_away",
-      "speaker": "Oath-Bound Servant",
-      "portrait": "/guildbook/npcs/slaves/portraits/femaleslavep1.gif",
+    { "id": "slave_away", "speaker": "Oath-Bound Servant", "portrait": "/guildbook/npcs/slaves/portraits/femaleslavep1.gif",
       "text": "They bow deeply and retreat into shadow.",
       "reward": { "evil": 1 },
       "choices": [{ "label": "Close", "to": "__close" }]
     },
 
-    {
-      "id": "mslave1_1",
-      "speaker": "Oath-Bound Servant",
-      "portrait": "/guildbook/npcs/slaves/portraits/maleslave1p.gif",
+    { "id": "mslave1_1", "speaker": "Oath-Bound Servant", "portrait": "/guildbook/npcs/slaves/portraits/maleslave1p.gif",
       "text": "The male servant freezes, knuckles white around the tray.",
       "choices": [
         { "label": "Demand answers", "to": "mslave1_answers" },
         { "label": "Dismiss him", "to": "__close" }
       ]
     },
-    {
-      "id": "mslave1_answers",
-      "speaker": "Oath-Bound Servant",
-      "portrait": "/guildbook/npcs/slaves/portraits/maleslave1p.gif",
+    { "id": "mslave1_answers", "speaker": "Oath-Bound Servant", "portrait": "/guildbook/npcs/slaves/portraits/maleslave1p.gif",
       "text": "He opens his mouth — then closes it. Fear wins.",
       "choices": [{ "label": "Close", "to": "__close" }]
     },
 
-    {
-      "id": "chair_1",
-      "speaker": "Hel",
-  "portrait": "/guildbook/npcs/hel.gif",
+    { "id": "chair_1", "speaker": "Hel", "portrait": "/guildbook/npcs/hel.gif",
       "text": "You stand before my throne. Speak — or kneel.",
       "choices": [
         { "label": "Sit", "to": "chair_sit" },
         { "label": "Step back", "to": "__close" }
       ]
     },
-    {
-      "id": "chair_sit",
-      "speaker": "Hel",
-  "portrait": "/guildbook/npcs/hel.gif",
+    { "id": "chair_sit", "speaker": "Hel", "portrait": "/guildbook/npcs/hel.gif",
       "text": "“Stand.”",
-      "reward": {
-        "evil": 1,
-        "flags": { "sat_in_hels_chair": true }
-      },
+      "reward": { "evil": 1, "flags": { "sat_in_hels_chair": true } },
+      "choices": [{ "label": "Close", "to": "__close" }]
+    },
+
+    { "id": "tibboh_1", "speaker": "Tibboh", "portrait": "/guildbook/npcs/rodents/tibboh.gif",
+      "text": "A tiny rodent skitters near your boot, pausing like it’s listening.",
+      "choices": [
+        { "label": "Offer a crumb", "to": "tibboh_crumb" },
+        { "label": "Shush it away", "to": "tibboh_shoo" },
+        { "label": "Leave", "to": "__close" }
+      ]
+    },
+    { "id": "tibboh_crumb", "speaker": "Tibboh", "portrait": "/guildbook/npcs/rodents/tibboh.gif",
+      "text": "It snatches the morsel and vanishes under a bench. Clever little fiend.",
+      "reward": { "good": 1 },
+      "choices": [{ "label": "Close", "to": "__close" }]
+    },
+    { "id": "tibboh_shoo", "speaker": "Tibboh", "portrait": "/guildbook/npcs/rodents/tibboh.gif",
+      "text": "It chitters a rude sound and darts away anyway.",
+      "reward": { "evil": 1 },
       "choices": [{ "label": "Close", "to": "__close" }]
     }
   ]
 }
+
 
 
 
