@@ -1430,7 +1430,7 @@ bindPropClicks(); // existing line
     tib.style.transform =
       `translate3d(${x}px, ${floorY()}px, 0) scaleX(${vx < 0 ? -1 : 1})`;
 
-    requestAnimationFrame(tick);
+setTimeout(() => requestAnimationFrame(tick), 80); // ~12 fps
   }
 
   tick();
