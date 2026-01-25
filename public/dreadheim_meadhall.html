@@ -1392,7 +1392,7 @@ async function runDialogueFromPropJson(data, startId, speakerOverride = ""){
 bindPropClicks(); // existing line
 
 // =============================
-// TIBBOH: 4-direction walk animation (folders)
+// TIBBOH: 4-direction walk + idle
 // =============================
 (function initTibboh4Dir(){
   const tib = document.getElementById("tibboh");
@@ -1401,138 +1401,126 @@ bindPropClicks(); // existing line
   const BASE = "/guildbook/npcs/rodents/";
   const DIRS = {
     idle:  { folder: "idle",      frames: 37 }, // 000–036
-
-    front: { folder: "walkfront", frames: 36 }, // 000-035
-    back:  { folder: "walkback",  frames: 36 }, // 000-035
-    left:  { folder: "walkleft",  frames: 49 }, // 000-048
-    right: { folder: "walkright", frames: 49 }  // 000-048
+    front: { folder: "walkfront", frames: 36 }, // 000–035
+    back:  { folder: "walkback",  frames: 36 },
+    left:  { folder: "walkleft",  frames: 49 },
+    right: { folder: "walkright", frames: 49 }
   };
 
-  // floor bounds (tweak to fit your hall)
-  const FLOOR_Y_FRONT = 0.86; // closer to camera
-  const FLOOR_Y_BACK  = 0.76; // farther back
+  // floor bounds
+  const FLOOR_Y_FRONT = 0.86;
+  const FLOOR_Y_BACK  = 0.76;
   const MIN_X = 20;
   const MAX_X_PAD = 70;
 
+  // position
   let x = window.innerWidth * 0.18;
   let y = window.innerHeight * FLOOR_Y_FRONT;
 
-  // velocities
-  let vx = 1.6;
-  let vy = 0.0;
+  // velocity
+  let vx = 0;
+  let vy = 0;
 
-  // dir state
-  function pickDir(){
-  // 45% chance to idle, 55% to walk
-  if (Math.random() < 0.45){
-    state = "idle";
-    dir = "idle";
-    vx = 0;
-    vy = 0;
-    frame = 0;
-    nextTurnAt = performance.now() + 1600 + Math.random()*2400;
-    return;
-  }
+  // state
+  let dir = "idle";
+  let state = "idle"; // "idle" | "walk"
+  let frame = 0;
 
-  state = "walk";
+  // timing
+  let nextTurnAt = performance.now() + 1600 + Math.random()*2400;
+  let lastFrameAt = 0;
 
-  const r = Math.random();
-  if (r < 0.4){
-    dir = "left";
-    vx = -(0.6 + Math.random()*0.8);
-    vy = 0;
-  } else if (r < 0.8){
-    dir = "right";
-    vx = +(0.6 + Math.random()*0.8);
-    vy = 0;
-  } else if (r < 0.9){
-    dir = "front";
-    vx = 0;
-    vy = +(0.25 + Math.random()*0.35);
-  } else {
-    dir = "back";
-    vx = 0;
-    vy = -(0.25 + Math.random()*0.35);
-  }
-
-  frame = 0;
-  nextTurnAt = performance.now() + 1800 + Math.random()*2600;
-}
-
-
-  // choose a new wander direction every so often
-  let nextTurnAt = performance.now() + 1200 + Math.random()*1200;
-
-  // click → dialogue (uses your meadhall_props.json "tibboh")
-  tib.addEventListener("click", (e) => {
-    if (typeof devMode !== "undefined" && devMode) return;
-    e.preventDefault();
-    e.stopPropagation();
-    handlePropInteraction("tibboh").catch(console.error);
-  });
+  const FRAME_MS_IDLE = 160;
+  const FRAME_MS_WALK = 120;
 
   function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
   function pad3(n){ return String(n).padStart(3,"0"); }
 
+  // ----------------------------
+  // choose idle or walk
+  // ----------------------------
   function pickDir(){
-    // random wander choice: mostly left/right, sometimes forward/back
+    if (Math.random() < 0.45){
+      state = "idle";
+      dir = "idle";
+      vx = 0;
+      vy = 0;
+      frame = 0;
+      nextTurnAt = performance.now() + 1600 + Math.random()*2400;
+      return;
+    }
+
+    state = "walk";
     const r = Math.random();
-    if (r < 0.43){ dir = "left";  vx = -(1.4 + Math.random()*1.6); vy = 0; }
-    else if (r < 0.86){ dir = "right"; vx = +(1.4 + Math.random()*1.6); vy = 0; }
-    else if (r < 0.93){ dir = "front"; vx = 0; vy = +(0.5 + Math.random()*0.7); }
-    else { dir = "back"; vx = 0; vy = -(0.5 + Math.random()*0.7); }
 
-    // reset frames when turning so it looks crisp
+    if (r < 0.4){
+      dir = "left";
+      vx = -(0.6 + Math.random()*0.6);
+      vy = 0;
+    } else if (r < 0.8){
+      dir = "right";
+      vx = +(0.6 + Math.random()*0.6);
+      vy = 0;
+    } else if (r < 0.9){
+      dir = "front";
+      vx = 0;
+      vy = +(0.25 + Math.random()*0.25);
+    } else {
+      dir = "back";
+      vx = 0;
+      vy = -(0.25 + Math.random()*0.25);
+    }
+
     frame = 0;
-    nextTurnAt = performance.now() + 900 + Math.random()*1400;
+    nextTurnAt = performance.now() + 1800 + Math.random()*2600;
   }
 
-  // animation timing (fps-ish)
-const FRAME_MS_IDLE = 160; // idle slower
-const FRAME_MS_WALK = 120; // walk speed
-  let lastFrameAt = 0;
-
+  // ----------------------------
+  // sprite animation
+  // ----------------------------
   function updateSprite(now){
-  const info = DIRS[dir] || DIRS.idle;
-  const frameMs = (state === "idle") ? FRAME_MS_IDLE : FRAME_MS_WALK;
+    const info = DIRS[dir] || DIRS.idle;
+    const frameMs = (state === "idle") ? FRAME_MS_IDLE : FRAME_MS_WALK;
 
-  if (now - lastFrameAt >= frameMs){
-    lastFrameAt = now;
-    tib.src = `${BASE}${info.folder}/frame_${pad3(frame)}.png`;
-    frame = (frame + 1) % info.frames;
+    if (now - lastFrameAt >= frameMs){
+      lastFrameAt = now;
+      tib.src = `${BASE}${info.folder}/frame_${pad3(frame)}.png`;
+      frame = (frame + 1) % info.frames;
+    }
   }
-}
 
-
+  // ----------------------------
+  // movement + depth scaling
+  // ----------------------------
   function updateMove(){
-  if (state === "idle") return;
+    if (state === "idle") return;
 
     x += vx;
     y += vy;
 
-    // bounds
     const maxX = window.innerWidth - MAX_X_PAD;
     x = clamp(x, MIN_X, maxX);
-    y = clamp(y, window.innerHeight * FLOOR_Y_BACK, window.innerHeight * FLOOR_Y_FRONT);
 
-    // if we hit side bounds, flip direction
-    if (x <= MIN_X + 1){ dir = "right"; vx = Math.abs(vx) || 1.6; frame = 0; }
-    if (x >= maxX - 1){ dir = "left";  vx = -Math.abs(vx) || -1.6; frame = 0; }
-
-    // if we hit depth bounds, reverse front/back
     const yMin = window.innerHeight * FLOOR_Y_BACK;
     const yMax = window.innerHeight * FLOOR_Y_FRONT;
-    if (y <= yMin + 1){ dir = "front"; vy = Math.abs(vy) || 0.8; frame = 0; }
-    if (y >= yMax - 1){ dir = "back";  vy = -Math.abs(vy) || -0.8; frame = 0; }
+    y = clamp(y, yMin, yMax);
 
-    // depth scale: smaller when farther back
-    const t = (y - yMin) / (yMax - yMin); // 0..1
-    const scale = 0.78 + t * 0.32;        // 0.78..1.10
+    if (x <= MIN_X + 1){ dir = "right"; vx = Math.abs(vx); frame = 0; }
+    if (x >= maxX - 1){ dir = "left";  vx = -Math.abs(vx); frame = 0; }
 
-    // place sprite
-    tib.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+    if (y <= yMin + 1){ dir = "front"; vy = Math.abs(vy); frame = 0; }
+    if (y >= yMax - 1){ dir = "back";  vy = -Math.abs(vy); frame = 0; }
+
+    const t = (y - yMin) / (yMax - yMin);
+    const scale = 0.78 + t * 0.32;
+
+    tib.style.transform =
+      `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
   }
 
+  // ----------------------------
+  // main loop
+  // ----------------------------
   function tick(now){
     if (now >= nextTurnAt) pickDir();
     updateSprite(now);
@@ -1540,10 +1528,23 @@ const FRAME_MS_WALK = 120; // walk speed
     requestAnimationFrame(tick);
   }
 
-  // start facing right
+  // click → dialogue
+  tib.addEventListener("click", (e) => {
+    if (typeof devMode !== "undefined" && devMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    handlePropInteraction("tibboh").catch(console.error);
+  });
+
+  // init
+  tib.style.position = "absolute";
+  tib.style.pointerEvents = "auto";
+  tib.src = `${BASE}idle/frame_000.png`;
+
   pickDir();
   requestAnimationFrame(tick);
 })();
+
 
 
 
