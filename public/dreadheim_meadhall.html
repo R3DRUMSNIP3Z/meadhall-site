@@ -1400,6 +1400,8 @@ bindPropClicks(); // existing line
 
   const BASE = "/guildbook/npcs/rodents/";
   const DIRS = {
+    idle:  { folder: "idle",      frames: 37 }, // 000–036
+
     front: { folder: "walkfront", frames: 36 }, // 000-035
     back:  { folder: "walkback",  frames: 36 }, // 000-035
     left:  { folder: "walkleft",  frames: 49 }, // 000-048
@@ -1420,8 +1422,43 @@ bindPropClicks(); // existing line
   let vy = 0.0;
 
   // dir state
-  let dir = "right";
-  let frame = 0;
+  function pickDir(){
+  // 45% chance to idle, 55% to walk
+  if (Math.random() < 0.45){
+    state = "idle";
+    dir = "idle";
+    vx = 0;
+    vy = 0;
+    frame = 0;
+    nextTurnAt = performance.now() + 1600 + Math.random()*2400;
+    return;
+  }
+
+  state = "walk";
+
+  const r = Math.random();
+  if (r < 0.4){
+    dir = "left";
+    vx = -(0.6 + Math.random()*0.8);
+    vy = 0;
+  } else if (r < 0.8){
+    dir = "right";
+    vx = +(0.6 + Math.random()*0.8);
+    vy = 0;
+  } else if (r < 0.9){
+    dir = "front";
+    vx = 0;
+    vy = +(0.25 + Math.random()*0.35);
+  } else {
+    dir = "back";
+    vx = 0;
+    vy = -(0.25 + Math.random()*0.35);
+  }
+
+  frame = 0;
+  nextTurnAt = performance.now() + 1800 + Math.random()*2600;
+}
+
 
   // choose a new wander direction every so often
   let nextTurnAt = performance.now() + 1200 + Math.random()*1200;
@@ -1451,21 +1488,25 @@ bindPropClicks(); // existing line
   }
 
   // animation timing (fps-ish)
-const FRAME_MS = 120; // ~8 fps (slow, creepy walk)
+const FRAME_MS_IDLE = 160; // idle slower
+const FRAME_MS_WALK = 120; // walk speed
   let lastFrameAt = 0;
 
   function updateSprite(now){
-    const info = DIRS[dir] || DIRS.right;
+  const info = DIRS[dir] || DIRS.idle;
+  const frameMs = (state === "idle") ? FRAME_MS_IDLE : FRAME_MS_WALK;
 
-    // advance animation at FRAME_MS intervals
-    if (now - lastFrameAt >= FRAME_MS){
-      lastFrameAt = now;
-      tib.src = `${BASE}${info.folder}/frame_${pad3(frame)}.png`;
-      frame = (frame + 1) % info.frames;
-    }
+  if (now - lastFrameAt >= frameMs){
+    lastFrameAt = now;
+    tib.src = `${BASE}${info.folder}/frame_${pad3(frame)}.png`;
+    frame = (frame + 1) % info.frames;
   }
+}
+
 
   function updateMove(){
+  if (state === "idle") return;
+
     x += vx;
     y += vy;
 
