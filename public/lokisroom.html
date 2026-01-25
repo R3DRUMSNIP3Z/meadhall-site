@@ -552,14 +552,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     f.dq_001_failCount = score.failCount;
     setFlags(f);
 
-    // Set quest replacement BEFORE dialogue so the quest button updates immediately
     if (score.passCount >= 2){
-      setActiveQuest("dq_002", LOKI_SLAKI_QUEST_CATALOG);
-      showQuestToast("New quests added", 5000);
-    } else if (score.failCount === 3){
-      setActiveQuest("dq_001b", FAILED_LOKI_QUEST_CATALOG);
-      showQuestToast("New quests added", 5000);
-    }
+  setActiveQuest("dq_002", LOKI_SLAKI_QUEST_CATALOG);
+  showQuestToast("New quests added", 5000);
+
+} else if (score.failCount === 3){
+
+  // ✅ unlock Dreadheim City immediately when failed quests are assigned
+  const f2 = getFlags();
+  f2.dreadheim_city_open = true;
+  f2.failedLoki_active = true;
+  f2.dq_001b_assigned = true;
+  setFlags(f2);
+
+  setActiveQuest("dq_001b", FAILED_LOKI_QUEST_CATALOG);
+  showQuestToast("New quests added", 5000);
+}
+
 
     // Loki dialogue: once then default
     await VAQ.npcRunOnceThenDefault({
