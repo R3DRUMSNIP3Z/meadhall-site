@@ -208,18 +208,12 @@ body.devMode #devHint{ display:block; }
 
 <div id="devHint">DEV MODE ON — drag props, resize corners, release to save (prints CSS in console). Press M to toggle.</div>
 
-<!-- ================= PROPS =================
-  Fenrir only (center). You can dev-drag/resize if needed.
--->
 <div id="props">
-
-  <!-- Fenrir (centered default) -->
-<div class="devItem" data-id="fenrirNpc" style="left:86.63%; top:28.48%; width:195.981px; height:auto;">
-  <img class="prop" id="fenrirNpc" src="/guildbook/npcs/fenrir/frame_000.png" alt="Fenrir">
-  <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
-</div>
-
-
+  <!-- Fenrir -->
+  <div class="devItem" data-id="fenrirNpc" style="left:86.63%; top:28.48%; width:195.981px; height:auto;">
+    <img class="prop" id="fenrirNpc" src="/guildbook/npcs/fenrir/frame_000.png" alt="Fenrir">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
 </div>
 
 <!-- Dialogue -->
@@ -251,19 +245,21 @@ body.devMode #devHint{ display:block; }
 (() => {
   "use strict";
 
-    // ----------------------------
-  // Fenrir frame animation (000 -> 035)
-  // ----------------------------
+  // ============================
+  // Fenrir frame animation (000 -> 035)  ✅ SLOWER
+  // ============================
   function pad3(n){ return String(n).padStart(3, "0"); }
 
   function startFenrirAnim(){
     const img = document.getElementById("fenrirNpc");
     if (!img) return;
 
-    const base = "/guildbook/npcs/fenrir/frame_";
+    const base  = "/guildbook/npcs/fenrir/frame_";
     const first = 0;
     const last  = 35;
-    const fps   = 14;
+
+    // ✅ slower animation
+    const fps   = 8;
 
     const frames = [];
     for (let i = first; i <= last; i++){
@@ -279,7 +275,7 @@ body.devMode #devHint{ display:block; }
       idx = (idx + 1) % frames.length;
     }, Math.round(1000 / fps));
 
-        document.addEventListener("visibilitychange", () => {
+    document.addEventListener("visibilitychange", () => {
       if (document.hidden){
         clearInterval(timer);
         timer = null;
@@ -290,22 +286,26 @@ body.devMode #devHint{ display:block; }
         }, Math.round(1000 / fps));
       }
     });
-      }
+  }
 
-
-
-
-  // ----------------------------
+  // ============================
   // Keys
-  // ----------------------------
+  // ============================
   const FLAGS_KEY = "va_flags";
   const REQUIRED_OPEN_FLAG = "dreadheim_forest_open"; // gate flag
   const ENTERED_FLAG = "dq_go_fenrir_entered";        // objective 3
   const SEEN_FLAG    = "dq_go_fenrir_seen";           // objective 2
 
-  // ----------------------------
+  // ✅ Fenrir "done" flag (set in your fenrirsdialogue.json rewards)
+  const FENRIR_DONE_FLAG = "dq_fenrir_completed";
+
+  // ✅ Default Fenrir dialogue after first talk
+  const DEFAULT_FENRIR_JSON = "/data/episodes/volume1_ep1/fenrirdefaultdialogue.json";
+  const DEFAULT_FENRIR_KEY  = "fenrir_forest"; // the key inside defaults{}
+
+  // ============================
   // UI refs
-  // ----------------------------
+  // ============================
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
   const dlgText = document.getElementById("dlgText");
@@ -315,9 +315,9 @@ body.devMode #devHint{ display:block; }
   const lockScreen = document.getElementById("lockScreen");
   const lockBackBtn = document.getElementById("lockBackBtn");
 
-  // ----------------------------
+  // ============================
   // Flags helpers
-  // ----------------------------
+  // ============================
   function getFlags(){
     try{ return JSON.parse(localStorage.getItem(FLAGS_KEY) || "{}"); }
     catch{ return {}; }
@@ -338,14 +338,13 @@ body.devMode #devHint{ display:block; }
     return !!(window.VAQ && typeof window.VAQ.txt === "function");
   }
 
-  // ----------------------------
-  // Dialogue
-  // ----------------------------
+  // ============================
+  // Dialogue (UI)
+  // ============================
   function showDialogue({ speaker, text, portraitSrc, buttons = [] }){
     dlgName.textContent = speaker || "";
     dlgText.textContent = (typeof text === "string") ? text : String(text ?? "");
     dlgBtns.innerHTML = "";
-
     if (portraitSrc) dlgPortrait.src = portraitSrc;
 
     dlg.classList.remove("hidden");
@@ -356,11 +355,13 @@ body.devMode #devHint{ display:block; }
       btn.className = "dlgBtn";
       btn.type = "button";
       btn.textContent = b.label;
+
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (typeof b.onClick === "function") b.onClick();
       });
+
       dlgBtns.appendChild(btn);
     });
   }
@@ -371,17 +372,69 @@ body.devMode #devHint{ display:block; }
     dlgName.textContent = "";
     dlgText.textContent = "";
     dlgBtns.innerHTML = "";
-
-
   }
 
-    // ✅ Make these available to any external runner (and to our local runner)
+  // Make available (optional)
   window.showDialogue = showDialogue;
   window.hideDialogue = hideDialogue;
 
-  // ----------------------------
-  // Local JSON dialogue runner (fallback)
-  // ----------------------------
+  // ============================
+  // Default dialogue loader (Fenrir)
+  // ============================
+  let __fenrirDefaultCache = null;
+
+  function pickLine(arr){
+    if (!Array.isArray(arr) || !arr.length) return "…";
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  async function loadFenrirDefaultJson(){
+    if (__fenrirDefaultCache) return __fenrirDefaultCache;
+    const res = await fetch(DEFAULT_FENRIR_JSON, { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to load fenrirdefaultdialogue.json");
+    __fenrirDefaultCache = await res.json();
+    return __fenrirDefaultCache;
+  }
+
+  async function showFenrirDefault(){
+    try{
+      const data = await loadFenrirDefaultJson();
+      const d = data?.defaults?.[DEFAULT_FENRIR_KEY];
+
+      if (!d){
+        showDialogue({
+          speaker: "Fenrir",
+          portraitSrc: "/guildbook/npcs/fenrir/fenrir.gif",
+          text: "…",
+          buttons: [{ label: "Close", onClick: hideDialogue }]
+        });
+        return;
+      }
+
+      const speaker = d.speaker || "Fenrir";
+      const portrait = d.portrait || "/guildbook/npcs/fenrir/fenrir.gif";
+      const line = pickLine(d.lines);
+
+      showDialogue({
+        speaker,
+        portraitSrc: portrait,
+        text: ensureVAQ() ? VAQ.txt(line) : String(line || ""),
+        buttons: [{ label: "Close", onClick: hideDialogue }]
+      });
+    }catch(err){
+      console.warn(err);
+      showDialogue({
+        speaker: "Fenrir",
+        portraitSrc: "/guildbook/npcs/fenrir/fenrir.gif",
+        text: "…",
+        buttons: [{ label: "Close", onClick: hideDialogue }]
+      });
+    }
+  }
+
+  // ============================
+  // Local JSON dialogue runner (Fenrir + quests)
+  // ============================
   window.runDialogueFromJson = async function runDialogueFromJson(url, startId){
     try{
       const res = await fetch(url, { cache: "no-store" });
@@ -428,21 +481,25 @@ body.devMode #devHint{ display:block; }
           if (reward.setQuest.catalog){
             localStorage.setItem(questCatKey, reward.setQuest.catalog);
           }
-          // if your global quest UI has a refresh/hud render hook, try it
           try{ window.__vaq_hud_render && window.__vaq_hud_render(); }catch{}
           try{ window.VAQ && window.VAQ.hudRender && window.VAQ.hudRender(); }catch{}
+          try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
         }
 
-        // questSteps (fallback storage — keeps your data, even if no quest engine hook)
+        // ✅ questSteps (MATCH your quest journal format: `${questId}_step${index}` = "pass"/"fail")
         if (reward.questSteps && typeof reward.questSteps === "object"){
           const f = getFlagsLocal();
           Object.keys(reward.questSteps).forEach(qid => {
             const stepsObj = reward.questSteps[qid] || {};
             Object.keys(stepsObj).forEach(stepNum => {
-              f[`qs_${qid}_${stepNum}`] = stepsObj[stepNum];
+              const status = stepsObj[stepNum]; // "pass" | "fail"
+              f[`${qid}_step${stepNum}`] = status;
             });
           });
           setFlagsLocal(f);
+          try{ window.__vaq_hud_render && window.__vaq_hud_render(); }catch{}
+          try{ window.VAQ && window.VAQ.hudRender && window.VAQ.hudRender(); }catch{}
+          try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
         }
       }
 
@@ -475,7 +532,6 @@ body.devMode #devHint{ display:block; }
           onClick: () => go(ch.to || "__close")
         }));
 
-        // if no choices, give a close button
         if (buttons.length === 0){
           buttons.push({ label: "Close", onClick: () => go("__close") });
         }
@@ -494,15 +550,9 @@ body.devMode #devHint{ display:block; }
     }
   };
 
-
-    // ✅ Expose dialogue helpers so runDialogueFromJson can use them
-  window.showDialogue = showDialogue;
-  window.hideDialogue = hideDialogue;
-
-
-  // ----------------------------
+  // ============================
   // Lock gate
-  // ----------------------------
+  // ============================
   function showLock(){
     lockScreen.style.display = "flex";
     lockScreen.setAttribute("aria-hidden","false");
@@ -512,9 +562,9 @@ body.devMode #devHint{ display:block; }
     lockScreen.setAttribute("aria-hidden","true");
   }
 
-  // ----------------------------
+  // ============================
   // DEV drag/resize
-  // ----------------------------
+  // ============================
   const DEV_KEY = "va_scene_dev";
   const POS_KEY = "va_scene_props_" + location.pathname;
 
@@ -537,8 +587,6 @@ body.devMode #devHint{ display:block; }
       if (v.top) el.style.top = v.top;
       if (v.width) el.style.width = v.width;
       if (v.height && v.height !== "auto") el.style.height = v.height;
-      // if saved positions override, dev may want to remove centering transform manually
-      // (we leave any saved transform untouched)
     });
   }
   function saveOne(el){
@@ -574,7 +622,6 @@ body.devMode #devHint{ display:block; }
       const nt = st + (e.clientY - sy);
       active.style.left = pctX(nl);
       active.style.top  = pctY(nt);
-      // once you move it, centering transform is no longer desirable
       active.style.transform = "";
       return;
     }
@@ -654,36 +701,46 @@ body.devMode #devHint{ display:block; }
     }
   });
 
-  // ----------------------------
-// Click wiring (Fenrir → JSON dialogue)
-// ----------------------------
-function bindClicks(){
-  const fenrirWrap = document.querySelector('[data-id="fenrirNpc"]');
-  if (!fenrirWrap) return;
+  // ============================
+  // Click wiring (Fenrir)
+  // - First time: run fenrirsdialogue.json
+  // - After completed: show fenrirdefaultdialogue.json lines
+  // ============================
+  function bindClicks(){
+    const fenrirWrap = document.querySelector('[data-id="fenrirNpc"]');
+    if (!fenrirWrap) return;
 
-  fenrirWrap.addEventListener("click", (e) => {
-    if (devMode) return;
-    e.preventDefault();
-    e.stopPropagation();
+    fenrirWrap.addEventListener("click", async (e) => {
+      if (devMode) return;
+      e.preventDefault();
+      e.stopPropagation();
 
-    // objective "seen"
-    setFlagTrue(SEEN_FLAG);
+      // objective "seen"
+      setFlagTrue(SEEN_FLAG);
 
-    if (typeof window.runDialogueFromJson === "function"){
-      runDialogueFromJson(
-        "/data/episodes/volume1_ep1/fenrirsdialogue.json",
-        "fenrir_1"
-      );
-    } else {
-      console.error("runDialogueFromJson not available");
-    }
-  });
-}
+      const f = getFlags();
 
+      // ✅ After Fenrir is completed, show default talk
+      if (f[FENRIR_DONE_FLAG]){
+        await showFenrirDefault();
+        return;
+      }
 
-  // ----------------------------
+      // ✅ First talk uses JSON dialogue
+      if (typeof window.runDialogueFromJson === "function"){
+        window.runDialogueFromJson(
+          "/data/episodes/volume1_ep1/fenrirsdialogue.json",
+          "fenrir_1"
+        );
+      } else {
+        console.error("runDialogueFromJson not available");
+      }
+    });
+  }
+
+  // ============================
   // Boot
-  // ----------------------------
+  // ============================
   document.addEventListener("DOMContentLoaded", () => {
     // Gate check
     const f = getFlags();
@@ -711,4 +768,5 @@ function bindClicks(){
 
 </body>
 </html>
+
 
