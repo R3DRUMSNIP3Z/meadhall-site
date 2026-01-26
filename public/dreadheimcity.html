@@ -456,6 +456,29 @@ document.addEventListener("DOMContentLoaded", () => {
   // ----------------------------
   // Citizens -> quest objective flags for dq_001b
   // ----------------------------
+
+  function addGood(points=1){
+  if (!ensureVAQ()) return;
+  // your VAQ global ui should already have one of these; we support both safely:
+  if (typeof VAQ.addGood === "function") return VAQ.addGood(points);
+  // fallback if your VAQ stores good/evil in flags:
+  const f = VAQ.getFlags();
+  f.va_good = (Number(f.va_good) || 0) + points;
+  VAQ.setFlags(f);
+  if (typeof VAQ.refreshMeters === "function") VAQ.refreshMeters();
+}
+
+function addEvil(points=1){
+  if (!ensureVAQ()) return;
+  if (typeof VAQ.addEvil === "function") return VAQ.addEvil(points);
+  const f = VAQ.getFlags();
+  f.va_evil = (Number(f.va_evil) || 0) + points;
+  VAQ.setFlags(f);
+  if (typeof VAQ.refreshMeters === "function") VAQ.refreshMeters();
+}
+
+
+
   function setFlag(flagKey, value=true){
     if (!ensureVAQ()) return;
     const f = VAQ.getFlags();
@@ -506,62 +529,145 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // NPC clicks
-  document.getElementById("npcCitizen1").addEventListener("click", () => {
-    if (!ensureVAQ()){
-      showDialogue({
-        speaker: "Citizen",
-        portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
-        text: "VAQ missing (global ui not loaded).",
-        buttons: [{ label: "Close", onClick: hideDialogue }]
-      });
-      return;
-    }
+document.getElementById("npcCitizen1").addEventListener("click", () => {
+  if (!ensureVAQ()){
     showDialogue({
-      speaker: "Citizen",
+      speaker: "Street Slave",
       portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
-      text: VAQ.txt("You there… what do you want from me?"),
-      buttons: [
-        { label: "Intimidate", onClick: doIntimidate },
-        { label: "Close", onClick: hideDialogue }
-      ]
-    });
-  });
-
-  document.getElementById("npcCitizen2").addEventListener("click", () => {
-    if (!ensureVAQ()) return;
-    showDialogue({
-      speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
-      text: VAQ.txt("Please… I have nothing worth taking."),
-      buttons: [
-        { label: "Take Something", onClick: doTake },
-        { label: "Close", onClick: hideDialogue }
-      ]
-    });
-  });
-
-  document.getElementById("npcCitizen3").addEventListener("click", () => {
-    if (!ensureVAQ()) return;
-    showDialogue({
-      speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
-      text: VAQ.txt("You’ve already done enough… leave me be."),
-      buttons: [
-        { label: "Report Back (Cold)", onClick: doReturn },
-        { label: "Close", onClick: hideDialogue }
-      ]
-    });
-  });
-
-  document.getElementById("npcCitizen4").addEventListener("click", () => {
-    if (!ensureVAQ()) return;
-    showDialogue({
-      speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
-      text: VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity."),
+      text: "VAQ missing (global ui not loaded).",
       buttons: [{ label: "Close", onClick: hideDialogue }]
     });
+    return;
+  }
+
+  showDialogue({
+    speaker: "Street Slave",
+    portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
+    text: VAQ.txt("What do you want from me? If it’s not food, leave me alone!?"),
+    buttons: [
+      // ✅ BAD
+      { label: "Intimidate (Evil)", onClick: () => { addEvil(1); doIntimidate(); } },
+
+      // ✅ GOOD
+      { label: "Give Food (Good)", onClick: () => {
+          addGood(1);
+          // mark a "good" flag if you want (optional)
+          setFlag("dq_001b_gaveFoodToSlave", true);
+          // you can also pass a step if this should count as an alternative
+          // VAQ.qSetStepStatus("dq_001b", 0, "pass");
+          showDialogue({
+            speaker: "Street Slave",
+            portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
+            text: VAQ.txt("…You’re giving it to me? I—thank you. Don’t do that in the open… not here."),
+            buttons: [{ label: "Close", onClick: hideDialogue }]
+          });
+        }
+      },
+
+      { label: "Close", onClick: hideDialogue }
+    ]
   });
+});
+
+document.getElementById("npcCitizen2").addEventListener("click", () => {
+  if (!ensureVAQ()) return;
+
+  showDialogue({
+    speaker: "Hungry Slave",
+    portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
+    text: VAQ.txt("Please… I have nothing worth taking."),
+    buttons: [
+      // ✅ BAD (keeps your existing quest logic)
+      { label: "Take Something (Evil)", onClick: () => { addEvil(1); doTake(); } },
+
+      // ✅ GOOD
+      { label: "Spare Her (Good)", onClick: () => {
+          addGood(1);
+          setFlag("dq_001b_sparedCitizen", true);
+          // optional: if you want this to count toward a step, choose a step index
+          // VAQ.qSetStepStatus("dq_001b", 1, "pass");
+          showDialogue({
+            speaker: "Hungry Slave",
+            portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
+            text: VAQ.txt("…You’re not taking it? Gods… thank you. Please—go before someone sees."),
+            buttons: [{ label: "Close", onClick: hideDialogue }]
+          });
+        }
+      },
+
+      { label: "Close", onClick: hideDialogue }
+    ]
+  });
+});
+
+document.getElementById("npcCitizen3").addEventListener("click", () => {
+  if (!ensureVAQ()) return;
+
+  showDialogue({
+    speaker: "Citizen",
+    portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
+    text: VAQ.txt("You’ve already done enough… leave me be."),
+    buttons: [
+      // ✅ BAD (your existing "cold report back")
+      { label: "Report Back (Cold) (Evil)", onClick: () => { addEvil(1); doReturn(); } },
+
+      // ✅ GOOD
+      { label: "Let Her Go (Good)", onClick: () => {
+          addGood(1);
+          setFlag("dq_001b_showedMercy", true);
+          showDialogue({
+            speaker: "You",
+            portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
+            text: VAQ.txt("You turn away. Mercy is a weakness here… but you choose it anyway."),
+            buttons: [{ label: "Close", onClick: hideDialogue }]
+          });
+        }
+      },
+
+      { label: "Close", onClick: hideDialogue }
+    ]
+  });
+});
+
+document.getElementById("npcCitizen4").addEventListener("click", () => {
+  if (!ensureVAQ()) return;
+
+  showDialogue({
+    speaker: "Citizen",
+    portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
+    text: VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity."),
+    buttons: [
+      // ✅ BAD
+      { label: "Threaten Him (Evil)", onClick: () => {
+          addEvil(1);
+          setFlag("dq_001b_threatenedCitizen", true);
+          showDialogue({
+            speaker: "Citizen",
+            portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
+            text: VAQ.txt("…Alright. I’ll look away. Just don’t make a scene."),
+            buttons: [{ label: "Close", onClick: hideDialogue }]
+          });
+        }
+      },
+
+      // ✅ GOOD
+      { label: "Ask Directions (Good)", onClick: () => {
+          addGood(1);
+          setFlag("dq_001b_askedDirections", true);
+          showDialogue({
+            speaker: "Citizen",
+            portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
+            text: VAQ.txt("If you must go… take the alley. Stay out of the torchlight."),
+            buttons: [{ label: "Close", onClick: hideDialogue }]
+          });
+        }
+      },
+
+      { label: "Close", onClick: hideDialogue }
+    ]
+  });
+});
+
 
   // ============================================================
   // DEV NPC DRAG + RESIZE MODE
