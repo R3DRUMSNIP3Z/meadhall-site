@@ -1,0 +1,552 @@
+<!-- /public/guildbook/scenes/maps/fenrirsforest.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Veriador • Fenrir’s Forest</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+html, body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  background:#000;
+  font-family:Cinzel, serif;
+  overflow:hidden;
+}
+
+/* ================= BACKGROUND ================= */
+#bg{
+  position:fixed;
+  inset:0;
+  background:url("/guildbook/scenes/maps/fenrirsforest.png") center center / cover no-repeat;
+  z-index:0;
+}
+
+/* ================= DEV-EDITABLE PROPS LAYER ================= */
+#props{
+  position:fixed;
+  inset:0;
+  z-index:20;
+  pointer-events:none;
+}
+
+.devItem{
+  position:absolute;
+  z-index:25;
+  pointer-events:auto;
+  user-select:none;
+  -webkit-user-drag:none;
+  cursor:pointer;
+  filter: drop-shadow(0 18px 32px rgba(0,0,0,0.78));
+  transition: transform 120ms ease, filter 120ms ease;
+}
+.devItem:hover{
+  transform: scale(1.02);
+  filter: drop-shadow(0 22px 38px rgba(0,0,0,0.85))
+          drop-shadow(0 0 14px rgba(180,200,255,0.22));
+}
+
+body.devMode .devItem{
+  cursor:move;
+  outline:1px dashed rgba(255,215,140,.55);
+}
+.devDragging{
+  outline:2px dashed rgba(255,215,140,.88) !important;
+  box-shadow:0 0 0 6px rgba(255,215,140,.12) !important;
+}
+
+.devItem img.prop{
+  display:block;
+  width:100%;
+  height:auto;
+  pointer-events:none;
+  user-select:none;
+  -webkit-user-drag:none;
+}
+
+/* resize handles */
+.devHandle{
+  position:absolute;
+  width:14px;
+  height:14px;
+  border-radius:6px;
+  background:rgba(255,215,140,.95);
+  border:1px solid rgba(0,0,0,.55);
+  display:none;
+}
+body.devMode .devHandle{ display:block; }
+.devHandle.br{ right:-7px; bottom:-7px; cursor:nwse-resize; }
+.devHandle.bl{ left:-7px; bottom:-7px; cursor:nesw-resize; }
+.devHandle.tr{ right:-7px; top:-7px; cursor:nesw-resize; }
+.devHandle.tl{ left:-7px; top:-7px; cursor:nwse-resize; }
+
+/* Dev hint */
+#devHint{
+  position:fixed;
+  left:14px;
+  bottom:14px;
+  z-index:999;
+  font-size:14px;
+  letter-spacing:.03em;
+  color:rgba(255,255,255,0.55);
+  text-shadow:0 2px 10px rgba(0,0,0,0.8);
+  pointer-events:none;
+  display:none;
+}
+body.devMode #devHint{ display:block; }
+
+/* ================= DIALOGUE ================= */
+#dlg{
+  position:fixed;
+  left:50%;
+  bottom:14px;
+  transform:translateX(-50%);
+  width:min(1200px, calc(100vw - 24px));
+  height:190px;
+  z-index:999;
+  display:grid;
+  grid-template-columns:240px 1fr;
+  border-radius:18px;
+  overflow:hidden;
+  background:linear-gradient(90deg, rgba(35,20,10,.95), rgba(15,10,8,.88));
+  border:1px solid rgba(255,208,120,.2);
+  box-shadow:0 18px 55px rgba(0,0,0,.6);
+}
+#dlg.hidden{ display:none !important; }
+
+#dlgPortrait{
+  width:240px;
+  height:190px;
+  object-fit:contain;
+  align-self:end;
+  filter:drop-shadow(0 12px 22px rgba(0,0,0,0.65));
+}
+#dlgPanel{
+  padding:16px 18px;
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  gap:10px;
+}
+#dlgName{
+  font-size:28px;
+  font-weight:900;
+  color:rgba(255,225,170,.95);
+}
+#dlgText{
+  font-size:20px;
+  line-height:1.35;
+  color:rgba(255,255,255,.95);
+  white-space:pre-wrap;
+}
+#dlgBtns{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+#dlg, #dlgPanel, #dlgBtns, .dlgBtn{ pointer-events:auto; }
+.dlgBtn{
+  padding:10px 16px;
+  border-radius:12px;
+  cursor:pointer;
+  border:1px solid rgba(255,208,120,.28);
+  background:rgba(120,60,25,.45);
+  color:rgba(255,245,230,.95);
+  font-weight:800;
+}
+.dlgBtn:hover{ filter:brightness(1.1); }
+
+/* ================= LOCK SCREEN ================= */
+#lockScreen{
+  position:fixed;
+  inset:0;
+  z-index:2000;
+  display:none;
+  background:rgba(0,0,0,.82);
+  align-items:center;
+  justify-content:center;
+  padding:22px;
+}
+#lockCard{
+  width:min(680px, calc(100vw - 24px));
+  border-radius:18px;
+  padding:18px;
+  background:linear-gradient(180deg, rgba(35,20,10,.96), rgba(10,8,8,.92));
+  border:1px solid rgba(255,208,120,.22);
+  box-shadow:0 24px 80px rgba(0,0,0,.75);
+  color:rgba(255,255,255,.95);
+}
+#lockTitle{
+  font-size:26px;
+  font-weight:900;
+  color:rgba(255,225,170,.95);
+  margin-bottom:10px;
+}
+#lockText{
+  font-size:18px;
+  line-height:1.4;
+  opacity:.95;
+}
+#lockBtns{
+  margin-top:14px;
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+</style>
+</head>
+
+<body>
+
+<div id="bg"></div>
+
+<div id="devHint">DEV MODE ON — drag props, resize corners, release to save (prints CSS in console). Press M to toggle.</div>
+
+<!-- ================= PROPS =================
+  Put your board / Fenrir / other props here.
+  Replace the src paths with your real images when ready.
+-->
+<div id="props">
+
+  <!-- Quest Board -->
+  <div class="devItem" data-id="fenrirBoard" style="left:42%; top:52%; width:190px;">
+    <img class="prop" id="fenrirBoard" src="/guildbook/props/questboard.png" alt="Quest Board">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
+
+  <!-- Optional: Fenrir placeholder (swap later) -->
+  <div class="devItem" data-id="fenrirNpc" style="left:68%; top:44%; width:230px;">
+    <img class="prop" id="fenrirNpc" src="/guildbook/npcs/fenrir/fenrir.png" alt="Fenrir">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
+
+</div>
+
+<!-- Dialogue -->
+<div id="dlg" class="hidden" aria-hidden="true">
+  <img id="dlgPortrait" alt="Portrait">
+  <div id="dlgPanel">
+    <div id="dlgName"></div>
+    <div id="dlgText"></div>
+    <div id="dlgBtns"></div>
+  </div>
+</div>
+
+<!-- Lock overlay -->
+<div id="lockScreen" aria-hidden="true">
+  <div id="lockCard" role="dialog" aria-label="Locked">
+    <div id="lockTitle">Path Locked</div>
+    <div id="lockText">You cannot enter Fenrir’s Forest yet.</div>
+    <div id="lockBtns">
+      <button class="dlgBtn" id="lockBackBtn" type="button">Return</button>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ Global UI MUST load before page logic so VAQ exists -->
+<script src="/guildbook/js/va_global_ui.js"></script>
+
+<script>
+(() => {
+  "use strict";
+
+  // ----------------------------
+  // Keys
+  // ----------------------------
+  const FLAGS_KEY = "va_flags";
+  const REQUIRED_OPEN_FLAG = "dreadheim_forest_open";     // ✅ your gate flag
+  const ENTERED_FLAG = "dq_go_fenrir_entered";            // ✅ objective 3
+  const SEEN_FLAG    = "dq_go_fenrir_seen";               // ✅ objective 2
+
+  // ----------------------------
+  // UI refs
+  // ----------------------------
+  const dlg = document.getElementById("dlg");
+  const dlgName = document.getElementById("dlgName");
+  const dlgText = document.getElementById("dlgText");
+  const dlgBtns = document.getElementById("dlgBtns");
+  const dlgPortrait = document.getElementById("dlgPortrait");
+
+  const lockScreen = document.getElementById("lockScreen");
+  const lockBackBtn = document.getElementById("lockBackBtn");
+
+  // ----------------------------
+  // Flags helpers
+  // ----------------------------
+  function getFlags(){
+    try{ return JSON.parse(localStorage.getItem(FLAGS_KEY) || "{}"); }
+    catch{ return {}; }
+  }
+  function setFlags(obj){
+    localStorage.setItem(FLAGS_KEY, JSON.stringify(obj || {}));
+  }
+  function setFlagTrue(flag){
+    const f = getFlags();
+    if (!f[flag]){
+      f[flag] = true;
+      setFlags(f);
+      try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+    }
+  }
+
+  function ensureVAQ(){
+    return !!(window.VAQ && typeof window.VAQ.txt === "function");
+  }
+
+  // ----------------------------
+  // Dialogue
+  // ----------------------------
+  function showDialogue({ speaker, text, portraitSrc, buttons = [] }){
+    dlgName.textContent = speaker || "";
+    dlgText.textContent = (typeof text === "string") ? text : String(text ?? "");
+    dlgBtns.innerHTML = "";
+
+    if (portraitSrc) dlgPortrait.src = portraitSrc;
+
+    dlg.classList.remove("hidden");
+    dlg.setAttribute("aria-hidden", "false");
+
+    buttons.forEach(b => {
+      const btn = document.createElement("button");
+      btn.className = "dlgBtn";
+      btn.type = "button";
+      btn.textContent = b.label;
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof b.onClick === "function") b.onClick();
+      });
+      dlgBtns.appendChild(btn);
+    });
+  }
+
+  function hideDialogue(){
+    dlg.classList.add("hidden");
+    dlg.setAttribute("aria-hidden", "true");
+    dlgName.textContent = "";
+    dlgText.textContent = "";
+    dlgBtns.innerHTML = "";
+  }
+
+  // ----------------------------
+  // Lock gate
+  // ----------------------------
+  function showLock(){
+    lockScreen.style.display = "flex";
+    lockScreen.setAttribute("aria-hidden","false");
+  }
+  function hideLock(){
+    lockScreen.style.display = "none";
+    lockScreen.setAttribute("aria-hidden","true");
+  }
+
+  // ----------------------------
+  // DEV drag/resize (same system)
+  // ----------------------------
+  const DEV_KEY = "va_scene_dev";
+  const POS_KEY = "va_scene_props_" + location.pathname;
+
+  let devMode = localStorage.getItem(DEV_KEY) === "1";
+  document.body.classList.toggle("devMode", devMode);
+
+  const items = [...document.querySelectorAll("#props .devItem")];
+
+  function getSaved(){
+    try{ return JSON.parse(localStorage.getItem(POS_KEY) || "{}"); }
+    catch{ return {}; }
+  }
+  function applySaved(){
+    const s = getSaved();
+    items.forEach(el => {
+      const id = el.dataset.id;
+      const v = s[id];
+      if (!v) return;
+      if (v.left) el.style.left = v.left;
+      if (v.top) el.style.top = v.top;
+      if (v.width) el.style.width = v.width;
+      if (v.height && v.height !== "auto") el.style.height = v.height;
+    });
+  }
+  function saveOne(el){
+    const id = el.dataset.id;
+    if (!id) return;
+
+    const s = getSaved();
+    s[id] = {
+      left: el.style.left,
+      top: el.style.top,
+      width: el.style.width,
+      height: el.style.height || "auto"
+    };
+    localStorage.setItem(POS_KEY, JSON.stringify(s));
+    console.log(`📌 ${id} → left:${s[id].left}; top:${s[id].top}; width:${s[id].width}; height:${s[id].height};`);
+  }
+
+  applySaved();
+
+  function pctX(px){ return (px / window.innerWidth * 100).toFixed(2) + "%"; }
+  function pctY(py){ return (py / window.innerHeight * 100).toFixed(2) + "%"; }
+
+  let active = null;
+  let mode = null; // "drag" | "resize"
+  let handle = "br";
+  let sx=0, sy=0, sl=0, st=0, sw=0;
+
+  function onMouseMove(e){
+    if (!devMode || !active) return;
+
+    if (mode === "drag"){
+      const nl = sl + (e.clientX - sx);
+      const nt = st + (e.clientY - sy);
+      active.style.left = pctX(nl);
+      active.style.top  = pctY(nt);
+      return;
+    }
+
+    const dx = e.clientX - sx;
+    let newW = sw;
+    if (handle === "br" || handle === "tr") newW = sw + dx;
+    if (handle === "bl" || handle === "tl") newW = sw - dx;
+
+    newW = Math.max(24, newW);
+    active.style.width = newW + "px";
+
+    if (handle === "bl" || handle === "tl"){
+      const nl = sl + dx;
+      active.style.left = pctX(nl);
+    }
+  }
+
+  function onMouseUp(){
+    if (!active) return;
+    active.classList.remove("devDragging");
+    saveOne(active);
+    active = null;
+    mode = null;
+  }
+
+  items.forEach(el => {
+    el.addEventListener("mousedown", (e) => {
+      if (!devMode) return;
+      if (e.target && e.target.classList && e.target.classList.contains("devHandle")) return;
+
+      const r = el.getBoundingClientRect();
+      active = el;
+      mode = "drag";
+      sx = e.clientX; sy = e.clientY;
+      sl = r.left;   st = r.top;
+
+      el.classList.add("devDragging");
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    el.querySelectorAll(".devHandle").forEach(h => {
+      h.addEventListener("mousedown", (e) => {
+        if (!devMode) return;
+
+        const r = el.getBoundingClientRect();
+        active = el;
+        mode = "resize";
+        handle = [...h.classList].find(c => ["tl","tr","bl","br"].includes(c)) || "br";
+
+        sx = e.clientX; sy = e.clientY;
+        sl = r.left;   st = r.top;
+        sw = r.width;
+
+        el.classList.add("devDragging");
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    });
+  });
+
+  window.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("mouseup", onMouseUp);
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key && e.key.toLowerCase() === "m"){
+      devMode = !devMode;
+      localStorage.setItem(DEV_KEY, devMode ? "1" : "0");
+      document.body.classList.toggle("devMode", devMode);
+      console.log(devMode ? "🛠 DEV MODE ON" : "🧭 DEV MODE OFF");
+    }
+    if (e.key === "Escape"){
+      hideDialogue();
+      hideLock();
+    }
+  });
+
+  // ----------------------------
+  // Click wiring
+  // ----------------------------
+  function bindClicks(){
+    const boardWrap = document.querySelector('[data-id="fenrirBoard"]');
+    if (boardWrap){
+      boardWrap.addEventListener("click", (e) => {
+        if (devMode) return;
+        e.preventDefault(); e.stopPropagation();
+
+        // ✅ objective "see"
+        setFlagTrue(SEEN_FLAG);
+
+        const name = localStorage.getItem("va_player_name") || "wanderer";
+        const t = ensureVAQ()
+          ? VAQ.txt(`So you finally came, {name}. The board listens. Choose what you will bleed for.`)
+          : `So you finally came, ${name}. The board listens. Choose what you will bleed for.`;
+
+        showDialogue({
+          speaker: "Fenrir",
+          portraitSrc: "/guildbook/npcs/fenrir/fenrir.png",
+          text: t,
+          buttons: [
+            {
+              label: "Open Quest Journal",
+              onClick: () => {
+                hideDialogue();
+                const qBtn = document.getElementById("questBtn");
+                if (qBtn) qBtn.click();
+              }
+            },
+            { label: "Close", onClick: hideDialogue }
+          ]
+        });
+      });
+    }
+  }
+
+  // ----------------------------
+  // Boot
+  // ----------------------------
+  document.addEventListener("DOMContentLoaded", () => {
+    // Gate check
+    const f = getFlags();
+    if (!f[REQUIRED_OPEN_FLAG]){
+      showLock();
+      lockBackBtn.addEventListener("click", () => {
+        hideLock();
+        // send them back (change if you want another destination)
+        location.href = "/guildbook/scenes/dreadheim_city.html";
+      });
+      return;
+    }
+
+    // ✅ objective "enter"
+    setFlagTrue(ENTERED_FLAG);
+
+    bindClicks();
+    hideDialogue();
+    hideLock();
+  });
+
+})();
+</script>
+
+</body>
+</html>

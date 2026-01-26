@@ -306,6 +306,13 @@ function setActiveQuest(id, catalogUrl){
   // ✅ Default city dialogue JSON + per-NPC done flags
   const DEFAULT_CITY_JSON = "/data/episodes/volume1_ep1/defaultcitydialogue.json";
   const CITY_DONE_KEY = "va_city_done_flags"; // stores { npcCitizen1:true, ... }
+    // ✅ Unlock flag used by map/locks
+  const FENRIR_OPEN_FLAG = "dreadheim_forest_open";
+
+  // ✅ Next quest (quest log switches to this)
+  const FENRIR_QUEST_CATALOG = "/data/episodes/volume1_ep1/gotofenrir.json";
+  const FENRIR_QUEST_ID = "dq_go_fenrir";
+
 
   // ----------------------------
   // UI refs
@@ -373,6 +380,9 @@ function setActiveQuest(id, catalogUrl){
     }
 
     try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+        // ✅ After every step update, check for “all green checks”
+    checkQuestAllPassThenUnlock(questId);
+
   }
 
   // ✅ City "done" flags + default dialogue loader
@@ -401,6 +411,64 @@ function setActiveQuest(id, catalogUrl){
     __cityDefaultCache = await res.json();
     return __cityDefaultCache;
   }
+    // ✅ How many “green checks” are required for THIS city quest?
+  // You currently have 4 city decisions (Citizen1..4), so steps 0..3 must be "pass".
+  const CITY_REQUIRED_PASS_STEPS = 4;
+
+  function questAllPass(questId, count){
+    if (!questId) return false;
+    const f = getFlags();
+    for (let i = 0; i < count; i++){
+      if (f[`${questId}_step${i}`] !== "pass") return false;
+    }
+    return true;
+  }
+
+  function toast(msg){
+    // uses your global UI toast if present
+    try{
+      if (typeof window.showToast === "function") return window.showToast(msg);
+      if (typeof window.__va_toast === "function") return window.__va_toast(msg);
+    }catch{}
+    console.log("TOAST:", msg);
+  }
+
+  function checkQuestAllPassThenUnlock(questId){
+    // Only run for the currently active quest (prevents weird unlocks)
+    const active = localStorage.getItem(QUEST_ID_KEY) || "";
+    if (!active || questId !== active) return;
+
+    // Already unlocked? stop
+    const f = getFlags();
+    if (f[FENRIR_OPEN_FLAG]) return;
+
+    // ✅ All green checks?
+    if (!questAllPass(questId, CITY_REQUIRED_PASS_STEPS)) return;
+
+    // ✅ Unlock Fenrir
+    f[FENRIR_OPEN_FLAG] = true;
+
+    // ✅ Switch quest log to “Go to Fenrir”
+    localStorage.setItem("vaq_activeQuestCatalog", FENRIR_QUEST_CATALOG);
+    localStorage.setItem("vaq_activeQuestId", FENRIR_QUEST_ID);
+
+    setFlags(f);
+    try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+
+    toast("You have earned Loki’s Mark. Now go see Fenrir.");
+
+    // ✅ Optional: force a popup with a “Go Now” button
+    showDialogue({
+      speaker: "Quest",
+      portraitSrc: "",
+      text: "You have earned Loki’s Mark.\nNow go see Fenrir.",
+      buttons: [
+        { label: "Go now", onClick: () => { window.location.href = "fenrirsforest.html"; } },
+        { label: "Close", onClick: hideDialogue }
+      ]
+    });
+  }
+
 
   function cityAllDone(){
   return cityIsDone("npcCitizen1")
@@ -1065,9 +1133,7 @@ function onCityMaybeComplete(){
 
 </body>
 </html>
-```
 
-```
 
 
 
