@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "id": "fenrirdefaultdialogue",
+    "title": "Fenrir • Default Dialogue",
+    "notes": "Shown after Fenrir's main dialogue has been completed."
+  },
+
+  "defaults": {
+    "fenrir_forest": {
+      "speaker": "Fenrir",
+      "portrait": "/guildbook/npcs/fenrir/fenrir.gif",
+      "lines": [
+        "You have your path. Do not return seeking comfort.",
+        "Myriador rots slowly. Be patient, little wolf.",
+        "If you fail, I will feel it — and so will you."
+      ]
+    }
+  }
+}

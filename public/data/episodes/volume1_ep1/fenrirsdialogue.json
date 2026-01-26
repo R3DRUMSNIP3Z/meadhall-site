@@ -59,18 +59,9 @@
       "speaker": "Fenrir",
       "text": "Choose the lie that opens the gate. Wear it well — I will not save you if it tears.",
       "choices": [
-        {
-          "label": "Arrive as a Helheim prison escapee.",
-          "to": "fenrir_escapee"
-        },
-        {
-          "label": "Arrive as a veteran mercenary seeking work.",
-          "to": "fenrir_mercenary"
-        },
-        {
-          "label": "Arrive as a penitent pilgrim seeking redemption.",
-          "to": "fenrir_pilgrim"
-        }
+        { "label": "Arrive as a Helheim prison escapee.", "to": "fenrir_escapee" },
+        { "label": "Arrive as a veteran mercenary seeking work.", "to": "fenrir_mercenary" },
+        { "label": "Arrive as a penitent pilgrim seeking redemption.", "to": "fenrir_pilgrim" }
       ]
     },
 
@@ -81,7 +72,9 @@
       "reward": {
         "flags": {
           "myr_arrival_escapee": true,
-          "va_flags.unlocked_myriador": true
+          "dq_myr_cover_chosen": true,
+          "unlocked_myriador": true,
+          "dq_fenrir_completed": true
         },
         "setQuest": {
           "id": "dq_myr_spy",
@@ -99,7 +92,10 @@
       "text": "Steel speaks clearly in Myriador. They will trust your sword before your soul.",
       "reward": {
         "flags": {
-          "myr_arrival_mercenary": true
+          "myr_arrival_mercenary": true,
+          "dq_myr_cover_chosen": true,
+          "unlocked_myriador": true,
+          "dq_fenrir_completed": true
         },
         "setQuest": {
           "id": "dq_myr_spy",
@@ -117,7 +113,10 @@
       "text": "Ah. The quiet knife. They will confess to you without realizing they are bleeding.",
       "reward": {
         "flags": {
-          "myr_arrival_pilgrim": true
+          "myr_arrival_pilgrim": true,
+          "dq_myr_cover_chosen": true,
+          "unlocked_myriador": true,
+          "dq_fenrir_completed": true
         },
         "setQuest": {
           "id": "dq_myr_spy",
@@ -130,4 +129,5 @@
     }
   ]
 }
+
 
