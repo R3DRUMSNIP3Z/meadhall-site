@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "id": "defaultcitydialogue",
+    "title": "Dreadheim City Default NPC Dialogue"
+  },
+  "defaults": {
+    "npcCitizen1": {
+      "speaker": "Street Slave",
+      "portrait": "/guildbook/npcs/slaves/blondeman.gif",
+      "lines": [
+        "…The street remembers footsteps. Some kinder than others.",
+        "Food is mercy. Mercy is rare.",
+        "In Dreadheim, even gratitude is dangerous."
+      ]
+    },
+    "npcCitizen2": {
+      "speaker": "Hungry Woman",
+      "portrait": "/guildbook/npcs/slaves/hungrywoman.gif",
+      "lines": [
+        "…I’m still here. That’s something.",
+        "Please… don’t draw attention to me.",
+        "If you have bread… no—never mind."
+      ]
+    },
+    "npcCitizen3": {
+      "speaker": "Citizen",
+      "portrait": "/guildbook/npcs/citizens/helcitizenwoman.gif",
+      "lines": [
+        "Eyes down. It’s safer.",
+        "The city watches. Always.",
+        "Some choices echo longer than screams."
+      ]
+    },
+    "npcCitizen4": {
+      "speaker": "Citizen",
+      "portrait": "/guildbook/npcs/citizens/helcitizenman.gif",
+      "lines": [
+        "Walk like you belong, or you’ll be made to.",
+        "Respect buys time. Nothing more.",
+        "Keep moving."
+      ]
+    }
+  }
+}

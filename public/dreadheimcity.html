@@ -1,3 +1,4 @@
+```html
 <!-- /public/guildbook/scenes/dreadheim_city.html -->
 <!doctype html>
 <html lang="en">
@@ -290,6 +291,10 @@ body.devMode #devHint{ display:block; }
   const INV_UNLOCK_KEY = "va_inv_unlocked";
   const INV_ITEMS_KEY  = "va_inv_items";
 
+  // ✅ Default city dialogue JSON + per-NPC done flags
+  const DEFAULT_CITY_JSON = "/data/episodes/volume1_ep1/defaultcitydialogue.json";
+  const CITY_DONE_KEY = "va_city_done_flags"; // stores { npcCitizen1:true, ... }
+
   // ----------------------------
   // UI refs
   // ----------------------------
@@ -327,6 +332,73 @@ body.devMode #devHint{ display:block; }
     return Number.isFinite(v) ? v : 0;
   }
   function setNum(key, n){ localStorage.setItem(key, String(Number(n)||0)); }
+
+  // ✅ City "done" flags + default dialogue loader
+  function cityDoneGet(){
+    try{ return JSON.parse(localStorage.getItem(CITY_DONE_KEY) || "{}"); }
+    catch{ return {}; }
+  }
+  function cityDoneSet(obj){
+    localStorage.setItem(CITY_DONE_KEY, JSON.stringify(obj || {}));
+  }
+  function cityMarkDone(npcId){
+    const f = cityDoneGet();
+    f[npcId] = true;
+    cityDoneSet(f);
+  }
+  function cityIsDone(npcId){
+    const f = cityDoneGet();
+    return !!f[npcId];
+  }
+
+  let __cityDefaultCache = null;
+  async function loadCityDefaultJson(){
+    if (__cityDefaultCache) return __cityDefaultCache;
+    const res = await fetch(DEFAULT_CITY_JSON, { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to load defaultcitydialogue.json");
+    __cityDefaultCache = await res.json();
+    return __cityDefaultCache;
+  }
+
+  function pickLine(arr){
+    if (!Array.isArray(arr) || !arr.length) return "…";
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  async function showCityDefault(npcKey){
+    try{
+      const data = await loadCityDefaultJson();
+      const d = data?.defaults?.[npcKey];
+      if (!d){
+        showDialogue({
+          speaker: "…",
+          portraitSrc: "",
+          text: "…",
+          buttons: [{ label: "Close", onClick: hideDialogue }]
+        });
+        return;
+      }
+
+      const speaker = d.speaker || "…";
+      const portrait = d.portrait || "";
+      const line = pickLine(d.lines);
+
+      showDialogue({
+        speaker,
+        portraitSrc: portrait,
+        text: ensureVAQ() ? VAQ.txt(line) : line,
+        buttons: [{ label: "Close", onClick: hideDialogue }]
+      });
+    }catch(err){
+      console.warn(err);
+      showDialogue({
+        speaker: "…",
+        portraitSrc: "",
+        text: "…",
+        buttons: [{ label: "Close", onClick: hideDialogue }]
+      });
+    }
+  }
 
   // Same overflow behavior you designed
   function addAlignment(kind, delta){
@@ -482,6 +554,7 @@ body.devMode #devHint{ display:block; }
   // ----------------------------
   function doGoodCitizen1(){
     addAlignment("good", 1);
+    cityMarkDone("npcCitizen1"); // ✅ mark done
     showDialogue({
       speaker: "Street Slave",
       portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
@@ -492,6 +565,7 @@ body.devMode #devHint{ display:block; }
 
   function doEvilCitizen1(){
     addAlignment("evil", 1);
+    cityMarkDone("npcCitizen1"); // ✅ mark done
     showDialogue({
       speaker: "Street Slave",
       portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
@@ -502,6 +576,7 @@ body.devMode #devHint{ display:block; }
 
   function doGoodCitizen2(){
     addAlignment("good", 1);
+    cityMarkDone("npcCitizen2"); // ✅ mark done
     showDialogue({
       speaker: "Hungry Woman",
       portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
@@ -512,6 +587,7 @@ body.devMode #devHint{ display:block; }
 
   function doStealRing(){
     addAlignment("evil", 1);
+    cityMarkDone("npcCitizen2"); // ✅ mark done
 
     const RING_ITEM_ID = "slaves_wedding_ring";
     const RING_ITEM_IMG = "/guildbook/props/slavesring.gif";
@@ -535,6 +611,7 @@ body.devMode #devHint{ display:block; }
 
   function doGoodCitizen3(){
     addAlignment("good", 1);
+    cityMarkDone("npcCitizen3"); // ✅ mark done
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
@@ -545,6 +622,7 @@ body.devMode #devHint{ display:block; }
 
   function doEvilCitizen3(){
     addAlignment("evil", 1);
+    cityMarkDone("npcCitizen3"); // ✅ mark done
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
@@ -555,6 +633,7 @@ body.devMode #devHint{ display:block; }
 
   function doGoodCitizen4(){
     addAlignment("good", 1);
+    cityMarkDone("npcCitizen4"); // ✅ mark done
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
@@ -565,6 +644,7 @@ body.devMode #devHint{ display:block; }
 
   function doEvilCitizen4(){
     addAlignment("evil", 1);
+    cityMarkDone("npcCitizen4"); // ✅ mark done
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
@@ -720,9 +800,16 @@ body.devMode #devHint{ display:block; }
   // IMPORTANT: block dialogue while in devMode
   // ----------------------------
   function bindNpcClicks(){
-    document.querySelector('[data-id="npcCitizen1"]').addEventListener("click", (e) => {
+    document.querySelector('[data-id="npcCitizen1"]').addEventListener("click", async (e) => {
       if (devMode) return;
       e.preventDefault(); e.stopPropagation();
+
+      // ✅ after first completion, default to JSON lines
+      if (cityIsDone("npcCitizen1")){
+        await showCityDefault("npcCitizen1");
+        return;
+      }
+
       const t = ensureVAQ() ? VAQ.txt("What do you want from me, if its not food leave me alone!?") : "…";
       showDialogue({
         speaker: "Street Slave",
@@ -736,9 +823,16 @@ body.devMode #devHint{ display:block; }
       });
     });
 
-    document.querySelector('[data-id="npcCitizen2"]').addEventListener("click", (e) => {
+    document.querySelector('[data-id="npcCitizen2"]').addEventListener("click", async (e) => {
       if (devMode) return;
       e.preventDefault(); e.stopPropagation();
+
+      // ✅ after first completion, default to JSON lines
+      if (cityIsDone("npcCitizen2")){
+        await showCityDefault("npcCitizen2");
+        return;
+      }
+
       const t = ensureVAQ() ? VAQ.txt("Please… I have nothing worth taking.") : "…";
       showDialogue({
         speaker: "Hungry Woman",
@@ -752,9 +846,16 @@ body.devMode #devHint{ display:block; }
       });
     });
 
-    document.querySelector('[data-id="npcCitizen3"]').addEventListener("click", (e) => {
+    document.querySelector('[data-id="npcCitizen3"]').addEventListener("click", async (e) => {
       if (devMode) return;
       e.preventDefault(); e.stopPropagation();
+
+      // ✅ after first completion, default to JSON lines
+      if (cityIsDone("npcCitizen3")){
+        await showCityDefault("npcCitizen3");
+        return;
+      }
+
       const t = ensureVAQ() ? VAQ.txt("You’ve already done enough… leave me be.") : "…";
       showDialogue({
         speaker: "Citizen",
@@ -768,9 +869,16 @@ body.devMode #devHint{ display:block; }
       });
     });
 
-    document.querySelector('[data-id="npcCitizen4"]').addEventListener("click", (e) => {
+    document.querySelector('[data-id="npcCitizen4"]').addEventListener("click", async (e) => {
       if (devMode) return;
       e.preventDefault(); e.stopPropagation();
+
+      // ✅ after first completion, default to JSON lines
+      if (cityIsDone("npcCitizen4")){
+        await showCityDefault("npcCitizen4");
+        return;
+      }
+
       const t = ensureVAQ() ? VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity.") : "…";
       showDialogue({
         speaker: "Citizen",
@@ -813,6 +921,8 @@ body.devMode #devHint{ display:block; }
 
 </body>
 </html>
+```
+
 
 
 
