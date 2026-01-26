@@ -80,7 +80,8 @@
       "text": "Good. Let them see chains where there are none. Victims are forgiven what monsters are not.",
       "reward": {
         "flags": {
-          "myr_arrival_escapee": true
+          "myr_arrival_escapee": true,
+          "va_flags.unlocked_myriador": true
         },
         "setQuest": {
           "id": "dq_myr_spy",
