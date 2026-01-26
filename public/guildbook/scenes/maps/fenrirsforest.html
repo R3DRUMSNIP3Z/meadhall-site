@@ -279,10 +279,20 @@ body.devMode #devHint{ display:block; }
       idx = (idx + 1) % frames.length;
     }, Math.round(1000 / fps));
 
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) clearInterval(timer);
+        document.addEventListener("visibilitychange", () => {
+      if (document.hidden){
+        clearInterval(timer);
+        timer = null;
+      } else if (!timer){
+        timer = setInterval(() => {
+          img.src = frames[idx];
+          idx = (idx + 1) % frames.length;
+        }, Math.round(1000 / fps));
+      }
     });
-  }
+      }
+
+
 
 
   // ----------------------------
@@ -362,6 +372,11 @@ body.devMode #devHint{ display:block; }
     dlgText.textContent = "";
     dlgBtns.innerHTML = "";
   }
+
+    // ✅ Expose dialogue helpers so runDialogueFromJson can use them
+  window.showDialogue = showDialogue;
+  window.hideDialogue = hideDialogue;
+
 
   // ----------------------------
   // Lock gate
