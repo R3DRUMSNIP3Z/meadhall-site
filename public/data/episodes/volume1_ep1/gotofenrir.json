@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "id": "gotofenrir",
+    "title": "Dreadheim • Go To Fenrir"
+  },
+  "quests": {
+    "dq_go_fenrir": {
+      "id": "dq_go_fenrir",
+      "title": "Loki’s Mark",
+      "giver": "Loki",
+      "summary": "You have earned Loki’s mark. Go to Fenrir and present it at the quest board.",
+
+      "type": "evil",
+      "passAdds": { "evil": 1 },
+      "failAdds": { "good": 1 },
+
+      "steps": [
+        "You have earned Loki’s mark.",
+        "Go see Fenrir.",
+        "Enter Fenrir’s Forest."
+      ],
+
+      "objectiveOrder": ["mark", "see", "enter"],
+
+      "objectives": {
+        "mark": {
+          "label": "You have earned Loki’s mark.",
+          "flag": "va_lokis_mark",
+          "passWhen": true
+        },
+        "see": {
+          "label": "Go see Fenrir.",
+          "flag": "dq_go_fenrir_seen",
+          "passWhen": true
+        },
+        "enter": {
+          "label": "Enter Fenrir’s Forest.",
+          "flag": "dq_go_fenrir_entered",
+          "passWhen": true
+        }
+      },
+
+      "reward": "Fenrir’s attention (and what comes with it)."
+    }
+  }
+}

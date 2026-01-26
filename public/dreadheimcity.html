@@ -294,6 +294,14 @@ body.devMode #devHint{ display:block; }
   // ✅ Quest step markers (same system as Mead Hall)
   const QUEST_ID_KEY = "vaq_activeQuestId";
   const FLAGS_KEY    = "va_flags";
+  // ✅ Switch the active quest + catalog (used when City is completed)
+function setActiveQuest(id, catalogUrl){
+  if (id) localStorage.setItem(QUEST_ID_KEY, id);
+  if (catalogUrl) localStorage.setItem("vaq_activeQuestCatalog", catalogUrl);
+  try{ window.__vaq_stickyActiveGuard && window.__vaq_stickyActiveGuard(); }catch{}
+  try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+}
+
 
   // ✅ Default city dialogue JSON + per-NPC done flags
   const DEFAULT_CITY_JSON = "/data/episodes/volume1_ep1/defaultcitydialogue.json";
@@ -393,6 +401,53 @@ body.devMode #devHint{ display:block; }
     __cityDefaultCache = await res.json();
     return __cityDefaultCache;
   }
+
+  function cityAllDone(){
+  return cityIsDone("npcCitizen1")
+      && cityIsDone("npcCitizen2")
+      && cityIsDone("npcCitizen3")
+      && cityIsDone("npcCitizen4");
+}
+
+// prevents firing twice
+const CITY_COMPLETE_KEY = "va_city_complete_once";
+
+function onCityMaybeComplete(){
+  if (!cityAllDone()) return;
+
+  const f = getFlags();
+  if (f[CITY_COMPLETE_KEY]) return; // already awarded
+
+  // ✅ Award Loki’s Mark flag (used by gotofenrir.json objective "mark")
+  f.va_lokis_mark = true;
+  f[CITY_COMPLETE_KEY] = true;
+  setFlags(f);
+
+  // ✅ Switch quest log to Fenrir quest catalog
+  setActiveQuest("dq_go_fenrir", "/data/episodes/volume1_ep1/gotofenrir.json");
+
+  // ✅ Toast + Go Now button
+  try{ window.__va_toast && window.__va_toast("You have earned Loki’s Mark. Now go see Fenrir."); }catch{
+    console.log("TOAST: You have earned Loki’s Mark. Now go see Fenrir.");
+  }
+
+  showDialogue({
+    speaker: "System",
+    portraitSrc: "",
+    text: "You have earned Loki’s Mark. Now go see Fenrir.",
+    buttons: [
+      {
+        label: "Go Now",
+        onClick: () => {
+          hideDialogue();
+          location.href = "/guildbook/scenes/fenrirsforest.html";
+        }
+      },
+      { label: "Close", onClick: hideDialogue }
+    ]
+  });
+}
+
 
   function pickLine(arr){
     if (!Array.isArray(arr) || !arr.length) return "…";
@@ -589,6 +644,8 @@ body.devMode #devHint{ display:block; }
   function doGoodCitizen1(){
     addAlignment("good", 1);
     cityMarkDone("npcCitizen1"); // ✅ mark done
+    onCityMaybeComplete();
+
 
     // ✅ Quest step marker: Good choice = FAIL (✕)
     const qid = localStorage.getItem(QUEST_ID_KEY) || "";
@@ -605,6 +662,8 @@ body.devMode #devHint{ display:block; }
   function doEvilCitizen1(){
     addAlignment("evil", 1);
     cityMarkDone("npcCitizen1"); // ✅ mark done
+    onCityMaybeComplete();
+
 
     // ✅ Quest step marker: Evil choice = PASS (✓)
     const qid = localStorage.getItem(QUEST_ID_KEY) || "";
@@ -621,6 +680,8 @@ body.devMode #devHint{ display:block; }
   function doGoodCitizen2(){
     addAlignment("good", 1);
     cityMarkDone("npcCitizen2"); // ✅ mark done
+    onCityMaybeComplete();
+
 
     // ✅ Quest step marker: Good choice = FAIL (✕)
     const qid = localStorage.getItem(QUEST_ID_KEY) || "";
@@ -637,6 +698,8 @@ body.devMode #devHint{ display:block; }
   function doStealRing(){
     addAlignment("evil", 1);
     cityMarkDone("npcCitizen2"); // ✅ mark done
+    onCityMaybeComplete();
+
 
     // ✅ Quest step marker: Evil choice = PASS (✓)
     const qid = localStorage.getItem(QUEST_ID_KEY) || "";
@@ -665,6 +728,8 @@ body.devMode #devHint{ display:block; }
   function doGoodCitizen3(){
     addAlignment("good", 1);
     cityMarkDone("npcCitizen3"); // ✅ mark done
+    onCityMaybeComplete();
+
 
     // ✅ Quest step marker: Good choice = FAIL (✕)
     const qid = localStorage.getItem(QUEST_ID_KEY) || "";
@@ -681,6 +746,8 @@ body.devMode #devHint{ display:block; }
   function doEvilCitizen3(){
     addAlignment("evil", 1);
     cityMarkDone("npcCitizen3"); // ✅ mark done
+    onCityMaybeComplete();
+
 
     // ✅ Quest step marker: Evil choice = PASS (✓)
     const qid = localStorage.getItem(QUEST_ID_KEY) || "";
@@ -697,6 +764,8 @@ body.devMode #devHint{ display:block; }
   function doGoodCitizen4(){
     addAlignment("good", 1);
     cityMarkDone("npcCitizen4"); // ✅ mark done
+    onCityMaybeComplete();
+
 
     // ✅ Quest step marker: Good choice = FAIL (✕)
     const qid = localStorage.getItem(QUEST_ID_KEY) || "";
@@ -713,6 +782,8 @@ body.devMode #devHint{ display:block; }
   function doEvilCitizen4(){
     addAlignment("evil", 1);
     cityMarkDone("npcCitizen4"); // ✅ mark done
+    onCityMaybeComplete();
+
 
     // ✅ Quest step marker: Evil choice = PASS (✓)
     const qid = localStorage.getItem(QUEST_ID_KEY) || "";
