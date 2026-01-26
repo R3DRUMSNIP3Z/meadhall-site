@@ -434,9 +434,7 @@ function setActiveQuest(id, catalogUrl){
   }
 
   function checkQuestAllPassThenUnlock(questId){
-  // Only run for the currently active quest (prevents weird unlocks)
-  const active = localStorage.getItem(QUEST_ID_KEY) || "";
-  if (!active || questId !== active) return;
+  
 
   const f = getFlags();
 
@@ -482,16 +480,22 @@ function onCityMaybeComplete(){
   const f = getFlags();
   if (f[CITY_COMPLETE_KEY]) return; // already awarded
 
-  // ✅ Award Loki’s Mark flag (used by gotofenrir.json objective "mark")
-  f.va_lokis_mark = true;
-  f[CITY_COMPLETE_KEY] = true;
-  setFlags(f);
+ // ✅ Award Loki’s Mark + unlock Fenrir Forest
+f.va_lokis_mark = true;
+
+// ✅ These are what your map + locks are looking for
+f.dreadheim_forest_open = true;      // unlocks Fenrir POI (your map uses this)
+f.fenrir_open = true;                // optional: if you use phrase/other unlock rules
+f[CITY_COMPLETE_KEY] = true;
+
+setFlags(f);
+
 
   // ✅ Switch quest log to Fenrir quest catalog
   setActiveQuest("dq_go_fenrir", "/data/episodes/volume1_ep1/gotofenrir.json");
 
   // ✅ Toast + Go Now button
-  try{ window.__va_toast && window.__va_toast("You have earned Loki’s Mark. Now go see Fenrir."); }catch{
+  try{ window.__va_toast && window.__va_toast("Loki’s Mark burns into your skin. Fenrir’s Forest is now unlocked."); }catch{
     console.log("TOAST: You have earned Loki’s Mark. Now go see Fenrir.");
   }
 
