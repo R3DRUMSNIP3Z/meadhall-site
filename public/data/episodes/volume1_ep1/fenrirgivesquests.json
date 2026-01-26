@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "id": "fenrir_quests",
+    "title": "Fenrir Quest Catalog"
+  },
+  "quests": {
+    "dq_fenrir_001": {
+      "id": "dq_fenrir_001",
+      "title": "Blood in the Snow",
+      "giver": "Fenrir",
+      "summary": "Prove you deserve to stand in Fenrir’s clearing.",
+
+      "type": "evil",
+      "passAdds": { "evil": 1 },
+      "failAdds": { "good": 1 },
+
+      "steps": [
+        "Accept Fenrir’s trial.",
+        "Claim a trophy from the forest.",
+        "Return to Fenrir."
+      ],
+
+      "objectiveOrder": ["accept", "trophy", "return"],
+
+      "objectives": {
+        "accept": {
+          "label": "Accept Fenrir’s trial.",
+          "flag": "dq_fenrir_001_accepted",
+          "passWhen": true
+        },
+        "trophy": {
+          "label": "Claim a trophy from the forest.",
+          "flag": "dq_fenrir_001_trophy",
+          "passWhen": true
+        },
+        "return": {
+          "label": "Return to Fenrir.",
+          "flag": "dq_fenrir_001_returned",
+          "passWhen": true
+        }
+      },
+
+      "reward": "A new scent on your soul."
+    }
+  }
+}

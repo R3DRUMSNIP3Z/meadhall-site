@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "id": "fenrirsdialogue",
+    "title": "Dreadheim • Fenrir",
+    "bg": "/guildbook/scenes/maps/fenrirsforest.png",
+    "portrait": "/guildbook/npcs/fenrir/fenrir.gif",
+    "speakerDefault": "Fenrir",
+    "keys": {
+      "nameKey": "va_player_name",
+      "goodKey": "va_good",
+      "evilKey": "va_evil",
+      "flagsKey": "va_flags",
+      "questIdKey": "vaq_activeQuestId",
+      "questCatKey": "vaq_activeQuestCatalog"
+    }
+  },
+
+  "start": "fenrir_1",
+
+  "nodes": [
+    {
+      "id": "fenrir_1",
+      "speaker": "Fenrir",
+      "text": "So… you found my clearing, {name}. The trees hold the edge like teeth. Show me what Loki burned into you.",
+      "reward": {
+        "flags": {
+          "dq_go_fenrir_seen": true
+        },
+        "questSteps": { "dq_go_fenrir": { "1": "pass" } }
+      },
+      "choices": [
+        { "label": "Show Loki’s mark.", "to": "fenrir_2" },
+        { "label": "Say nothing.", "to": "fenrir_2" }
+      ]
+    },
+
+    {
+      "id": "fenrir_2",
+      "speaker": "Fenrir",
+      "text": "Mm. Loki’s scent… and your heartbeat underneath it. If you came for approval, you chose the wrong beast.",
+      "choices": [
+        { "label": "Close", "to": "__close" }
+      ]
+    }
+  ]
+}
