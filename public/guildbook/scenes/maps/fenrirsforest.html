@@ -209,22 +209,16 @@ body.devMode #devHint{ display:block; }
 <div id="devHint">DEV MODE ON — drag props, resize corners, release to save (prints CSS in console). Press M to toggle.</div>
 
 <!-- ================= PROPS =================
-  Put your board / Fenrir / other props here.
-  Replace the src paths with your real images when ready.
+  Fenrir only (center). You can dev-drag/resize if needed.
 -->
 <div id="props">
 
-  <!-- Quest Board -->
-  <div class="devItem" data-id="fenrirBoard" style="left:42%; top:52%; width:190px;">
-    <img class="prop" id="fenrirBoard" src="/guildbook/props/questboard.png" alt="Quest Board">
-    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
-  </div>
+  <!-- Fenrir (centered default) -->
+<div class="devItem" data-id="fenrirNpc" style="left:50%; top:46%; width:260px; transform:translate(-50%,-50%);">
+  <img class="prop" id="fenrirNpc" src="/guildbook/npcs/fenrir/frame_000.png" alt="Fenrir">
+  <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+</div>
 
-  <!-- Optional: Fenrir placeholder (swap later) -->
-  <div class="devItem" data-id="fenrirNpc" style="left:68%; top:44%; width:230px;">
-    <img class="prop" id="fenrirNpc" src="/guildbook/npcs/fenrir/fenrir.png" alt="Fenrir">
-    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
-  </div>
 
 </div>
 
@@ -253,18 +247,51 @@ body.devMode #devHint{ display:block; }
 <script src="/guildbook/js/va_global_ui.js"></script>
 <script src="/guildbook/js/globalquest.js"></script>
 
-
 <script>
 (() => {
   "use strict";
+
+    // ----------------------------
+  // Fenrir frame animation (000 -> 035)
+  // ----------------------------
+  function pad3(n){ return String(n).padStart(3, "0"); }
+
+  function startFenrirAnim(){
+    const img = document.getElementById("fenrirNpc");
+    if (!img) return;
+
+    const base = "/guildbook/npcs/fenrir/frame_";
+    const first = 0;
+    const last  = 35;
+    const fps   = 24;
+
+    const frames = [];
+    for (let i = first; i <= last; i++){
+      const src = `${base}${pad3(i)}.png`;
+      const im = new Image();
+      im.src = src;
+      frames.push(src);
+    }
+
+    let idx = 0;
+    let timer = setInterval(() => {
+      img.src = frames[idx];
+      idx = (idx + 1) % frames.length;
+    }, Math.round(1000 / fps));
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) clearInterval(timer);
+    });
+  }
+
 
   // ----------------------------
   // Keys
   // ----------------------------
   const FLAGS_KEY = "va_flags";
-  const REQUIRED_OPEN_FLAG = "dreadheim_forest_open";     // ✅ your gate flag
-  const ENTERED_FLAG = "dq_go_fenrir_entered";            // ✅ objective 3
-  const SEEN_FLAG    = "dq_go_fenrir_seen";               // ✅ objective 2
+  const REQUIRED_OPEN_FLAG = "dreadheim_forest_open"; // gate flag
+  const ENTERED_FLAG = "dq_go_fenrir_entered";        // objective 3
+  const SEEN_FLAG    = "dq_go_fenrir_seen";           // objective 2
 
   // ----------------------------
   // UI refs
@@ -349,7 +376,7 @@ body.devMode #devHint{ display:block; }
   }
 
   // ----------------------------
-  // DEV drag/resize (same system)
+  // DEV drag/resize
   // ----------------------------
   const DEV_KEY = "va_scene_dev";
   const POS_KEY = "va_scene_props_" + location.pathname;
@@ -373,6 +400,8 @@ body.devMode #devHint{ display:block; }
       if (v.top) el.style.top = v.top;
       if (v.width) el.style.width = v.width;
       if (v.height && v.height !== "auto") el.style.height = v.height;
+      // if saved positions override, dev may want to remove centering transform manually
+      // (we leave any saved transform untouched)
     });
   }
   function saveOne(el){
@@ -408,6 +437,8 @@ body.devMode #devHint{ display:block; }
       const nt = st + (e.clientY - sy);
       active.style.left = pctX(nl);
       active.style.top  = pctY(nt);
+      // once you move it, centering transform is no longer desirable
+      active.style.transform = "";
       return;
     }
 
@@ -422,6 +453,7 @@ body.devMode #devHint{ display:block; }
     if (handle === "bl" || handle === "tl"){
       const nl = sl + dx;
       active.style.left = pctX(nl);
+      active.style.transform = "";
     }
   }
 
@@ -486,41 +518,41 @@ body.devMode #devHint{ display:block; }
   });
 
   // ----------------------------
-  // Click wiring
+  // Click wiring (Fenrir only)
   // ----------------------------
   function bindClicks(){
-    const boardWrap = document.querySelector('[data-id="fenrirBoard"]');
-    if (boardWrap){
-      boardWrap.addEventListener("click", (e) => {
-        if (devMode) return;
-        e.preventDefault(); e.stopPropagation();
+    const fenrirWrap = document.querySelector('[data-id="fenrirNpc"]');
+    if (!fenrirWrap) return;
 
-        // ✅ objective "see"
-        setFlagTrue(SEEN_FLAG);
+    fenrirWrap.addEventListener("click", (e) => {
+      if (devMode) return;
+      e.preventDefault(); e.stopPropagation();
 
-        const name = localStorage.getItem("va_player_name") || "wanderer";
-        const t = ensureVAQ()
-          ? VAQ.txt(`So you finally came, {name}. The board listens. Choose what you will bleed for.`)
-          : `So you finally came, ${name}. The board listens. Choose what you will bleed for.`;
+      // objective "see"
+      setFlagTrue(SEEN_FLAG);
 
-        showDialogue({
-          speaker: "Fenrir",
-          portraitSrc: "/guildbook/npcs/fenrir/fenrir.png",
-          text: t,
-          buttons: [
-            {
-              label: "Open Quest Journal",
-              onClick: () => {
-                hideDialogue();
-                const qBtn = document.getElementById("questBtn");
-                if (qBtn) qBtn.click();
-              }
-            },
-            { label: "Close", onClick: hideDialogue }
-          ]
-        });
+      const name = localStorage.getItem("va_player_name") || "wanderer";
+      const t = ensureVAQ()
+        ? VAQ.txt(`You step into my shadow, {name}.\nSpeak your purpose… or become it.`)
+        : `You step into my shadow, ${name}.\nSpeak your purpose… or become it.`;
+
+      showDialogue({
+        speaker: "Fenrir",
+        portraitSrc: "/guildbook/npcs/fenrir/fenrir.png",
+        text: t,
+        buttons: [
+          {
+            label: "Open Quest Journal",
+            onClick: () => {
+              hideDialogue();
+              const qBtn = document.getElementById("questBtn");
+              if (qBtn) qBtn.click();
+            }
+          },
+          { label: "Close", onClick: hideDialogue }
+        ]
       });
-    }
+    });
   }
 
   // ----------------------------
@@ -533,16 +565,17 @@ body.devMode #devHint{ display:block; }
       showLock();
       lockBackBtn.addEventListener("click", () => {
         hideLock();
-        // send them back (change if you want another destination)
         location.href = "/guildbook/scenes/dreadheim_city.html";
       });
       return;
     }
 
-    // ✅ objective "enter"
+    // objective "enter"
     setFlagTrue(ENTERED_FLAG);
 
     bindClicks();
+    startFenrirAnim();
+
     hideDialogue();
     hideLock();
   });
@@ -552,3 +585,4 @@ body.devMode #devHint{ display:block; }
 
 </body>
 </html>
+
