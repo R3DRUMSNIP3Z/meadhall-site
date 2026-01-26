@@ -27,7 +27,6 @@ html, body{
   z-index:0;
 }
 
-
 /* Optional subtle vignette */
 #vignette{
   position:fixed;
@@ -48,23 +47,55 @@ html, body{
   pointer-events:none; /* allow only NPCs to receive clicks */
 }
 
-/* Citizens placeholders */
-.npc{
+/* ================= NPC WRAPS (drag + resize) ================= */
+.npcWrap{
   position:absolute;
-  width:190px;
-  height:auto;
   z-index:25;
   pointer-events:auto;
-  cursor:pointer;
   user-select:none;
+  cursor:pointer;
   filter: drop-shadow(0 18px 32px rgba(0,0,0,0.78));
-  transition: transform 120ms ease, filter 120ms ease;
+  transition: filter 120ms ease;
 }
-.npc:hover{
-  transform: scale(1.02);
+.npcWrap:hover{
   filter: drop-shadow(0 22px 38px rgba(0,0,0,0.85))
           drop-shadow(0 0 14px rgba(180,200,255,0.18));
 }
+
+/* image fills the wrap width */
+.npcImg{
+  width:100%;
+  height:auto;
+  display:block;
+  pointer-events:auto;
+}
+
+/* DEV visuals */
+body.devMode .npcWrap{
+  outline:1px dashed rgba(255,215,140,0.65);
+  cursor:move;
+}
+
+.npcWrap.dragging{
+  outline:2px dashed rgba(255,215,140,.9) !important;
+  box-shadow:0 0 0 6px rgba(255,215,140,.12), 0 18px 55px rgba(0,0,0,.60) !important;
+}
+
+/* resize handle (bottom-right) */
+.npcHandle{
+  position:absolute;
+  right:-6px;
+  bottom:-6px;
+  width:16px;
+  height:16px;
+  border-radius:6px;
+  border:1px solid rgba(255,215,140,0.85);
+  background:rgba(0,0,0,0.55);
+  box-shadow:0 10px 22px rgba(0,0,0,0.6);
+  cursor:nwse-resize;
+  display:none; /* only in dev mode */
+}
+body.devMode .npcHandle{ display:block; }
 
 /* ================= DIALOGUE ================= */
 #dlg{
@@ -302,14 +333,25 @@ html, body{
 <!-- ================= NPCS ================= -->
 <div id="npcs">
   <!-- Replace these with your real NPC PNGs later -->
-  <img class="npc" id="npcCitizen1" src="/guildbook/npcs/slaves/blondeman.gif" alt="slave"
-       style="left:18%; top:56%;">
-  <img class="npc" id="npcCitizen2" src="/guildbook/npcs/slaves/hungrywoman.gif" alt="slave"
-       style="left:46%; top:60%;">
-  <img class="npc" id="npcCitizen3" src="/guildbook/npcs/citizens/helcitizenwoman.gif" alt="Citizen"
-       style="left:73%; top:58%;">
-       <img class="npc" id="npcCitizen3" src="/guildbook/npcs/citizens/helcitizenman.gif" alt="Citizen"
-       style="left:73%; top:58%;">
+  <div class="npcWrap" data-id="1" style="left:18%; top:56%; width:190px;">
+    <img class="npcImg" id="npcCitizen1" src="/guildbook/npcs/slaves/blondeman.gif" alt="slave">
+    <div class="npcHandle" title="Resize"></div>
+  </div>
+
+  <div class="npcWrap" data-id="2" style="left:46%; top:60%; width:190px;">
+    <img class="npcImg" id="npcCitizen2" src="/guildbook/npcs/slaves/hungrywoman.gif" alt="slave">
+    <div class="npcHandle" title="Resize"></div>
+  </div>
+
+  <div class="npcWrap" data-id="3" style="left:73%; top:58%; width:190px;">
+    <img class="npcImg" id="npcCitizen3" src="/guildbook/npcs/citizens/helcitizenwoman.gif" alt="Citizen">
+    <div class="npcHandle" title="Resize"></div>
+  </div>
+
+  <div class="npcWrap" data-id="4" style="left:82%; top:58%; width:190px;">
+    <img class="npcImg" id="npcCitizen4" src="/guildbook/npcs/citizens/helcitizenman.gif" alt="Citizen">
+    <div class="npcHandle" title="Resize"></div>
+  </div>
 </div>
 
 <div id="hint">Tip: Click a citizen/Slave.</div>
@@ -465,7 +507,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // NPC clicks
+  // NPC clicks (images inside wraps)
   document.getElementById("npcCitizen1").addEventListener("click", () => {
     if (!ensureVAQ()){
       showDialogue({
@@ -513,6 +555,158 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.getElementById("npcCitizen4").addEventListener("click", () => {
+    if (!ensureVAQ()) return;
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/placeholder.png",
+      text: VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity."),
+      buttons: [{ label: "Close", onClick: hideDialogue }]
+    });
+  });
+
+  // ============================================================
+  // DEV NPC DRAG + RESIZE MODE
+  // - Press M to toggle
+  // - Drag .npcWrap positions
+  // - Resize using bottom-right handle
+  // - Saves per page (pathname) in localStorage
+  // ============================================================
+  (() => {
+    const DEV_KEY = "va_scene_dev_mode";
+    const POS_KEY = "va_scene_npc_positions_" + location.pathname;
+
+    const wraps = Array.from(document.querySelectorAll(".npcWrap"));
+    if (!wraps.length) return;
+
+    let devMode = localStorage.getItem(DEV_KEY) === "1";
+
+    let dragging = null;
+    let resizing = null;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    let startW = 0;
+    let startX = 0;
+
+    function loadPositions(){
+      try { return JSON.parse(localStorage.getItem(POS_KEY) || "{}"); }
+      catch { return {}; }
+    }
+    function savePositions(pos){
+      localStorage.setItem(POS_KEY, JSON.stringify(pos));
+    }
+
+    const positions = loadPositions();
+
+    // Apply saved
+    wraps.forEach(w => {
+      const id = w.dataset.id || w.querySelector("img")?.id || "npc";
+      w.dataset.id = id;
+
+      const saved = positions[id];
+      if (saved){
+        if (saved.left)  w.style.left = saved.left;
+        if (saved.top)   w.style.top  = saved.top;
+        if (saved.width) w.style.width = saved.width; // px string
+      }
+    });
+
+    function setDevMode(on){
+      devMode = on;
+      localStorage.setItem(DEV_KEY, on ? "1" : "0");
+      document.body.classList.toggle("devMode", on);
+      console.log(on ? "🛠️ NPC DEV MODE ON (drag/resize)" : "🧭 NPC DEV MODE OFF");
+    }
+    setDevMode(devMode);
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "m") setDevMode(!devMode);
+    });
+
+    // DRAG start
+    wraps.forEach(w => {
+      w.addEventListener("mousedown", (e) => {
+        if (!devMode) return;
+
+        // if clicking handle, ignore drag (resize handles it)
+        if (e.target && e.target.classList.contains("npcHandle")) return;
+
+        dragging = w;
+        const rect = w.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+
+        w.classList.add("dragging");
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      // RESIZE start
+      const handle = w.querySelector(".npcHandle");
+      if (handle){
+        handle.addEventListener("mousedown", (e) => {
+          if (!devMode) return;
+
+          resizing = w;
+          const rect = w.getBoundingClientRect();
+          startW = rect.width;
+          startX = e.clientX;
+
+          w.classList.add("dragging");
+          e.preventDefault();
+          e.stopPropagation();
+        });
+      }
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      // Drag
+      if (dragging){
+        const mapRect = document.body.getBoundingClientRect();
+        const x = ((e.clientX - offsetX - mapRect.left) / mapRect.width) * 100;
+        const y = ((e.clientY - offsetY - mapRect.top) / mapRect.height) * 100;
+
+        dragging.style.left = x.toFixed(2) + "%";
+        dragging.style.top  = y.toFixed(2) + "%";
+      }
+
+      // Resize
+      if (resizing){
+        const dx = e.clientX - startX;
+        const newW = Math.max(80, Math.min(520, startW + dx)); // clamp
+        resizing.style.width = Math.round(newW) + "px";
+      }
+    });
+
+    window.addEventListener("mouseup", () => {
+      const done = dragging || resizing;
+      if (!done) return;
+
+      const id = done.dataset.id;
+      positions[id] = {
+        left: done.style.left,
+        top: done.style.top,
+        width: done.style.width
+      };
+      savePositions(positions);
+
+      console.log(`📍 ${id}: left:${positions[id].left}; top:${positions[id].top}; width:${positions[id].width};`);
+
+      done.classList.remove("dragging");
+      dragging = null;
+      resizing = null;
+    });
+
+    // Dev convenience
+    window.VA_CITY_DEV = {
+      clearNpcPositions(){
+        localStorage.removeItem(POS_KEY);
+        console.log("🧹 NPC positions cleared (reload page).");
+      }
+    };
+  })();
+
   // ESC closes dialogue + menu
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape"){
@@ -529,4 +723,5 @@ document.addEventListener("DOMContentLoaded", () => {
 </body>
 </html>
 ```
+
 
