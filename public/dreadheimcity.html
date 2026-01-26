@@ -434,40 +434,36 @@ function setActiveQuest(id, catalogUrl){
   }
 
   function checkQuestAllPassThenUnlock(questId){
-    // Only run for the currently active quest (prevents weird unlocks)
-    const active = localStorage.getItem(QUEST_ID_KEY) || "";
-    if (!active || questId !== active) return;
+  // Only run for the currently active quest (prevents weird unlocks)
+  const active = localStorage.getItem(QUEST_ID_KEY) || "";
+  if (!active || questId !== active) return;
 
-    // Already unlocked? stop
-    const f = getFlags();
-    if (f[FENRIR_OPEN_FLAG]) return;
+  const f = getFlags();
 
-    // ✅ All green checks?
-    if (!questAllPass(questId, CITY_REQUIRED_PASS_STEPS)) return;
+  // Already unlocked? stop
+  if (f[FENRIR_OPEN_FLAG]) return;
 
-    // ✅ Unlock Fenrir
-    f[FENRIR_OPEN_FLAG] = true;
+  // ✅ All green checks?
+  if (!questAllPass(questId, CITY_REQUIRED_PASS_STEPS)) return;
 
-    // ✅ Switch quest log to “Go to Fenrir”
-    localStorage.setItem("vaq_activeQuestCatalog", FENRIR_QUEST_CATALOG);
-    localStorage.setItem("vaq_activeQuestId", FENRIR_QUEST_ID);
+  // ✅ Unlock Fenrir (flag for your lock system)
+  f[FENRIR_OPEN_FLAG] = true;
 
-    setFlags(f);
-    try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+  // ✅ Also unlock the forest click-gate you mentioned
+  f["dreadheim_forest_open"] = true;
 
-    toast("You have earned Loki’s Mark. Now go see Fenrir.");
+  
 
-    // ✅ Optional: force a popup with a “Go Now” button
-    showDialogue({
-      speaker: "Quest",
-      portraitSrc: "",
-      text: "You have earned Loki’s Mark.\nNow go see Fenrir.",
-      buttons: [
-        { label: "Go now", onClick: () => { window.location.href = "fenrirsforest.html"; } },
-        { label: "Close", onClick: hideDialogue }
-      ]
-    });
-  }
+  setFlags(f);
+
+  // ✅ Toast + refresh UI
+  toast("You have earned Loki’s Mark. Now go see Fenrir.");
+  try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+}
+
+
+
+    
 
 
   function cityAllDone(){
