@@ -4,43 +4,50 @@
     "title": "Fenrir Quest Catalog"
   },
   "quests": {
-    "dq_fenrir_001": {
-      "id": "dq_fenrir_001",
-      "title": "Blood in the Snow",
+    "dq_myr_spy": {
+      "id": "dq_myr_spy",
+      "title": "Wolves Among Stone",
       "giver": "Fenrir",
-      "summary": "Prove you deserve to stand in Fenrir’s clearing.",
+      "summary": "Enter Myriador as a shadow. Gain King Aldredor’s trust. When the time comes, Myriador must fall from within.",
 
       "type": "evil",
       "passAdds": { "evil": 1 },
       "failAdds": { "good": 1 },
 
       "steps": [
-        "Accept Fenrir’s trial.",
-        "Claim a trophy from the forest.",
-        "Return to Fenrir."
+        "Choose your cover story for entering Myriador.",
+        "Arrive at Myriador’s outer gate without exposing your ties to Helheim.",
+        "Earn a first audience with King Aldredor.",
+        "Gain the King’s trust enough to be kept close."
       ],
 
-      "objectiveOrder": ["accept", "trophy", "return"],
+      "objectiveOrder": ["cover", "arrive", "audience", "trust"],
 
       "objectives": {
-        "accept": {
-          "label": "Accept Fenrir’s trial.",
-          "flag": "dq_fenrir_001_accepted",
+        "cover": {
+          "label": "Choose your cover story for entering Myriador.",
+          "flag": "dq_myr_cover_chosen",
           "passWhen": true
         },
-        "trophy": {
-          "label": "Claim a trophy from the forest.",
-          "flag": "dq_fenrir_001_trophy",
+        "arrive": {
+          "label": "Arrive at Myriador’s outer gate.",
+          "flag": "dq_myr_arrived",
           "passWhen": true
         },
-        "return": {
-          "label": "Return to Fenrir.",
-          "flag": "dq_fenrir_001_returned",
+        "audience": {
+          "label": "Earn a first audience with King Aldredor.",
+          "flag": "dq_myr_audience",
+          "passWhen": true
+        },
+        "trust": {
+          "label": "Gain King Aldredor’s trust.",
+          "flag": "dq_myr_trust",
           "passWhen": true
         }
       },
 
-      "reward": "A new scent on your soul."
+      "reward": "Myriador opens its gates to you."
     }
   }
 }
+

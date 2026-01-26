@@ -21,12 +21,14 @@
     {
       "id": "fenrir_1",
       "speaker": "Fenrir",
-      "text": "So… you found my clearing, {name}. The trees hold the edge like teeth. Show me what Loki burned into you.",
+      "text": "So… you found my clearing, {name}. The forest opens its throat only for those marked by Loki. Show me what he burned into you.",
       "reward": {
         "flags": {
           "dq_go_fenrir_seen": true
         },
-        "questSteps": { "dq_go_fenrir": { "1": "pass" } }
+        "questSteps": {
+          "dq_go_fenrir": { "1": "pass" }
+        }
       },
       "choices": [
         { "label": "Show Loki’s mark.", "to": "fenrir_2" },
@@ -37,10 +39,94 @@
     {
       "id": "fenrir_2",
       "speaker": "Fenrir",
-      "text": "Mm. Loki’s scent… and your heartbeat underneath it. If you came for approval, you chose the wrong beast.",
+      "text": "Mm. I smell Helheim on you… and something sharper beneath it. You are finished proving yourself here. Now you will rot somewhere useful.",
       "choices": [
-        { "label": "Close", "to": "__close" }
+        { "label": "Useful how?", "to": "fenrir_3" }
+      ]
+    },
+
+    {
+      "id": "fenrir_3",
+      "speaker": "Fenrir",
+      "text": "Myriador still believes walls keep wolves out. You will go among them. You will climb. And when Helheim moves… their house will already be hollow.",
+      "choices": [
+        { "label": "I will go.", "to": "fenrir_arrival" }
+      ]
+    },
+
+    {
+      "id": "fenrir_arrival",
+      "speaker": "Fenrir",
+      "text": "Choose the lie that opens the gate. Wear it well — I will not save you if it tears.",
+      "choices": [
+        {
+          "label": "Arrive as a Helheim prison escapee.",
+          "to": "fenrir_escapee"
+        },
+        {
+          "label": "Arrive as a veteran mercenary seeking work.",
+          "to": "fenrir_mercenary"
+        },
+        {
+          "label": "Arrive as a penitent pilgrim seeking redemption.",
+          "to": "fenrir_pilgrim"
+        }
+      ]
+    },
+
+    {
+      "id": "fenrir_escapee",
+      "speaker": "Fenrir",
+      "text": "Good. Let them see chains where there are none. Victims are forgiven what monsters are not.",
+      "reward": {
+        "flags": {
+          "myr_arrival_escapee": true
+        },
+        "setQuest": {
+          "id": "dq_myr_spy",
+          "catalog": "/data/episodes/volume1_ep1/fenrirgivesquests.json"
+        }
+      },
+      "choices": [
+        { "label": "Leave the forest.", "to": "__close" }
+      ]
+    },
+
+    {
+      "id": "fenrir_mercenary",
+      "speaker": "Fenrir",
+      "text": "Steel speaks clearly in Myriador. They will trust your sword before your soul.",
+      "reward": {
+        "flags": {
+          "myr_arrival_mercenary": true
+        },
+        "setQuest": {
+          "id": "dq_myr_spy",
+          "catalog": "/data/episodes/volume1_ep1/fenrirgivesquests.json"
+        }
+      },
+      "choices": [
+        { "label": "Leave the forest.", "to": "__close" }
+      ]
+    },
+
+    {
+      "id": "fenrir_pilgrim",
+      "speaker": "Fenrir",
+      "text": "Ah. The quiet knife. They will confess to you without realizing they are bleeding.",
+      "reward": {
+        "flags": {
+          "myr_arrival_pilgrim": true
+        },
+        "setQuest": {
+          "id": "dq_myr_spy",
+          "catalog": "/data/episodes/volume1_ep1/fenrirgivesquests.json"
+        }
+      },
+      "choices": [
+        { "label": "Leave the forest.", "to": "__close" }
       ]
     }
   ]
 }
+
