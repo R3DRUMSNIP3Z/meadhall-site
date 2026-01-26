@@ -291,6 +291,10 @@ body.devMode #devHint{ display:block; }
   const INV_UNLOCK_KEY = "va_inv_unlocked";
   const INV_ITEMS_KEY  = "va_inv_items";
 
+  // ✅ Quest step markers (same system as Mead Hall)
+  const QUEST_ID_KEY = "vaq_activeQuestId";
+  const FLAGS_KEY    = "va_flags";
+
   // ✅ Default city dialogue JSON + per-NPC done flags
   const DEFAULT_CITY_JSON = "/data/episodes/volume1_ep1/defaultcitydialogue.json";
   const CITY_DONE_KEY = "va_city_done_flags"; // stores { npcCitizen1:true, ... }
@@ -332,6 +336,36 @@ body.devMode #devHint{ display:block; }
     return Number.isFinite(v) ? v : 0;
   }
   function setNum(key, n){ localStorage.setItem(key, String(Number(n)||0)); }
+
+  // ✅ Quest flags helpers (same as Mead Hall)
+  function getFlags(){
+    try{ return JSON.parse(localStorage.getItem(FLAGS_KEY) || "{}"); }
+    catch{ return {}; }
+  }
+  function setFlags(obj){
+    localStorage.setItem(FLAGS_KEY, JSON.stringify(obj || {}));
+  }
+
+  // ✅ This is what makes ✓ / ✕ appear in the quest journal
+  function setQuestStepStatus(questId, stepIndex, status){
+    if (!questId) return;
+    const f = getFlags();
+    const key = `${questId}_step${stepIndex}`;
+    f[key] = status; // "pass" or "fail"
+    setFlags(f);
+
+    // If any step FAILS (good choice in evil quest), grant +1 GOOD once per quest
+    if (status === "fail"){
+      const rewardKey = `${questId}_fail_rewarded`;
+      if (!f[rewardKey]){
+        f[rewardKey] = true;
+        setFlags(f);
+        addAlignment("good", 1);
+      }
+    }
+
+    try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+  }
 
   // ✅ City "done" flags + default dialogue loader
   function cityDoneGet(){
@@ -555,6 +589,11 @@ body.devMode #devHint{ display:block; }
   function doGoodCitizen1(){
     addAlignment("good", 1);
     cityMarkDone("npcCitizen1"); // ✅ mark done
+
+    // ✅ Quest step marker: Good choice = FAIL (✕)
+    const qid = localStorage.getItem(QUEST_ID_KEY) || "";
+    setQuestStepStatus(qid, 0, "fail");
+
     showDialogue({
       speaker: "Street Slave",
       portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
@@ -566,6 +605,11 @@ body.devMode #devHint{ display:block; }
   function doEvilCitizen1(){
     addAlignment("evil", 1);
     cityMarkDone("npcCitizen1"); // ✅ mark done
+
+    // ✅ Quest step marker: Evil choice = PASS (✓)
+    const qid = localStorage.getItem(QUEST_ID_KEY) || "";
+    setQuestStepStatus(qid, 0, "pass");
+
     showDialogue({
       speaker: "Street Slave",
       portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
@@ -577,6 +621,11 @@ body.devMode #devHint{ display:block; }
   function doGoodCitizen2(){
     addAlignment("good", 1);
     cityMarkDone("npcCitizen2"); // ✅ mark done
+
+    // ✅ Quest step marker: Good choice = FAIL (✕)
+    const qid = localStorage.getItem(QUEST_ID_KEY) || "";
+    setQuestStepStatus(qid, 1, "fail");
+
     showDialogue({
       speaker: "Hungry Woman",
       portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
@@ -588,6 +637,10 @@ body.devMode #devHint{ display:block; }
   function doStealRing(){
     addAlignment("evil", 1);
     cityMarkDone("npcCitizen2"); // ✅ mark done
+
+    // ✅ Quest step marker: Evil choice = PASS (✓)
+    const qid = localStorage.getItem(QUEST_ID_KEY) || "";
+    setQuestStepStatus(qid, 1, "pass");
 
     const RING_ITEM_ID = "slaves_wedding_ring";
     const RING_ITEM_IMG = "/guildbook/props/slavesring.gif";
@@ -612,6 +665,11 @@ body.devMode #devHint{ display:block; }
   function doGoodCitizen3(){
     addAlignment("good", 1);
     cityMarkDone("npcCitizen3"); // ✅ mark done
+
+    // ✅ Quest step marker: Good choice = FAIL (✕)
+    const qid = localStorage.getItem(QUEST_ID_KEY) || "";
+    setQuestStepStatus(qid, 2, "fail");
+
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
@@ -623,6 +681,11 @@ body.devMode #devHint{ display:block; }
   function doEvilCitizen3(){
     addAlignment("evil", 1);
     cityMarkDone("npcCitizen3"); // ✅ mark done
+
+    // ✅ Quest step marker: Evil choice = PASS (✓)
+    const qid = localStorage.getItem(QUEST_ID_KEY) || "";
+    setQuestStepStatus(qid, 2, "pass");
+
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
@@ -634,6 +697,11 @@ body.devMode #devHint{ display:block; }
   function doGoodCitizen4(){
     addAlignment("good", 1);
     cityMarkDone("npcCitizen4"); // ✅ mark done
+
+    // ✅ Quest step marker: Good choice = FAIL (✕)
+    const qid = localStorage.getItem(QUEST_ID_KEY) || "";
+    setQuestStepStatus(qid, 3, "fail");
+
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
@@ -645,6 +713,11 @@ body.devMode #devHint{ display:block; }
   function doEvilCitizen4(){
     addAlignment("evil", 1);
     cityMarkDone("npcCitizen4"); // ✅ mark done
+
+    // ✅ Quest step marker: Evil choice = PASS (✓)
+    const qid = localStorage.getItem(QUEST_ID_KEY) || "";
+    setQuestStepStatus(qid, 3, "pass");
+
     showDialogue({
       speaker: "Citizen",
       portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
@@ -921,6 +994,8 @@ body.devMode #devHint{ display:block; }
 
 </body>
 </html>
+```
+
 ```
 
 
