@@ -23,45 +23,53 @@ html, body{
 #bg{
   position:fixed;
   inset:0;
-  /* ✅ put your city background here */
   background:url("/guildbook/scenes/maps/dreadheimcityentrance.png") center center / cover no-repeat;
   z-index:0;
 }
 
-/* ================= DEV PROPS LAYER (DRAG + RESIZE) ================= */
-#props{
+/* ================= DEV-EDITABLE LAYER (NPC wrappers) ================= */
+#npcs{
   position:fixed;
   inset:0;
-  z-index:12;
-  pointer-events:auto; /* ✅ clickable in normal mode (like meadhall) */
-}
-body.devMode #props{
-  pointer-events:auto; /* ON in dev mode */
+  z-index:20;
+  pointer-events:none; /* only wrappers receive clicks */
 }
 
-/* Each prop wrapper */
+/* Wrapper that becomes draggable/resizable in DEV */
 .devItem{
   position:absolute;
+  z-index:25;
+  pointer-events:auto;
   user-select:none;
   -webkit-user-drag:none;
-  pointer-events:auto;
   cursor:pointer;
-  filter:drop-shadow(0 14px 26px rgba(0,0,0,.65));
+  filter: drop-shadow(0 18px 32px rgba(0,0,0,0.78));
+  transition: transform 120ms ease, filter 120ms ease;
 }
+.devItem:hover{
+  transform: scale(1.02);
+  filter: drop-shadow(0 22px 38px rgba(0,0,0,0.85))
+          drop-shadow(0 0 14px rgba(180,200,255,0.22));
+}
+
+/* In DEV mode, show outline + move cursor */
 body.devMode .devItem{
-  pointer-events:auto;
   cursor:move;
   outline:1px dashed rgba(255,215,140,.55);
-}
-.devItem img{
-  display:block;
-  width:100%;
-  height:auto;
-  pointer-events:none; /* drag on wrapper */
 }
 .devDragging{
   outline:2px dashed rgba(255,215,140,.88) !important;
   box-shadow:0 0 0 6px rgba(255,215,140,.12) !important;
+}
+
+/* The actual NPC image inside wrapper */
+.devItem img.npc{
+  display:block;
+  width:100%;
+  height:auto;
+  pointer-events:none; /* drag happens on wrapper */
+  user-select:none;
+  -webkit-user-drag:none;
 }
 
 /* resize handles */
@@ -84,40 +92,16 @@ body.devMode .devHandle{ display:block; }
 #devHint{
   position:fixed;
   left:14px;
-  top:14px;
+  bottom:14px;
   z-index:999;
-  font-size:12px;
-  letter-spacing:.05em;
-  color:rgba(255,255,255,.65);
-  text-shadow:0 2px 10px rgba(0,0,0,.85);
+  font-size:14px;
+  letter-spacing:.03em;
+  color:rgba(255,255,255,0.55);
+  text-shadow:0 2px 10px rgba(0,0,0,0.8);
   pointer-events:none;
   display:none;
 }
 body.devMode #devHint{ display:block; }
-
-/* ================= NPCS LAYER ================= */
-#npcs{
-  position:fixed;
-  inset:0;
-  z-index:20;
-  pointer-events:none;
-}
-.npc{
-  position:absolute;
-  height:auto;
-  z-index:25;
-  pointer-events:auto;
-  cursor:pointer;
-  user-select:none;
-  -webkit-user-drag:none;
-  filter: drop-shadow(0 18px 32px rgba(0,0,0,0.78));
-  transition: transform 120ms ease, filter 120ms ease;
-}
-.npc:hover{
-  transform: scale(1.02);
-  filter: drop-shadow(0 22px 38px rgba(0,0,0,0.85))
-          drop-shadow(0 0 14px rgba(180,200,255,0.22));
-}
 
 /* ================= DIALOGUE ================= */
 #dlg{
@@ -127,7 +111,7 @@ body.devMode #devHint{ display:block; }
   transform:translateX(-50%);
   width:min(1200px, calc(100vw - 24px));
   height:190px;
-  z-index:999;
+  z-index:999; /* above all */
   display:grid;
   grid-template-columns:240px 1fr;
   border-radius:18px;
@@ -137,6 +121,7 @@ body.devMode #devHint{ display:block; }
   box-shadow:0 18px 55px rgba(0,0,0,.6);
 }
 #dlg.hidden{ display:none !important; }
+
 #dlgPortrait{
   width:240px;
   height:190px;
@@ -178,50 +163,99 @@ body.devMode #devHint{ display:block; }
   font-weight:800;
 }
 .dlgBtn:hover{ filter:brightness(1.1); }
+
+/* ================= PICKUP POPUP (RING) ================= */
+#pickupOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.72);
+  z-index:1000;
+  display:none;
+}
+#pickupCard{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  width:min(520px, calc(100vw - 36px));
+  border-radius:18px;
+  overflow:hidden;
+  background:linear-gradient(180deg, rgba(35,20,10,.96), rgba(10,8,8,.92));
+  border:1px solid rgba(255,208,120,.22);
+  box-shadow:0 24px 80px rgba(0,0,0,.75);
+  padding:16px;
+}
+#pickupRow{
+  display:flex;
+  gap:14px;
+  align-items:center;
+}
+#pickupImg{
+  width:96px;
+  height:96px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(0,0,0,.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+#pickupImg img{
+  width:78px;
+  height:78px;
+  object-fit:contain;
+}
+#pickupText{
+  flex:1;
+  line-height:1.35;
+  font-size:18px;
+  color:rgba(245,240,230,.95);
+}
+#pickupBtns{
+  margin-top:12px;
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
 </style>
 </head>
 
 <body>
+
 <div id="bg"></div>
 
-<div id="devHint">DEV MODE ON — drag props, resize corners, release to save (prints CSS in console)</div>
+<div id="devHint">DEV MODE ON — drag NPCs, resize corners, release to save (prints CSS in console). Press M to toggle.</div>
 
-<!-- ================= DEV PROPS (press M) =================
-  ✅ same as meadhall: .devItem + .devHandle
+<!-- ================= NPCS (RESTORED) =================
+  Same citizens/slaves you had before.
+  Only change: wrapped each one so it can be dragged/resized in DEV mode.
 -->
-<div id="props">
-  <!-- Replace/extend these with your city props/NPCs as props if you want them draggable -->
-  <!-- Example citizens/slaves as draggable props (optional): -->
-
-  <div class="devItem" data-id="city_slave1" style="left:30.72%; top:51.97%; width:48px; height:auto;">
-    <img src="/guildbook/npcs/slaves/femaleslave1.gif" alt="slave1">
-    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
-  </div>
-
-  <div class="devItem" data-id="city_slave2" style="left:65.74%; top:51.59%; width:52px; height:auto;">
-    <img src="/guildbook/npcs/slaves/maleslave1.gif" alt="slave2">
-    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
-  </div>
-
-  <div class="devItem" data-id="city_guard1" style="left:85.85%; top:49.24%; width:126px; height:auto;">
-    <img src="/guildbook/npcs/helheimguardians/femaleguard1.gif" alt="guard">
-    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
-  </div>
-
-  <div class="devItem" data-id="city_guard2" style="left:9.47%; top:45.24%; width:160px; height:auto;">
-    <img src="/guildbook/npcs/helheimguardians/maleguard1.gif" alt="guard">
-    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
-  </div>
-</div>
-
-<!-- NPC layer (only if you want NON-draggable NPCs; otherwise keep them as props above) -->
 <div id="npcs">
-  <!-- example: -->
-  <!-- <img id="npcCitizen1" class="npc" style="left:18%; top:55%; width:90px;" src="/guildbook/npcs/slaves/blondeman.gif" alt="Street Slave"> -->
+  <div class="devItem" data-id="npcCitizen1" style="left:18%; top:55%; width:90px;">
+    <img id="npcCitizen1" class="npc" src="/guildbook/npcs/slaves/blondeman.gif" alt="Street Slave">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
+
+  <div class="devItem" data-id="npcCitizen2" style="left:36%; top:58%; width:92px;">
+    <img id="npcCitizen2" class="npc" src="/guildbook/npcs/slaves/hungrywoman.gif" alt="Hungry Woman">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
+
+  <div class="devItem" data-id="npcCitizen3" style="left:62%; top:54%; width:110px;">
+    <img id="npcCitizen3" class="npc" src="/guildbook/npcs/citizens/helcitizenwoman.gif" alt="Citizen Woman">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
+
+  <div class="devItem" data-id="npcCitizen4" style="left:82%; top:56%; width:110px;">
+    <img id="npcCitizen4" class="npc" src="/guildbook/npcs/citizens/helcitizenman.gif" alt="Citizen Man">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
 </div>
 
-<!-- Dialogue -->
-<div id="dlg" class="hidden">
+<!-- Dialogue (HIDDEN until NPC click) -->
+<div id="dlg" class="hidden" aria-hidden="true">
   <img id="dlgPortrait" alt="Portrait">
   <div id="dlgPanel">
     <div id="dlgName"></div>
@@ -230,14 +264,34 @@ body.devMode #devHint{ display:block; }
   </div>
 </div>
 
-<!-- Your global UI (keep if you use VAQ anywhere) -->
+<!-- Ring pickup popup -->
+<div id="pickupOverlay" aria-hidden="true">
+  <div id="pickupCard" role="dialog" aria-label="Item acquired">
+    <div id="pickupRow">
+      <div id="pickupImg"><img id="pickupImgInner" alt="Item"></div>
+      <div id="pickupText"></div>
+    </div>
+    <div id="pickupBtns"></div>
+  </div>
+</div>
+
+<!-- ✅ Global UI MUST load before page logic so VAQ exists -->
 <script src="/guildbook/js/va_global_ui.js"></script>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+(() => {
+  "use strict";
 
   // ----------------------------
-  // Dialogue UI (simple stub)
+  // Storage keys (same as your city script)
+  // ----------------------------
+  const GOOD_KEY = "va_good";
+  const EVIL_KEY = "va_evil";
+  const INV_UNLOCK_KEY = "va_inv_unlocked";
+  const INV_ITEMS_KEY  = "va_inv_items";
+
+  // ----------------------------
+  // UI refs
   // ----------------------------
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
@@ -245,51 +299,309 @@ document.addEventListener("DOMContentLoaded", () => {
   const dlgBtns = document.getElementById("dlgBtns");
   const dlgPortrait = document.getElementById("dlgPortrait");
 
+  const pickupOverlay = document.getElementById("pickupOverlay");
+  const pickupImgInner = document.getElementById("pickupImgInner");
+  const pickupText = document.getElementById("pickupText");
+  const pickupBtns = document.getElementById("pickupBtns");
+
+  // ----------------------------
+  // Helpers
+  // ----------------------------
+  function ensureVAQ(){
+    return !!(window.VAQ && typeof window.VAQ.txt === "function" && typeof window.VAQ.getNum === "function");
+  }
+
+  function escapeHtml(s){
+    return String(s ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
+
+  function getNum(key){
+    const v = Number(localStorage.getItem(key) || "0");
+    return Number.isFinite(v) ? v : 0;
+  }
+  function setNum(key, n){ localStorage.setItem(key, String(Number(n)||0)); }
+
+  // Same overflow behavior you designed
+  function addAlignment(kind, delta){
+    delta = Number(delta) || 0;
+    if (!delta) return;
+
+    for (let i = 0; i < Math.abs(delta); i++){
+      if (kind === "good"){
+        let g = clamp(getNum(GOOD_KEY), 0, 10);
+        let e = clamp(getNum(EVIL_KEY), 0, 10);
+
+        if (delta > 0){
+          if (g >= 10){
+            if (e > 0) e -= 1;
+          } else {
+            g += 1;
+          }
+        } else {
+          if (g > 0) g -= 1;
+        }
+        setNum(GOOD_KEY, g);
+        setNum(EVIL_KEY, e);
+      } else {
+        let g = clamp(getNum(GOOD_KEY), 0, 10);
+        let e = clamp(getNum(EVIL_KEY), 0, 10);
+
+        if (delta > 0){
+          if (e >= 10){
+            if (g > 0) g -= 1;
+          } else {
+            e += 1;
+          }
+        } else {
+          if (e > 0) e -= 1;
+        }
+        setNum(GOOD_KEY, g);
+        setNum(EVIL_KEY, e);
+      }
+    }
+
+    try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+  }
+
+  // Inventory (matches global keys)
+  function invIsUnlocked(){ return localStorage.getItem(INV_UNLOCK_KEY) === "1"; }
+  function invUnlock(){
+    localStorage.setItem(INV_UNLOCK_KEY, "1");
+    try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+  }
+  function invGetItems(){
+    try{
+      const arr = JSON.parse(localStorage.getItem(INV_ITEMS_KEY) || "[]");
+      return Array.isArray(arr) ? arr : [];
+    }catch{
+      return [];
+    }
+  }
+  function invSetItems(items){
+    localStorage.setItem(INV_ITEMS_KEY, JSON.stringify(Array.isArray(items) ? items : []));
+  }
+  function invHasItem(id){
+    return invGetItems().some(it => it && it.id === id);
+  }
+  function invAddItem(item){
+    if (!item || !item.id) return;
+    if (invHasItem(item.id)) return;
+    const items = invGetItems();
+    items.push(item);
+    invSetItems(items);
+  }
+  function invOpenViaGlobal(){
+    const btn = document.getElementById("invBtn");
+    if (btn && invIsUnlocked()) btn.click();
+  }
+
+  // Dialogue
   function showDialogue({ speaker, text, portraitSrc, buttons = [] }){
     dlgName.textContent = speaker || "";
     dlgText.textContent = (typeof text === "string") ? text : String(text ?? "");
     dlgBtns.innerHTML = "";
+
     if (portraitSrc) dlgPortrait.src = portraitSrc;
+
     dlg.classList.remove("hidden");
+    dlg.setAttribute("aria-hidden", "false");
+
     buttons.forEach(b => {
       const btn = document.createElement("button");
       btn.className = "dlgBtn";
       btn.type = "button";
       btn.textContent = b.label;
+
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (typeof b.onClick === "function") b.onClick();
       });
+
       dlgBtns.appendChild(btn);
     });
   }
+
   function hideDialogue(){
     dlg.classList.add("hidden");
+    dlg.setAttribute("aria-hidden", "true");
     dlgName.textContent = "";
     dlgText.textContent = "";
     dlgBtns.innerHTML = "";
   }
-  hideDialogue();
+
+  // Pickup popup
+  function pickupShow({ img, textLines = [], primaryLabel = "Open Inventory", onPrimary, secondaryLabel = "Close", onSecondary }){
+    pickupImgInner.src = img || "";
+    pickupText.innerHTML = textLines.map(line => `<div>${escapeHtml(line)}</div>`).join("");
+    pickupBtns.innerHTML = "";
+
+    const b1 = document.createElement("button");
+    b1.className = "dlgBtn";
+    b1.type = "button";
+    b1.textContent = primaryLabel;
+    b1.addEventListener("click", () => {
+      pickupHide();
+      if (typeof onPrimary === "function") onPrimary();
+    });
+
+    const b2 = document.createElement("button");
+    b2.className = "dlgBtn";
+    b2.type = "button";
+    b2.textContent = secondaryLabel;
+    b2.addEventListener("click", () => {
+      pickupHide();
+      if (typeof onSecondary === "function") onSecondary();
+    });
+
+    pickupBtns.appendChild(b1);
+    pickupBtns.appendChild(b2);
+
+    pickupOverlay.style.display = "block";
+    pickupOverlay.setAttribute("aria-hidden","false");
+  }
+
+  function pickupHide(){
+    pickupOverlay.style.display = "none";
+    pickupOverlay.setAttribute("aria-hidden","true");
+  }
+
+  pickupOverlay.addEventListener("click", (e) => {
+    if (e.target === pickupOverlay) pickupHide();
+  });
 
   // ----------------------------
-  // DEV: DRAG + RESIZE PROPS (EXACT MEADHALL SYSTEM)
+  // NPC Actions (same as your script)
   // ----------------------------
-  const DEV_KEY = "va_scene_dev";                 // global toggle
-  const POS_KEY = "va_scene_props_" + location.pathname; // per-page saved positions
+  function doGoodCitizen1(){
+    addAlignment("good", 1);
+    showDialogue({
+      speaker: "Street Slave",
+      portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
+      text: ensureVAQ() ? VAQ.txt("…You didn’t have to do that. In Dreadheim, kindness is a dangerous habit.") : "…",
+      buttons: [{ label: "Close", onClick: hideDialogue }]
+    });
+  }
+
+  function doEvilCitizen1(){
+    addAlignment("evil", 1);
+    showDialogue({
+      speaker: "Street Slave",
+      portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
+      text: ensureVAQ() ? VAQ.txt("What do you want from me? If it’s not food—leave me alone!?") : "…",
+      buttons: [{ label: "Close", onClick: hideDialogue }]
+    });
+  }
+
+  function doGoodCitizen2(){
+    addAlignment("good", 1);
+    showDialogue({
+      speaker: "Hungry Woman",
+      portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
+      text: ensureVAQ() ? VAQ.txt("…Thank you. I thought you’d be like the rest of them.") : "…",
+      buttons: [{ label: "Close", onClick: hideDialogue }]
+    });
+  }
+
+  function doStealRing(){
+    addAlignment("evil", 1);
+
+    const RING_ITEM_ID = "slaves_wedding_ring";
+    const RING_ITEM_IMG = "/guildbook/props/slavesring.gif";
+    const RING_ITEM_NAME = "Wedding Ring (Slave’s Keepsake)";
+
+    invUnlock();
+    invAddItem({ id: RING_ITEM_ID, name: RING_ITEM_NAME, img: RING_ITEM_IMG });
+
+    pickupShow({
+      img: RING_ITEM_IMG,
+      textLines: [
+        "You rummage through her sack that is being used as bottom cover…",
+        "and find a special memento the slave cherishes:",
+        "her dead husband’s wedding ring."
+      ],
+      primaryLabel: "Open Inventory",
+      onPrimary: () => invOpenViaGlobal(),
+      secondaryLabel: "Close"
+    });
+  }
+
+  function doGoodCitizen3(){
+    addAlignment("good", 1);
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
+      text: ensureVAQ() ? VAQ.txt("…You spared me. That’s rarer than gold in Dreadheim.") : "…",
+      buttons: [{ label: "Close", onClick: hideDialogue }]
+    });
+  }
+
+  function doEvilCitizen3(){
+    addAlignment("evil", 1);
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
+      text: ensureVAQ() ? VAQ.txt("You’ve already done enough… leave me be.") : "…",
+      buttons: [{ label: "Close", onClick: hideDialogue }]
+    });
+  }
+
+  function doGoodCitizen4(){
+    addAlignment("good", 1);
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
+      text: ensureVAQ() ? VAQ.txt("Hmph. You chose restraint. Smart—here, mercy costs.") : "…",
+      buttons: [{ label: "Close", onClick: hideDialogue }]
+    });
+  }
+
+  function doEvilCitizen4(){
+    addAlignment("evil", 1);
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
+      text: ensureVAQ() ? VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity.") : "…",
+      buttons: [{ label: "Close", onClick: hideDialogue }]
+    });
+  }
+
+  // ----------------------------
+  // DEV: DRAG + RESIZE (MeadHall style) — press M
+  // ----------------------------
+  const DEV_KEY = "va_scene_dev";
+  const POS_KEY = "va_scene_props_" + location.pathname;
 
   let devMode = localStorage.getItem(DEV_KEY) === "1";
   document.body.classList.toggle("devMode", devMode);
 
-  const props = [...document.querySelectorAll("#props .devItem")];
-
-  function pctX(px){ return (px / window.innerWidth * 100).toFixed(2) + "%"; }
-  function pctY(py){ return (py / window.innerHeight * 100).toFixed(2) + "%"; }
+  const items = [...document.querySelectorAll("#npcs .devItem")];
 
   function getSaved(){
     try{ return JSON.parse(localStorage.getItem(POS_KEY) || "{}"); }
     catch{ return {}; }
   }
+
+  function applySaved(){
+    const s = getSaved();
+    items.forEach(el => {
+      const id = el.dataset.id;
+      const v = s[id];
+      if (!v) return;
+      if (v.left) el.style.left = v.left;
+      if (v.top) el.style.top = v.top;
+      if (v.width) el.style.width = v.width;
+      if (v.height && v.height !== "auto") el.style.height = v.height;
+    });
+  }
+
   function saveOne(el){
     const id = el.dataset.id;
     if (!id) return;
@@ -303,29 +615,18 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     localStorage.setItem(POS_KEY, JSON.stringify(s));
 
-    console.log(
-      `📌 ${id} → left:${s[id].left}; top:${s[id].top}; width:${s[id].width}; height:${s[id].height};`
-    );
+    console.log(`📌 ${id} → left:${s[id].left}; top:${s[id].top}; width:${s[id].width}; height:${s[id].height};`);
   }
-  function applySaved(){
-    const s = getSaved();
-    props.forEach(el => {
-      const id = el.dataset.id;
-      const v = s[id];
-      if (!v) return;
-      if (v.left) el.style.left = v.left;
-      if (v.top) el.style.top = v.top;
-      if (v.width) el.style.width = v.width;
-      if (v.height && v.height !== "auto") el.style.height = v.height;
-    });
-  }
+
   applySaved();
 
-  // drag/resize state
+  function pctX(px){ return (px / window.innerWidth * 100).toFixed(2) + "%"; }
+  function pctY(py){ return (py / window.innerHeight * 100).toFixed(2) + "%"; }
+
   let active = null;
   let mode = null; // "drag" | "resize"
   let handle = "br";
-  let sx=0, sy=0, sl=0, st=0, sw=0, sh=0;
+  let sx=0, sy=0, sl=0, st=0, sw=0;
 
   function onMouseMove(e){
     if (!devMode || !active) return;
@@ -338,7 +639,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // resize: width only (keeps aspect ratio since img is width:100% height:auto)
+    // resize width only (keeps gif aspect)
     const dx = e.clientX - sx;
     let newW = sw;
 
@@ -348,7 +649,7 @@ document.addEventListener("DOMContentLoaded", () => {
     newW = Math.max(24, newW);
     active.style.width = newW + "px";
 
-    // if resizing from left corners, adjust left so corner stays pinned
+    // if resizing from left corners, keep corner pinned
     if (handle === "bl" || handle === "tl"){
       const nl = sl + dx;
       active.style.left = pctX(nl);
@@ -363,7 +664,7 @@ document.addEventListener("DOMContentLoaded", () => {
     mode = null;
   }
 
-  props.forEach(el => {
+  items.forEach(el => {
     // drag on wrapper (ignore handles)
     el.addEventListener("mousedown", (e) => {
       if (!devMode) return;
@@ -384,6 +685,7 @@ document.addEventListener("DOMContentLoaded", () => {
     el.querySelectorAll(".devHandle").forEach(h => {
       h.addEventListener("mousedown", (e) => {
         if (!devMode) return;
+
         const r = el.getBoundingClientRect();
         active = el;
         mode = "resize";
@@ -391,7 +693,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         sx = e.clientX; sy = e.clientY;
         sl = r.left;   st = r.top;
-        sw = r.width;  sh = r.height;
+        sw = r.width;
 
         el.classList.add("devDragging");
         e.preventDefault();
@@ -403,7 +705,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("mousemove", onMouseMove);
   window.addEventListener("mouseup", onMouseUp);
 
-  // toggle dev mode with M (same)
+  // toggle dev mode with M
   window.addEventListener("keydown", (e) => {
     if (e.key && e.key.toLowerCase() === "m"){
       devMode = !devMode;
@@ -411,39 +713,107 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.classList.toggle("devMode", devMode);
       console.log(devMode ? "🛠 DEV MODE ON" : "🧭 DEV MODE OFF");
     }
-    if (e.key === "Escape"){
-      hideDialogue();
-    }
   });
 
   // ----------------------------
-  // OPTIONAL: clicks on props (only when NOT in dev mode)
+  // Click wiring (same options as your script)
+  // IMPORTANT: block dialogue while in devMode
   // ----------------------------
-  function bindPropClicks(){
-    document.querySelectorAll("#props .devItem").forEach(el => {
-      el.addEventListener("click", (e) => {
-        if (devMode) return; // editing
-        e.preventDefault();
-        e.stopPropagation();
-        const propId = el.getAttribute("data-id") || "";
-        showDialogue({
-          speaker: "…",
-          text: `Clicked prop: ${propId}`,
-          portraitSrc: "",
-          buttons: [{ label:"Close", onClick: hideDialogue }]
-        });
+  function bindNpcClicks(){
+    document.querySelector('[data-id="npcCitizen1"]').addEventListener("click", (e) => {
+      if (devMode) return;
+      e.preventDefault(); e.stopPropagation();
+      const t = ensureVAQ() ? VAQ.txt("What do you want from me, if its not food leave me alone!?") : "…";
+      showDialogue({
+        speaker: "Street Slave",
+        portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
+        text: t,
+        buttons: [
+          { label: "Give Food (Good)", onClick: doGoodCitizen1 },
+          { label: "Intimidate (Evil)", onClick: doEvilCitizen1 },
+          { label: "Close", onClick: hideDialogue }
+        ]
+      });
+    });
+
+    document.querySelector('[data-id="npcCitizen2"]').addEventListener("click", (e) => {
+      if (devMode) return;
+      e.preventDefault(); e.stopPropagation();
+      const t = ensureVAQ() ? VAQ.txt("Please… I have nothing worth taking.") : "…";
+      showDialogue({
+        speaker: "Hungry Woman",
+        portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
+        text: t,
+        buttons: [
+          { label: "Leave Something (Good)", onClick: doGoodCitizen2 },
+          { label: "Steal It (Evil)", onClick: doStealRing },
+          { label: "Close", onClick: hideDialogue }
+        ]
+      });
+    });
+
+    document.querySelector('[data-id="npcCitizen3"]').addEventListener("click", (e) => {
+      if (devMode) return;
+      e.preventDefault(); e.stopPropagation();
+      const t = ensureVAQ() ? VAQ.txt("You’ve already done enough… leave me be.") : "…";
+      showDialogue({
+        speaker: "Citizen",
+        portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
+        text: t,
+        buttons: [
+          { label: "Spare Her (Good)", onClick: doGoodCitizen3 },
+          { label: "Report Back (Cold) (Evil)", onClick: doEvilCitizen3 },
+          { label: "Close", onClick: hideDialogue }
+        ]
+      });
+    });
+
+    document.querySelector('[data-id="npcCitizen4"]').addEventListener("click", (e) => {
+      if (devMode) return;
+      e.preventDefault(); e.stopPropagation();
+      const t = ensureVAQ() ? VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity.") : "…";
+      showDialogue({
+        speaker: "Citizen",
+        portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
+        text: t,
+        buttons: [
+          { label: "Nod + Move On (Good)", onClick: doGoodCitizen4 },
+          { label: "Threaten Him (Evil)", onClick: doEvilCitizen4 },
+          { label: "Close", onClick: hideDialogue }
+        ]
       });
     });
   }
-  bindPropClicks();
 
-});
+  // ----------------------------
+  // Boot
+  // ----------------------------
+  document.addEventListener("DOMContentLoaded", () => {
+    if (!ensureVAQ()){
+      console.warn("VAQ missing. Make sure /guildbook/js/va_global_ui.js is loading.");
+    }
+
+    bindNpcClicks();
+
+    // ESC closes dialogue + pickup
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape"){
+        hideDialogue();
+        pickupHide();
+      }
+    });
+
+    // start hidden
+    hideDialogue();
+    pickupHide();
+  });
+
+})();
 </script>
 
 </body>
 </html>
 
-```
 
 
 
