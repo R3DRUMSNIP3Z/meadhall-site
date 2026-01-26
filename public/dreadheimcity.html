@@ -332,28 +332,29 @@ body.devMode .npcHandle{ display:block; }
 
 <!-- ================= NPCS ================= -->
 <div id="npcs">
-  <div class="npcWrap" data-id="1" style="left:9.93%; top:60.87%; width:121px;">
-    <img class="npcImg" id="npcCitizen1" src="/guildbook/npcs/slaves/blondeman.gif" alt="Citizen 1">
+  <!-- Replace these with your real NPC PNGs later -->
+  <div class="npcWrap" data-id="1" style="left:18%; top:56%; width:190px;">
+    <img class="npcImg" id="npcCitizen1" src="/guildbook/npcs/slaves/blondeman.gif" alt="slave">
     <div class="npcHandle" title="Resize"></div>
   </div>
 
-  <div class="npcWrap" data-id="2" style="left:75.48%; top:72.92%; width:80px;">
-    <img class="npcImg" id="npcCitizen2" src="/guildbook/npcs/slaves/hungrywoman.gif" alt="Citizen 2">
+  <div class="npcWrap" data-id="2" style="left:46%; top:60%; width:190px;">
+    <img class="npcImg" id="npcCitizen2" src="/guildbook/npcs/slaves/hungrywoman.gif" alt="slave">
     <div class="npcHandle" title="Resize"></div>
   </div>
 
-  <div class="npcWrap" data-id="3" style="left:56.22%; top:57.48%; width:80px;">
-    <img class="npcImg" id="npcCitizen3" src="/guildbook/npcs/citizens/helcitizenwoman.gif" alt="Citizen 3">
+  <div class="npcWrap" data-id="3" style="left:73%; top:58%; width:190px;">
+    <img class="npcImg" id="npcCitizen3" src="/guildbook/npcs/citizens/helcitizenwoman.gif" alt="Citizen">
     <div class="npcHandle" title="Resize"></div>
   </div>
 
-  <div class="npcWrap" data-id="4" style="left:35.96%; top:65.83%; width:112px;">
-    <img class="npcImg" id="npcCitizen4" src="/guildbook/npcs/citizens/helcitizenman.gif" alt="Citizen 4">
+  <div class="npcWrap" data-id="4" style="left:82%; top:58%; width:190px;">
+    <img class="npcImg" id="npcCitizen4" src="/guildbook/npcs/citizens/helcitizenman.gif" alt="Citizen">
     <div class="npcHandle" title="Resize"></div>
   </div>
 </div>
 
-<div id="hint">Tip: Click a citizen/Slave. (Press M for DEV move/resize)</div>
+<div id="hint">Tip: Click a citizen/Slave.</div>
 
 <!-- Dialogue -->
 <div id="dlg" class="hidden">
@@ -414,7 +415,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dlgName.textContent = speaker || "";
     dlgText.textContent = (typeof text === "string") ? text : String(text ?? "");
     dlgBtns.innerHTML = "";
-    dlgPortrait.src = portraitSrc || "";
+    if (portraitSrc) dlgPortrait.src = portraitSrc;
     dlg.classList.remove("hidden");
 
     buttons.forEach(b => {
@@ -455,35 +456,58 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ----------------------------
   // Citizens -> quest objective flags for dq_001b
+  // (matches your failedloki_quests.json flags/steps)
   // ----------------------------
-
-  function addGood(points=1){
-  if (!ensureVAQ()) return;
-  // your VAQ global ui should already have one of these; we support both safely:
-  if (typeof VAQ.addGood === "function") return VAQ.addGood(points);
-  // fallback if your VAQ stores good/evil in flags:
-  const f = VAQ.getFlags();
-  f.va_good = (Number(f.va_good) || 0) + points;
-  VAQ.setFlags(f);
-  if (typeof VAQ.refreshMeters === "function") VAQ.refreshMeters();
-}
-
-function addEvil(points=1){
-  if (!ensureVAQ()) return;
-  if (typeof VAQ.addEvil === "function") return VAQ.addEvil(points);
-  const f = VAQ.getFlags();
-  f.va_evil = (Number(f.va_evil) || 0) + points;
-  VAQ.setFlags(f);
-  if (typeof VAQ.refreshMeters === "function") VAQ.refreshMeters();
-}
-
-
-
   function setFlag(flagKey, value=true){
     if (!ensureVAQ()) return;
     const f = VAQ.getFlags();
     f[String(flagKey)] = value;
     VAQ.setFlags(f);
+  }
+
+  // ----------------------------
+  // GOOD/EVIL meter helpers (keeps same 0..10 behavior)
+  // ----------------------------
+  function addGood(delta){
+    if (!ensureVAQ()) return;
+    delta = Number(delta)||0;
+    if (!delta) return;
+    const g = Math.max(0, Math.min(10, Number(localStorage.getItem("va_good")||"0")));
+    const e = Math.max(0, Math.min(10, Number(localStorage.getItem("va_evil")||"0")));
+    // same overflow behavior as your other pages: if good maxed, reduce evil if possible
+    let ng=g, ne=e;
+    for (let i=0;i<Math.abs(delta);i++){
+      if (delta>0){
+        if (ng>=10){
+          if (ne>0) ne-=1;
+        } else ng+=1;
+      } else {
+        if (ng>0) ng-=1;
+      }
+    }
+    localStorage.setItem("va_good", String(ng));
+    localStorage.setItem("va_evil", String(ne));
+  }
+
+  function addEvil(delta){
+    if (!ensureVAQ()) return;
+    delta = Number(delta)||0;
+    if (!delta) return;
+    const g = Math.max(0, Math.min(10, Number(localStorage.getItem("va_good")||"0")));
+    const e = Math.max(0, Math.min(10, Number(localStorage.getItem("va_evil")||"0")));
+    // overflow: if evil maxed, reduce good if possible
+    let ng=g, ne=e;
+    for (let i=0;i<Math.abs(delta);i++){
+      if (delta>0){
+        if (ne>=10){
+          if (ng>0) ng-=1;
+        } else ne+=1;
+      } else {
+        if (ne>0) ne-=1;
+      }
+    }
+    localStorage.setItem("va_good", String(ng));
+    localStorage.setItem("va_evil", String(ne));
   }
 
   function doIntimidate(){
@@ -499,16 +523,41 @@ function addEvil(points=1){
     });
   }
 
+  // ----------------------------
+  // Item: Slave's wedding ring (web path)
+  // ----------------------------
+  const SLAVES_RING_ITEM = {
+    id: "slaves_wedding_ring",
+    name: "Slave’s Wedding Ring",
+    img: "/guildbook/props/slavesring.gif"
+  };
+
   function doTake(){
     if (!ensureVAQ()) return;
     setFlag("dq_001b_stoleFromCitizen", true);
     VAQ.qSetStepStatus("dq_001b", 1, "pass");
 
+    // EVIL point
+    addEvil(1);
+
+    // Add item + open inventory (Mead Hall behavior)
+    if (typeof VAQ.invUnlock === "function") VAQ.invUnlock();
+    if (typeof VAQ.invAddItem === "function") VAQ.invAddItem(SLAVES_RING_ITEM);
+
     showDialogue({
-      speaker: "Citizen",
+      speaker: "Street Slave",
       portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
-      text: VAQ.txt("Take it… just—take it. I should have known better than to resist in Dreadheim."),
-      buttons: [{ label: "Close", onClick: hideDialogue }]
+      text: VAQ.txt("You rummage through her sack that is being used as bottom cover and find a special memento that the slaves cherishes her dead husbands wedding ring"),
+      buttons: [
+        {
+          label: "Open Inventory",
+          onClick: () => {
+            hideDialogue();
+            if (typeof VAQ.invOpen === "function") VAQ.invOpen();
+          }
+        },
+        { label: "Close", onClick: hideDialogue }
+      ]
     });
   }
 
@@ -529,148 +578,69 @@ function addEvil(points=1){
   }
 
   // NPC clicks
-document.getElementById("npcCitizen1").addEventListener("click", () => {
-  if (!ensureVAQ()){
+  document.getElementById("npcCitizen1").addEventListener("click", () => {
+    if (!ensureVAQ()){
+      showDialogue({
+        speaker: "Citizen",
+        portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
+        text: "VAQ missing (global ui not loaded).",
+        buttons: [{ label: "Close", onClick: hideDialogue }]
+      });
+      return;
+    }
     showDialogue({
       speaker: "Street Slave",
       portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
-      text: "VAQ missing (global ui not loaded).",
+      text: VAQ.txt("what do you want from me, if its not food leave me alone!?"),
+      buttons: [
+        { label: "Intimidate", onClick: doIntimidate },
+        { label: "Close", onClick: hideDialogue }
+      ]
+    });
+  });
+
+  document.getElementById("npcCitizen2").addEventListener("click", () => {
+    if (!ensureVAQ()) return;
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
+      text: VAQ.txt("Please… I have nothing worth taking."),
+      buttons: [
+        { label: "Take Something", onClick: doTake },
+        { label: "Close", onClick: hideDialogue }
+      ]
+    });
+  });
+
+  document.getElementById("npcCitizen3").addEventListener("click", () => {
+    if (!ensureVAQ()) return;
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
+      text: VAQ.txt("You’ve already done enough… leave me be."),
+      buttons: [
+        { label: "Report Back (Cold)", onClick: doReturn },
+        { label: "Close", onClick: hideDialogue }
+      ]
+    });
+  });
+
+  document.getElementById("npcCitizen4").addEventListener("click", () => {
+    if (!ensureVAQ()) return;
+    showDialogue({
+      speaker: "Citizen",
+      portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
+      text: VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity."),
       buttons: [{ label: "Close", onClick: hideDialogue }]
     });
-    return;
-  }
-
-  showDialogue({
-    speaker: "Street Slave",
-    portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
-    text: VAQ.txt("What do you want from me? If it’s not food, leave me alone!?"),
-    buttons: [
-      // ✅ BAD
-      { label: "Intimidate (Evil)", onClick: () => { addEvil(1); doIntimidate(); } },
-
-      // ✅ GOOD
-      { label: "Give Food (Good)", onClick: () => {
-          addGood(1);
-          // mark a "good" flag if you want (optional)
-          setFlag("dq_001b_gaveFoodToSlave", true);
-          // you can also pass a step if this should count as an alternative
-          // VAQ.qSetStepStatus("dq_001b", 0, "pass");
-          showDialogue({
-            speaker: "Street Slave",
-            portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
-            text: VAQ.txt("…You’re giving it to me? I—thank you. Don’t do that in the open… not here."),
-            buttons: [{ label: "Close", onClick: hideDialogue }]
-          });
-        }
-      },
-
-      { label: "Close", onClick: hideDialogue }
-    ]
   });
-});
-
-document.getElementById("npcCitizen2").addEventListener("click", () => {
-  if (!ensureVAQ()) return;
-
-  showDialogue({
-    speaker: "Hungry Slave",
-    portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
-    text: VAQ.txt("Please… I have nothing worth taking."),
-    buttons: [
-      // ✅ BAD (keeps your existing quest logic)
-      { label: "Take Something (Evil)", onClick: () => { addEvil(1); doTake(); } },
-
-      // ✅ GOOD
-      { label: "Spare Her (Good)", onClick: () => {
-          addGood(1);
-          setFlag("dq_001b_sparedCitizen", true);
-          // optional: if you want this to count toward a step, choose a step index
-          // VAQ.qSetStepStatus("dq_001b", 1, "pass");
-          showDialogue({
-            speaker: "Hungry Slave",
-            portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
-            text: VAQ.txt("…You’re not taking it? Gods… thank you. Please—go before someone sees."),
-            buttons: [{ label: "Close", onClick: hideDialogue }]
-          });
-        }
-      },
-
-      { label: "Close", onClick: hideDialogue }
-    ]
-  });
-});
-
-document.getElementById("npcCitizen3").addEventListener("click", () => {
-  if (!ensureVAQ()) return;
-
-  showDialogue({
-    speaker: "Citizen",
-    portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
-    text: VAQ.txt("You’ve already done enough… leave me be."),
-    buttons: [
-      // ✅ BAD (your existing "cold report back")
-      { label: "Report Back (Cold) (Evil)", onClick: () => { addEvil(1); doReturn(); } },
-
-      // ✅ GOOD
-      { label: "Let Her Go (Good)", onClick: () => {
-          addGood(1);
-          setFlag("dq_001b_showedMercy", true);
-          showDialogue({
-            speaker: "You",
-            portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
-            text: VAQ.txt("You turn away. Mercy is a weakness here… but you choose it anyway."),
-            buttons: [{ label: "Close", onClick: hideDialogue }]
-          });
-        }
-      },
-
-      { label: "Close", onClick: hideDialogue }
-    ]
-  });
-});
-
-document.getElementById("npcCitizen4").addEventListener("click", () => {
-  if (!ensureVAQ()) return;
-
-  showDialogue({
-    speaker: "Citizen",
-    portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
-    text: VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity."),
-    buttons: [
-      // ✅ BAD
-      { label: "Threaten Him (Evil)", onClick: () => {
-          addEvil(1);
-          setFlag("dq_001b_threatenedCitizen", true);
-          showDialogue({
-            speaker: "Citizen",
-            portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
-            text: VAQ.txt("…Alright. I’ll look away. Just don’t make a scene."),
-            buttons: [{ label: "Close", onClick: hideDialogue }]
-          });
-        }
-      },
-
-      // ✅ GOOD
-      { label: "Ask Directions (Good)", onClick: () => {
-          addGood(1);
-          setFlag("dq_001b_askedDirections", true);
-          showDialogue({
-            speaker: "Citizen",
-            portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
-            text: VAQ.txt("If you must go… take the alley. Stay out of the torchlight."),
-            buttons: [{ label: "Close", onClick: hideDialogue }]
-          });
-        }
-      },
-
-      { label: "Close", onClick: hideDialogue }
-    ]
-  });
-});
-
 
   // ============================================================
   // DEV NPC DRAG + RESIZE MODE
+  // - Press M to toggle
+  // - Drag .npcWrap positions
+  // - Resize using bottom-right handle
+  // - Saves per page (pathname) in localStorage
   // ============================================================
   (() => {
     const DEV_KEY = "va_scene_dev_mode";
@@ -721,14 +691,16 @@ document.getElementById("npcCitizen4").addEventListener("click", () => {
     setDevMode(devMode);
 
     window.addEventListener("keydown", (e) => {
-      if (e.key && e.key.toLowerCase() === "m") setDevMode(!devMode);
+      if (e.key.toLowerCase() === "m") setDevMode(!devMode);
     });
 
     // DRAG start
     wraps.forEach(w => {
       w.addEventListener("mousedown", (e) => {
         if (!devMode) return;
-        if (e.target && e.target.classList && e.target.classList.contains("npcHandle")) return;
+
+        // if clicking handle, ignore drag (resize handles it)
+        if (e.target && e.target.classList.contains("npcHandle")) return;
 
         dragging = w;
         const rect = w.getBoundingClientRect();
@@ -759,6 +731,7 @@ document.getElementById("npcCitizen4").addEventListener("click", () => {
     });
 
     window.addEventListener("mousemove", (e) => {
+      // Drag
       if (dragging){
         const mapRect = document.body.getBoundingClientRect();
         const x = ((e.clientX - offsetX - mapRect.left) / mapRect.width) * 100;
@@ -768,9 +741,10 @@ document.getElementById("npcCitizen4").addEventListener("click", () => {
         dragging.style.top  = y.toFixed(2) + "%";
       }
 
+      // Resize
       if (resizing){
         const dx = e.clientX - startX;
-        const newW = Math.max(80, Math.min(520, startW + dx));
+        const newW = Math.max(80, Math.min(520, startW + dx)); // clamp
         resizing.style.width = Math.round(newW) + "px";
       }
     });
@@ -794,6 +768,7 @@ document.getElementById("npcCitizen4").addEventListener("click", () => {
       resizing = null;
     });
 
+    // Dev convenience
     window.VA_CITY_DEV = {
       clearNpcPositions(){
         localStorage.removeItem(POS_KEY);
@@ -818,6 +793,7 @@ document.getElementById("npcCitizen4").addEventListener("click", () => {
 </body>
 </html>
 ```
+
 
 
 
