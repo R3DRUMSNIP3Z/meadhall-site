@@ -332,29 +332,28 @@ body.devMode .npcHandle{ display:block; }
 
 <!-- ================= NPCS ================= -->
 <div id="npcs">
-  <!-- Replace these with your real NPC PNGs later -->
   <div class="npcWrap" data-id="1" style="left:18%; top:56%; width:190px;">
-    <img class="npcImg" id="npcCitizen1" src="/guildbook/npcs/slaves/blondeman.gif" alt="slave">
+    <img class="npcImg" id="npcCitizen1" src="/guildbook/npcs/slaves/blondeman.gif" alt="Citizen 1">
     <div class="npcHandle" title="Resize"></div>
   </div>
 
   <div class="npcWrap" data-id="2" style="left:46%; top:60%; width:190px;">
-    <img class="npcImg" id="npcCitizen2" src="/guildbook/npcs/slaves/hungrywoman.gif" alt="slave">
+    <img class="npcImg" id="npcCitizen2" src="/guildbook/npcs/slaves/hungrywoman.gif" alt="Citizen 2">
     <div class="npcHandle" title="Resize"></div>
   </div>
 
   <div class="npcWrap" data-id="3" style="left:73%; top:58%; width:190px;">
-    <img class="npcImg" id="npcCitizen3" src="/guildbook/npcs/citizens/helcitizenwoman.gif" alt="Citizen">
+    <img class="npcImg" id="npcCitizen3" src="/guildbook/npcs/citizens/helcitizenwoman.gif" alt="Citizen 3">
     <div class="npcHandle" title="Resize"></div>
   </div>
 
   <div class="npcWrap" data-id="4" style="left:82%; top:58%; width:190px;">
-    <img class="npcImg" id="npcCitizen4" src="/guildbook/npcs/citizens/helcitizenman.gif" alt="Citizen">
+    <img class="npcImg" id="npcCitizen4" src="/guildbook/npcs/citizens/helcitizenman.gif" alt="Citizen 4">
     <div class="npcHandle" title="Resize"></div>
   </div>
 </div>
 
-<div id="hint">Tip: Click a citizen/Slave.</div>
+<div id="hint">Tip: Click a citizen/Slave. (Press M for DEV move/resize)</div>
 
 <!-- Dialogue -->
 <div id="dlg" class="hidden">
@@ -415,7 +414,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dlgName.textContent = speaker || "";
     dlgText.textContent = (typeof text === "string") ? text : String(text ?? "");
     dlgBtns.innerHTML = "";
-    if (portraitSrc) dlgPortrait.src = portraitSrc;
+    dlgPortrait.src = portraitSrc || "";
     dlg.classList.remove("hidden");
 
     buttons.forEach(b => {
@@ -456,7 +455,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ----------------------------
   // Citizens -> quest objective flags for dq_001b
-  // (matches your failedloki_quests.json flags/steps)
   // ----------------------------
   function setFlag(flagKey, value=true){
     if (!ensureVAQ()) return;
@@ -472,7 +470,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     showDialogue({
       speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/placeholder.png",
+      portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
       text: VAQ.txt("Y-yes… I’ll be silent. Please—don’t draw attention to me, {name}."),
       buttons: [{ label: "Close", onClick: hideDialogue }]
     });
@@ -485,7 +483,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     showDialogue({
       speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/placeholder.png",
+      portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
       text: VAQ.txt("Take it… just—take it. I should have known better than to resist in Dreadheim."),
       buttons: [{ label: "Close", onClick: hideDialogue }]
     });
@@ -498,7 +496,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     showDialogue({
       speaker: "You",
-      portraitSrc: "/guildbook/npcs/placeholder.png",
+      portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
       text: VAQ.txt("No apology. No explanation. Only the mark, and the memory of fear."),
       buttons: [
         { label: "Return (Placeholder)", onClick: () => { window.location.href = "/lokisroom.html"; } },
@@ -507,12 +505,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // NPC clicks (images inside wraps)
+  // NPC clicks
   document.getElementById("npcCitizen1").addEventListener("click", () => {
     if (!ensureVAQ()){
       showDialogue({
         speaker: "Citizen",
-        portraitSrc: "/guildbook/npcs/placeholder.png",
+        portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
         text: "VAQ missing (global ui not loaded).",
         buttons: [{ label: "Close", onClick: hideDialogue }]
       });
@@ -520,7 +518,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     showDialogue({
       speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/placeholder.png",
+      portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
       text: VAQ.txt("You there… what do you want from me?"),
       buttons: [
         { label: "Intimidate", onClick: doIntimidate },
@@ -533,7 +531,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!ensureVAQ()) return;
     showDialogue({
       speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/placeholder.png",
+      portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
       text: VAQ.txt("Please… I have nothing worth taking."),
       buttons: [
         { label: "Take Something", onClick: doTake },
@@ -546,7 +544,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!ensureVAQ()) return;
     showDialogue({
       speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/placeholder.png",
+      portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
       text: VAQ.txt("You’ve already done enough… leave me be."),
       buttons: [
         { label: "Report Back (Cold)", onClick: doReturn },
@@ -559,7 +557,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!ensureVAQ()) return;
     showDialogue({
       speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/placeholder.png",
+      portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
       text: VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity."),
       buttons: [{ label: "Close", onClick: hideDialogue }]
     });
@@ -567,10 +565,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ============================================================
   // DEV NPC DRAG + RESIZE MODE
-  // - Press M to toggle
-  // - Drag .npcWrap positions
-  // - Resize using bottom-right handle
-  // - Saves per page (pathname) in localStorage
   // ============================================================
   (() => {
     const DEV_KEY = "va_scene_dev_mode";
@@ -621,16 +615,14 @@ document.addEventListener("DOMContentLoaded", () => {
     setDevMode(devMode);
 
     window.addEventListener("keydown", (e) => {
-      if (e.key.toLowerCase() === "m") setDevMode(!devMode);
+      if (e.key && e.key.toLowerCase() === "m") setDevMode(!devMode);
     });
 
     // DRAG start
     wraps.forEach(w => {
       w.addEventListener("mousedown", (e) => {
         if (!devMode) return;
-
-        // if clicking handle, ignore drag (resize handles it)
-        if (e.target && e.target.classList.contains("npcHandle")) return;
+        if (e.target && e.target.classList && e.target.classList.contains("npcHandle")) return;
 
         dragging = w;
         const rect = w.getBoundingClientRect();
@@ -661,7 +653,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     window.addEventListener("mousemove", (e) => {
-      // Drag
       if (dragging){
         const mapRect = document.body.getBoundingClientRect();
         const x = ((e.clientX - offsetX - mapRect.left) / mapRect.width) * 100;
@@ -671,10 +662,9 @@ document.addEventListener("DOMContentLoaded", () => {
         dragging.style.top  = y.toFixed(2) + "%";
       }
 
-      // Resize
       if (resizing){
         const dx = e.clientX - startX;
-        const newW = Math.max(80, Math.min(520, startW + dx)); // clamp
+        const newW = Math.max(80, Math.min(520, startW + dx));
         resizing.style.width = Math.round(newW) + "px";
       }
     });
@@ -698,7 +688,6 @@ document.addEventListener("DOMContentLoaded", () => {
       resizing = null;
     });
 
-    // Dev convenience
     window.VA_CITY_DEV = {
       clearNpcPositions(){
         localStorage.removeItem(POS_KEY);
@@ -723,5 +712,6 @@ document.addEventListener("DOMContentLoaded", () => {
 </body>
 </html>
 ```
+
 
 
