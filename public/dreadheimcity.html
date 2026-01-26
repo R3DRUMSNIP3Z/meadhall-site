@@ -865,7 +865,6 @@ function onCityMaybeComplete(){
   // DEV: DRAG + RESIZE (MeadHall style) — press M
   // ----------------------------
   const DEV_KEY = "va_scene_dev";
-  const POS_KEY = "va_scene_props_" + location.pathname;
 
   let devMode = localStorage.getItem(DEV_KEY) === "1";
   document.body.classList.toggle("devMode", devMode);
@@ -890,23 +889,8 @@ function onCityMaybeComplete(){
     });
   }
 
-  function saveOne(el){
-    const id = el.dataset.id;
-    if (!id) return;
+  
 
-    const s = getSaved();
-    s[id] = {
-      left: el.style.left,
-      top: el.style.top,
-      width: el.style.width,
-      height: el.style.height || "auto"
-    };
-    localStorage.setItem(POS_KEY, JSON.stringify(s));
-
-    console.log(`📌 ${id} → left:${s[id].left}; top:${s[id].top}; width:${s[id].width}; height:${s[id].height};`);
-  }
-
-  applySaved();
 
   function pctX(px){ return (px / window.innerWidth * 100).toFixed(2) + "%"; }
   function pctY(py){ return (py / window.innerHeight * 100).toFixed(2) + "%"; }
@@ -947,7 +931,6 @@ function onCityMaybeComplete(){
   function onMouseUp(){
     if (!active) return;
     active.classList.remove("devDragging");
-    saveOne(active);
     active = null;
     mode = null;
   }
