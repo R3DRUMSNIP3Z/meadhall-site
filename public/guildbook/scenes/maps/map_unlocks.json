@@ -11,7 +11,8 @@
 
   "unlockPhrases": {
     "dreadheim": "dreadheim open",
-    "myriador": "myriador open"
+    "myriador": "myriador open",
+    "fenrir": "fenrir open"
   },
 
   "worlds": {
@@ -23,6 +24,14 @@
       ],
       "url": "/guildbook/scenes/maps/dreadheim_map.html"
     },
+
+    "fenrirs_forest": {
+      "openIf": [
+        { "type": "flag", "key": "dreadheim_forest_open", "equals": true }
+      ],
+      "url": "/guildbook/scenes/fenrirsforest.html"
+    },
+
     "myriador": {
       "openIf": [
         { "type": "alignment", "equals": "myriador" },
@@ -33,3 +42,4 @@
     }
   }
 }
+
