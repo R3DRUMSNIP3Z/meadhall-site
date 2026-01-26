@@ -371,7 +371,129 @@ body.devMode #devHint{ display:block; }
     dlgName.textContent = "";
     dlgText.textContent = "";
     dlgBtns.innerHTML = "";
+
+
   }
+
+    // ✅ Make these available to any external runner (and to our local runner)
+  window.showDialogue = showDialogue;
+  window.hideDialogue = hideDialogue;
+
+  // ----------------------------
+  // Local JSON dialogue runner (fallback)
+  // ----------------------------
+  window.runDialogueFromJson = async function runDialogueFromJson(url, startId){
+    try{
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error(`Failed to load ${url} (${res.status})`);
+      const data = await res.json();
+
+      const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+      const byId = Object.create(null);
+      nodes.forEach(n => { if (n && n.id) byId[n.id] = n; });
+
+      const meta = data.meta || {};
+      const keys = meta.keys || {};
+      const nameKey = keys.nameKey || "va_player_name";
+      const flagsKey = keys.flagsKey || "va_flags";
+      const questIdKey = keys.questIdKey || "vaq_activeQuestId";
+      const questCatKey = keys.questCatKey || "vaq_activeQuestCatalog";
+
+      const playerName = localStorage.getItem(nameKey) || "wanderer";
+
+      function getFlagsLocal(){
+        try{ return JSON.parse(localStorage.getItem(flagsKey) || "{}"); }
+        catch{ return {}; }
+      }
+      function setFlagsLocal(f){
+        localStorage.setItem(flagsKey, JSON.stringify(f || {}));
+        try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+      }
+
+      function applyReward(reward){
+        if (!reward) return;
+
+        // flags
+        if (reward.flags && typeof reward.flags === "object"){
+          const f = getFlagsLocal();
+          Object.keys(reward.flags).forEach(k => {
+            f[k] = !!reward.flags[k];
+          });
+          setFlagsLocal(f);
+        }
+
+        // setQuest
+        if (reward.setQuest && reward.setQuest.id){
+          localStorage.setItem(questIdKey, reward.setQuest.id);
+          if (reward.setQuest.catalog){
+            localStorage.setItem(questCatKey, reward.setQuest.catalog);
+          }
+          // if your global quest UI has a refresh/hud render hook, try it
+          try{ window.__vaq_hud_render && window.__vaq_hud_render(); }catch{}
+          try{ window.VAQ && window.VAQ.hudRender && window.VAQ.hudRender(); }catch{}
+        }
+
+        // questSteps (fallback storage — keeps your data, even if no quest engine hook)
+        if (reward.questSteps && typeof reward.questSteps === "object"){
+          const f = getFlagsLocal();
+          Object.keys(reward.questSteps).forEach(qid => {
+            const stepsObj = reward.questSteps[qid] || {};
+            Object.keys(stepsObj).forEach(stepNum => {
+              f[`qs_${qid}_${stepNum}`] = stepsObj[stepNum];
+            });
+          });
+          setFlagsLocal(f);
+        }
+      }
+
+      function fmtText(s){
+        return String(s || "").replaceAll("{name}", playerName);
+      }
+
+      function go(id){
+        if (id === "__close"){
+          window.hideDialogue();
+          return;
+        }
+
+        const node = byId[id];
+        if (!node){
+          console.error("Dialogue node not found:", id);
+          window.hideDialogue();
+          return;
+        }
+
+        // reward for arriving on the node
+        applyReward(node.reward);
+
+        const speaker = node.speaker || meta.speakerDefault || "…";
+        const portrait = node.portrait || meta.portrait || "";
+
+        const choices = Array.isArray(node.choices) ? node.choices : [];
+        const buttons = choices.map(ch => ({
+          label: ch.label || "Continue",
+          onClick: () => go(ch.to || "__close")
+        }));
+
+        // if no choices, give a close button
+        if (buttons.length === 0){
+          buttons.push({ label: "Close", onClick: () => go("__close") });
+        }
+
+        window.showDialogue({
+          speaker,
+          portraitSrc: portrait,
+          text: fmtText(node.text),
+          buttons
+        });
+      }
+
+      go(startId || data.start || "start");
+    } catch (err){
+      console.error("runDialogueFromJson failed:", err);
+    }
+  };
+
 
     // ✅ Expose dialogue helpers so runDialogueFromJson can use them
   window.showDialogue = showDialogue;
