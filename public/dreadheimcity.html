@@ -1,3 +1,4 @@
+```html
 <!-- /public/guildbook/scenes/dreadheim_city.html -->
 <!doctype html>
 <html lang="en">
@@ -27,44 +28,6 @@ html, body{
   z-index:0;
 }
 
-/* ================= DEV PANEL ================= */
-#devPanel{
-  position:fixed;
-  left:14px;
-  top:14px;
-  z-index:2000;
-  display:none;
-  padding:12px 12px 10px;
-  border-radius:14px;
-  background:rgba(0,0,0,.78);
-  border:1px solid rgba(255,208,120,.25);
-  box-shadow:0 18px 55px rgba(0,0,0,.65);
-  color:rgba(255,240,220,.95);
-  font-size:14px;
-  line-height:1.25;
-  user-select:none;
-  text-shadow:0 2px 8px rgba(0,0,0,.8);
-}
-body.devMode #devPanel{ display:block; }
-
-#devPanel .row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-#devPanel button{
-  padding:8px 12px;
-  border-radius:12px;
-  cursor:pointer;
-  border:1px solid rgba(255,208,120,.25);
-  background:rgba(120,60,25,.35);
-  color:rgba(255,245,230,.95);
-  font-weight:800;
-}
-#devPanel button:hover{ filter:brightness(1.1); }
-
-#devHint{
-  opacity:.9;
-  font-size:12px;
-  margin-top:8px;
-}
-
 /* ================= DEV PROPS LAYER (DRAG + RESIZE) ================= */
 #props{
   position:fixed;
@@ -76,32 +39,28 @@ body.devMode #props{
   pointer-events:auto; /* dev mode: clickable */
 }
 
-/* generic draggable box (props + npcs in dev mode) */
-.draggable{
+/* generic draggable prop box */
+.prop{
   position:absolute;
   pointer-events:auto;
   user-select:none;
   -webkit-user-drag:none;
-  touch-action:none;
 }
-.draggable img{
+.prop img{
   width:100%;
   height:100%;
   object-fit:contain;
   display:block;
   filter:drop-shadow(0 18px 30px rgba(0,0,0,0.75));
 }
-
-/* drag handle overlays the whole element */
-.draggable .handle{
+.prop .handle{
   position:absolute;
   inset:0;
   cursor:grab;
 }
-body.devMode .draggable.dragging .handle{ cursor:grabbing; }
-
-/* resize nub */
-.draggable .resize{
+body.devMode .prop .handle{ cursor:grab; }
+body.devMode .prop.dragging .handle{ cursor:grabbing; }
+.prop .resize{
   position:absolute;
   right:-10px;
   bottom:-10px;
@@ -114,7 +73,7 @@ body.devMode .draggable.dragging .handle{ cursor:grabbing; }
   cursor:nwse-resize;
   display:none;
 }
-body.devMode .draggable .resize{ display:block; }
+body.devMode .prop .resize{ display:block; }
 
 /* ================= NPCS LAYER ================= */
 #npcs{
@@ -123,29 +82,28 @@ body.devMode .draggable .resize{ display:block; }
   z-index:20;
   pointer-events:none; /* allow only NPCs to receive clicks */
 }
-.npcWrap{
+.npc{
   position:absolute;
+  height:auto;
   z-index:25;
   pointer-events:auto;
-}
-body:not(.devMode) .npcWrap{ cursor:pointer; }
-body.devMode .npcWrap{ cursor:default; }
-
-.npcImg{
-  width:100%;
-  height:auto;
-  display:block;
-  pointer-events:none; /* wrapper handles clicks */
+  cursor:pointer;
   user-select:none;
   -webkit-user-drag:none;
   filter: drop-shadow(0 18px 32px rgba(0,0,0,0.78));
   transition: transform 120ms ease, filter 120ms ease;
 }
-body:not(.devMode) .npcWrap:hover .npcImg{
+.npc:hover{
   transform: scale(1.02);
   filter: drop-shadow(0 22px 38px rgba(0,0,0,0.85))
           drop-shadow(0 0 14px rgba(180,200,255,0.22));
 }
+
+/* Default placements (adjust any time) */
+#npcCitizen1{ left:18%; top:55%; width:90px; }
+#npcCitizen2{ left:36%; top:58%; width:92px; }
+#npcCitizen3{ left:62%; top:54%; width:110px; }
+#npcCitizen4{ left:82%; top:56%; width:110px; }
 
 /* ================= DIALOGUE ================= */
 #dlg{
@@ -269,6 +227,51 @@ body:not(.devMode) .npcWrap:hover .npcImg{
   gap:10px;
   flex-wrap:wrap;
 }
+
+/* ================= DEV HUD (M TO TOGGLE) ================= */
+#devHud{
+  position:fixed;
+  left:14px;
+  top:14px;
+  z-index:1002;
+  display:none;
+  padding:10px 12px;
+  border-radius:14px;
+  background:rgba(0,0,0,.72);
+  border:1px solid rgba(255,208,120,.22);
+  box-shadow:0 16px 50px rgba(0,0,0,.65);
+  color:rgba(255,245,230,.92);
+  font-weight:800;
+  letter-spacing:.03em;
+  user-select:none;
+}
+body.devMode #devHud{ display:block; }
+
+#devHud .row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-top:8px;
+}
+#devHud .miniBtn{
+  padding:8px 10px;
+  border-radius:12px;
+  cursor:pointer;
+  border:1px solid rgba(255,208,120,.28);
+  background:rgba(120,60,25,.45);
+  color:rgba(255,245,230,.95);
+  font-weight:900;
+  font-family:Cinzel, serif;
+}
+#devHud .miniBtn:hover{ filter:brightness(1.1); }
+
+#devHud .hint{
+  opacity:.85;
+  font-weight:700;
+  font-size:14px;
+  line-height:1.25;
+}
 </style>
 </head>
 
@@ -276,24 +279,22 @@ body:not(.devMode) .npcWrap:hover .npcImg{
 
 <div id="bg"></div>
 
-<!-- DEV panel (only visible in devMode) -->
-<div id="devPanel">
-  <div style="font-weight:900; letter-spacing:.06em; color:rgba(255,215,140,1);">DEV MODE</div>
-  <div id="devHint">
-    Drag = move • Corner nub = resize • Saves automatically<br>
-    Toggle: <b>Ctrl+Shift+D</b> • Copy layout: <b>Ctrl+Shift+C</b> • Reset: <b>Ctrl+Shift+R</b>
-  </div>
+<!-- ✅ DEV HUD -->
+<div id="devHud" aria-hidden="true">
+  <div>DEV MODE</div>
+  <div class="hint">Press <strong>M</strong> to toggle. Drag props by grabbing them. Resize with corner.</div>
   <div class="row">
-    <button id="btnCopy">Copy Layout JSON</button>
-    <button id="btnReset">Reset Saved Layout</button>
-    <button id="btnToggle">Exit Dev</button>
+    <button id="btnPrintLayout" class="miniBtn" type="button">Print Layout</button>
+    <button id="btnCopyLayout" class="miniBtn" type="button">Copy Layout</button>
+    <button id="btnResetLayout" class="miniBtn" type="button">Reset</button>
   </div>
 </div>
 
 <!-- Optional dev props you can add/drag/resize while in devMode -->
 <div id="props" aria-hidden="true">
-  <!-- Add props like this (they become draggable/resizable in devMode):
-  <div class="draggable" data-kind="prop" data-id="crate1" style="left:10%; top:62%; width:140px; height:140px;">
+  <!-- PUT YOUR PROPS HERE (keep your saved left/top/width/height in style) -->
+  <!-- Example:
+  <div class="prop" data-prop="crate1" style="left:120px; top:540px; width:140px; height:140px;">
     <div class="handle"></div>
     <img src="/guildbook/props/crate.png" alt="">
     <div class="resize"></div>
@@ -302,30 +303,11 @@ body:not(.devMode) .npcWrap:hover .npcImg{
 </div>
 
 <div id="npcs">
-  <!-- NPCs wrapped so we can make them draggable in devMode without breaking normal clicks -->
-  <div id="npcCitizen1" class="npcWrap draggable" data-kind="npc" data-id="npcCitizen1" style="left:18%; top:55%; width:90px;">
-    <div class="handle"></div>
-    <img class="npcImg" src="/guildbook/npcs/slaves/blondeman.gif" alt="Street Slave">
-    <div class="resize"></div>
-  </div>
-
-  <div id="npcCitizen2" class="npcWrap draggable" data-kind="npc" data-id="npcCitizen2" style="left:36%; top:58%; width:92px;">
-    <div class="handle"></div>
-    <img class="npcImg" src="/guildbook/npcs/slaves/hungrywoman.gif" alt="Hungry Woman">
-    <div class="resize"></div>
-  </div>
-
-  <div id="npcCitizen3" class="npcWrap draggable" data-kind="npc" data-id="npcCitizen3" style="left:62%; top:54%; width:110px;">
-    <div class="handle"></div>
-    <img class="npcImg" src="/guildbook/npcs/citizens/helcitizenwoman.gif" alt="Citizen Woman">
-    <div class="resize"></div>
-  </div>
-
-  <div id="npcCitizen4" class="npcWrap draggable" data-kind="npc" data-id="npcCitizen4" style="left:82%; top:56%; width:110px;">
-    <div class="handle"></div>
-    <img class="npcImg" src="/guildbook/npcs/citizens/helcitizenman.gif" alt="Citizen Man">
-    <div class="resize"></div>
-  </div>
+  <!-- ✅ Your citizen/slave GIFs -->
+  <img id="npcCitizen1" class="npc" src="/guildbook/npcs/slaves/blondeman.gif" alt="Street Slave">
+  <img id="npcCitizen2" class="npc" src="/guildbook/npcs/slaves/hungrywoman.gif" alt="Hungry Woman">
+  <img id="npcCitizen3" class="npc" src="/guildbook/npcs/citizens/helcitizenwoman.gif" alt="Citizen Woman">
+  <img id="npcCitizen4" class="npc" src="/guildbook/npcs/citizens/helcitizenman.gif" alt="Citizen Man">
 </div>
 
 <!-- Dialogue (HIDDEN until NPC click) -->
@@ -357,15 +339,17 @@ body:not(.devMode) .npcWrap:hover .npcImg{
   "use strict";
 
   // ----------------------------
-  // Page-level keys (same as global)
+  // Inventory + alignment keys (same as global)
   // ----------------------------
   const GOOD_KEY = "va_good";
   const EVIL_KEY = "va_evil";
   const INV_UNLOCK_KEY = "va_inv_unlocked";
   const INV_ITEMS_KEY  = "va_inv_items";
 
-  // Layout save key (unique to this page)
-  const LAYOUT_KEY = "va_layout_dreadheim_city";
+  // ----------------------------
+  // DEV save key (page-specific)
+  // ----------------------------
+  const DEV_LAYOUT_KEY = "va_dev_layout_dreadheim_city";
 
   // ----------------------------
   // UI refs
@@ -381,9 +365,9 @@ body:not(.devMode) .npcWrap:hover .npcImg{
   const pickupText = document.getElementById("pickupText");
   const pickupBtns = document.getElementById("pickupBtns");
 
-  const btnCopy = document.getElementById("btnCopy");
-  const btnReset = document.getElementById("btnReset");
-  const btnToggle = document.getElementById("btnToggle");
+  const btnPrintLayout = document.getElementById("btnPrintLayout");
+  const btnCopyLayout  = document.getElementById("btnCopyLayout");
+  const btnResetLayout = document.getElementById("btnResetLayout");
 
   // ----------------------------
   // Helpers
@@ -559,213 +543,6 @@ body:not(.devMode) .npcWrap:hover .npcImg{
   });
 
   // ----------------------------
-  // ✅ DEV LAYOUT SAVE/RESTORE
-  // ----------------------------
-  function readLayout(){
-    try{
-      const j = JSON.parse(localStorage.getItem(LAYOUT_KEY) || "null");
-      return (j && typeof j === "object") ? j : { items:{} };
-    }catch{
-      return { items:{} };
-    }
-  }
-  function writeLayout(layout){
-    localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout || { items:{} }));
-  }
-
-  function snapshotEl(el){
-    // Use computed px values from getBoundingClientRect, then store as px strings.
-    const r = el.getBoundingClientRect();
-    return {
-      left: Math.round(r.left) + "px",
-      top: Math.round(r.top) + "px",
-      width: Math.round(r.width) + "px",
-      height: Math.round(r.height) + "px"
-    };
-  }
-
-  function applySavedLayout(){
-    const layout = readLayout();
-    const items = layout.items || {};
-    document.querySelectorAll(".draggable[data-id]").forEach(el => {
-      const id = el.getAttribute("data-id");
-      const saved = items[id];
-      if (!saved) return;
-
-      if (saved.left) el.style.left = saved.left;
-      if (saved.top) el.style.top = saved.top;
-      if (saved.width) el.style.width = saved.width;
-
-      // Only apply height if element uses it (props do; npc wrappers can ignore height safely)
-      if (saved.height && el.getAttribute("data-kind") === "prop"){
-        el.style.height = saved.height;
-      }
-    });
-  }
-
-  function saveOne(el){
-    const id = el.getAttribute("data-id");
-    if (!id) return;
-    const layout = readLayout();
-    layout.items = layout.items || {};
-    layout.items[id] = snapshotEl(el);
-
-    // If npc: keep height out (NPCs are auto-height)
-    if (el.getAttribute("data-kind") === "npc"){
-      delete layout.items[id].height;
-    }
-    writeLayout(layout);
-  }
-
-  async function copyLayoutToClipboard(){
-    const layout = readLayout();
-    const pretty = JSON.stringify(layout, null, 2);
-    try{
-      await navigator.clipboard.writeText(pretty);
-      toast("Layout copied ✅");
-    }catch{
-      // fallback
-      const ta = document.createElement("textarea");
-      ta.value = pretty;
-      document.body.appendChild(ta);
-      ta.select();
-      try{ document.execCommand("copy"); toast("Layout copied ✅"); }catch{ toast("Copy failed ❌"); }
-      ta.remove();
-    }
-  }
-
-  function resetLayout(){
-    localStorage.removeItem(LAYOUT_KEY);
-    toast("Saved layout cleared.");
-    // reload to restore defaults from inline styles
-    location.reload();
-  }
-
-  // Small toast (uses your global if present; else quick inline)
-  function toast(msg){
-    try{
-      if (typeof window.showToast === "function") { window.showToast(msg); return; }
-    }catch{}
-    console.log(msg);
-  }
-
-  // ----------------------------
-  // ✅ DEV DRAG/RESIZE (NPCs + Props)
-  // ----------------------------
-  function bootDevDragResize(){
-    const els = Array.from(document.querySelectorAll(".draggable"));
-
-    let dragEl = null;
-    let startX=0, startY=0, startL=0, startT=0;
-
-    let rezEl = null;
-    let rsX=0, rsY=0, rsW=0, rsH=0;
-
-    function pxToNum(v){ return Number(String(v||"0").replace("px","")) || 0; }
-
-    function onMove(e){
-      const x = (e.touches ? e.touches[0].clientX : e.clientX);
-      const y = (e.touches ? e.touches[0].clientY : e.clientY);
-
-      if (dragEl){
-        const dx = x - startX;
-        const dy = y - startY;
-        dragEl.style.left = (startL + dx) + "px";
-        dragEl.style.top  = (startT + dy) + "px";
-      }
-      if (rezEl){
-        const dx = x - rsX;
-        const dy = y - rsY;
-        const newW = Math.max(30, rsW + dx);
-        rezEl.style.width = newW + "px";
-
-        // Only props use height resize; NPC wrappers stay auto-height (but can still “resize” by width)
-        if (rezEl.getAttribute("data-kind") === "prop"){
-          rezEl.style.height = Math.max(30, rsH + dy) + "px";
-        }
-      }
-    }
-
-    function onUp(){
-      if (dragEl){
-        dragEl.classList.remove("dragging");
-        saveOne(dragEl);
-        dragEl = null;
-      }
-      if (rezEl){
-        saveOne(rezEl);
-        rezEl = null;
-      }
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("touchmove", onMove, {passive:false});
-      window.removeEventListener("touchend", onUp);
-    }
-
-    els.forEach(el => {
-      const handle = el.querySelector(".handle");
-      const resize = el.querySelector(".resize");
-
-      if (handle){
-        const down = (e) => {
-          if (!document.body.classList.contains("devMode")) return;
-          e.preventDefault();
-
-          const r = el.getBoundingClientRect();
-          dragEl = el;
-          dragEl.classList.add("dragging");
-
-          startX = (e.touches ? e.touches[0].clientX : e.clientX);
-          startY = (e.touches ? e.touches[0].clientY : e.clientY);
-
-          // Convert to px for stable dragging
-          el.style.left = Math.round(r.left) + "px";
-          el.style.top  = Math.round(r.top) + "px";
-
-          startL = pxToNum(el.style.left);
-          startT = pxToNum(el.style.top);
-
-          window.addEventListener("mousemove", onMove);
-          window.addEventListener("mouseup", onUp);
-          window.addEventListener("touchmove", onMove, {passive:false});
-          window.addEventListener("touchend", onUp);
-        };
-        handle.addEventListener("mousedown", down);
-        handle.addEventListener("touchstart", down, {passive:false});
-      }
-
-      if (resize){
-        const downR = (e) => {
-          if (!document.body.classList.contains("devMode")) return;
-          e.preventDefault();
-
-          const r = el.getBoundingClientRect();
-          rezEl = el;
-
-          rsX = (e.touches ? e.touches[0].clientX : e.clientX);
-          rsY = (e.touches ? e.touches[0].clientY : e.clientY);
-
-          // Convert to px so resizing is stable
-          el.style.width  = Math.round(r.width) + "px";
-          if (el.getAttribute("data-kind") === "prop"){
-            el.style.height = Math.round(r.height) + "px";
-          }
-
-          rsW = pxToNum(el.style.width);
-          rsH = pxToNum(el.style.height);
-
-          window.addEventListener("mousemove", onMove);
-          window.addEventListener("mouseup", onUp);
-          window.addEventListener("touchmove", onMove, {passive:false});
-          window.addEventListener("touchend", onUp);
-        };
-        resize.addEventListener("mousedown", downR);
-        resize.addEventListener("touchstart", downR, {passive:false});
-      }
-    });
-  }
-
-  // ----------------------------
   // NPC Actions
   // ----------------------------
   function doGoodCitizen1(){
@@ -862,46 +639,223 @@ body:not(.devMode) .npcWrap:hover .npcImg{
   }
 
   // ----------------------------
-  // ✅ Dev Mode Toggle + Hotkeys
+  // DEV: export layout exactly (console copy/paste)
   // ----------------------------
+  function collectLayout(){
+    const props = Array.from(document.querySelectorAll("#props .prop"));
+    return props.map(p => {
+      const id = p.getAttribute("data-prop") || p.id || "";
+      const r = p.getBoundingClientRect();
+      const img = p.querySelector("img")?.getAttribute("src") || "";
+      return {
+        id,
+        img,
+        left: Math.round(r.left),
+        top: Math.round(r.top),
+        width: Math.round(r.width),
+        height: Math.round(r.height)
+      };
+    });
+  }
+
+  function printLayoutToConsole(){
+    const layout = collectLayout();
+    const json = JSON.stringify(layout, null, 2);
+    console.log("=== DREADHEIM CITY PROPS LAYOUT ===");
+    console.log(json);
+    console.log("=== END LAYOUT ===");
+    // also store it
+    localStorage.setItem(DEV_LAYOUT_KEY, json);
+  }
+
+  async function copyLayoutToClipboard(){
+    const layout = collectLayout();
+    const json = JSON.stringify(layout, null, 2);
+    localStorage.setItem(DEV_LAYOUT_KEY, json);
+    try{
+      await navigator.clipboard.writeText(json);
+      console.log("Layout copied to clipboard.");
+    }catch(e){
+      console.warn("Clipboard copy failed. Layout printed below:");
+      console.log(json);
+    }
+  }
+
+  function resetLayout(){
+    localStorage.removeItem(DEV_LAYOUT_KEY);
+    console.log("Layout reset (localStorage cleared).");
+  }
+
+  // Apply layout to existing props (by data-prop id)
+  function applyLayout(layoutArr){
+    if (!Array.isArray(layoutArr)) return;
+    const map = new Map();
+    layoutArr.forEach(x => { if (x && x.id) map.set(String(x.id), x); });
+
+    document.querySelectorAll("#props .prop").forEach(p => {
+      const id = p.getAttribute("data-prop") || p.id || "";
+      if (!id || !map.has(id)) return;
+      const x = map.get(id);
+      p.style.left = (Number(x.left)||0) + "px";
+      p.style.top  = (Number(x.top)||0) + "px";
+      p.style.width  = Math.max(30, Number(x.width)||0) + "px";
+      p.style.height = Math.max(30, Number(x.height)||0) + "px";
+    });
+  }
+
+  function loadSavedLayout(){
+    try{
+      const raw = localStorage.getItem(DEV_LAYOUT_KEY);
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      applyLayout(arr);
+    }catch(e){
+      console.warn("Saved layout failed to load", e);
+    }
+  }
+
   function setDevMode(on){
     document.body.classList.toggle("devMode", !!on);
     localStorage.setItem("va_devMode", on ? "1" : "0");
   }
-  function getDevMode(){
-    return localStorage.getItem("va_devMode") === "1";
+
+  function bootDevToggle(){
+    // restore dev mode state
+    const saved = localStorage.getItem("va_devMode") === "1";
+    if (saved) setDevMode(true);
+
+    // ✅ PRESS M TO TOGGLE (like your old flow)
+    window.addEventListener("keydown", (e) => {
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+
+      const k = (e.key || "").toLowerCase();
+      if (k === "m"){
+        e.preventDefault();
+        setDevMode(!document.body.classList.contains("devMode"));
+      }
+
+      if (e.key === "Escape"){
+        hideDialogue();
+        pickupHide();
+      }
+    });
+
+    // buttons
+    btnPrintLayout.addEventListener("click", printLayoutToConsole);
+    btnCopyLayout.addEventListener("click", copyLayoutToClipboard);
+    btnResetLayout.addEventListener("click", resetLayout);
   }
 
-  function bindDevButtons(){
-    btnCopy.addEventListener("click", copyLayoutToClipboard);
-    btnReset.addEventListener("click", resetLayout);
-    btnToggle.addEventListener("click", () => setDevMode(false));
+  // ----------------------------
+  // DEV: drag + resize props (same behavior as before)
+  // ----------------------------
+  function bootDevProps(){
+    const props = document.querySelectorAll("#props .prop");
+    let drag = null;
+    let startX=0, startY=0, startL=0, startT=0;
+
+    let rez = null;
+    let rsX=0, rsY=0, rsW=0, rsH=0;
+
+    function onMove(e){
+      const x = (e.touches ? e.touches[0].clientX : e.clientX);
+      const y = (e.touches ? e.touches[0].clientY : e.clientY);
+
+      if (drag){
+        const dx = x - startX;
+        const dy = y - startY;
+        drag.style.left = (startL + dx) + "px";
+        drag.style.top  = (startT + dy) + "px";
+      }
+      if (rez){
+        const dx = x - rsX;
+        const dy = y - rsY;
+        rez.style.width  = Math.max(30, rsW + dx) + "px";
+        rez.style.height = Math.max(30, rsH + dy) + "px";
+      }
+    }
+    function onUp(){
+      if (drag){ drag.classList.remove("dragging"); drag = null; }
+      rez = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onMove, {passive:false});
+      window.removeEventListener("touchend", onUp);
+
+      // ✅ print to console after every move/resize (so you can copy immediately)
+      if (document.body.classList.contains("devMode")){
+        printLayoutToConsole();
+      }
+    }
+
+    props.forEach(p => {
+      const handle = p.querySelector(".handle");
+      const resize = p.querySelector(".resize");
+
+      if (handle){
+        const down = (e) => {
+          if (!document.body.classList.contains("devMode")) return;
+          e.preventDefault();
+          const r = p.getBoundingClientRect();
+          drag = p;
+          drag.classList.add("dragging");
+          startX = (e.touches ? e.touches[0].clientX : e.clientX);
+          startY = (e.touches ? e.touches[0].clientY : e.clientY);
+          startL = r.left;
+          startT = r.top;
+
+          // convert to px for clean dragging
+          p.style.left = startL + "px";
+          p.style.top  = startT + "px";
+
+          window.addEventListener("mousemove", onMove);
+          window.addEventListener("mouseup", onUp);
+          window.addEventListener("touchmove", onMove, {passive:false});
+          window.addEventListener("touchend", onUp);
+        };
+        handle.addEventListener("mousedown", down);
+        handle.addEventListener("touchstart", down, {passive:false});
+      }
+
+      if (resize){
+        const downR = (e) => {
+          if (!document.body.classList.contains("devMode")) return;
+          e.preventDefault();
+          rez = p;
+          const r = p.getBoundingClientRect();
+          rsX = (e.touches ? e.touches[0].clientX : e.clientX);
+          rsY = (e.touches ? e.touches[0].clientY : e.clientY);
+          rsW = r.width;
+          rsH = r.height;
+
+          // convert to px so resizing is stable
+          p.style.width  = rsW + "px";
+          p.style.height = rsH + "px";
+
+          window.addEventListener("mousemove", onMove);
+          window.addEventListener("mouseup", onUp);
+          window.addEventListener("touchmove", onMove, {passive:false});
+          window.addEventListener("touchend", onUp);
+        };
+        resize.addEventListener("mousedown", downR);
+        resize.addEventListener("touchstart", downR, {passive:false});
+      }
+    });
   }
 
   // ----------------------------
   // Boot
   // ----------------------------
   document.addEventListener("DOMContentLoaded", () => {
+    // load saved prop layout (if any)
+    loadSavedLayout();
 
-    // Restore saved dev toggle state
-    setDevMode(getDevMode());
+    // dev toggle + dev buttons
+    bootDevToggle();
 
-    // Apply saved layout FIRST (so your hand-tuned positions come back)
-    applySavedLayout();
-
-    // Boot drag/resize system
-    bootDevDragResize();
-    bindDevButtons();
-
-    // Normal NPC click wiring (disabled while devMode is on)
-    function npcClickGuard(fn){
-      return (e) => {
-        if (document.body.classList.contains("devMode")) return; // dev mode: don't trigger dialogue
-        fn(e);
-      };
-    }
-
-    document.getElementById("npcCitizen1").addEventListener("click", npcClickGuard(() => {
+    // NPC click wiring (2 options each)
+    document.getElementById("npcCitizen1").addEventListener("click", () => {
       const t = ensureVAQ() ? VAQ.txt("What do you want from me, if its not food leave me alone!?") : "…";
       showDialogue({
         speaker: "Street Slave",
@@ -913,9 +867,9 @@ body:not(.devMode) .npcWrap:hover .npcImg{
           { label: "Close", onClick: hideDialogue }
         ]
       });
-    }));
+    });
 
-    document.getElementById("npcCitizen2").addEventListener("click", npcClickGuard(() => {
+    document.getElementById("npcCitizen2").addEventListener("click", () => {
       const t = ensureVAQ() ? VAQ.txt("Please… I have nothing worth taking.") : "…";
       showDialogue({
         speaker: "Hungry Woman",
@@ -927,9 +881,9 @@ body:not(.devMode) .npcWrap:hover .npcImg{
           { label: "Close", onClick: hideDialogue }
         ]
       });
-    }));
+    });
 
-    document.getElementById("npcCitizen3").addEventListener("click", npcClickGuard(() => {
+    document.getElementById("npcCitizen3").addEventListener("click", () => {
       const t = ensureVAQ() ? VAQ.txt("You’ve already done enough… leave me be.") : "…";
       showDialogue({
         speaker: "Citizen",
@@ -941,9 +895,9 @@ body:not(.devMode) .npcWrap:hover .npcImg{
           { label: "Close", onClick: hideDialogue }
         ]
       });
-    }));
+    });
 
-    document.getElementById("npcCitizen4").addEventListener("click", npcClickGuard(() => {
+    document.getElementById("npcCitizen4").addEventListener("click", () => {
       const t = ensureVAQ() ? VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity.") : "…";
       showDialogue({
         speaker: "Citizen",
@@ -955,36 +909,18 @@ body:not(.devMode) .npcWrap:hover .npcImg{
           { label: "Close", onClick: hideDialogue }
         ]
       });
-    }));
-
-    // ESC closes dialogue + pickup
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape"){
-        hideDialogue();
-        pickupHide();
-      }
     });
 
-    // DEV hotkeys
-    window.addEventListener("keydown", (e) => {
-      const k = e.key.toLowerCase();
-      if (e.ctrlKey && e.shiftKey && k === "d"){
-        e.preventDefault();
-        setDevMode(!document.body.classList.contains("devMode"));
-      }
-      if (e.ctrlKey && e.shiftKey && k === "c"){
-        e.preventDefault();
-        copyLayoutToClipboard();
-      }
-      if (e.ctrlKey && e.shiftKey && k === "r"){
-        e.preventDefault();
-        resetLayout();
-      }
-    });
+    // dev props boot (safe)
+    try{ bootDevProps(); }catch(e){ console.warn("Dev props boot failed", e); }
 
     // start hidden
     hideDialogue();
     pickupHide();
+
+    // expose tiny dev helpers like before
+    window.printDreadheimCityLayout = printLayoutToConsole;
+    window.copyDreadheimCityLayout  = copyLayoutToClipboard;
   });
 
 })();
@@ -992,6 +928,8 @@ body:not(.devMode) .npcWrap:hover .npcImg{
 
 </body>
 </html>
+```
+
 
 
 
