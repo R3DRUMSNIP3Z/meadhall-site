@@ -518,42 +518,31 @@ body.devMode #devHint{ display:block; }
   });
 
   // ----------------------------
-  // Click wiring (Fenrir only)
-  // ----------------------------
-  function bindClicks(){
-    const fenrirWrap = document.querySelector('[data-id="fenrirNpc"]');
-    if (!fenrirWrap) return;
+// Click wiring (Fenrir → JSON dialogue)
+// ----------------------------
+function bindClicks(){
+  const fenrirWrap = document.querySelector('[data-id="fenrirNpc"]');
+  if (!fenrirWrap) return;
 
-    fenrirWrap.addEventListener("click", (e) => {
-      if (devMode) return;
-      e.preventDefault(); e.stopPropagation();
+  fenrirWrap.addEventListener("click", (e) => {
+    if (devMode) return;
+    e.preventDefault();
+    e.stopPropagation();
 
-      // objective "see"
-      setFlagTrue(SEEN_FLAG);
+    // objective "seen"
+    setFlagTrue(SEEN_FLAG);
 
-      const name = localStorage.getItem("va_player_name") || "wanderer";
-      const t = ensureVAQ()
-        ? VAQ.txt(`You step into my shadow, {name}.\nSpeak your purpose… or become it.`)
-        : `You step into my shadow, ${name}.\nSpeak your purpose… or become it.`;
+    if (typeof window.runDialogueFromJson === "function"){
+      runDialogueFromJson(
+        "/data/episodes/volume1_ep1/fenrirsdialogue.json",
+        "fenrir_1"
+      );
+    } else {
+      console.error("runDialogueFromJson not available");
+    }
+  });
+}
 
-      showDialogue({
-        speaker: "Fenrir",
-        portraitSrc: "/guildbook/npcs/fenrir/fenrir.png",
-        text: t,
-        buttons: [
-          {
-            label: "Open Quest Journal",
-            onClick: () => {
-              hideDialogue();
-              const qBtn = document.getElementById("questBtn");
-              if (qBtn) qBtn.click();
-            }
-          },
-          { label: "Close", onClick: hideDialogue }
-        ]
-      });
-    });
-  }
 
   // ----------------------------
   // Boot
