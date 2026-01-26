@@ -1,4 +1,3 @@
-```html
 <!-- /public/guildbook/scenes/dreadheim_city.html -->
 <!doctype html>
 <html lang="en">
@@ -24,6 +23,7 @@ html, body{
 #bg{
   position:fixed;
   inset:0;
+  /* ✅ put your city background here */
   background:url("/guildbook/scenes/maps/dreadheimcityentrance.png") center center / cover no-repeat;
   z-index:0;
 }
@@ -33,54 +33,74 @@ html, body{
   position:fixed;
   inset:0;
   z-index:12;
-  pointer-events:none; /* normal mode: ignore */
+  pointer-events:auto; /* ✅ clickable in normal mode (like meadhall) */
 }
 body.devMode #props{
-  pointer-events:auto; /* dev mode: clickable */
+  pointer-events:auto; /* ON in dev mode */
 }
 
-/* generic draggable prop box */
-.prop{
+/* Each prop wrapper */
+.devItem{
   position:absolute;
-  pointer-events:auto;
   user-select:none;
   -webkit-user-drag:none;
+  pointer-events:auto;
+  cursor:pointer;
+  filter:drop-shadow(0 14px 26px rgba(0,0,0,.65));
 }
-.prop img{
-  width:100%;
-  height:100%;
-  object-fit:contain;
+body.devMode .devItem{
+  pointer-events:auto;
+  cursor:move;
+  outline:1px dashed rgba(255,215,140,.55);
+}
+.devItem img{
   display:block;
-  filter:drop-shadow(0 18px 30px rgba(0,0,0,0.75));
+  width:100%;
+  height:auto;
+  pointer-events:none; /* drag on wrapper */
 }
-.prop .handle{
-  position:absolute;
-  inset:0;
-  cursor:grab;
+.devDragging{
+  outline:2px dashed rgba(255,215,140,.88) !important;
+  box-shadow:0 0 0 6px rgba(255,215,140,.12) !important;
 }
-body.devMode .prop .handle{ cursor:grab; }
-body.devMode .prop.dragging .handle{ cursor:grabbing; }
-.prop .resize{
+
+/* resize handles */
+.devHandle{
   position:absolute;
-  right:-10px;
-  bottom:-10px;
-  width:18px;
-  height:18px;
+  width:14px;
+  height:14px;
   border-radius:6px;
-  background:rgba(255,210,150,.85);
-  border:1px solid rgba(0,0,0,.35);
-  box-shadow:0 10px 18px rgba(0,0,0,.55);
-  cursor:nwse-resize;
+  background:rgba(255,215,140,.95);
+  border:1px solid rgba(0,0,0,.55);
   display:none;
 }
-body.devMode .prop .resize{ display:block; }
+body.devMode .devHandle{ display:block; }
+.devHandle.br{ right:-7px; bottom:-7px; cursor:nwse-resize; }
+.devHandle.bl{ left:-7px; bottom:-7px; cursor:nesw-resize; }
+.devHandle.tr{ right:-7px; top:-7px; cursor:nesw-resize; }
+.devHandle.tl{ left:-7px; top:-7px; cursor:nwse-resize; }
+
+/* Dev hint badge */
+#devHint{
+  position:fixed;
+  left:14px;
+  top:14px;
+  z-index:999;
+  font-size:12px;
+  letter-spacing:.05em;
+  color:rgba(255,255,255,.65);
+  text-shadow:0 2px 10px rgba(0,0,0,.85);
+  pointer-events:none;
+  display:none;
+}
+body.devMode #devHint{ display:block; }
 
 /* ================= NPCS LAYER ================= */
 #npcs{
   position:fixed;
   inset:0;
   z-index:20;
-  pointer-events:none; /* allow only NPCs to receive clicks */
+  pointer-events:none;
 }
 .npc{
   position:absolute;
@@ -99,12 +119,6 @@ body.devMode .prop .resize{ display:block; }
           drop-shadow(0 0 14px rgba(180,200,255,0.22));
 }
 
-/* Default placements (adjust any time) */
-#npcCitizen1{ left:18%; top:55%; width:90px; }
-#npcCitizen2{ left:36%; top:58%; width:92px; }
-#npcCitizen3{ left:62%; top:54%; width:110px; }
-#npcCitizen4{ left:82%; top:56%; width:110px; }
-
 /* ================= DIALOGUE ================= */
 #dlg{
   position:fixed;
@@ -113,7 +127,7 @@ body.devMode .prop .resize{ display:block; }
   transform:translateX(-50%);
   width:min(1200px, calc(100vw - 24px));
   height:190px;
-  z-index:999; /* must be above HUD */
+  z-index:999;
   display:grid;
   grid-template-columns:240px 1fr;
   border-radius:18px;
@@ -123,7 +137,6 @@ body.devMode .prop .resize{ display:block; }
   box-shadow:0 18px 55px rgba(0,0,0,.6);
 }
 #dlg.hidden{ display:none !important; }
-
 #dlgPortrait{
   width:240px;
   height:190px;
@@ -131,36 +144,30 @@ body.devMode .prop .resize{ display:block; }
   align-self:end;
   filter:drop-shadow(0 12px 22px rgba(0,0,0,0.65));
 }
-
 #dlgPanel{
   padding:16px 18px;
   display:grid;
   grid-template-rows:auto 1fr auto;
   gap:10px;
 }
-
 #dlgName{
   font-size:28px;
   font-weight:900;
   color:rgba(255,225,170,.95);
 }
-
 #dlgText{
   font-size:20px;
   line-height:1.35;
   color:rgba(255,255,255,.95);
   white-space:pre-wrap;
 }
-
 #dlgBtns{
   display:flex;
   justify-content:flex-end;
   gap:10px;
   flex-wrap:wrap;
 }
-
 #dlg, #dlgPanel, #dlgBtns, .dlgBtn{ pointer-events:auto; }
-
 .dlgBtn{
   padding:10px 16px;
   border-radius:12px;
@@ -171,147 +178,50 @@ body.devMode .prop .resize{ display:block; }
   font-weight:800;
 }
 .dlgBtn:hover{ filter:brightness(1.1); }
-
-/* ================= PICKUP POPUP (RING) ================= */
-#pickupOverlay{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.72);
-  z-index:1000;
-  display:none;
-}
-#pickupCard{
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%, -50%);
-  width:min(520px, calc(100vw - 36px));
-  border-radius:18px;
-  overflow:hidden;
-  background:linear-gradient(180deg, rgba(35,20,10,.96), rgba(10,8,8,.92));
-  border:1px solid rgba(255,208,120,.22);
-  box-shadow:0 24px 80px rgba(0,0,0,.75);
-  padding:16px;
-}
-#pickupRow{
-  display:flex;
-  gap:14px;
-  align-items:center;
-}
-#pickupImg{
-  width:96px;
-  height:96px;
-  border-radius:16px;
-  border:1px solid rgba(255,255,255,.12);
-  background:rgba(0,0,0,.35);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:hidden;
-}
-#pickupImg img{
-  width:78px;
-  height:78px;
-  object-fit:contain;
-}
-#pickupText{
-  flex:1;
-  line-height:1.35;
-  font-size:18px;
-  color:rgba(245,240,230,.95);
-}
-#pickupBtns{
-  margin-top:12px;
-  display:flex;
-  justify-content:flex-end;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-/* ================= DEV HUD (M TO TOGGLE) ================= */
-#devHud{
-  position:fixed;
-  left:14px;
-  top:14px;
-  z-index:1002;
-  display:none;
-  padding:10px 12px;
-  border-radius:14px;
-  background:rgba(0,0,0,.72);
-  border:1px solid rgba(255,208,120,.22);
-  box-shadow:0 16px 50px rgba(0,0,0,.65);
-  color:rgba(255,245,230,.92);
-  font-weight:800;
-  letter-spacing:.03em;
-  user-select:none;
-}
-body.devMode #devHud{ display:block; }
-
-#devHud .row{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  flex-wrap:wrap;
-  margin-top:8px;
-}
-#devHud .miniBtn{
-  padding:8px 10px;
-  border-radius:12px;
-  cursor:pointer;
-  border:1px solid rgba(255,208,120,.28);
-  background:rgba(120,60,25,.45);
-  color:rgba(255,245,230,.95);
-  font-weight:900;
-  font-family:Cinzel, serif;
-}
-#devHud .miniBtn:hover{ filter:brightness(1.1); }
-
-#devHud .hint{
-  opacity:.85;
-  font-weight:700;
-  font-size:14px;
-  line-height:1.25;
-}
 </style>
 </head>
 
 <body>
-
 <div id="bg"></div>
 
-<!-- ✅ DEV HUD -->
-<div id="devHud" aria-hidden="true">
-  <div>DEV MODE</div>
-  <div class="hint">Press <strong>M</strong> to toggle. Drag props by grabbing them. Resize with corner.</div>
-  <div class="row">
-    <button id="btnPrintLayout" class="miniBtn" type="button">Print Layout</button>
-    <button id="btnCopyLayout" class="miniBtn" type="button">Copy Layout</button>
-    <button id="btnResetLayout" class="miniBtn" type="button">Reset</button>
+<div id="devHint">DEV MODE ON — drag props, resize corners, release to save (prints CSS in console)</div>
+
+<!-- ================= DEV PROPS (press M) =================
+  ✅ same as meadhall: .devItem + .devHandle
+-->
+<div id="props">
+  <!-- Replace/extend these with your city props/NPCs as props if you want them draggable -->
+  <!-- Example citizens/slaves as draggable props (optional): -->
+
+  <div class="devItem" data-id="city_slave1" style="left:30.72%; top:51.97%; width:48px; height:auto;">
+    <img src="/guildbook/npcs/slaves/femaleslave1.gif" alt="slave1">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
+
+  <div class="devItem" data-id="city_slave2" style="left:65.74%; top:51.59%; width:52px; height:auto;">
+    <img src="/guildbook/npcs/slaves/maleslave1.gif" alt="slave2">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
+
+  <div class="devItem" data-id="city_guard1" style="left:85.85%; top:49.24%; width:126px; height:auto;">
+    <img src="/guildbook/npcs/helheimguardians/femaleguard1.gif" alt="guard">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  </div>
+
+  <div class="devItem" data-id="city_guard2" style="left:9.47%; top:45.24%; width:160px; height:auto;">
+    <img src="/guildbook/npcs/helheimguardians/maleguard1.gif" alt="guard">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
   </div>
 </div>
 
-<!-- Optional dev props you can add/drag/resize while in devMode -->
-<div id="props" aria-hidden="true">
-  <!-- PUT YOUR PROPS HERE (keep your saved left/top/width/height in style) -->
-  <!-- Example:
-  <div class="prop" data-prop="crate1" style="left:120px; top:540px; width:140px; height:140px;">
-    <div class="handle"></div>
-    <img src="/guildbook/props/crate.png" alt="">
-    <div class="resize"></div>
-  </div>
-  -->
-</div>
-
+<!-- NPC layer (only if you want NON-draggable NPCs; otherwise keep them as props above) -->
 <div id="npcs">
-  <!-- ✅ Your citizen/slave GIFs -->
-  <img id="npcCitizen1" class="npc" src="/guildbook/npcs/slaves/blondeman.gif" alt="Street Slave">
-  <img id="npcCitizen2" class="npc" src="/guildbook/npcs/slaves/hungrywoman.gif" alt="Hungry Woman">
-  <img id="npcCitizen3" class="npc" src="/guildbook/npcs/citizens/helcitizenwoman.gif" alt="Citizen Woman">
-  <img id="npcCitizen4" class="npc" src="/guildbook/npcs/citizens/helcitizenman.gif" alt="Citizen Man">
+  <!-- example: -->
+  <!-- <img id="npcCitizen1" class="npc" style="left:18%; top:55%; width:90px;" src="/guildbook/npcs/slaves/blondeman.gif" alt="Street Slave"> -->
 </div>
 
-<!-- Dialogue (HIDDEN until NPC click) -->
-<div id="dlg" class="hidden" aria-hidden="true">
+<!-- Dialogue -->
+<div id="dlg" class="hidden">
   <img id="dlgPortrait" alt="Portrait">
   <div id="dlgPanel">
     <div id="dlgName"></div>
@@ -320,39 +230,14 @@ body.devMode #devHud{ display:block; }
   </div>
 </div>
 
-<!-- Ring pickup popup -->
-<div id="pickupOverlay" aria-hidden="true">
-  <div id="pickupCard" role="dialog" aria-label="Item acquired">
-    <div id="pickupRow">
-      <div id="pickupImg"><img id="pickupImgInner" alt="Item"></div>
-      <div id="pickupText"></div>
-    </div>
-    <div id="pickupBtns"></div>
-  </div>
-</div>
-
-<!-- ✅ Global UI MUST load before page logic so VAQ exists -->
+<!-- Your global UI (keep if you use VAQ anywhere) -->
 <script src="/guildbook/js/va_global_ui.js"></script>
 
 <script>
-(() => {
-  "use strict";
+document.addEventListener("DOMContentLoaded", () => {
 
   // ----------------------------
-  // Inventory + alignment keys (same as global)
-  // ----------------------------
-  const GOOD_KEY = "va_good";
-  const EVIL_KEY = "va_evil";
-  const INV_UNLOCK_KEY = "va_inv_unlocked";
-  const INV_ITEMS_KEY  = "va_inv_items";
-
-  // ----------------------------
-  // DEV save key (page-specific)
-  // ----------------------------
-  const DEV_LAYOUT_KEY = "va_dev_layout_dreadheim_city";
-
-  // ----------------------------
-  // UI refs
+  // Dialogue UI (simple stub)
   // ----------------------------
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
@@ -360,574 +245,204 @@ body.devMode #devHud{ display:block; }
   const dlgBtns = document.getElementById("dlgBtns");
   const dlgPortrait = document.getElementById("dlgPortrait");
 
-  const pickupOverlay = document.getElementById("pickupOverlay");
-  const pickupImgInner = document.getElementById("pickupImgInner");
-  const pickupText = document.getElementById("pickupText");
-  const pickupBtns = document.getElementById("pickupBtns");
-
-  const btnPrintLayout = document.getElementById("btnPrintLayout");
-  const btnCopyLayout  = document.getElementById("btnCopyLayout");
-  const btnResetLayout = document.getElementById("btnResetLayout");
-
-  // ----------------------------
-  // Helpers
-  // ----------------------------
-  function ensureVAQ(){
-    return !!(window.VAQ && typeof window.VAQ.txt === "function");
-  }
-
-  function escapeHtml(s){
-    return String(s ?? "")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
-  }
-
-  function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
-
-  function getNum(key){
-    const v = Number(localStorage.getItem(key) || "0");
-    return Number.isFinite(v) ? v : 0;
-  }
-  function setNum(key, n){ localStorage.setItem(key, String(Number(n)||0)); }
-
-  // Same overflow behavior you designed
-  function addAlignment(kind, delta){
-    delta = Number(delta) || 0;
-    if (!delta) return;
-
-    for (let i = 0; i < Math.abs(delta); i++){
-      if (kind === "good"){
-        let g = clamp(getNum(GOOD_KEY), 0, 10);
-        let e = clamp(getNum(EVIL_KEY), 0, 10);
-
-        if (delta > 0){
-          if (g >= 10){
-            if (e > 0) e -= 1;
-          } else {
-            g += 1;
-          }
-        } else {
-          if (g > 0) g -= 1;
-        }
-        setNum(GOOD_KEY, g);
-        setNum(EVIL_KEY, e);
-      } else {
-        let g = clamp(getNum(GOOD_KEY), 0, 10);
-        let e = clamp(getNum(EVIL_KEY), 0, 10);
-
-        if (delta > 0){
-          if (e >= 10){
-            if (g > 0) g -= 1;
-          } else {
-            e += 1;
-          }
-        } else {
-          if (e > 0) e -= 1;
-        }
-        setNum(GOOD_KEY, g);
-        setNum(EVIL_KEY, e);
-      }
-    }
-
-    try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
-  }
-
-  // Inventory (matches global keys)
-  function invIsUnlocked(){ return localStorage.getItem(INV_UNLOCK_KEY) === "1"; }
-  function invUnlock(){
-    localStorage.setItem(INV_UNLOCK_KEY, "1");
-    try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
-  }
-  function invGetItems(){
-    try{
-      const arr = JSON.parse(localStorage.getItem(INV_ITEMS_KEY) || "[]");
-      return Array.isArray(arr) ? arr : [];
-    }catch{
-      return [];
-    }
-  }
-  function invSetItems(items){
-    localStorage.setItem(INV_ITEMS_KEY, JSON.stringify(Array.isArray(items) ? items : []));
-  }
-  function invHasItem(id){
-    return invGetItems().some(it => it && it.id === id);
-  }
-  function invAddItem(item){
-    if (!item || !item.id) return;
-    if (invHasItem(item.id)) return;
-    const items = invGetItems();
-    items.push(item);
-    invSetItems(items);
-  }
-  function invOpenViaGlobal(){
-    const btn = document.getElementById("invBtn");
-    if (btn && invIsUnlocked()) btn.click();
-  }
-
-  // Dialogue
   function showDialogue({ speaker, text, portraitSrc, buttons = [] }){
     dlgName.textContent = speaker || "";
     dlgText.textContent = (typeof text === "string") ? text : String(text ?? "");
     dlgBtns.innerHTML = "";
-
     if (portraitSrc) dlgPortrait.src = portraitSrc;
-
     dlg.classList.remove("hidden");
-    dlg.setAttribute("aria-hidden", "false");
-
     buttons.forEach(b => {
       const btn = document.createElement("button");
       btn.className = "dlgBtn";
       btn.type = "button";
       btn.textContent = b.label;
-
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (typeof b.onClick === "function") b.onClick();
       });
-
       dlgBtns.appendChild(btn);
     });
   }
-
   function hideDialogue(){
     dlg.classList.add("hidden");
-    dlg.setAttribute("aria-hidden", "true");
     dlgName.textContent = "";
     dlgText.textContent = "";
     dlgBtns.innerHTML = "";
   }
-
-  // Pickup popup
-  function pickupShow({ img, textLines = [], primaryLabel = "Open Inventory", onPrimary, secondaryLabel = "Close", onSecondary }){
-    pickupImgInner.src = img || "";
-    pickupText.innerHTML = textLines.map(line => `<div>${escapeHtml(line)}</div>`).join("");
-    pickupBtns.innerHTML = "";
-
-    const b1 = document.createElement("button");
-    b1.className = "dlgBtn";
-    b1.type = "button";
-    b1.textContent = primaryLabel;
-    b1.addEventListener("click", () => {
-      pickupHide();
-      if (typeof onPrimary === "function") onPrimary();
-    });
-
-    const b2 = document.createElement("button");
-    b2.className = "dlgBtn";
-    b2.type = "button";
-    b2.textContent = secondaryLabel;
-    b2.addEventListener("click", () => {
-      pickupHide();
-      if (typeof onSecondary === "function") onSecondary();
-    });
-
-    pickupBtns.appendChild(b1);
-    pickupBtns.appendChild(b2);
-
-    pickupOverlay.style.display = "block";
-    pickupOverlay.setAttribute("aria-hidden","false");
-  }
-
-  function pickupHide(){
-    pickupOverlay.style.display = "none";
-    pickupOverlay.setAttribute("aria-hidden","true");
-  }
-
-  pickupOverlay.addEventListener("click", (e) => {
-    if (e.target === pickupOverlay) pickupHide();
-  });
+  hideDialogue();
 
   // ----------------------------
-  // NPC Actions
+  // DEV: DRAG + RESIZE PROPS (EXACT MEADHALL SYSTEM)
   // ----------------------------
-  function doGoodCitizen1(){
-    addAlignment("good", 1);
-    showDialogue({
-      speaker: "Street Slave",
-      portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
-      text: ensureVAQ() ? VAQ.txt("…You didn’t have to do that. In Dreadheim, kindness is a dangerous habit.") : "…",
-      buttons: [{ label: "Close", onClick: hideDialogue }]
+  const DEV_KEY = "va_scene_dev";                 // global toggle
+  const POS_KEY = "va_scene_props_" + location.pathname; // per-page saved positions
+
+  let devMode = localStorage.getItem(DEV_KEY) === "1";
+  document.body.classList.toggle("devMode", devMode);
+
+  const props = [...document.querySelectorAll("#props .devItem")];
+
+  function pctX(px){ return (px / window.innerWidth * 100).toFixed(2) + "%"; }
+  function pctY(py){ return (py / window.innerHeight * 100).toFixed(2) + "%"; }
+
+  function getSaved(){
+    try{ return JSON.parse(localStorage.getItem(POS_KEY) || "{}"); }
+    catch{ return {}; }
+  }
+  function saveOne(el){
+    const id = el.dataset.id;
+    if (!id) return;
+
+    const s = getSaved();
+    s[id] = {
+      left: el.style.left,
+      top: el.style.top,
+      width: el.style.width,
+      height: el.style.height || "auto"
+    };
+    localStorage.setItem(POS_KEY, JSON.stringify(s));
+
+    console.log(
+      `📌 ${id} → left:${s[id].left}; top:${s[id].top}; width:${s[id].width}; height:${s[id].height};`
+    );
+  }
+  function applySaved(){
+    const s = getSaved();
+    props.forEach(el => {
+      const id = el.dataset.id;
+      const v = s[id];
+      if (!v) return;
+      if (v.left) el.style.left = v.left;
+      if (v.top) el.style.top = v.top;
+      if (v.width) el.style.width = v.width;
+      if (v.height && v.height !== "auto") el.style.height = v.height;
     });
   }
+  applySaved();
 
-  function doEvilCitizen1(){
-    addAlignment("evil", 1);
-    showDialogue({
-      speaker: "Street Slave",
-      portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
-      text: ensureVAQ() ? VAQ.txt("What do you want from me? If it’s not food—leave me alone!?") : "…",
-      buttons: [{ label: "Close", onClick: hideDialogue }]
-    });
-  }
+  // drag/resize state
+  let active = null;
+  let mode = null; // "drag" | "resize"
+  let handle = "br";
+  let sx=0, sy=0, sl=0, st=0, sw=0, sh=0;
 
-  function doGoodCitizen2(){
-    addAlignment("good", 1);
-    showDialogue({
-      speaker: "Hungry Woman",
-      portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
-      text: ensureVAQ() ? VAQ.txt("…Thank you. I thought you’d be like the rest of them.") : "…",
-      buttons: [{ label: "Close", onClick: hideDialogue }]
-    });
-  }
+  function onMouseMove(e){
+    if (!devMode || !active) return;
 
-  function doStealRing(){
-    addAlignment("evil", 1);
+    if (mode === "drag"){
+      const nl = sl + (e.clientX - sx);
+      const nt = st + (e.clientY - sy);
+      active.style.left = pctX(nl);
+      active.style.top  = pctY(nt);
+      return;
+    }
 
-    const RING_ITEM_ID = "slaves_wedding_ring";
-    const RING_ITEM_IMG = "/guildbook/props/slavesring.gif";
-    const RING_ITEM_NAME = "Wedding Ring (Slave’s Keepsake)";
+    // resize: width only (keeps aspect ratio since img is width:100% height:auto)
+    const dx = e.clientX - sx;
+    let newW = sw;
 
-    invUnlock();
-    invAddItem({ id: RING_ITEM_ID, name: RING_ITEM_NAME, img: RING_ITEM_IMG });
+    if (handle === "br" || handle === "tr") newW = sw + dx;
+    if (handle === "bl" || handle === "tl") newW = sw - dx;
 
-    pickupShow({
-      img: RING_ITEM_IMG,
-      textLines: [
-        "You rummage through her sack that is being used as bottom cover…",
-        "and find a special memento the slave cherishes:",
-        "her dead husband’s wedding ring."
-      ],
-      primaryLabel: "Open Inventory",
-      onPrimary: () => invOpenViaGlobal(),
-      secondaryLabel: "Close"
-    });
-  }
+    newW = Math.max(24, newW);
+    active.style.width = newW + "px";
 
-  function doGoodCitizen3(){
-    addAlignment("good", 1);
-    showDialogue({
-      speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
-      text: ensureVAQ() ? VAQ.txt("…You spared me. That’s rarer than gold in Dreadheim.") : "…",
-      buttons: [{ label: "Close", onClick: hideDialogue }]
-    });
-  }
-
-  function doEvilCitizen3(){
-    addAlignment("evil", 1);
-    showDialogue({
-      speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
-      text: ensureVAQ() ? VAQ.txt("You’ve already done enough… leave me be.") : "…",
-      buttons: [{ label: "Close", onClick: hideDialogue }]
-    });
-  }
-
-  function doGoodCitizen4(){
-    addAlignment("good", 1);
-    showDialogue({
-      speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
-      text: ensureVAQ() ? VAQ.txt("Hmph. You chose restraint. Smart—here, mercy costs.") : "…",
-      buttons: [{ label: "Close", onClick: hideDialogue }]
-    });
-  }
-
-  function doEvilCitizen4(){
-    addAlignment("evil", 1);
-    showDialogue({
-      speaker: "Citizen",
-      portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
-      text: ensureVAQ() ? VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity.") : "…",
-      buttons: [{ label: "Close", onClick: hideDialogue }]
-    });
-  }
-
-  // ----------------------------
-  // DEV: export layout exactly (console copy/paste)
-  // ----------------------------
-  function collectLayout(){
-    const props = Array.from(document.querySelectorAll("#props .prop"));
-    return props.map(p => {
-      const id = p.getAttribute("data-prop") || p.id || "";
-      const r = p.getBoundingClientRect();
-      const img = p.querySelector("img")?.getAttribute("src") || "";
-      return {
-        id,
-        img,
-        left: Math.round(r.left),
-        top: Math.round(r.top),
-        width: Math.round(r.width),
-        height: Math.round(r.height)
-      };
-    });
-  }
-
-  function printLayoutToConsole(){
-    const layout = collectLayout();
-    const json = JSON.stringify(layout, null, 2);
-    console.log("=== DREADHEIM CITY PROPS LAYOUT ===");
-    console.log(json);
-    console.log("=== END LAYOUT ===");
-    // also store it
-    localStorage.setItem(DEV_LAYOUT_KEY, json);
-  }
-
-  async function copyLayoutToClipboard(){
-    const layout = collectLayout();
-    const json = JSON.stringify(layout, null, 2);
-    localStorage.setItem(DEV_LAYOUT_KEY, json);
-    try{
-      await navigator.clipboard.writeText(json);
-      console.log("Layout copied to clipboard.");
-    }catch(e){
-      console.warn("Clipboard copy failed. Layout printed below:");
-      console.log(json);
+    // if resizing from left corners, adjust left so corner stays pinned
+    if (handle === "bl" || handle === "tl"){
+      const nl = sl + dx;
+      active.style.left = pctX(nl);
     }
   }
 
-  function resetLayout(){
-    localStorage.removeItem(DEV_LAYOUT_KEY);
-    console.log("Layout reset (localStorage cleared).");
+  function onMouseUp(){
+    if (!active) return;
+    active.classList.remove("devDragging");
+    saveOne(active);
+    active = null;
+    mode = null;
   }
 
-  // Apply layout to existing props (by data-prop id)
-  function applyLayout(layoutArr){
-    if (!Array.isArray(layoutArr)) return;
-    const map = new Map();
-    layoutArr.forEach(x => { if (x && x.id) map.set(String(x.id), x); });
+  props.forEach(el => {
+    // drag on wrapper (ignore handles)
+    el.addEventListener("mousedown", (e) => {
+      if (!devMode) return;
+      if (e.target && e.target.classList && e.target.classList.contains("devHandle")) return;
 
-    document.querySelectorAll("#props .prop").forEach(p => {
-      const id = p.getAttribute("data-prop") || p.id || "";
-      if (!id || !map.has(id)) return;
-      const x = map.get(id);
-      p.style.left = (Number(x.left)||0) + "px";
-      p.style.top  = (Number(x.top)||0) + "px";
-      p.style.width  = Math.max(30, Number(x.width)||0) + "px";
-      p.style.height = Math.max(30, Number(x.height)||0) + "px";
+      const r = el.getBoundingClientRect();
+      active = el;
+      mode = "drag";
+      sx = e.clientX; sy = e.clientY;
+      sl = r.left;   st = r.top;
+
+      el.classList.add("devDragging");
+      e.preventDefault();
+      e.stopPropagation();
     });
-  }
 
-  function loadSavedLayout(){
-    try{
-      const raw = localStorage.getItem(DEV_LAYOUT_KEY);
-      if (!raw) return;
-      const arr = JSON.parse(raw);
-      applyLayout(arr);
-    }catch(e){
-      console.warn("Saved layout failed to load", e);
-    }
-  }
+    // resize handles
+    el.querySelectorAll(".devHandle").forEach(h => {
+      h.addEventListener("mousedown", (e) => {
+        if (!devMode) return;
+        const r = el.getBoundingClientRect();
+        active = el;
+        mode = "resize";
+        handle = [...h.classList].find(c => ["tl","tr","bl","br"].includes(c)) || "br";
 
-  function setDevMode(on){
-    document.body.classList.toggle("devMode", !!on);
-    localStorage.setItem("va_devMode", on ? "1" : "0");
-  }
+        sx = e.clientX; sy = e.clientY;
+        sl = r.left;   st = r.top;
+        sw = r.width;  sh = r.height;
 
-  function bootDevToggle(){
-    // restore dev mode state
-    const saved = localStorage.getItem("va_devMode") === "1";
-    if (saved) setDevMode(true);
-
-    // ✅ PRESS M TO TOGGLE (like your old flow)
-    window.addEventListener("keydown", (e) => {
-      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
-      if (tag === "input" || tag === "textarea" || tag === "select") return;
-
-      const k = (e.key || "").toLowerCase();
-      if (k === "m"){
+        el.classList.add("devDragging");
         e.preventDefault();
-        setDevMode(!document.body.classList.contains("devMode"));
-      }
-
-      if (e.key === "Escape"){
-        hideDialogue();
-        pickupHide();
-      }
-    });
-
-    // buttons
-    btnPrintLayout.addEventListener("click", printLayoutToConsole);
-    btnCopyLayout.addEventListener("click", copyLayoutToClipboard);
-    btnResetLayout.addEventListener("click", resetLayout);
-  }
-
-  // ----------------------------
-  // DEV: drag + resize props (same behavior as before)
-  // ----------------------------
-  function bootDevProps(){
-    const props = document.querySelectorAll("#props .prop");
-    let drag = null;
-    let startX=0, startY=0, startL=0, startT=0;
-
-    let rez = null;
-    let rsX=0, rsY=0, rsW=0, rsH=0;
-
-    function onMove(e){
-      const x = (e.touches ? e.touches[0].clientX : e.clientX);
-      const y = (e.touches ? e.touches[0].clientY : e.clientY);
-
-      if (drag){
-        const dx = x - startX;
-        const dy = y - startY;
-        drag.style.left = (startL + dx) + "px";
-        drag.style.top  = (startT + dy) + "px";
-      }
-      if (rez){
-        const dx = x - rsX;
-        const dy = y - rsY;
-        rez.style.width  = Math.max(30, rsW + dx) + "px";
-        rez.style.height = Math.max(30, rsH + dy) + "px";
-      }
-    }
-    function onUp(){
-      if (drag){ drag.classList.remove("dragging"); drag = null; }
-      rez = null;
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("touchmove", onMove, {passive:false});
-      window.removeEventListener("touchend", onUp);
-
-      // ✅ print to console after every move/resize (so you can copy immediately)
-      if (document.body.classList.contains("devMode")){
-        printLayoutToConsole();
-      }
-    }
-
-    props.forEach(p => {
-      const handle = p.querySelector(".handle");
-      const resize = p.querySelector(".resize");
-
-      if (handle){
-        const down = (e) => {
-          if (!document.body.classList.contains("devMode")) return;
-          e.preventDefault();
-          const r = p.getBoundingClientRect();
-          drag = p;
-          drag.classList.add("dragging");
-          startX = (e.touches ? e.touches[0].clientX : e.clientX);
-          startY = (e.touches ? e.touches[0].clientY : e.clientY);
-          startL = r.left;
-          startT = r.top;
-
-          // convert to px for clean dragging
-          p.style.left = startL + "px";
-          p.style.top  = startT + "px";
-
-          window.addEventListener("mousemove", onMove);
-          window.addEventListener("mouseup", onUp);
-          window.addEventListener("touchmove", onMove, {passive:false});
-          window.addEventListener("touchend", onUp);
-        };
-        handle.addEventListener("mousedown", down);
-        handle.addEventListener("touchstart", down, {passive:false});
-      }
-
-      if (resize){
-        const downR = (e) => {
-          if (!document.body.classList.contains("devMode")) return;
-          e.preventDefault();
-          rez = p;
-          const r = p.getBoundingClientRect();
-          rsX = (e.touches ? e.touches[0].clientX : e.clientX);
-          rsY = (e.touches ? e.touches[0].clientY : e.clientY);
-          rsW = r.width;
-          rsH = r.height;
-
-          // convert to px so resizing is stable
-          p.style.width  = rsW + "px";
-          p.style.height = rsH + "px";
-
-          window.addEventListener("mousemove", onMove);
-          window.addEventListener("mouseup", onUp);
-          window.addEventListener("touchmove", onMove, {passive:false});
-          window.addEventListener("touchend", onUp);
-        };
-        resize.addEventListener("mousedown", downR);
-        resize.addEventListener("touchstart", downR, {passive:false});
-      }
-    });
-  }
-
-  // ----------------------------
-  // Boot
-  // ----------------------------
-  document.addEventListener("DOMContentLoaded", () => {
-    // load saved prop layout (if any)
-    loadSavedLayout();
-
-    // dev toggle + dev buttons
-    bootDevToggle();
-
-    // NPC click wiring (2 options each)
-    document.getElementById("npcCitizen1").addEventListener("click", () => {
-      const t = ensureVAQ() ? VAQ.txt("What do you want from me, if its not food leave me alone!?") : "…";
-      showDialogue({
-        speaker: "Street Slave",
-        portraitSrc: "/guildbook/npcs/slaves/blondeman.gif",
-        text: t,
-        buttons: [
-          { label: "Give Food (Good)", onClick: doGoodCitizen1 },
-          { label: "Intimidate (Evil)", onClick: doEvilCitizen1 },
-          { label: "Close", onClick: hideDialogue }
-        ]
+        e.stopPropagation();
       });
     });
-
-    document.getElementById("npcCitizen2").addEventListener("click", () => {
-      const t = ensureVAQ() ? VAQ.txt("Please… I have nothing worth taking.") : "…";
-      showDialogue({
-        speaker: "Hungry Woman",
-        portraitSrc: "/guildbook/npcs/slaves/hungrywoman.gif",
-        text: t,
-        buttons: [
-          { label: "Leave Something (Good)", onClick: doGoodCitizen2 },
-          { label: "Steal It (Evil)", onClick: doStealRing },
-          { label: "Close", onClick: hideDialogue }
-        ]
-      });
-    });
-
-    document.getElementById("npcCitizen3").addEventListener("click", () => {
-      const t = ensureVAQ() ? VAQ.txt("You’ve already done enough… leave me be.") : "…";
-      showDialogue({
-        speaker: "Citizen",
-        portraitSrc: "/guildbook/npcs/citizens/helcitizenwoman.gif",
-        text: t,
-        buttons: [
-          { label: "Spare Her (Good)", onClick: doGoodCitizen3 },
-          { label: "Report Back (Cold) (Evil)", onClick: doEvilCitizen3 },
-          { label: "Close", onClick: hideDialogue }
-        ]
-      });
-    });
-
-    document.getElementById("npcCitizen4").addEventListener("click", () => {
-      const t = ensureVAQ() ? VAQ.txt("Keep your eyes down. Dreadheim doesn’t forgive curiosity.") : "…";
-      showDialogue({
-        speaker: "Citizen",
-        portraitSrc: "/guildbook/npcs/citizens/helcitizenman.gif",
-        text: t,
-        buttons: [
-          { label: "Nod + Move On (Good)", onClick: doGoodCitizen4 },
-          { label: "Threaten Him (Evil)", onClick: doEvilCitizen4 },
-          { label: "Close", onClick: hideDialogue }
-        ]
-      });
-    });
-
-    // dev props boot (safe)
-    try{ bootDevProps(); }catch(e){ console.warn("Dev props boot failed", e); }
-
-    // start hidden
-    hideDialogue();
-    pickupHide();
-
-    // expose tiny dev helpers like before
-    window.printDreadheimCityLayout = printLayoutToConsole;
-    window.copyDreadheimCityLayout  = copyLayoutToClipboard;
   });
 
-})();
+  window.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("mouseup", onMouseUp);
+
+  // toggle dev mode with M (same)
+  window.addEventListener("keydown", (e) => {
+    if (e.key && e.key.toLowerCase() === "m"){
+      devMode = !devMode;
+      localStorage.setItem(DEV_KEY, devMode ? "1" : "0");
+      document.body.classList.toggle("devMode", devMode);
+      console.log(devMode ? "🛠 DEV MODE ON" : "🧭 DEV MODE OFF");
+    }
+    if (e.key === "Escape"){
+      hideDialogue();
+    }
+  });
+
+  // ----------------------------
+  // OPTIONAL: clicks on props (only when NOT in dev mode)
+  // ----------------------------
+  function bindPropClicks(){
+    document.querySelectorAll("#props .devItem").forEach(el => {
+      el.addEventListener("click", (e) => {
+        if (devMode) return; // editing
+        e.preventDefault();
+        e.stopPropagation();
+        const propId = el.getAttribute("data-id") || "";
+        showDialogue({
+          speaker: "…",
+          text: `Clicked prop: ${propId}`,
+          portraitSrc: "",
+          buttons: [{ label:"Close", onClick: hideDialogue }]
+        });
+      });
+    });
+  }
+  bindPropClicks();
+
+});
 </script>
 
 </body>
 </html>
+
 ```
 
 
