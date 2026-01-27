@@ -520,7 +520,7 @@ body.devMode .devHandle{ display:block; }
 
       showDialogue({
         speaker:"Myriador Guard",
-        portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
+        portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard1.gif",
         text:
 `Very well.
 Myriador does not turn away the hunted… but we do not welcome chaos.
@@ -538,7 +538,7 @@ The gates will open — step carefully.`,
 
       showDialogue({
         speaker:"Myriador Guard",
-        portraitSrc:"/guildbook/npcs/myriador/guard/guard2.gif",
+        portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard2.gif",
         text:
 `No.
 Your story stinks of Helheim.
@@ -558,7 +558,7 @@ Find another way — or leave before you bring Hel’s shadow to our gates.`,
 
     showDialogue({
       speaker:"Myriador Guard",
-      portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
+      portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard1.gif",
       text:"Halt. State your business at the gates of Myriador.",
       buttons:[
         {
@@ -567,7 +567,7 @@ Find another way — or leave before you bring Hel’s shadow to our gates.`,
             bump("convinced", 1);
             showDialogue({
               speaker:"Myriador Guard",
-              portraitSrc:"/guildbook/npcs/myriador/guard/guard2.gif",
+              portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard2.gif",
               text:"Escaped Helheim? Many claim that. Why should we believe you?",
               buttons:[
                 {
@@ -576,7 +576,7 @@ Find another way — or leave before you bring Hel’s shadow to our gates.`,
                     bump("convinced", 1);
                     showDialogue({
                       speaker:"Myriador Guard",
-                      portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
+                      portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard1.gif",
                       text:"Words are easy. Mercy is not.\nWhat do you offer Myriador?",
                       buttons:[
                         { label:"Swear to serve the Crown", onClick:()=>{ bump("convinced",1); finalizeDecision(); } },
@@ -592,7 +592,7 @@ Find another way — or leave before you bring Hel’s shadow to our gates.`,
                     bump("not", 1);
                     showDialogue({
                       speaker:"Myriador Guard",
-                      portraitSrc:"/guildbook/npcs/myriador/guard/guard2.gif",
+                      portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard2.gif",
                       text:"Convenient. Vague stories are how spies breathe.\nSpeak clearly or leave.",
                       buttons:[
                         { label:"Admit Hel’s thugs kidnapped you", onClick:()=>{ bump("convinced",1); finalizeDecision(); } },
@@ -607,7 +607,7 @@ Find another way — or leave before you bring Hel’s shadow to our gates.`,
                     bump("not", 2);
                     showDialogue({
                       speaker:"Myriador Guard",
-                      portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
+                      portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard1.gif",
                       text:"A merchant with fear in their eyes.\nWe have heard enough.",
                       buttons:[
                         { label:"Try again later", onClick:()=>location.href = RETURN_URL },
