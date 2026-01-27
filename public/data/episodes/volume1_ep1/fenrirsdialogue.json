@@ -74,7 +74,9 @@
           "myr_arrival_escapee": true,
           "dq_myr_cover_chosen": true,
           "unlocked_myriador": true,
-          "dq_fenrir_completed": true
+          "dq_fenrir_completed": true,
+          "dq_myr_spy_step0": "pass"
+
         },
         "questSteps": {
           "dq_myr_spy": { "0": "pass" }
