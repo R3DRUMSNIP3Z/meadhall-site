@@ -76,6 +76,9 @@
           "unlocked_myriador": true,
           "dq_fenrir_completed": true
         },
+        "questSteps": {
+          "dq_myr_spy": { "0": "pass" }
+        },
         "setQuest": {
           "id": "dq_myr_spy",
           "catalog": "/data/episodes/volume1_ep1/fenrirgivesquests.json"
@@ -96,6 +99,9 @@
           "dq_myr_cover_chosen": true,
           "unlocked_myriador": true,
           "dq_fenrir_completed": true
+        },
+        "questSteps": {
+          "dq_myr_spy": { "0": "pass" }
         },
         "setQuest": {
           "id": "dq_myr_spy",
@@ -118,6 +124,9 @@
           "unlocked_myriador": true,
           "dq_fenrir_completed": true
         },
+        "questSteps": {
+          "dq_myr_spy": { "0": "pass" }
+        },
         "setQuest": {
           "id": "dq_myr_spy",
           "catalog": "/data/episodes/volume1_ep1/fenrirgivesquests.json"
@@ -129,5 +138,6 @@
     }
   ]
 }
+
 
 

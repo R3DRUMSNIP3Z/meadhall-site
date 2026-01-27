@@ -1,4 +1,3 @@
-<!-- /public/guildbook/scenes/maps/fenrirsforest.html -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -27,7 +26,7 @@ html, body{
   z-index:0;
 }
 
-/* ================= DEV-EDITABLE PROPS LAYER ================= */
+/* ================= PROPS ================= */
 #props{
   position:fixed;
   inset:0;
@@ -40,43 +39,28 @@ html, body{
   z-index:25;
   pointer-events:auto;
   user-select:none;
-  -webkit-user-drag:none;
   cursor:pointer;
-  filter: drop-shadow(0 18px 32px rgba(0,0,0,0.78));
-  transition: transform 120ms ease, filter 120ms ease;
+  filter: drop-shadow(0 18px 32px rgba(0,0,0,.78));
 }
-.devItem:hover{
-  transform: scale(1.02);
-  filter: drop-shadow(0 22px 38px rgba(0,0,0,0.85))
-          drop-shadow(0 0 14px rgba(180,200,255,0.22));
-}
-
 body.devMode .devItem{
   cursor:move;
   outline:1px dashed rgba(255,215,140,.55);
 }
 .devDragging{
-  outline:2px dashed rgba(255,215,140,.88) !important;
-  box-shadow:0 0 0 6px rgba(255,215,140,.12) !important;
+  outline:2px dashed rgba(255,215,140,.88);
 }
 
-.devItem img.prop{
-  display:block;
+.devItem img{
   width:100%;
-  height:auto;
   pointer-events:none;
-  user-select:none;
-  -webkit-user-drag:none;
 }
 
-/* resize handles */
 .devHandle{
   position:absolute;
   width:14px;
   height:14px;
-  border-radius:6px;
   background:rgba(255,215,140,.95);
-  border:1px solid rgba(0,0,0,.55);
+  border-radius:6px;
   display:none;
 }
 body.devMode .devHandle{ display:block; }
@@ -84,21 +68,6 @@ body.devMode .devHandle{ display:block; }
 .devHandle.bl{ left:-7px; bottom:-7px; cursor:nesw-resize; }
 .devHandle.tr{ right:-7px; top:-7px; cursor:nesw-resize; }
 .devHandle.tl{ left:-7px; top:-7px; cursor:nwse-resize; }
-
-/* Dev hint */
-#devHint{
-  position:fixed;
-  left:14px;
-  bottom:14px;
-  z-index:999;
-  font-size:14px;
-  letter-spacing:.03em;
-  color:rgba(255,255,255,0.55);
-  text-shadow:0 2px 10px rgba(0,0,0,0.8);
-  pointer-events:none;
-  display:none;
-}
-body.devMode #devHint{ display:block; }
 
 /* ================= DIALOGUE ================= */
 #dlg{
@@ -108,7 +77,6 @@ body.devMode #devHint{ display:block; }
   transform:translateX(-50%);
   width:min(1200px, calc(100vw - 24px));
   height:190px;
-  z-index:999;
   display:grid;
   grid-template-columns:240px 1fr;
   border-radius:18px;
@@ -116,21 +84,19 @@ body.devMode #devHint{ display:block; }
   background:linear-gradient(90deg, rgba(35,20,10,.95), rgba(15,10,8,.88));
   border:1px solid rgba(255,208,120,.2);
   box-shadow:0 18px 55px rgba(0,0,0,.6);
+  z-index:999;
 }
-#dlg.hidden{ display:none !important; }
+#dlg.hidden{ display:none; }
 
 #dlgPortrait{
   width:240px;
   height:190px;
   object-fit:contain;
-  align-self:end;
-  filter:drop-shadow(0 12px 22px rgba(0,0,0,0.65));
 }
 #dlgPanel{
-  padding:16px 18px;
+  padding:16px;
   display:grid;
   grid-template-rows:auto 1fr auto;
-  gap:10px;
 }
 #dlgName{
   font-size:28px;
@@ -139,65 +105,39 @@ body.devMode #devHint{ display:block; }
 }
 #dlgText{
   font-size:20px;
-  line-height:1.35;
-  color:rgba(255,255,255,.95);
-  white-space:pre-wrap;
+  color:#fff;
 }
 #dlgBtns{
   display:flex;
   justify-content:flex-end;
   gap:10px;
-  flex-wrap:wrap;
 }
-#dlg, #dlgPanel, #dlgBtns, .dlgBtn{ pointer-events:auto; }
 .dlgBtn{
   padding:10px 16px;
   border-radius:12px;
-  cursor:pointer;
-  border:1px solid rgba(255,208,120,.28);
   background:rgba(120,60,25,.45);
-  color:rgba(255,245,230,.95);
+  border:1px solid rgba(255,208,120,.28);
+  color:#fff;
   font-weight:800;
+  cursor:pointer;
 }
-.dlgBtn:hover{ filter:brightness(1.1); }
 
-/* ================= LOCK SCREEN ================= */
+/* ================= LOCK ================= */
 #lockScreen{
   position:fixed;
   inset:0;
-  z-index:2000;
-  display:none;
   background:rgba(0,0,0,.82);
+  display:none;
   align-items:center;
   justify-content:center;
-  padding:22px;
+  z-index:2000;
 }
 #lockCard{
-  width:min(680px, calc(100vw - 24px));
-  border-radius:18px;
+  width:600px;
   padding:18px;
+  border-radius:18px;
   background:linear-gradient(180deg, rgba(35,20,10,.96), rgba(10,8,8,.92));
   border:1px solid rgba(255,208,120,.22);
-  box-shadow:0 24px 80px rgba(0,0,0,.75);
-  color:rgba(255,255,255,.95);
-}
-#lockTitle{
-  font-size:26px;
-  font-weight:900;
-  color:rgba(255,225,170,.95);
-  margin-bottom:10px;
-}
-#lockText{
-  font-size:18px;
-  line-height:1.4;
-  opacity:.95;
-}
-#lockBtns{
-  margin-top:14px;
-  display:flex;
-  justify-content:flex-end;
-  gap:10px;
-  flex-wrap:wrap;
 }
 </style>
 </head>
@@ -206,19 +146,16 @@ body.devMode #devHint{ display:block; }
 
 <div id="bg"></div>
 
-<div id="devHint">DEV MODE ON — drag props, resize corners, release to save (prints CSS in console). Press M to toggle.</div>
-
 <div id="props">
-  <!-- Fenrir -->
-  <div class="devItem" data-id="fenrirNpc" style="left:86.63%; top:28.48%; width:195.981px; height:auto;">
-    <img class="prop" id="fenrirNpc" src="/guildbook/npcs/fenrir/frame_000.png" alt="Fenrir">
-    <div class="devHandle tl"></div><div class="devHandle tr"></div><div class="devHandle bl"></div><div class="devHandle br"></div>
+  <div class="devItem" data-id="fenrirNpc" style="left:86.63%; top:28.48%; width:196px;">
+    <img id="fenrirNpc" src="/guildbook/npcs/fenrir/frame_000.png" alt="Fenrir">
+    <div class="devHandle tl"></div><div class="devHandle tr"></div>
+    <div class="devHandle bl"></div><div class="devHandle br"></div>
   </div>
 </div>
 
-<!-- Dialogue -->
-<div id="dlg" class="hidden" aria-hidden="true">
-  <img id="dlgPortrait" alt="Portrait">
+<div id="dlg" class="hidden">
+  <img id="dlgPortrait">
   <div id="dlgPanel">
     <div id="dlgName"></div>
     <div id="dlgText"></div>
@@ -226,18 +163,14 @@ body.devMode #devHint{ display:block; }
   </div>
 </div>
 
-<!-- Lock overlay -->
-<div id="lockScreen" aria-hidden="true">
-  <div id="lockCard" role="dialog" aria-label="Locked">
-    <div id="lockTitle">Path Locked</div>
-    <div id="lockText">You cannot enter Fenrir’s Forest yet.</div>
-    <div id="lockBtns">
-      <button class="dlgBtn" id="lockBackBtn" type="button">Return</button>
-    </div>
+<div id="lockScreen">
+  <div id="lockCard">
+    <div style="font-size:26px;font-weight:900;">Path Locked</div>
+    <p>You cannot enter Fenrir’s Forest yet.</p>
+    <button class="dlgBtn" id="lockBackBtn">Return</button>
   </div>
 </div>
 
-<!-- ✅ Global UI MUST load before page logic so VAQ exists -->
 <script src="/guildbook/js/va_global_ui.js"></script>
 <script src="/guildbook/js/globalquest.js"></script>
 
@@ -245,528 +178,79 @@ body.devMode #devHint{ display:block; }
 (() => {
   "use strict";
 
-  // ============================
-  // Fenrir frame animation (000 -> 035)  ✅ SLOWER
-  // ============================
-  function pad3(n){ return String(n).padStart(3, "0"); }
-
-  function startFenrirAnim(){
-    const img = document.getElementById("fenrirNpc");
-    if (!img) return;
-
-    const base  = "/guildbook/npcs/fenrir/frame_";
-    const first = 0;
-    const last  = 35;
-
-    // ✅ slower animation
-    const fps   = 8;
-
-    const frames = [];
-    for (let i = first; i <= last; i++){
-      const src = `${base}${pad3(i)}.png`;
-      const im = new Image();
-      im.src = src;
-      frames.push(src);
-    }
-
-    let idx = 0;
-    let timer = setInterval(() => {
-      img.src = frames[idx];
-      idx = (idx + 1) % frames.length;
-    }, Math.round(1000 / fps));
-
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden){
-        clearInterval(timer);
-        timer = null;
-      } else if (!timer){
-        timer = setInterval(() => {
-          img.src = frames[idx];
-          idx = (idx + 1) % frames.length;
-        }, Math.round(1000 / fps));
-      }
-    });
-  }
-
-  // ============================
-  // Keys
-  // ============================
   const FLAGS_KEY = "va_flags";
-  const REQUIRED_OPEN_FLAG = "dreadheim_forest_open"; // gate flag
-  const ENTERED_FLAG = "dq_go_fenrir_entered";        // objective 3
-  const SEEN_FLAG    = "dq_go_fenrir_seen";           // objective 2
-
-  // ✅ Fenrir "done" flag (set in your fenrirsdialogue.json rewards)
+  const REQUIRED_OPEN_FLAG = "dreadheim_forest_open";
   const FENRIR_DONE_FLAG = "dq_fenrir_completed";
 
-  // ✅ Default Fenrir dialogue after first talk
-  const DEFAULT_FENRIR_JSON = "/data/episodes/volume1_ep1/fenrirdefaultdialogue.json";
-  const DEFAULT_FENRIR_KEY  = "fenrir_forest"; // the key inside defaults{}
-
-  // ============================
-  // UI refs
-  // ============================
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
   const dlgText = document.getElementById("dlgText");
   const dlgBtns = document.getElementById("dlgBtns");
   const dlgPortrait = document.getElementById("dlgPortrait");
 
-  const lockScreen = document.getElementById("lockScreen");
-  const lockBackBtn = document.getElementById("lockBackBtn");
-
-  // ============================
-  // Flags helpers
-  // ============================
   function getFlags(){
     try{ return JSON.parse(localStorage.getItem(FLAGS_KEY) || "{}"); }
     catch{ return {}; }
   }
-  function setFlags(obj){
-    localStorage.setItem(FLAGS_KEY, JSON.stringify(obj || {}));
-  }
-  function setFlagTrue(flag){
-    const f = getFlags();
-    if (!f[flag]){
-      f[flag] = true;
-      setFlags(f);
-      try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
-    }
-  }
 
-  function ensureVAQ(){
-    return !!(window.VAQ && typeof window.VAQ.txt === "function");
-  }
-
-  // ============================
-  // Dialogue (UI)
-  // ============================
-  function showDialogue({ speaker, text, portraitSrc, buttons = [] }){
+  function showDialogue({speaker,text,portraitSrc,buttons=[]}){
     dlgName.textContent = speaker || "";
-    dlgText.textContent = (typeof text === "string") ? text : String(text ?? "");
+    dlgText.textContent = text || "";
+    dlgPortrait.src = portraitSrc || "";
     dlgBtns.innerHTML = "";
-    if (portraitSrc) dlgPortrait.src = portraitSrc;
-
-    dlg.classList.remove("hidden");
-    dlg.setAttribute("aria-hidden", "false");
-
-    buttons.forEach(b => {
-      const btn = document.createElement("button");
-      btn.className = "dlgBtn";
-      btn.type = "button";
-      btn.textContent = b.label;
-
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (typeof b.onClick === "function") b.onClick();
-      });
-
+    buttons.forEach(b=>{
+      const btn=document.createElement("button");
+      btn.className="dlgBtn";
+      btn.textContent=b.label;
+      btn.onclick=b.onClick;
       dlgBtns.appendChild(btn);
     });
+    dlg.classList.remove("hidden");
   }
 
-  function hideDialogue(){
-    dlg.classList.add("hidden");
-    dlg.setAttribute("aria-hidden", "true");
-    dlgName.textContent = "";
-    dlgText.textContent = "";
-    dlgBtns.innerHTML = "";
-  }
+  function hideDialogue(){ dlg.classList.add("hidden"); }
 
-  // Make available (optional)
-  window.showDialogue = showDialogue;
-  window.hideDialogue = hideDialogue;
+  // Fenrir animation (slow)
+  (function(){
+    const img=document.getElementById("fenrirNpc");
+    let i=0;
+    setInterval(()=>{
+      img.src=`/guildbook/npcs/fenrir/frame_${String(i).padStart(3,"0")}.png`;
+      i=(i+1)%36;
+    },125);
+  })();
 
-  // ============================
-  // Default dialogue loader (Fenrir)
-  // ============================
-  let __fenrirDefaultCache = null;
-
-  function pickLine(arr){
-    if (!Array.isArray(arr) || !arr.length) return "…";
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
-
-  async function loadFenrirDefaultJson(){
-    if (__fenrirDefaultCache) return __fenrirDefaultCache;
-    const res = await fetch(DEFAULT_FENRIR_JSON, { cache: "no-store" });
-    if (!res.ok) throw new Error("Failed to load fenrirdefaultdialogue.json");
-    __fenrirDefaultCache = await res.json();
-    return __fenrirDefaultCache;
-  }
-
-  async function showFenrirDefault(){
-    try{
-      const data = await loadFenrirDefaultJson();
-      const d = data?.defaults?.[DEFAULT_FENRIR_KEY];
-
-      if (!d){
-        showDialogue({
-          speaker: "Fenrir",
-          portraitSrc: "/guildbook/npcs/fenrir/fenrir.gif",
-          text: "…",
-          buttons: [{ label: "Close", onClick: hideDialogue }]
-        });
-        return;
-      }
-
-      const speaker = d.speaker || "Fenrir";
-      const portrait = d.portrait || "/guildbook/npcs/fenrir/fenrir.gif";
-      const line = pickLine(d.lines);
-
+  document.querySelector('[data-id="fenrirNpc"]').onclick = async ()=>{
+    const f=getFlags();
+    if(f[FENRIR_DONE_FLAG]){
+      const res=await fetch("/data/episodes/volume1_ep1/fenrirdefaultdialogue.json");
+      const data=await res.json();
+      const d=data.defaults.fenrir_forest;
       showDialogue({
-        speaker,
-        portraitSrc: portrait,
-        text: ensureVAQ() ? VAQ.txt(line) : String(line || ""),
-        buttons: [{ label: "Close", onClick: hideDialogue }]
+        speaker:d.speaker,
+        portraitSrc:d.portrait,
+        text:d.lines[Math.floor(Math.random()*d.lines.length)],
+        buttons:[{label:"Close",onClick:hideDialogue}]
       });
-    }catch(err){
-      console.warn(err);
-      showDialogue({
-        speaker: "Fenrir",
-        portraitSrc: "/guildbook/npcs/fenrir/fenrir.gif",
-        text: "…",
-        buttons: [{ label: "Close", onClick: hideDialogue }]
-      });
+      return;
     }
-  }
 
-  // ============================
-  // Local JSON dialogue runner (Fenrir + quests)
-  // ============================
-  window.runDialogueFromJson = async function runDialogueFromJson(url, startId){
-    try{
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) throw new Error(`Failed to load ${url} (${res.status})`);
-      const data = await res.json();
-
-      const nodes = Array.isArray(data.nodes) ? data.nodes : [];
-      const byId = Object.create(null);
-      nodes.forEach(n => { if (n && n.id) byId[n.id] = n; });
-
-      const meta = data.meta || {};
-      const keys = meta.keys || {};
-      const nameKey = keys.nameKey || "va_player_name";
-      const flagsKey = keys.flagsKey || "va_flags";
-      const questIdKey = keys.questIdKey || "vaq_activeQuestId";
-      const questCatKey = keys.questCatKey || "vaq_activeQuestCatalog";
-
-      const playerName = localStorage.getItem(nameKey) || "wanderer";
-
-      function getFlagsLocal(){
-        try{ return JSON.parse(localStorage.getItem(flagsKey) || "{}"); }
-        catch{ return {}; }
-      }
-      function setFlagsLocal(f){
-        localStorage.setItem(flagsKey, JSON.stringify(f || {}));
-        try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
-      }
-
-      function applyReward(reward){
-        if (!reward) return;
-
-        // flags
-        if (reward.flags && typeof reward.flags === "object"){
-          const f = getFlagsLocal();
-          Object.keys(reward.flags).forEach(k => {
-            f[k] = !!reward.flags[k];
-          });
-          setFlagsLocal(f);
-        }
-
-        // setQuest
-        if (reward.setQuest && reward.setQuest.id){
-          localStorage.setItem(questIdKey, reward.setQuest.id);
-          if (reward.setQuest.catalog){
-            localStorage.setItem(questCatKey, reward.setQuest.catalog);
-          }
-          try{ window.__vaq_hud_render && window.__vaq_hud_render(); }catch{}
-          try{ window.VAQ && window.VAQ.hudRender && window.VAQ.hudRender(); }catch{}
-          try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
-        }
-
-        // ✅ questSteps (MATCH your quest journal format: `${questId}_step${index}` = "pass"/"fail")
-        if (reward.questSteps && typeof reward.questSteps === "object"){
-          const f = getFlagsLocal();
-          Object.keys(reward.questSteps).forEach(qid => {
-            const stepsObj = reward.questSteps[qid] || {};
-            Object.keys(stepsObj).forEach(stepNum => {
-              const status = stepsObj[stepNum]; // "pass" | "fail"
-              f[`${qid}_step${stepNum}`] = status;
-            });
-          });
-          setFlagsLocal(f);
-          try{ window.__vaq_hud_render && window.__vaq_hud_render(); }catch{}
-          try{ window.VAQ && window.VAQ.hudRender && window.VAQ.hudRender(); }catch{}
-          try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
-        }
-      }
-
-      function fmtText(s){
-        return String(s || "").replaceAll("{name}", playerName);
-      }
-
-      function go(id){
-        if (id === "__close"){
-          window.hideDialogue();
-          return;
-        }
-
-        const node = byId[id];
-        if (!node){
-          console.error("Dialogue node not found:", id);
-          window.hideDialogue();
-          return;
-        }
-
-        // reward for arriving on the node
-        applyReward(node.reward);
-
-        const speaker = node.speaker || meta.speakerDefault || "…";
-        const portrait = node.portrait || meta.portrait || "";
-
-        const choices = Array.isArray(node.choices) ? node.choices : [];
-        const buttons = choices.map(ch => ({
-          label: ch.label || "Continue",
-          onClick: () => go(ch.to || "__close")
-        }));
-
-        if (buttons.length === 0){
-          buttons.push({ label: "Close", onClick: () => go("__close") });
-        }
-
-        window.showDialogue({
-          speaker,
-          portraitSrc: portrait,
-          text: fmtText(node.text),
-          buttons
-        });
-      }
-
-      go(startId || data.start || "start");
-    } catch (err){
-      console.error("runDialogueFromJson failed:", err);
-    }
+    window.runDialogueFromJson(
+      "/data/episodes/volume1_ep1/fenrirsdialogue.json",
+      "fenrir_1"
+    );
   };
 
-  // ============================
-  // Lock gate
-  // ============================
-  function showLock(){
-    lockScreen.style.display = "flex";
-    lockScreen.setAttribute("aria-hidden","false");
+  const f=getFlags();
+  if(!f[REQUIRED_OPEN_FLAG]){
+    document.getElementById("lockScreen").style.display="flex";
+    document.getElementById("lockBackBtn").onclick=()=>location.href="/guildbook/scenes/dreadheim_city.html";
   }
-  function hideLock(){
-    lockScreen.style.display = "none";
-    lockScreen.setAttribute("aria-hidden","true");
-  }
-
-  // ============================
-  // DEV drag/resize
-  // ============================
-  const DEV_KEY = "va_scene_dev";
-  const POS_KEY = "va_scene_props_" + location.pathname;
-
-  let devMode = localStorage.getItem(DEV_KEY) === "1";
-  document.body.classList.toggle("devMode", devMode);
-
-  const items = [...document.querySelectorAll("#props .devItem")];
-
-  function getSaved(){
-    try{ return JSON.parse(localStorage.getItem(POS_KEY) || "{}"); }
-    catch{ return {}; }
-  }
-  function applySaved(){
-    const s = getSaved();
-    items.forEach(el => {
-      const id = el.dataset.id;
-      const v = s[id];
-      if (!v) return;
-      if (v.left) el.style.left = v.left;
-      if (v.top) el.style.top = v.top;
-      if (v.width) el.style.width = v.width;
-      if (v.height && v.height !== "auto") el.style.height = v.height;
-    });
-  }
-  function saveOne(el){
-    const id = el.dataset.id;
-    if (!id) return;
-
-    const s = getSaved();
-    s[id] = {
-      left: el.style.left,
-      top: el.style.top,
-      width: el.style.width,
-      height: el.style.height || "auto"
-    };
-    localStorage.setItem(POS_KEY, JSON.stringify(s));
-    console.log(`📌 ${id} → left:${s[id].left}; top:${s[id].top}; width:${s[id].width}; height:${s[id].height};`);
-  }
-
-  applySaved();
-
-  function pctX(px){ return (px / window.innerWidth * 100).toFixed(2) + "%"; }
-  function pctY(py){ return (py / window.innerHeight * 100).toFixed(2) + "%"; }
-
-  let active = null;
-  let mode = null; // "drag" | "resize"
-  let handle = "br";
-  let sx=0, sy=0, sl=0, st=0, sw=0;
-
-  function onMouseMove(e){
-    if (!devMode || !active) return;
-
-    if (mode === "drag"){
-      const nl = sl + (e.clientX - sx);
-      const nt = st + (e.clientY - sy);
-      active.style.left = pctX(nl);
-      active.style.top  = pctY(nt);
-      active.style.transform = "";
-      return;
-    }
-
-    const dx = e.clientX - sx;
-    let newW = sw;
-    if (handle === "br" || handle === "tr") newW = sw + dx;
-    if (handle === "bl" || handle === "tl") newW = sw - dx;
-
-    newW = Math.max(24, newW);
-    active.style.width = newW + "px";
-
-    if (handle === "bl" || handle === "tl"){
-      const nl = sl + dx;
-      active.style.left = pctX(nl);
-      active.style.transform = "";
-    }
-  }
-
-  function onMouseUp(){
-    if (!active) return;
-    active.classList.remove("devDragging");
-    saveOne(active);
-    active = null;
-    mode = null;
-  }
-
-  items.forEach(el => {
-    el.addEventListener("mousedown", (e) => {
-      if (!devMode) return;
-      if (e.target && e.target.classList && e.target.classList.contains("devHandle")) return;
-
-      const r = el.getBoundingClientRect();
-      active = el;
-      mode = "drag";
-      sx = e.clientX; sy = e.clientY;
-      sl = r.left;   st = r.top;
-
-      el.classList.add("devDragging");
-      e.preventDefault();
-      e.stopPropagation();
-    });
-
-    el.querySelectorAll(".devHandle").forEach(h => {
-      h.addEventListener("mousedown", (e) => {
-        if (!devMode) return;
-
-        const r = el.getBoundingClientRect();
-        active = el;
-        mode = "resize";
-        handle = [...h.classList].find(c => ["tl","tr","bl","br"].includes(c)) || "br";
-
-        sx = e.clientX; sy = e.clientY;
-        sl = r.left;   st = r.top;
-        sw = r.width;
-
-        el.classList.add("devDragging");
-        e.preventDefault();
-        e.stopPropagation();
-      });
-    });
-  });
-
-  window.addEventListener("mousemove", onMouseMove);
-  window.addEventListener("mouseup", onMouseUp);
-
-  window.addEventListener("keydown", (e) => {
-    if (e.key && e.key.toLowerCase() === "m"){
-      devMode = !devMode;
-      localStorage.setItem(DEV_KEY, devMode ? "1" : "0");
-      document.body.classList.toggle("devMode", devMode);
-      console.log(devMode ? "🛠 DEV MODE ON" : "🧭 DEV MODE OFF");
-    }
-    if (e.key === "Escape"){
-      hideDialogue();
-      hideLock();
-    }
-  });
-
-  // ============================
-  // Click wiring (Fenrir)
-  // - First time: run fenrirsdialogue.json
-  // - After completed: show fenrirdefaultdialogue.json lines
-  // ============================
-  function bindClicks(){
-    const fenrirWrap = document.querySelector('[data-id="fenrirNpc"]');
-    if (!fenrirWrap) return;
-
-    fenrirWrap.addEventListener("click", async (e) => {
-      if (devMode) return;
-      e.preventDefault();
-      e.stopPropagation();
-
-      // objective "seen"
-      setFlagTrue(SEEN_FLAG);
-
-      const f = getFlags();
-
-      // ✅ After Fenrir is completed, show default talk
-      if (f[FENRIR_DONE_FLAG]){
-        await showFenrirDefault();
-        return;
-      }
-
-      // ✅ First talk uses JSON dialogue
-      if (typeof window.runDialogueFromJson === "function"){
-        window.runDialogueFromJson(
-          "/data/episodes/volume1_ep1/fenrirsdialogue.json",
-          "fenrir_1"
-        );
-      } else {
-        console.error("runDialogueFromJson not available");
-      }
-    });
-  }
-
-  // ============================
-  // Boot
-  // ============================
-  document.addEventListener("DOMContentLoaded", () => {
-    // Gate check
-    const f = getFlags();
-    if (!f[REQUIRED_OPEN_FLAG]){
-      showLock();
-      lockBackBtn.addEventListener("click", () => {
-        hideLock();
-        location.href = "/guildbook/scenes/dreadheim_city.html";
-      });
-      return;
-    }
-
-    // objective "enter"
-    setFlagTrue(ENTERED_FLAG);
-
-    bindClicks();
-    startFenrirAnim();
-
-    hideDialogue();
-    hideLock();
-  });
-
 })();
 </script>
 
 </body>
 </html>
+
 
 
