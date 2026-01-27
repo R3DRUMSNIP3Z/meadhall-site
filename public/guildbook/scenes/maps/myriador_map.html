@@ -223,15 +223,23 @@
   });
 
   window.addEventListener("mouseup", () => {
-    if (!dragging) return;
-    positions[dragging.dataset.id] = {
-      left: dragging.style.left,
-      top: dragging.style.top
-    };
-    savePos(positions);
-    dragging.classList.remove("dragging");
-    dragging = null;
-  });
+  if (!dragging) return;
+
+  const id = dragging.dataset.id || dragging.textContent.trim();
+
+  positions[id] = {
+    left: dragging.style.left,
+    top:  dragging.style.top
+  };
+  savePos(positions);
+
+  // ✅ PRINT COORDS LIKE VERIADOR MAP
+  console.log(`📍 ${id}: left:${positions[id].left}; top:${positions[id].top};`);
+
+  dragging.classList.remove("dragging");
+  dragging = null;
+});
+
 
 })();
 </script>
