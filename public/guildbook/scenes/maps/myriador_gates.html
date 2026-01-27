@@ -1,4 +1,3 @@
-<!-- /public/guildbook/scenes/maps/myriador_gates.html -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -259,24 +258,17 @@ body.devMode .devHandle{ display:block; }
 
   const FLAGS_KEY = "va_flags";
 
-  // Gate page access (world map flag)
   const REQUIRED_OPEN_FLAG = "unlocked_myriador";
-
-  // Arrived at gates (for unlocking Capital on map)
   const ARRIVED_FLAG = "dq_myr_arrived";
 
-  // Outcome flags (placeholders you can use later)
   const ENTRY_GRANTED_FLAG = "myriador_entry_granted";
   const ENTRY_DENIED_FLAG  = "myriador_entry_denied";
 
-  // (Optional) once-only: if you want later to show short default lines
   const GATE_DONE_FLAG = "dq_myr_gate_spoken_done";
 
-  // Where to send player
-  const RETURN_URL = "/guildbook/scenes/maps/myriador_map.html";          // placeholder
-  const ENTER_URL  = "/guildbook/scenes/maps/myriador_land.html";         // placeholder (you create later)
+  const RETURN_URL = "/guildbook/scenes/maps/myriador_map.html";
+  const ENTER_URL  = "/guildbook/scenes/maps/myriador_land.html"; // placeholder page
 
-  // Meter keys (stored so reload keeps state)
   const METER_KEY = "dq_myr_gate_meter"; // { convinced:0, not:0 }
 
   const dlg = document.getElementById("dlg");
@@ -298,10 +290,7 @@ body.devMode .devHandle{ display:block; }
   function getMeter(){
     try{
       const m = JSON.parse(localStorage.getItem(METER_KEY) || "{}");
-      return {
-        convinced: Number(m.convinced || 0),
-        not: Number(m.not || 0),
-      };
+      return { convinced: Number(m.convinced || 0), not: Number(m.not || 0) };
     }catch{
       return { convinced:0, not:0 };
     }
@@ -325,7 +314,6 @@ body.devMode .devHandle{ display:block; }
     mNo.textContent   = String(m.not);
   }
 
-  // Arrived flag
   (function markArrived(){
     const f = getFlags();
     if (!f[ARRIVED_FLAG]){
@@ -397,7 +385,7 @@ body.devMode .devHandle{ display:block; }
   function pctY(py){ return (py / window.innerHeight * 100).toFixed(2) + "%"; }
 
   let active = null;
-  let mode = null; // "drag" | "resize"
+  let mode = null;
   let handle = "br";
   let sx=0, sy=0, sl=0, st=0, sw=0;
 
@@ -496,21 +484,18 @@ body.devMode .devHandle{ display:block; }
       document.body.classList.toggle("devMode", devMode);
       console.log(devMode ? "🛠 DEV MODE ON" : "🧭 DEV MODE OFF");
     }
-    if (e.key === "Escape"){
-      hideDialogue();
-    }
+    if (e.key === "Escape") hideDialogue();
   });
 
   // =========================
-  // Gate Conversation (choices + meter)
-  // Cover story: escaped Helheim / Hel's thugs
+  // STORY: Gate persuasion
+  // You are infiltrating for Fenrir (secret),
+  // so you must convince them you're a refugee/good.
   // =========================
 
   function finalizeDecision(){
     const m = getMeter();
     const f = getFlags();
-
-    // Lock in once (optional)
     f[GATE_DONE_FLAG] = true;
 
     if (m.convinced > m.not){
@@ -520,15 +505,15 @@ body.devMode .devHandle{ display:block; }
 
       showDialogue({
         speaker:"Myriador Guard",
-        portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard1.gif",
+        portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
         text:
-`Very well.
-Myriador does not turn away the hunted… but we do not welcome chaos.
+`We do not like Helheim’s stink on a traveler…
+…but you speak like someone who wants to live.
 
-The gates will open — step carefully.`,
+We will open the gate. One wrong move—and you will regret it.`,
         buttons:[
           { label:"Enter Myriador", onClick:()=>location.href = ENTER_URL },
-          { label:"Close", onClick:hideDialogue }
+          { label:"Back to Map", onClick:()=>location.href = RETURN_URL }
         ]
       });
     } else {
@@ -538,12 +523,12 @@ The gates will open — step carefully.`,
 
       showDialogue({
         speaker:"Myriador Guard",
-        portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard2.gif",
+        portraitSrc:"/guildbook/npcs/myriador/guard/guard2.gif",
         text:
-`No.
-Your story stinks of Helheim.
+`No. Your answers sound practiced.
 
-Find another way — or leave before you bring Hel’s shadow to our gates.`,
+Myriador will not open its throat to Hel’s shadow.
+Leave—before we make you.`,
         buttons:[
           { label:"Back to Map", onClick:()=>location.href = RETURN_URL },
           { label:"Close", onClick:hideDialogue }
@@ -552,144 +537,107 @@ Find another way — or leave before you bring Hel’s shadow to our gates.`,
     }
   }
 
-  function startGateTalk(){
-    // reset meter each new attempt (you can remove this if you want it persistent)
-    setMeter({ convinced:0, not:0 });
-
+  function scene_Intro(){
     showDialogue({
       speaker:"Myriador Guard",
-      portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard1.gif",
-      text:"Halt. State your business at the gates of Myriador.",
+      portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
+      text:"Halt. You stand before the gates of Myriador.\nState your business.",
       buttons:[
-        {
-          label:"Tell the truth: I escaped Helheim",
-          onClick:()=>{
-            bump("convinced", 1);
-            showDialogue({
-              speaker:"Myriador Guard",
-              portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard2.gif",
-              text:"Escaped Helheim? Many claim that. Why should we believe you?",
-              buttons:[
-                {
-                  label:"Show wounds + beg refuge",
-                  onClick:()=>{
-                    bump("convinced", 1);
-                    showDialogue({
-                      speaker:"Myriador Guard",
-                      portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard1.gif",
-                      text:"Words are easy. Mercy is not.\nWhat do you offer Myriador?",
-                      buttons:[
-                        { label:"Swear to serve the Crown", onClick:()=>{ bump("convinced",1); finalizeDecision(); } },
-                        { label:"Ask only for shelter", onClick:()=>{ bump("not",1); finalizeDecision(); } },
-                        { label:"Demand entry (angry)", onClick:()=>{ bump("not",2); finalizeDecision(); } },
-                      ]
-                    });
-                  }
-                },
-                {
-                  label:"Hide details (vague story)",
-                  onClick:()=>{
-                    bump("not", 1);
-                    showDialogue({
-                      speaker:"Myriador Guard",
-                      portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard2.gif",
-                      text:"Convenient. Vague stories are how spies breathe.\nSpeak clearly or leave.",
-                      buttons:[
-                        { label:"Admit Hel’s thugs kidnapped you", onClick:()=>{ bump("convinced",1); finalizeDecision(); } },
-                        { label:"Refuse to answer", onClick:()=>{ bump("not",2); finalizeDecision(); } }
-                      ]
-                    });
-                  }
-                },
-                {
-                  label:"Lie: I'm a merchant",
-                  onClick:()=>{
-                    bump("not", 2);
-                    showDialogue({
-                      speaker:"Myriador Guard",
-                      portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard1.gif",
-                      text:"A merchant with fear in their eyes.\nWe have heard enough.",
-                      buttons:[
-                        { label:"Try again later", onClick:()=>location.href = RETURN_URL },
-                        { label:"Close", onClick:hideDialogue }
-                      ]
-                    });
-                  }
-                }
-              ]
-            });
-          }
-        },
-
-        {
-          label:"Offer to help Myriador (good intentions)",
-          onClick:()=>{
-            bump("convinced", 1);
-            showDialogue({
-              speaker:"Myriador Guard",
-              portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard1.gif",
-              text:"Help? Everyone wants something.\nName one deed you will do for Myriador.",
-              buttons:[
-                { label:"Expose Hel’s agents", onClick:()=>{ bump("convinced",1); finalizeDecision(); } },
-                { label:"Work the farms for food", onClick:()=>{ bump("convinced",1); finalizeDecision(); } },
-                { label:"I just need a place to hide", onClick:()=>{ bump("not",1); finalizeDecision(); } },
-              ]
-            });
-          }
-        },
-
-        {
-          label:"Threaten them",
-          onClick:()=>{
-            bump("not", 2);
-            showDialogue({
-              speaker:"Myriador Guard",
-              portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard2.gif",
-              text:"One more step and you’ll be a warning on our wall.",
-              buttons:[
-                { label:"Back off", onClick:()=>{ bump("not",1); finalizeDecision(); } },
-                { label:"Attack (placeholder)", onClick:()=>{ bump("not",3); finalizeDecision(); } },
-              ]
-            });
-          }
-        },
-
+        { label:"“I’m fleeing Hel’s thugs. I want refuge.”", onClick:scene_Refuge },
+        { label:"“I bring warning of Helheim activity.”", onClick:scene_Warning },
+        { label:"“Open the gate. Now.”", onClick:scene_Threat },
         { label:"Leave", onClick:()=>location.href = RETURN_URL }
       ]
     });
   }
 
-  // Click wiring (two guards)
-  function bindGuardClicks(){
-    const g1 = document.querySelector('[data-id="gateGuard1"]');
-    const g2 = document.querySelector('[data-id="gateGuard2"]');
-
-    if (g1){
-      g1.addEventListener("click", (e) => {
-        if (devMode) return;
-        e.preventDefault(); e.stopPropagation();
-        startGateTalk();
-      });
-    }
-
-    if (g2){
-      g2.addEventListener("click", (e) => {
-        if (devMode) return;
-        e.preventDefault(); e.stopPropagation();
-        startGateTalk();
-      });
-    }
+  function scene_Refuge(){
+    bump("convinced", 1);
+    showDialogue({
+      speaker:"Myriador Guard",
+      portraitSrc:"/guildbook/npcs/myriador/guard/guard2.gif",
+      text:"Refuge? Many beg it.\nWhy should we trust you?",
+      buttons:[
+        { label:"Show fear + humility (no big story)", onClick:()=>{ bump("convinced",1); scene_Offer(); } },
+        { label:"Over-explain (too many details)", onClick:()=>{ bump("not",1); scene_Offer(); } },
+        { label:"Refuse to answer", onClick:()=>{ bump("not",2); finalizeDecision(); } }
+      ]
+    });
   }
 
-  bindGuardClicks();
+  function scene_Warning(){
+    bump("convinced", 1);
+    showDialogue({
+      speaker:"Myriador Guard",
+      portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
+      text:"A warning?\nThen speak. What does Helheim plan?",
+      buttons:[
+        { label:"“Hel’s thugs hunt escapees—her shadow spreads.”", onClick:()=>{ bump("convinced",1); scene_Offer(); } },
+        { label:"Lie too boldly (sounds fake)", onClick:()=>{ bump("not",2); scene_Offer(); } },
+        { label:"“I… can’t say here.”", onClick:()=>{ bump("not",1); scene_Offer(); } }
+      ]
+    });
+  }
+
+  function scene_Threat(){
+    bump("not", 2);
+    showDialogue({
+      speaker:"Myriador Guard",
+      portraitSrc:"/guildbook/npcs/myriador/guard/guard2.gif",
+      text:"And if we do not?",
+      buttons:[
+        { label:"Backpedal + apologize", onClick:()=>{ bump("convinced",1); scene_Offer(); } },
+        { label:"Double down (bad idea)", onClick:()=>{ bump("not",2); finalizeDecision(); } }
+      ]
+    });
+  }
+
+  function scene_Offer(){
+    showDialogue({
+      speaker:"Myriador Guard",
+      portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
+      text:"If we let you through, what do you offer Myriador?",
+      buttons:[
+        { label:"Swear loyalty to the Crown", onClick:()=>{ bump("convinced",2); finalizeDecision(); } },
+        { label:"Offer to work / serve as a scout", onClick:()=>{ bump("convinced",1); finalizeDecision(); } },
+        { label:"Ask only to hide (selfish)", onClick:()=>{ bump("not",1); finalizeDecision(); } },
+        { label:"Bribe them (placeholder)", onClick:()=>{ bump("not",1); finalizeDecision(); } }
+      ]
+    });
+  }
+
+  function startGateTalk(){
+    // new attempt starts fresh
+    setMeter({ convinced:0, not:0 });
+    scene_Intro();
+  }
+
+  // Bind both guards (FIX)
+  const guardWrap1 = document.querySelector('[data-id="gateGuard1"]');
+  const guardWrap2 = document.querySelector('[data-id="gateGuard2"]');
+
+  if (guardWrap1){
+    guardWrap1.addEventListener("click", (e) => {
+      if (devMode) return;
+      e.preventDefault(); e.stopPropagation();
+      startGateTalk();
+    });
+  }
+  if (guardWrap2){
+    guardWrap2.addEventListener("click", (e) => {
+      if (devMode) return;
+      e.preventDefault(); e.stopPropagation();
+      startGateTalk();
+    });
+  }
 
   // =========================
-  // Lock screen (can't access this page)
+  // Lock gate if Myriador not open yet
   // =========================
   const f=getFlags();
   if(!f[REQUIRED_OPEN_FLAG]){
     document.getElementById("lockScreen").style.display="flex";
-    document.getElementById("lockBackBtn").onclick=()=>location.href = RETURN_URL;
+    document.getElementById("lockBackBtn").onclick=()=>location.href=RETURN_URL;
   }
 
 })();
@@ -697,6 +645,7 @@ Find another way — or leave before you bring Hel’s shadow to our gates.`,
 
 </body>
 </html>
+
 
 
 
