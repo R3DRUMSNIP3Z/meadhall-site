@@ -1,4 +1,3 @@
-```html
 <!-- /public/guildbook/scenes/maps/myriador_gates.html -->
 <!doctype html>
 <html lang="en">
@@ -78,7 +77,6 @@ body.devMode .devItem{
   box-shadow:0 0 0 6px rgba(255,215,140,.12) !important;
 }
 
-
 /* NPC image */
 .devItem img.npc{
   display:block;
@@ -136,7 +134,14 @@ body.devMode .devHandle{ display:block; }
   padding:16px 18px;
   display:grid;
   grid-template-rows:auto auto 1fr auto;
-  gap:10px;
+  gap:8px;
+}
+
+#dlgNameRow{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
 }
 
 #dlgName{
@@ -146,24 +151,16 @@ body.devMode .devHandle{ display:block; }
 }
 
 #dlgMeter{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:center;
-  justify-content:flex-start;
-}
-.meterPill{
-  padding:6px 10px;
-  border-radius:999px;
   font-size:14px;
   font-weight:900;
-  letter-spacing:.04em;
-  border:1px solid rgba(255,208,120,.22);
-  background:rgba(0,0,0,.30);
-  color:rgba(255,240,225,.92);
-}
-.meterPill.bad{
-  border-color:rgba(255,120,120,.25);
+  letter-spacing:.05em;
+  color:rgba(255,240,225,.88);
+  opacity:.9;
+  white-space:nowrap;
+  border:1px solid rgba(255,208,120,.18);
+  background:rgba(0,0,0,.20);
+  padding:6px 10px;
+  border-radius:12px;
 }
 
 #dlgText{
@@ -171,7 +168,6 @@ body.devMode .devHandle{ display:block; }
   line-height:1.35;
   color:rgba(255,255,255,.95);
   white-space:pre-wrap;
-  overflow:auto;
 }
 
 #dlgBtns{
@@ -180,6 +176,7 @@ body.devMode .devHandle{ display:block; }
   gap:10px;
   flex-wrap:wrap;
 }
+
 #dlg, #dlgPanel, #dlgBtns, .dlgBtn{ pointer-events:auto; }
 
 .dlgBtn{
@@ -235,15 +232,12 @@ body.devMode .devHandle{ display:block; }
 <div id="dlg" class="hidden" aria-hidden="true">
   <img id="dlgPortrait" alt="Portrait">
   <div id="dlgPanel">
-    <div id="dlgName"></div>
-
-    <!-- ✅ Meter row -->
-    <div id="dlgMeter">
-      <div class="meterPill">Convinced: <span id="meterConv">0</span></div>
-      <div class="meterPill bad">Not Convinced: <span id="meterNot">0</span></div>
+    <div id="dlgNameRow">
+      <div id="dlgName"></div>
+      <div id="dlgMeter">Convinced: <span id="mConv">0</span> | Not Convinced: <span id="mNo">0</span></div>
     </div>
-
     <div id="dlgText"></div>
+    <div></div>
     <div id="dlgBtns"></div>
   </div>
 </div>
@@ -265,30 +259,33 @@ body.devMode .devHandle{ display:block; }
 
   const FLAGS_KEY = "va_flags";
 
-  // ✅ Gate page can only be used after this is true
+  // Gate page access (world map flag)
   const REQUIRED_OPEN_FLAG = "unlocked_myriador";
 
-  // ✅ Arrived-at-gates flag (use this to unlock Capital on your Myriador map)
+  // Arrived at gates (for unlocking Capital on map)
   const ARRIVED_FLAG = "dq_myr_arrived";
 
-  // ✅ This conversation outcome flags (placeholders you can use later)
+  // Outcome flags (placeholders you can use later)
+  const ENTRY_GRANTED_FLAG = "myriador_entry_granted";
+  const ENTRY_DENIED_FLAG  = "myriador_entry_denied";
+
+  // (Optional) once-only: if you want later to show short default lines
   const GATE_DONE_FLAG = "dq_myr_gate_spoken_done";
-  const GATE_PASS_FLAG = "dq_myr_gate_passed";     // allowed in
-  const GATE_FAIL_FLAG = "dq_myr_gate_denied";     // refused
 
-  // ✅ Placeholder "allowed in" destination (change later)
-  const MYRIADOR_LAND_URL = "/guildbook/scenes/maps/myriador_land.html";
-  // Back to Myriador map
-  const MYRIADOR_MAP_URL = "/guildbook/scenes/maps/myriador_map.html";
+  // Where to send player
+  const RETURN_URL = "/guildbook/scenes/maps/myriador_map.html";          // placeholder
+  const ENTER_URL  = "/guildbook/scenes/maps/myriador_land.html";         // placeholder (you create later)
 
-  // Dialogue UI refs
+  // Meter keys (stored so reload keeps state)
+  const METER_KEY = "dq_myr_gate_meter"; // { convinced:0, not:0 }
+
   const dlg = document.getElementById("dlg");
   const dlgName = document.getElementById("dlgName");
   const dlgText = document.getElementById("dlgText");
   const dlgBtns = document.getElementById("dlgBtns");
   const dlgPortrait = document.getElementById("dlgPortrait");
-  const meterConvEl = document.getElementById("meterConv");
-  const meterNotEl  = document.getElementById("meterNot");
+  const mConv = document.getElementById("mConv");
+  const mNo = document.getElementById("mNo");
 
   function getFlags(){
     try{ return JSON.parse(localStorage.getItem(FLAGS_KEY) || "{}"); }
@@ -298,7 +295,37 @@ body.devMode .devHandle{ display:block; }
     localStorage.setItem(FLAGS_KEY, JSON.stringify(f || {}));
   }
 
-  // ✅ Mark arrival at gates on load
+  function getMeter(){
+    try{
+      const m = JSON.parse(localStorage.getItem(METER_KEY) || "{}");
+      return {
+        convinced: Number(m.convinced || 0),
+        not: Number(m.not || 0),
+      };
+    }catch{
+      return { convinced:0, not:0 };
+    }
+  }
+  function setMeter(m){
+    localStorage.setItem(METER_KEY, JSON.stringify({
+      convinced: Number(m.convinced || 0),
+      not: Number(m.not || 0),
+    }));
+    renderMeter();
+  }
+  function bump(which, n=1){
+    const m = getMeter();
+    if (which === "convinced") m.convinced += n;
+    if (which === "not") m.not += n;
+    setMeter(m);
+  }
+  function renderMeter(){
+    const m = getMeter();
+    mConv.textContent = String(m.convinced);
+    mNo.textContent   = String(m.not);
+  }
+
+  // Arrived flag
   (function markArrived(){
     const f = getFlags();
     if (!f[ARRIVED_FLAG]){
@@ -308,42 +335,20 @@ body.devMode .devHandle{ display:block; }
     }
   })();
 
-  // =========================
-  // Dialogue helpers
-  // =========================
-  const meter = { convinced: 0, not: 0 };
-
-  function meterReset(){
-    meter.convinced = 0;
-    meter.not = 0;
-    meterSync();
-  }
-  function meterSync(){
-    meterConvEl.textContent = String(meter.convinced);
-    meterNotEl.textContent  = String(meter.not);
-  }
-  function addConv(n=1){ meter.convinced += (Number(n)||0); meterSync(); }
-  function addNot(n=1){ meter.not += (Number(n)||0); meterSync(); }
-
   function showDialogue({speaker,text,portraitSrc,buttons=[]}){
     dlgName.textContent = speaker || "";
     dlgText.textContent = text || "";
     dlgPortrait.src = portraitSrc || "";
     dlgBtns.innerHTML = "";
-
     buttons.forEach(b=>{
       const btn=document.createElement("button");
       btn.className="dlgBtn";
       btn.type="button";
-      btn.textContent=b.label || "Continue";
-      btn.addEventListener("click", (e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-        if (typeof b.onClick === "function") b.onClick();
-      });
+      btn.textContent=b.label;
+      btn.onclick=b.onClick;
       dlgBtns.appendChild(btn);
     });
-
+    renderMeter();
     dlg.classList.remove("hidden");
     dlg.setAttribute("aria-hidden","false");
   }
@@ -357,7 +362,7 @@ body.devMode .devHandle{ display:block; }
   }
 
   // =========================
-  // DEV: DRAG + RESIZE (matches your Dreadheim City)
+  // DEV: DRAG + RESIZE
   // =========================
   const DEV_KEY = "va_scene_dev";
   const POS_KEY = "va_scene_positions_" + location.pathname;
@@ -407,7 +412,6 @@ body.devMode .devHandle{ display:block; }
       return;
     }
 
-    // resize width only (keeps sprite aspect)
     const dx = e.clientX - sx;
     let newW = sw;
 
@@ -417,7 +421,6 @@ body.devMode .devHandle{ display:block; }
     newW = Math.max(24, newW);
     active.style.width = newW + "px";
 
-    // if resizing from left corners, keep corner pinned
     if (handle === "bl" || handle === "tl"){
       const nl = sl + dx;
       active.style.left = pctX(nl);
@@ -429,7 +432,6 @@ body.devMode .devHandle{ display:block; }
 
     active.classList.remove("devDragging");
 
-    // save
     const all = getSaved();
     all[active.dataset.id] = {
       left: active.style.left,
@@ -439,7 +441,6 @@ body.devMode .devHandle{ display:block; }
     };
     saveAll(all);
 
-    // print CSS line (like your other pages)
     console.log(
       `/* ${active.dataset.id} */`,
       `left:${active.style.left}; top:${active.style.top}; width:${active.style.width};`
@@ -450,7 +451,6 @@ body.devMode .devHandle{ display:block; }
   }
 
   items.forEach(el => {
-    // drag on wrapper (ignore handles)
     el.addEventListener("mousedown", (e) => {
       if (!devMode) return;
       if (e.target && e.target.classList && e.target.classList.contains("devHandle")) return;
@@ -466,7 +466,6 @@ body.devMode .devHandle{ display:block; }
       e.stopPropagation();
     });
 
-    // resize handles
     el.querySelectorAll(".devHandle").forEach(h => {
       h.addEventListener("mousedown", (e) => {
         if (!devMode) return;
@@ -490,7 +489,6 @@ body.devMode .devHandle{ display:block; }
   window.addEventListener("mousemove", onMouseMove);
   window.addEventListener("mouseup", onMouseUp);
 
-  // toggle dev mode with M
   window.addEventListener("keydown", (e) => {
     if (e.key && e.key.toLowerCase() === "m"){
       devMode = !devMode;
@@ -504,169 +502,116 @@ body.devMode .devHandle{ display:block; }
   });
 
   // =========================
-  // Gate lock overlay
+  // Gate Conversation (choices + meter)
+  // Cover story: escaped Helheim / Hel's thugs
   // =========================
-  const f0 = getFlags();
-  if(!f0[REQUIRED_OPEN_FLAG]){
-    document.getElementById("lockScreen").style.display="flex";
-    document.getElementById("lockBackBtn").onclick=()=>location.href=MYRIADOR_MAP_URL;
-  }
 
-  // =========================
-  // REAL GATE DIALOGUE FLOW (local, placeholder-friendly)
-  // - Covers your story: escaped Helheim, hunted by Hel’s thugs
-  // - Choices increment meter: convinced / not convinced
-  // - End resolves: pass if convinced > not
-  // =========================
-  function gateEnd(){
+  function finalizeDecision(){
+    const m = getMeter();
     const f = getFlags();
+
+    // Lock in once (optional)
     f[GATE_DONE_FLAG] = true;
 
-    if (meter.convinced > meter.not){
-      f[GATE_PASS_FLAG] = true;
-      delete f[GATE_FAIL_FLAG];
+    if (m.convinced > m.not){
+      f[ENTRY_GRANTED_FLAG] = true;
+      delete f[ENTRY_DENIED_FLAG];
       setFlags(f);
 
       showDialogue({
-        speaker: "Myriador Guard Captain",
-        portraitSrc: "/guildbook/npcs/myriador/guard/guard.gif",
+        speaker:"Myriador Guard",
+        portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
         text:
 `Very well.
-Your tale reeks of Helheim… yet your eyes do not.
-We grant you passage — on a short leash.
+Myriador does not turn away the hunted… but we do not welcome chaos.
 
-(Placeholder: you are allowed into Myriador.)`,
-        buttons: [
-          { label:"Enter Myriador", onClick:()=>location.href=MYRIADOR_LAND_URL },
-          { label:"Back to Map", onClick:()=>location.href=MYRIADOR_MAP_URL }
+The gates will open — step carefully.`,
+        buttons:[
+          { label:"Enter Myriador", onClick:()=>location.href = ENTER_URL },
+          { label:"Close", onClick:hideDialogue }
         ]
       });
-      return;
-    }
+    } else {
+      f[ENTRY_DENIED_FLAG] = true;
+      delete f[ENTRY_GRANTED_FLAG];
+      setFlags(f);
 
-    f[GATE_FAIL_FLAG] = true;
-    delete f[GATE_PASS_FLAG];
-    setFlags(f);
-
-    showDialogue({
-      speaker: "Myriador Guard Captain",
-      portraitSrc: "/guildbook/npcs/myriador/guard/guard.gif",
-      text:
+      showDialogue({
+        speaker:"Myriador Guard",
+        portraitSrc:"/guildbook/npcs/myriador/guard/guard2.gif",
+        text:
 `No.
-We will not invite Hel’s shadow behind our walls.
+Your story stinks of Helheim.
 
-Find another way in — or bring proof that Myriador can trust you.
-(Placeholder: denied.)`,
-      buttons: [
-        { label:"Leave", onClick:()=>location.href=MYRIADOR_MAP_URL },
-        { label:"Close", onClick:hideDialogue }
-      ]
-    });
+Find another way — or leave before you bring Hel’s shadow to our gates.`,
+        buttons:[
+          { label:"Back to Map", onClick:()=>location.href = RETURN_URL },
+          { label:"Close", onClick:hideDialogue }
+        ]
+      });
+    }
   }
 
   function startGateTalk(){
-    meterReset();
+    // reset meter each new attempt (you can remove this if you want it persistent)
+    setMeter({ convinced:0, not:0 });
 
     showDialogue({
-      speaker: "Myriador Guard Captain",
-      portraitSrc: "/guildbook/npcs/myriador/guard/guard.gif",
-      text:
-`Hold.
-State your name — and your business at the gates of Myriador.
-
-You bear the stink of Helheim on your clothes…`,
-      buttons: [
+      speaker:"Myriador Guard",
+      portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
+      text:"Halt. State your business at the gates of Myriador.",
+      buttons:[
         {
-          label:"Tell the truth: ‘I escaped Hel’s thugs’",
-          onClick: () => {
-            addConv(1);
+          label:"Tell the truth: I escaped Helheim",
+          onClick:()=>{
+            bump("convinced", 1);
             showDialogue({
-              speaker:"Myriador Guard Captain",
-              portraitSrc:"/guildbook/npcs/myriador/guard/guard.gif",
-              text:
-`Escaped Helheim…?
-Many say that when they want our pity.
-
-Why should Myriador shelter you?`,
+              speaker:"Myriador Guard",
+              portraitSrc:"/guildbook/npcs/myriador/guard/guard2.gif",
+              text:"Escaped Helheim? Many claim that. Why should we believe you?",
               buttons:[
                 {
-                  label:"‘I seek refuge — and I’ll serve Myriador.’",
-                  onClick: () => {
-                    addConv(1);
+                  label:"Show wounds + beg refuge",
+                  onClick:()=>{
+                    bump("convinced", 1);
                     showDialogue({
-                      speaker:"Myriador Guard Captain",
-                      portraitSrc:"/guildbook/npcs/myriador/guard/guard.gif",
-                      text:
-`Service is cheap. Loyalty is rare.
-What can you offer that isn’t a lie?`,
+                      speaker:"Myriador Guard",
+                      portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
+                      text:"Words are easy. Mercy is not.\nWhat do you offer Myriador?",
                       buttons:[
-                        {
-                          label:"Offer oath + vow to expose Hel’s agents",
-                          onClick: () => {
-                            addConv(1);
-                            showDialogue({
-                              speaker:"Myriador Guard Captain",
-                              portraitSrc:"/guildbook/npcs/myriador/guard/guard.gif",
-                              text:
-`An oath…
-Hel’s spies love oaths — until the knife comes out.
-
-Prove you’re not one of them.`,
-                              buttons:[
-                                {
-                                  label:"Show wounds / signs of captivity (placeholder)",
-                                  onClick: () => {
-                                    addConv(1);
-                                    showDialogue({
-                                      speaker:"Myriador Guard Captain",
-                                      portraitSrc:"/guildbook/npcs/myriador/guard/guard.gif",
-                                      text:
-`Hmph.
-Those marks… are not self-made.
-
-One last question.`,
-                                      buttons:[
-                                        {
-                                          label:"Answer calmly: ‘I want to do good here.’",
-                                          onClick: () => { addConv(1); gateEnd(); }
-                                        },
-                                        {
-                                          label:"Get angry: ‘Let me in or regret it.’",
-                                          onClick: () => { addNot(2); gateEnd(); }
-                                        }
-                                      ]
-                                    });
-                                  }
-                                },
-                                {
-                                  label:"Refuse to show anything",
-                                  onClick: () => { addNot(2); gateEnd(); }
-                                }
-                              ]
-                            });
-                          }
-                        },
-                        {
-                          label:"Try to bribe the guards",
-                          onClick: () => { addNot(2); gateEnd(); }
-                        }
+                        { label:"Swear to serve the Crown", onClick:()=>{ bump("convinced",1); finalizeDecision(); } },
+                        { label:"Ask only for shelter", onClick:()=>{ bump("not",1); finalizeDecision(); } },
+                        { label:"Demand entry (angry)", onClick:()=>{ bump("not",2); finalizeDecision(); } },
                       ]
                     });
                   }
                 },
                 {
-                  label:"Lie: ‘I’m a merchant on royal business.’",
-                  onClick: () => {
-                    addNot(1);
+                  label:"Hide details (vague story)",
+                  onClick:()=>{
+                    bump("not", 1);
                     showDialogue({
-                      speaker:"Myriador Guard Captain",
-                      portraitSrc:"/guildbook/npcs/myriador/guard/guard.gif",
-                      text:
-`A merchant? With no seal. No caravan. No escort.
-Try again.`,
+                      speaker:"Myriador Guard",
+                      portraitSrc:"/guildbook/npcs/myriador/guard/guard2.gif",
+                      text:"Convenient. Vague stories are how spies breathe.\nSpeak clearly or leave.",
                       buttons:[
-                        { label:"Admit truth: ‘Fine—Hel’s thugs hunted me.’", onClick:()=>{ addConv(1); gateEnd(); } },
-                        { label:"Double down on the lie", onClick:()=>{ addNot(2); gateEnd(); } }
+                        { label:"Admit Hel’s thugs kidnapped you", onClick:()=>{ bump("convinced",1); finalizeDecision(); } },
+                        { label:"Refuse to answer", onClick:()=>{ bump("not",2); finalizeDecision(); } }
+                      ]
+                    });
+                  }
+                },
+                {
+                  label:"Lie: I'm a merchant",
+                  onClick:()=>{
+                    bump("not", 2);
+                    showDialogue({
+                      speaker:"Myriador Guard",
+                      portraitSrc:"/guildbook/npcs/myriador/guard/guard1.gif",
+                      text:"A merchant with fear in their eyes.\nWe have heard enough.",
+                      buttons:[
+                        { label:"Try again later", onClick:()=>location.href = RETURN_URL },
+                        { label:"Close", onClick:hideDialogue }
                       ]
                     });
                   }
@@ -675,33 +620,46 @@ Try again.`,
             });
           }
         },
+
         {
-          label:"Hide details: ‘I just need entry.’",
-          onClick: () => {
-            addNot(1);
+          label:"Offer to help Myriador (good intentions)",
+          onClick:()=>{
+            bump("convinced", 1);
             showDialogue({
-              speaker:"Myriador Guard Captain",
-              portraitSrc:"/guildbook/npcs/myriador/guard/guard.gif",
-              text:
-`Then you’ll get none.
-Myriador is not a gutter for strangers.`,
+              speaker:"Myriador Guard",
+              portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard1.gif",
+              text:"Help? Everyone wants something.\nName one deed you will do for Myriador.",
               buttons:[
-                { label:"Explain: ‘Hel’s minions will kill me if you refuse.’", onClick:()=>{ addConv(1); gateEnd(); } },
-                { label:"Threaten them", onClick:()=>{ addNot(2); gateEnd(); } }
+                { label:"Expose Hel’s agents", onClick:()=>{ bump("convinced",1); finalizeDecision(); } },
+                { label:"Work the farms for food", onClick:()=>{ bump("convinced",1); finalizeDecision(); } },
+                { label:"I just need a place to hide", onClick:()=>{ bump("not",1); finalizeDecision(); } },
               ]
             });
           }
         },
-        { label:"Leave", onClick:()=>location.href=MYRIADOR_MAP_URL }
+
+        {
+          label:"Threaten them",
+          onClick:()=>{
+            bump("not", 2);
+            showDialogue({
+              speaker:"Myriador Guard",
+              portraitSrc:"/guildbook/npcs/myriador/portraitSrc/guard2.gif",
+              text:"One more step and you’ll be a warning on our wall.",
+              buttons:[
+                { label:"Back off", onClick:()=>{ bump("not",1); finalizeDecision(); } },
+                { label:"Attack (placeholder)", onClick:()=>{ bump("not",3); finalizeDecision(); } },
+              ]
+            });
+          }
+        },
+
+        { label:"Leave", onClick:()=>location.href = RETURN_URL }
       ]
     });
   }
 
-  // =========================
-  // Click wiring (FIXED)
-  // - bind both guards
-  // - block while devMode
-  // =========================
+  // Click wiring (two guards)
   function bindGuardClicks(){
     const g1 = document.querySelector('[data-id="gateGuard1"]');
     const g2 = document.querySelector('[data-id="gateGuard2"]');
@@ -710,21 +668,6 @@ Myriador is not a gutter for strangers.`,
       g1.addEventListener("click", (e) => {
         if (devMode) return;
         e.preventDefault(); e.stopPropagation();
-
-        const f = getFlags();
-        if (f[GATE_DONE_FLAG]){
-          showDialogue({
-            speaker:"Myriador Guard",
-            portraitSrc:"/guildbook/npcs/myriador/guard/guard.gif",
-            text:"Move along. The Captain has already decided your fate.",
-            buttons:[
-              { label:"Back to Map", onClick:()=>location.href=MYRIADOR_MAP_URL },
-              { label:"Close", onClick:hideDialogue }
-            ]
-          });
-          return;
-        }
-
         startGateTalk();
       });
     }
@@ -733,19 +676,6 @@ Myriador is not a gutter for strangers.`,
       g2.addEventListener("click", (e) => {
         if (devMode) return;
         e.preventDefault(); e.stopPropagation();
-        // same behavior as guard1
-        if (getFlags()[GATE_DONE_FLAG]){
-          showDialogue({
-            speaker:"Myriador Guard",
-            portraitSrc:"/guildbook/npcs/myriador/guard/guard.gif",
-            text:"The Captain already gave the order. Keep moving.",
-            buttons:[
-              { label:"Back to Map", onClick:()=>location.href=MYRIADOR_MAP_URL },
-              { label:"Close", onClick:hideDialogue }
-            ]
-          });
-          return;
-        }
         startGateTalk();
       });
     }
@@ -753,11 +683,20 @@ Myriador is not a gutter for strangers.`,
 
   bindGuardClicks();
 
+  // =========================
+  // Lock screen (can't access this page)
+  // =========================
+  const f=getFlags();
+  if(!f[REQUIRED_OPEN_FLAG]){
+    document.getElementById("lockScreen").style.display="flex";
+    document.getElementById("lockBackBtn").onclick=()=>location.href = RETURN_URL;
+  }
+
 })();
 </script>
 
 </body>
 </html>
-```
+
 
 
