@@ -193,6 +193,17 @@ body.devMode .devHandle{ display:block; }
     catch{ return {}; }
   }
 
+    // ✅ Mark that we entered Fenrir’s Forest (Go-To-Fenrir objective "enter")
+  (function markEntered(){
+    const f = getFlags();
+    if (!f.dq_go_fenrir_entered){
+      f.dq_go_fenrir_entered = true;
+      localStorage.setItem(FLAGS_KEY, JSON.stringify(f));
+      try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+    }
+  })();
+
+
   function showDialogue({speaker,text,portraitSrc,buttons=[]}){
     dlgName.textContent = speaker || "";
     dlgText.textContent = text || "";
@@ -219,6 +230,95 @@ body.devMode .devHandle{ display:block; }
       i=(i+1)%36;
     },125);
   })();
+
+    // =========================
+  // Dialogue runner (LOCAL)
+  // =========================
+  async function runDialogueFromJson(jsonUrl, startId){
+    const res = await fetch(jsonUrl, { cache: "no-store" });
+    if (!res.ok) throw new Error("Dialogue JSON failed: " + jsonUrl);
+    const data = await res.json();
+
+    const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+    const map = new Map(nodes.map(n => [n.id, n]));
+
+    function applyReward(reward){
+      if (!reward) return;
+
+      const f = getFlags();
+
+      // flags
+      if (reward.flags && typeof reward.flags === "object"){
+        for (const [k,v] of Object.entries(reward.flags)){
+          f[k] = v;
+        }
+      }
+
+      // questSteps  { questId: { "0":"pass" } }
+      if (reward.questSteps && typeof reward.questSteps === "object"){
+        for (const [qid, stepsObj] of Object.entries(reward.questSteps)){
+          if (!stepsObj || typeof stepsObj !== "object") continue;
+          for (const [idx, status] of Object.entries(stepsObj)){
+            f[`${qid}_step${idx}`] = status; // "pass" / "fail"
+          }
+        }
+      }
+
+      // setQuest
+      if (reward.setQuest && reward.setQuest.id){
+        localStorage.setItem("vaq_activeQuestId", reward.setQuest.id);
+        if (reward.setQuest.catalog){
+          localStorage.setItem("vaq_activeQuestCatalog", reward.setQuest.catalog);
+        }
+      }
+
+      localStorage.setItem(FLAGS_KEY, JSON.stringify(f));
+
+      // refresh HUD icons if present
+      try{ window.__va_refresh_icons && window.__va_refresh_icons(); }catch{}
+    }
+
+    function showNode(nodeId){
+      const node = map.get(nodeId);
+      if (!node) {
+        hideDialogue();
+        return;
+      }
+
+      // special close token
+      if (nodeId === "__close"){
+        hideDialogue();
+        return;
+      }
+
+      // apply reward on node enter
+      applyReward(node.reward);
+
+      const speaker = node.speaker || data.meta?.speakerDefault || "…";
+      const portrait = node.portrait || data.meta?.portrait || "";
+      const text = (window.VAQ && typeof window.VAQ.txt === "function")
+        ? window.VAQ.txt(node.text || "")
+        : (node.text || "");
+
+      const choices = Array.isArray(node.choices) ? node.choices : [];
+
+      showDialogue({
+        speaker,
+        portraitSrc: portrait,
+        text,
+        buttons: choices.length ? choices.map(c => ({
+          label: c.label || "Continue",
+          onClick: () => showNode(c.to || "__close")
+        })) : [{ label: "Close", onClick: hideDialogue }]
+      });
+    }
+
+    showNode(startId || data.start || nodes[0]?.id);
+  }
+
+  // expose for your existing onclick call
+  window.runDialogueFromJson = runDialogueFromJson;
+
 
   document.querySelector('[data-id="fenrirNpc"]').onclick = async ()=>{
     const f=getFlags();
