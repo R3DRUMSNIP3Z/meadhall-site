@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Choose Your Class — Valhalla Ascending</title>
+
+  <!-- Your main theme CSS -->
+  <link rel="stylesheet" href="/Styles/odin.css"/>
+
+  <style>
+    :root {
+      --va-gold: #ffd56c;
+      --va-gold-soft: #c8a96b;
+      --va-bg: #05070a;
+    }
+
+    * { box-sizing:border-box; }
+
+    body {
+      margin:0;
+      padding:40px 24px 60px;
+      background:#05070a;
+      color:#f5efe0;
+      font-family:"Cinzel",serif;
+    }
+
+    .layout {
+      max-width:1200px;
+      margin:0 auto;
+    }
+
+    .title {
+      font-size:42px;
+      font-weight:900;
+      text-align:center;
+      letter-spacing:2px;
+      margin-bottom:32px;
+      color:var(--va-gold);
+      text-shadow:0 0 16px rgba(255,213,108,0.7);
+    }
+
+    /* Tabs row */
+    .class-tabs {
+      display:flex;
+      gap:16px;
+      justify-content:center;
+      margin-bottom:30px;
+      flex-wrap:wrap;
+    }
+
+    .class-tab {
+      min-width:140px;
+      padding:10px 20px;
+      border-radius:12px;
+      border:1px solid rgba(200,169,107,0.35);
+      text-align:center;
+      cursor:pointer;
+      font-size:16px;
+      font-weight:600;
+      background:rgba(255,255,255,0.02);
+      transition:.18s ease;
+    }
+
+    .class-tab:hover {
+      box-shadow:0 0 18px rgba(255,213,108,0.5);
+      transform:translateY(-2px);
+    }
+
+    .class-tab.active {
+      border-color:var(--va-gold);
+      box-shadow:0 0 24px rgba(255,213,108,0.85);
+      background:radial-gradient(circle at top,rgba(255,255,255,0.12),rgba(0,0,0,0.95));
+    }
+
+    /* Main preview + info layout */
+    .main-grid {
+      display:grid;
+      grid-template-columns:320px minmax(0,1fr);
+      gap:24px;
+      align-items:flex-start;
+    }
+
+    @media (max-width:900px){
+      body { padding:20px 12px 40px; }
+      .main-grid { grid-template-columns:1fr; }
+    }
+
+    .card {
+      background:rgba(255,255,255,0.03);
+      border-radius:16px;
+      border:1px solid rgba(200,169,107,0.35);
+      padding:18px 20px;
+      min-height:260px;
+    }
+
+    .preview-inner {
+      position:relative;
+      width:100%;
+      height:320px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:
+        radial-gradient(circle at top,rgba(255,255,255,0.08),rgba(0,0,0,0.98)),
+        /* swap this for your house image if you want */
+        url("/guildbook/maps/classpreviewbg.png") center/cover no-repeat;
+      border-radius:12px;
+      border:1px solid rgba(200,169,107,0.35);
+      overflow:hidden;
+    }
+
+    #previewPortrait {
+      max-width:100%;
+      max-height:100%;
+      display:block;
+      object-fit:contain;
+      image-rendering:auto;
+    }
+
+    .info-title {
+      margin:0 0 6px;
+      font-size:22px;
+    }
+
+    .info-role {
+      margin:0 0 10px;
+      font-size:15px;
+      color:var(--va-gold-soft);
+    }
+
+    .info-desc {
+      font-size:14px;
+      line-height:1.5;
+      margin-bottom:16px;
+    }
+
+    .tag-row {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-bottom:12px;
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+
+    .tag {
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(200,169,107,0.4);
+      background:rgba(0,0,0,0.6);
+      color:var(--va-gold-soft);
+    }
+
+    .stats {
+      font-size:13px;
+    }
+
+    .stat-row {
+      margin-bottom:9px;
+    }
+
+    .stat-label {
+      font-weight:600;
+      font-size:12px;
+      letter-spacing:.1em;
+      text-transform:uppercase;
+    }
+
+    .bar-wrap {
+      width:100%;
+      height:9px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.06);
+      overflow:hidden;
+      margin-top:3px;
+    }
+
+    .bar {
+      height:9px;
+      border-radius:999px;
+      background:linear-gradient(90deg,#ffbd4a,#ff7c00);
+      width:0%;
+      transition:width .25s ease-out;
+    }
+
+    .bar-value {
+      float:right;
+      font-size:11px;
+      opacity:.8;
+      margin-top:2px;
+    }
+
+    .bottom {
+      text-align:center;
+      margin-top:28px;
+    }
+
+    #btnSelect {
+      padding:12px 36px;
+      border-radius:999px;
+      border:none;
+      background:var(--va-gold);
+      color:#111;
+      font-weight:700;
+      font-size:18px;
+      cursor:pointer;
+      box-shadow:0 0 20px rgba(255,213,108,0.7);
+      transition:.18s ease;
+    }
+
+    #btnSelect:hover {
+      transform:translateY(-1px);
+      background:#f0c250;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <h1 class="title">Choose Your Class</h1>
+
+    <!-- Class tabs -->
+    <div id="classTabs" class="class-tabs"></div>
+
+    <div class="main-grid">
+      <!-- LEFT: animated portrait -->
+      <div class="card">
+        <div class="preview-inner">
+          <img id="previewPortrait" src="/logo/logo-512.png" alt="Class preview">
+        </div>
+      </div>
+
+      <!-- RIGHT: info/stats -->
+      <div class="card">
+        <h2 id="pvName" class="info-title">Select a class</h2>
+        <p id="pvRole" class="info-role"></p>
+        <p id="pvDesc" class="info-desc">Click a class tab above to preview the hero and stats.</p>
+
+        <div id="pvTags" class="tag-row"></div>
+        <div id="pvStats" class="stats"></div>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div style="margin-bottom:12px; font-size:14px;">
+        <label for="heroName">Hero Name:</label>
+      </div>
+      <input
+        id="heroName"
+        type="text"
+        maxlength="16"
+        placeholder="Enter your hero name"
+        style="
+          padding:8px 12px;
+          border-radius:999px;
+          border:1px solid rgba(200,169,107,.6);
+          background:#111;
+          color:#f5efe0;
+          font-size:14px;
+          min-width:220px;
+          text-align:center;
+          margin-bottom:16px;
+          display:block;
+          margin-left:auto;
+          margin-right:auto;
+        "
+      />
+
+      <button id="btnSelect" type="button">
+        Start Game
+      </button>
+    </div>
+  </div>
+
+  <!-- TypeScript module -->
+  <script type="module" src="/src/classpick.ts"></script>
+</body>
+</html>
+
+
+
+
+

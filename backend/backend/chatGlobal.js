@@ -1,23 +1,12 @@
-// backend/chatGlobal.js
-const express = require("express");
+// chatGlobal.js
 const { randomUUID } = require("crypto");
 const { users } = require("./db");
 
 const messages = [];
 const clients = new Set();
-const MAX_MSGS = 500;        // keep memory bounded
-const HEARTBEAT_MS = 25000;  // keep SSE alive across proxies
-
-function frameClassFor(m) {
-  const tier = String(m || "").toLowerCase();
-  if (tier === "premium") return "pfp--premium";
-  if (tier === "annual")  return "pfp--annual";
-  return "pfp--reader"; // default
-}
 
 function msgView(m) {
-  const u = (m.userId && users.get(m.userId)) || {};
-  const membership = u.membership || "reader";
+  const u = users.get(m.userId) || {};
   return {
     id: m.id,
     text: m.text,
@@ -26,98 +15,127 @@ function msgView(m) {
       id: u.id || null,
       name: u.name || "skald",
       avatarUrl: u.avatarUrl || null,
-      membership,
-      frameClass: frameClassFor(membership), // <- send CSS class to client
     },
   };
 }
 
-
-function setCORS(req, res) {
-  const origin = req.headers.origin || "*";
-  res.set({
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Vary": "Origin",
-  });
-}
-
 function install(app) {
-  // --- CORS preflight for POST & GET ---
+  // --- CORS: preflight for history/send
   app.options("/api/chat/global", (req, res) => {
-    setCORS(req, res);
-    return res.sendStatus(204);
+    const origin = req.headers.origin || "*";
+    res.set({
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    });
+    res.sendStatus(204);
   });
+
+  // --- CORS: preflight for SSE (some proxies do this)
   app.options("/api/chat/global/stream", (req, res) => {
-    setCORS(req, res);
-    return res.sendStatus(204);
+    const origin = req.headers.origin || "*";
+    res.set({
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    });
+    res.sendStatus(204);
   });
 
-  // --- History (optional since=lastId) ---
+  // --- History
   app.get("/api/chat/global", (req, res) => {
-    setCORS(req, res);
-    const since = (req.query.since || "").trim();
-    let out = messages;
+    const origin = req.headers.origin || "*";
+    res.set({
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    });
+
+    const since = String(req.query.since || "");
+    let idx = 0;
     if (since) {
-      const idx = messages.findIndex((m) => m.id === since);
-      out = idx >= 0 ? messages.slice(idx + 1) : messages;
+      idx = messages.findIndex((m) => m.id === since);
+      idx = idx === -1 ? 0 : idx + 1;
     }
-    res.json(out.map(msgView));
+    res.json(messages.slice(idx).map(msgView));
   });
 
-  // --- Live stream (SSE) ---
+  // --- SSE stream
   app.get("/api/chat/global/stream", (req, res) => {
-    setCORS(req, res);
+    const origin = req.headers.origin || "*";
     res.set({
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
+      "Cache-Control": "no-cache",
       "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
     });
-    res.flushHeaders?.();
+    res.flushHeaders();
 
-    // greet and register
-    res.write(`data: ${JSON.stringify({ sys: "connected" })}\n\n`);
-    clients.add(res);
+    // EventSource retry hint
+    res.write("retry: 5000\n\n");
 
-    // heartbeat to prevent idle timeouts
-    const hb = setInterval(() => {
-      try { res.write(`event: ping\ndata: {}\n\n`); } catch { /* noop */ }
-    }, HEARTBEAT_MS);
+    const client = { res };
+    clients.add(client);
+    console.log(`🔌 SSE connect (total ${clients.size})`);
+
+    // Keep-alive ping (prevents idle proxies from closing)
+    const ping = setInterval(() => {
+      try {
+        res.write(`event: ping\ndata: {}\n\n`);
+      } catch {
+        // ignore write errors; close will clean up
+      }
+    }, 25000);
 
     req.on("close", () => {
-      clearInterval(hb);
-      clients.delete(res);
-      try { res.end(); } catch {}
-    });
-    req.on("error", () => {
-      clearInterval(hb);
-      clients.delete(res);
-      try { res.end(); } catch {}
+      clearInterval(ping);
+      clients.delete(client);
+      console.log(`❌ SSE disconnect (total ${clients.size})`);
     });
   });
 
-  // --- Send message ---
-  app.post("/api/chat/global", express.json(), (req, res) => {
-    setCORS(req, res);
-    const { userId = null, text } = req.body || {};
-    if (!text || typeof text !== "string") {
-      return res.status(400).json({ error: "invalid text" });
-    }
+  // --- Send
+  app.post("/api/chat/global", (req, res) => {
+    const origin = req.headers.origin || "*";
+    res.set({
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
+      "Vary": "Origin",
+    });
 
-    const msg = { id: randomUUID(), userId, text, createdAt: Date.now() };
+    const userId = String(req.body?.userId || "").trim();
+    const text = String(req.body?.text || "").trim();
+    if (!text) return res.status(400).json({ error: "Empty message" });
+
+    const id = randomUUID();
+    const createdAt = Date.now();
+    const msg = { id, userId, text, createdAt };
     messages.push(msg);
-    if (messages.length > MAX_MSGS) messages.splice(0, messages.length - MAX_MSGS);
 
+    // Push to all connected SSE clients
     const payload = `data: ${JSON.stringify(msgView(msg))}\n\n`;
     for (const c of clients) {
-      try { c.write(payload); } catch { /* drop broken client on its own */ }
+      try {
+        c.res.write(payload);
+      } catch {
+        /* ignore broken client */
+      }
     }
-    res.json({ ok: true, id: msg.id });
-  });
 
-  console.log("✅ chatGlobal routes mounted");
+    res.status(201).json({ ok: true, id });
+  });
 }
 
 module.exports = { install };
+
+
+
+
+
 

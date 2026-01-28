@@ -1,0 +1,281 @@
+sorry tht wasnt the right html this one is <!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Dreadheim — Forest Battle</title>
+  <style>
+    html,body{margin:0;height:100%;background:#000;overflow:hidden}
+    #stage{display:block;width:100vw;height:100vh}
+    /* Skill bar (only visible in battle) */
+    #skillbar{
+      position:fixed; left:0; right:0; bottom:0;
+      display:flex; gap:12px; justify-content:center; align-items:center;
+      padding:12px 16px; background:rgba(0,0,0,.55); backdrop-filter: blur(4px);
+      border-top:1px solid rgba(255,255,255,.08);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      user-select:none;
+    }
+    .skill{
+      width:74px; height:74px; border:2px solid rgba(212,169,77,.6);
+      border-radius:10px; display:flex; align-items:center; justify-content:center;
+      color:#ffd; background:rgba(255,255,255,.04); cursor:pointer;
+      box-shadow:0 6px 20px rgba(0,0,0,.35);
+    }
+    .skill.locked{filter:grayscale(1) opacity(.5); cursor:not-allowed}
+    .skill.oncd{outline:2px dashed rgba(255,255,255,.25)}
+    .skill .name{font-size:11px; text-align:center; line-height:1.1; padding:4px}
+    #hud{
+      position:fixed; top:10px; left:10px; right:10px; display:flex; gap:12px; justify-content:space-between;
+      color:#fff; font: 14px/1.2 ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;
+      text-shadow:0 2px 8px rgba(0,0,0,.7);
+    }
+    .bar{height:10px; background:#222; border:1px solid rgba(255,255,255,.15); border-radius:8px; overflow:hidden}
+    .bar > i{display:block; height:100%}
+    .hp > i{background:#a53b3b}
+    .rage > i{background:#d4a94d}
+    #log{
+  position:fixed; bottom:150px; left:0; right:0; max-height:22vh; overflow:auto;
+  color:#f10505; font:12px ui-sans-serif,system-ui; text-align:center; pointer-events:none;
+  text-shadow:0 1px 6px rgba(0,0,0,.8);
+}
+
+
+    #overlay{
+      position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+      background:rgba(0,0,0,.5); color:#fff; font:28px Cinzel,serif; text-shadow:0 2px 16px #000;
+    }
+    #overlay.show{display:flex}
+    /* === Inventory visual fixes === */
+.va-item, .inv-cell { position: relative; }           /* the tile */
+.va-name, .inv-name {                                  /* item label bar */
+  position:absolute; left:6px; right:6px; bottom:6px;
+  z-index:2;
+}
+
+/* stack counter bubble → top-right (works with several class names) */
+.va-qty, .inv-qty, .item-qty, .va-stack, .stack {
+  position:absolute !important;
+  top:6px !important; right:6px !important;
+  left:auto !important; bottom:auto !important;
+  z-index:4 !important;
+  min-width:18px; padding:2px 6px;
+  border-radius:999px;
+  background:#7a1d1d; color:#fff;
+  font:12px/1 ui-sans-serif,system-ui;
+  text-align:center;
+  box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+/* === Skill Icon Styling === */
+.skill {
+  position: relative;
+  width: 74px;
+  height: 74px;
+  border: 2px solid rgba(212, 169, 77, .6);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffd;
+  background: rgba(255, 255, 255, .04);
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+  overflow: hidden;
+}
+
+.skill img.icon {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.45));
+  transition: transform 0.2s ease;
+}
+
+.skill:hover img.icon {
+  transform: scale(1.08);
+}
+
+.skill.locked img.icon {
+  filter: grayscale(1) opacity(.5);
+}
+
+.skill.oncd img.icon {
+  opacity: 0.7;
+}
+
+.skill .name {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 11px;
+  color: #ffeaa0;
+  text-shadow: 0 1px 3px rgba(0,0,0,.75);
+}
+/* Layout: skills + potion panel side by side */
+#skillbar {
+  position:fixed; left:0; right:0; bottom:0;
+  display:flex; gap:16px; justify-content:center; align-items:flex-end;
+  padding:12px 16px; background:rgba(0,0,0,.55); backdrop-filter: blur(4px);
+  border-top:1px solid rgba(255,255,255,.08);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  user-select:none;
+}
+
+/* Potion panel next to skills */
+.potion-panel {
+  min-width: 160px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(212,169,77,.4);
+  background: radial-gradient(circle at top, #231d14, #101318);
+  color: #f3e3b5;
+  box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: 'Cinzel', serif;
+}
+
+.potion-title {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: .9;
+  border-bottom: 1px solid rgba(212,169,77,.25);
+  padding-bottom: 2px;
+}
+
+.potion-slot {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 6px;
+  border-radius: 9px;
+  background: rgba(0,0,0,.45);
+}
+
+.potion-slot img {
+  width:30px;
+  height:30px;
+  object-fit:contain;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,.65));
+  visibility:hidden; /* shown when a potion is equipped */
+}
+
+#potionSlotName {
+  font-size: 12px;
+  color:#f9e9c4;
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+}
+
+.potion-actions {
+  display:flex;
+  gap:6px;
+  margin-top:2px;
+}
+
+.potion-actions button {
+  flex:1;
+  padding:4px 6px;
+  border-radius: 9px;
+  border:1px solid rgba(212,169,77,.5);
+  background:#151921;
+  color:#f3e3b5;
+  font-size:11px;
+  font-family: 'Cinzel', serif;
+  cursor:pointer;
+  box-shadow: 0 3px 10px rgba(0,0,0,.45);
+}
+
+.potion-actions button:disabled {
+  opacity:.45;
+  cursor:not-allowed;
+}
+
+.potion-actions button:hover:not(:disabled) {
+  background:#222731;
+}
+
+
+
+
+  </style>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="playerHUD" style="min-width:260px">
+      <div>YOU — HP <span id="pHP"></span> / <span id="pHPMax"></span> • Rage <span id="pRage"></span></div>
+      <div class="bar hp"><i id="pHPBar" style="width:100%"></i></div>
+      <div class="bar rage" style="margin-top:6px"><i id="pRageBar" style="width:0%"></i></div>
+    </div>
+    <div id="enemyHUD" style="min-width:260px; text-align:right">
+      <div>ENEMY — HP <span id="eHP"></span> / <span id="eHPMax"></span></div>
+      <div class="bar hp"><i id="eHPBar" style="width:100%"></i></div>
+    </div>
+  </div>
+
+  <!-- Battle Log -->
+  <div id="log"></div>
+
+      <!-- Skill Bar (appears in battle) -->
+  <div id="skillbar">
+    <div class="skill" data-skill="basic"><div class="name">Drengr<br/>Strike</div></div>
+    <div class="skill locked" data-skill="aoe"><div class="name">Storm of<br/>Blades</div></div>
+    <div class="skill locked" data-skill="buff"><div class="name">Odin’s<br/>Blessing</div></div>
+    <div class="skill locked" data-skill="debuff"><div class="name">Hel’s<br/>Curse</div></div>
+
+    <!-- Potion panel: sits to the RIGHT of the skills -->
+    <div id="potionPanel" class="potion-panel">
+      <div class="potion-title">Potion</div>
+      <div class="potion-slot">
+        <img id="potionSlotIcon" alt="" />
+        <span id="potionSlotName">None equipped</span>
+      </div>
+      <div class="potion-actions">
+        <button id="potionEquipBtn" type="button">Equip</button>
+        <button id="potionUseBtn" type="button" disabled>Use</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Result overlay -->
+  <div id="overlay"></div>
+
+
+  <!-- Result overlay -->
+  <div id="overlay"></div>
+  <!-- === Sound Effects === -->
+<audio id="boarHurt" src="/guildbook/sfx/diseasedboar.mp3" preload="auto"></audio>
+
+<script>
+function playBoarHurt() {
+  const sound = document.getElementById("boarHurt");
+  if (sound) {
+    sound.currentTime = 0; // restart if already playing
+    sound.volume = 0.8;
+    sound.play().catch(() => {}); // prevents autoplay errors
+  }
+}
+</script>
+
+<!-- === SFX: Diseased Boar Hurt === -->
+<audio id="boarHurt" src="/guildbook/sfx/diseasedboar.mp3" preload="auto"></audio>
+<!-- === SFX: Heroine Hurt === -->
+<audio id="femaleHurt" src="/guildbook/sfx/femalehurt.mp3" preload="auto"></audio>
+<audio id="maleHurt" src="/guildbook/sfx/malehurt.mp3" preload="auto"></audio>
+
+
+
+  <script type="module" src="/src/dreadheimbattle.ts"></script>
+  <script type="module" src="/src/global-game-setup.ts"></script>
+
+</body>
+</html>

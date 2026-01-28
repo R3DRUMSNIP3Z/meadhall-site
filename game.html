@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Valhalla Ascending — Arena</title>
+
+  <!-- Backend base URL -->
+  <meta name="api-base" content="https://meadhall-site.onrender.com" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* === Sparkle === */
+  .va-sparkle {
+    position: relative;
+    color: #ffeaa0;
+    text-shadow: 0 0 6px rgba(255,220,120,.6),
+                 0 0 16px rgba(212,169,77,.55),
+                 0 0 28px rgba(212,169,77,.35);
+    animation: vaGlow 2.4s ease-in-out infinite;
+  }
+  @keyframes vaGlow {
+    0%,100% { filter: drop-shadow(0 0 10px rgba(212,169,77,.45)); }
+    50%     { filter: drop-shadow(0 0 18px rgba(255,210,120,.85)); }
+  }
+
+  /* === Colors & Layout === */
+  :root { --gold:#d4a94d; --bg:#0b0e10; --card:#12161a; --muted:#c7b07a; }
+  * { box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+  body {
+    background:var(--bg);
+    color:var(--gold);
+    font-family:"Cinzel", serif;
+    margin:0; min-height:100vh; overflow-y:scroll;
+  }
+  .wrap { max-width:980px; margin:0 auto; padding:20px; }
+  h1 { margin:10px 0 16px; font-size:1.6rem; }
+
+  /* Grid layout */
+  .grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+    align-items:stretch;
+  }
+  .card {
+    background:var(--card);
+    border:1px solid #3b3325;
+    border-radius:14px;
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+  }
+  .row { display:flex; justify-content:space-between; align-items:center; margin:6px 0; }
+  .stat { font-weight:700; }
+
+  button {
+    background:#1b2228; border:1px solid #3b3325; border-radius:10px;
+    color:var(--gold); padding:8px 12px; cursor:pointer;
+  }
+  button:disabled { opacity:.6; cursor:not-allowed; }
+
+  /* Link that looks like a game button */
+  .game-btn {
+    display:inline-block;
+    text-align:center;
+    background:#1b2228;
+    border:1px solid #3b3325;
+    border-radius:10px;
+    color:var(--gold);
+    padding:8px 12px;
+    font-family:"Cinzel",serif;
+    text-decoration:none;
+    cursor:pointer;
+    transition:all .2s ease;
+  }
+  .game-btn:hover {
+    background:#252c32;
+    filter:drop-shadow(0 0 4px rgba(212,169,77,.6));
+  }
+
+  .bar { height:8px; background:#1b1b1b; border-radius:999px; overflow:hidden; }
+  .bar > span { display:block; height:100%; background:var(--muted); width:0%; }
+
+  .log {
+    background:#0e1013;
+    border:1px dashed #3b3325;
+    border-radius:10px;
+    padding:10px;
+    font-size:.95rem;
+    overflow:auto;
+    min-height:160px;
+  }
+  .muted { opacity:.85; } .ok { color:#8ad67a; } .bad { color:#f56; }
+
+  /* === Equipment Grid === */
+  .equip-grid {
+    display:grid;
+    grid-template-columns:repeat(3,112px);
+    grid-auto-rows:112px;
+    gap:14px;
+    justify-content:center;
+    align-content:start;
+    margin-top:8px;
+  }
+  .slot {
+    contain:strict !important;
+    position:relative !important;
+    width:112px !important; height:112px !important;
+    border:1px solid #3b3325; border-radius:12px;
+    background:#0f1215;
+    overflow:hidden !important;
+    color:#cbb17a; text-align:center;
+    font-size:0; line-height:0;
+  }
+  .slot-box { position:absolute; left:50%; top:50%; width:88px; height:88px; transform:translate(-50%,-50%); pointer-events:none; }
+
+  .slot > .slot-img {
+    position:absolute !important;
+    left:50% !important;
+    top:50% !important;
+    transform:translate(-50%,-50%) !important;
+    width:88px !important;
+    height:88px !important;
+    object-fit:contain !important;
+    display:block !important;
+    z-index:1;
+    pointer-events:none !important;
+    backface-visibility:hidden;
+  }
+
+  .slot > .rarity-frame {
+    position:absolute !important;
+    inset:0 !important;
+    width:100% !important;
+    height:100% !important;
+    object-fit:contain !important;
+    transform:none !important;
+    z-index:2;
+    pointer-events:none !important;
+  }
+
+  .equip-grid .slot::after {
+    content: attr(data-name);
+    position:absolute; left:0; right:0; bottom:0; height:18px;
+    font-size:11px; line-height:18px; text-align:center;
+    color:#997e38;
+    background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.45));
+    border-top:1px solid rgba(200,169,107,.22);
+    pointer-events:none;
+  }
+  .equip-grid .slot[data-name=""]::after,
+  .equip-grid .slot:not([data-name])::after { content:""; height:0; border-top:0; }
+
+  .equip-grid .slot[data-locked="true"] .rarity-frame { filter:grayscale(1) brightness(.85); }
+  .equip-grid .slot[data-locked="true"]::before {
+    content:"🔒 " attr(data-req);
+    position:absolute; top:6px; left:6px; height:18px;
+    padding:0 8px; font-size:11px; line-height:18px; font-weight:700;
+    color:#f3d7a4; background:rgba(122,29,29,.9);
+    border:1px solid rgba(255,255,255,.15);
+    border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.45);
+    z-index:3; pointer-events:none;
+  }
+
+  .equip-grid .slot, .equip-grid .slot * { pointer-events:none !important; }
+  #vaTooltip, .va-tip { display:none !important; }
+
+  .powertotal {
+    margin-top:10px; text-align:center;
+    font-size:1.5rem; font-weight:900; letter-spacing:1px;
+    border-top:1px solid #3b3325; padding-top:8px;
+  }
+
+  #backToProfile {
+    position:fixed; top:14px; left:20px;
+    background:#1b2228; border:1px solid #3b3325; border-radius:10px;
+    color:var(--gold); padding:8px 12px;
+    text-decoration:none; z-index:10000;
+    box-shadow:0 2px 6px rgba(0,0,0,.35);
+  }
+  #backToProfile:hover { background:#252c32; filter:drop-shadow(0 0 4px rgba(212,169,77,.6)); }
+
+  .toolbar { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .toolbar .spacer { flex:1 1 auto; }
+  .actions-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .actions-buttons { display:flex; gap:8px; flex-wrap:wrap; }
+  .soft { border:0; height:1px; background:linear-gradient(90deg,transparent,#3b3325,transparent); margin:6px 0 10px; }
+  .currency-icon { width:22px; height:22px; object-fit:contain; vertical-align:middle; margin-right:6px; filter:drop-shadow(0 0 4px rgba(212,169,77,.4)); }
+  #openQuests { background:linear-gradient(180deg,#1e1a12,#2b2416); color:#e6d5a9; border-color:#9b834d; }
+  #openQuests:hover { filter:drop-shadow(0 0 6px rgba(212,169,77,.7)); background:linear-gradient(180deg,#2b2416,#3a2e1c); }
+
+  /* === Quests Modal === */
+  #questsOverlay{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:100000; }
+  #questsModal{ width:min(720px,94vw); background:var(--card); border:1px solid #3b3325; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,.6); color:var(--gold); padding:14px; }
+  .qm-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+  #qmTitle{ font-weight:900; font-size:1.2rem; }
+  .qm-close{ background:#1b2228; border:1px solid #3b3325; color:var(--gold); border-radius:10px; padding:6px 10px; cursor:pointer; }
+  .qm-body{ border-top:1px solid #3b3325; border-bottom:1px solid #3b3325; padding:10px 0; }
+  .qm-sub{ margin:6px 0 12px; opacity:.9; }
+  .race-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
+  .race-card{ text-align:left; background:#0f1215; border:1px solid #3b3325; border-radius:12px; padding:12px; cursor:pointer; transition:.15s; }
+  .race-card:hover{ background:#141a1f; filter:drop-shadow(0 0 4px rgba(212,169,77,.5)); }
+  .race-card.selected{ outline:2px solid var(--gold); }
+  .race-name{ font-weight:800; margin-bottom:4px; }
+  .race-desc{ font-size:.95rem; opacity:.9; }
+  .qm-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+  .qm-foot{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding-top:8px; }
+  .qm-reward{ opacity:.95; }
+  .qm-status{ opacity:.85; }
+
+  #heroTitle { display:flex; align-items:center; gap:8px; font-weight:900; }
+  #heroBadge img, #heroBadge svg { height:34px; width:auto; display:block; filter:drop-shadow(0 0 6px rgba(212,169,77,.4)); }
+  </style> 
+
+</head>
+
+<body>
+  <a id="backToProfile" href="/profile.html">← Back to Profile</a>
+  <div id="vaTooltip" class="va-tip" style="display:none"></div>
+
+  <div class="wrap">
+    <h1>⚔️ Valhalla Ascending — Arena</h1>
+
+    <!-- Gender pick (placeholder) -->
+    <div id="genderPick" style="display:none; margin:12px 0;">
+      <div class="card" style="display:flex;gap:12px;align-items:center;justify-content:space-between;">
+        <div>Choose your warrior:</div>
+        <div style="display:flex;gap:8px">
+          <button id="pickFemale">Female</button>
+          <button id="pickMale">Male</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Left: Hero -->
+      <div id="heroCard" class="card">
+        <div class="row">
+          <div id="heroTitle">Hero</div>
+          <div id="heroBadge" aria-label="Race badge" style="margin-left:8px;"></div>
+          <div id="heroNameWrap" style="margin-left:auto; display:flex; align-items:center; gap:6px;">
+            <span id="heroName">—</span>
+            <button id="renameBtn" title="Rename">✏️</button>
+          </div>
+        </div>
+
+        <div class="row"><div>Level</div><div id="level">1</div></div>
+        <div class="row"><div>XP</div><div id="xpVal">0 / 100</div></div>
+        <div class="bar"><span id="xpBar"></span></div>
+        <div class="row"><div>Gold</div><div id="gold">0</div></div>
+
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:12px;margin-top:12px;">
+  <!-- Animated class avatar -->
+  <div style="display:flex;align-items:center;justify-content:center;background:#0c0f12;border:1px solid #3b3325;border-radius:12px;padding:6px;">
+    <canvas id="heroCanvas" width="140" height="200"
+      style="width:100%;max-width:110px;aspect-ratio:7/10;display:block;"></canvas>
+  </div>
+
+  <!-- keep avatar <img> as a hidden fallback / for future use -->
+  <img id="avatar" alt="avatar" style="display:none">
+
+
+
+          <div class="equip-grid">
+            <div class="slot" data-slot="helm" data-name="HELM"></div>
+            <div class="slot" data-slot="shoulders" data-name="SHOULDERS"></div>
+            <div class="slot" data-slot="wings" data-name="WINGS"></div>
+            <div class="slot" data-slot="ring" data-name="RING"></div>
+            <div class="slot" data-slot="chest" data-name="CHEST"></div>
+            <div class="slot" data-slot="pet" data-name="PET"></div>
+            <div class="slot" data-slot="gloves" data-name="GLOVES"></div>
+            <div class="slot" data-slot="boots" data-name="BOOTS"></div>
+            <div class="slot" data-slot="religion" data-name="RELIGION"></div>
+            <div class="slot" data-slot="artifact" data-name="ARTIFACT"></div>
+            <div class="slot" data-slot="pants" data-name="PANTS"></div>
+            <div class="slot" data-slot="shield" data-name="SHIELD"></div>
+
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:8px"><div class="stat">Strength</div><div id="strength">0</div></div>
+        <div class="row"><div class="stat">Defense</div><div id="defense">0</div></div>
+        <div class="row"><div class="stat">Speed</div><div id="speed">0</div></div>
+        <div class="row"><div class="stat">Health</div><div id="health">0</div></div>
+        <div class="row"><div>Unspent Points</div><div id="points">0</div></div>
+
+        <div id="battleRating" class="powertotal va-sparkle">BATTLE RATING 0</div>
+      </div>
+
+      <!-- Right: Actions + Quests + Log -->
+      <div id="actionsCard" class="card">
+        <div class="actions-head">
+          <div style="font-weight:700">Actions</div>
+          <div class="actions-buttons">
+            <a id="openShop" href="/shop.html" class="game-btn">Shop</a>
+            <a id="openBrisingr" href="/brisingrshop.html" class="game-btn">
+              <img src="/guildbook/Currency/Br%C3%ADsingr.png" onerror="this.src='/guildbook/Currency/Brisingr.png'" alt="Brísingr" class="currency-icon">
+              Brísingr Shop
+            </a>
+            <button id="openQuests" type="button" class="game-btn">📜 Quests</button>
+            <button id="openYgg" type="button" class="game-btn">🌿 Yggdrasil Skill Path</button>
+
+          </div>
+        </div>
+
+        <hr class="soft">
+
+        <div>
+          <div class="row"><button id="trainPower">Train Strength (+1)</button><span class="muted">3s cd</span></div>
+          <div class="row"><button id="trainDefense">Train Defense (+1)</button><span class="muted">3s cd</span></div>
+          <div class="row"><button id="trainSpeed">Train Speed (+1)</button><span class="muted">3s cd</span></div>
+          <hr/>
+          <div class="row"><button id="fightRandom" disabled>Battle: PvP (Lv 25+)</button><span class="muted">win gold/xp</span></div>
+          <div class="row"><button id="tickNow">Idle Tick Now</button><span class="muted">passive gold/xp</span></div>
+        </div>
+
+        <div id="activeQuest" class="card" style="display:none; margin-top:12px;">
+          <div style="font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+            <span>Active Quest</span>
+            <span id="aqStatus" class="muted">—</span>
+          </div>
+          <div id="aqTitle" class="qtitle" style="margin-top:4px; font-weight:800;">—</div>
+          <div id="aqDesc" class="muted" style="margin-top:6px">—</div>
+
+          <div style="margin-top:10px">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div class="muted">Progress</div>
+              <div class="muted"><span id="aqProgVal">0</span>%</div>
+            </div>
+            <div class="bar"><span id="aqProgBar" style="width:0%"></span></div>
+          </div>
+
+          <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
+            <button id="aqOpen" class="game-btn">Open</button>
+            <a id="aqTravel" class="game-btn" style="display:none" href="#">Travel</a>
+            <button id="aqAbandon" class="game-btn" title="Abandon this quest">Abandon</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <h3 style="margin:0 0 6px">Battle Log</h3>
+          <div id="log" class="log"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- === Quests Modal === -->
+  <div id="questsOverlay" style="display:none">
+    <div id="questsModal" role="dialog" aria-modal="true" aria-labelledby="qmTitle">
+      <div class="qm-head">
+        <div id="qmTitle">Main Quest: Choose Your Race</div>
+        <button id="qmClose" class="qm-close" aria-label="Close">✖</button>
+      </div>
+      <div class="qm-body">
+        <p class="qm-sub">You must choose your lineage before you can step onto the path of glory.</p>
+        <div class="race-grid">
+          <button class="race-card" data-race="myriador">
+            <div class="race-name">Myriador</div>
+            <div class="race-desc">Human realm of cities and scholars. +1 Strength at level 5.</div>
+          </button>
+          <button class="race-card" data-race="dreadheim">
+            <div class="race-name">Dreadheim</div>
+            <div class="race-desc">Viking north—iron and frost. +1 Defense at level 5.</div>
+          </button>
+          <button class="race-card" data-race="wildwood">
+            <div class="race-name">Wildwood</div>
+            <div class="race-desc">Forest-born wanderers. +1 Speed at level 5.</div>
+          </button>
+        </div>
+        <div class="qm-actions">
+          <button id="qmAccept" class="game-btn" disabled>Accept</button>
+          <button id="qmAbandon" class="game-btn">Later</button>
+        </div>
+      </div>
+      <div class="qm-foot">
+        <span class="qm-reward">Reward: 25 gold · 25 xp</span>
+        <span id="qmStatus" class="qm-status">Status: Available</span>
+      </div>
+    </div>
+  </div>
+  <!-- === Yggdrasil Paths (Skill Tree) === -->
+<div id="yggOverlay" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:100001; background:rgba(0,0,0,.6);">
+  <div id="yggModal" role="dialog" aria-modal="true" aria-labelledby="yggTitle"
+       style="width:min(760px,94vw); background:#12161a; border:1px solid #3b3325; border-radius:16px; padding:14px; color:#d4a94d; box-shadow:0 10px 40px rgba(0,0,0,.6);">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">
+      <div id="yggTitle" style="font-weight:900; font-size:1.2rem;">Yggdrasil Paths</div>
+      <button id="yggClose" class="game-btn" style="padding:6px 10px">✖</button>
+    </div>
+
+    <div style="border-top:1px solid #3b3325; border-bottom:1px solid #3b3325; padding:10px 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
+        <div class="qm-sub" style="opacity:.9">Spend skill points (1 per 10 levels) to unlock combat abilities.</div>
+        <div><b>Points:</b> <span id="yggPoints">0</span></div>
+      </div>
+
+      <div id="yggGrid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px;">
+        <!-- Cards are rendered by script -->
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:8px; padding-top:10px;">
+      <button id="yggReset" class="game-btn" title="Refund all points (dev/test)">Reset</button>
+      <button id="yggDone" class="game-btn">Done</button>
+    </div>
+  </div>
+</div>
+
+
+  <!-- === Quests + Race Badge Logic === -->
+  <script>
+  (function(){
+    // ---------- Per-user keys ----------
+    function getUserId() {
+      try {
+        const raw = localStorage.getItem('mh_user');
+        if (raw) {
+          const obj = JSON.parse(raw);
+          return obj?.id || obj?._id || obj?.user?.id || null;
+        }
+      } catch {}
+      return new URLSearchParams(location.search).get('user');
+    }
+    const UID = getUserId() || 'guest';
+    const userKey = (base) => `${base}__${UID}`;
+
+    const STORAGE_KEY = userKey('va_quests');
+    const RACE_KEY    = userKey('va_race');   // used below + by game.ts
+
+    // migrate old global keys once
+    try {
+      if (!localStorage.getItem(STORAGE_KEY) && localStorage.getItem('va_quests')) {
+        localStorage.setItem(STORAGE_KEY, localStorage.getItem('va_quests'));
+      }
+      if (!localStorage.getItem(RACE_KEY) && localStorage.getItem('va_race')) {
+        localStorage.setItem(RACE_KEY, localStorage.getItem('va_race'));
+        localStorage.removeItem('va_race');
+      }
+    } catch {}
+
+    // ---------- Quest storage helpers ----------
+    function readQuests() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+      catch { return []; }
+    }
+    function writeQuests(list) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list || []));
+    }
+    function ensureQuestState() {
+      const q = readQuests();
+      const byId = Object.fromEntries(q.map(x => [x.id, x]));
+      if (!byId['q_main_pick_race']) {
+        q.push({
+          id: 'q_main_pick_race',
+          title: 'Choose Your Race',
+          desc: 'Pick your lineage to begin your saga.',
+          status: 'available',
+          progress: 0,
+          rewards: { gold: 25, xp: 25 }
+        });
+      }
+      writeQuests(q);
+    }
+
+    // expose a tiny bridge if game.ts wants it
+    window.VAQ = {
+      readQuests,
+      writeQuests,
+      ensureQuestState,
+      updateHeroTitle: () => renderRaceBadge2()
+    };
+
+    // ---------- Modal wiring ----------
+    const openBtn   = document.getElementById('openQuests');
+    const overlay   = document.getElementById('questsOverlay');
+    const modal     = document.getElementById('questsModal');
+    const closeBtn  = document.getElementById('qmClose');
+
+    let chosen = null;
+
+    function cap(s){ return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""; }
+
+    function showQuest(){
+      const list   = readQuests();
+      const main   = list.find(x => x.id === 'q_main_pick_race');
+      const travel = list.find(x => x.id === 'q_travel_home');
+
+      const titleEl  = document.getElementById('qmTitle');
+      const statusEl = document.getElementById('qmStatus');
+      const bodyEl   = modal ? modal.querySelector('.qm-body') : null;
+      if (!overlay || !modal || !titleEl || !statusEl || !bodyEl) return;
+
+      // Not completed → show race picker
+      if (!main || main.status !== 'completed') {
+        titleEl.textContent  = 'Main Quest: Choose Your Race';
+        statusEl.textContent = 'Status: ' + cap((main && main.status) || 'available');
+
+        bodyEl.innerHTML = `
+          <p class="qm-sub">You must choose your lineage before you can step onto the path of glory.</p>
+          <div class="race-grid">
+            <button class="race-card" data-race="myriador">
+              <div class="race-name">Myriador</div>
+              <div class="race-desc">Human realm of cities and scholars. +1 Strength at level 5.</div>
+            </button>
+            <button class="race-card" data-race="dreadheim">
+              <div class="race-name">Dreadheim</div>
+              <div class="race-desc">Viking north—iron and frost. +1 Defense at level 5.</div>
+            </button>
+            <button class="race-card" data-race="wildwood">
+              <div class="race-name">Wildwood</div>
+              <div class="race-desc">Forest-born wanderers. +1 Speed at level 5.</div>
+            </button>
+          </div>
+          <div class="qm-actions">
+            <button id="qmAccept" class="game-btn" disabled>Accept</button>
+            <button id="qmAbandon" class="game-btn">Later</button>
+          </div>
+        `;
+
+        chosen = null;
+        const acceptBtn = bodyEl.querySelector('#qmAccept');
+        bodyEl.querySelectorAll('.race-card').forEach(btn=>{
+          btn.addEventListener('click', ()=>{
+            bodyEl.querySelectorAll('.race-card').forEach(b=>b.classList.remove('selected'));
+            btn.classList.add('selected');
+            chosen = btn.getAttribute('data-race') || null;
+            if (acceptBtn) acceptBtn.disabled = !chosen;
+          });
+        });
+        acceptBtn && acceptBtn.addEventListener('click', ()=> {
+          if (!chosen) return;
+          completeQuest(); // uses outer `chosen`
+        });
+        bodyEl.querySelector('#qmAbandon')?.addEventListener('click', ()=> overlay.style.display='none');
+
+      } else {
+        // Completed → show Travel quest
+        const race  = localStorage.getItem(RACE_KEY) || 'myriador';
+        const label = race === 'myriador' ? 'Myriador' : (race === 'dreadheim' ? 'Dreadheim' : 'Wildwood');
+
+        titleEl.textContent  = 'Travel to your homeland';
+        statusEl.textContent = 'Status: ' + cap((travel && travel.status) || 'available');
+        bodyEl.innerHTML = `
+          <p class="qm-sub">Go to <b>${label}</b> to continue your journey.</p>
+          <div class="qm-actions">
+            <a id="qmTravel" class="game-btn" href="/dreadheimmap.html">Travel</a>
+            <button id="qmClose2" class="game-btn">Close</button>
+          </div>
+        `;
+        bodyEl.querySelector('#qmClose2')?.addEventListener('click', ()=> overlay.style.display='none');
+      }
+
+      overlay.style.display = 'flex';
+    }
+
+    function hideQuest(){ document.getElementById('questsOverlay').style.display = 'none'; }
+
+    function setLog(msg, cls){
+      const log = document.getElementById('log');
+      if (!log) return;
+      const line = document.createElement('div');
+      if (cls) line.className = cls;
+      line.textContent = msg;
+      log.prepend(line);
+    }
+
+    // Complete race → mark main completed, add/reset travel, set race, update UI
+    function completeQuest(){
+      if (!chosen) return;
+
+      const list = readQuests();
+      const main = list.find(x => x.id === 'q_main_pick_race');
+      if (main) { main.status = 'completed'; main.progress = 100; }
+
+      const label =
+        chosen === 'myriador'  ? 'Myriador' :
+        chosen === 'dreadheim' ? 'Dreadheim' : 'Wildwood';
+
+      let travel = list.find(x => x.id === 'q_travel_home');
+      if (!travel) {
+        list.push({
+          id: 'q_travel_home',
+          title: 'Travel to your homeland',
+          desc: `Go to ${label}.`,
+          status: 'available',
+          progress: 0
+        });
+      } else {
+        travel.status = 'available';
+        travel.progress = 0;
+        travel.desc = `Go to ${label}.`;
+      }
+
+      writeQuests(list);
+      localStorage.setItem(RACE_KEY, chosen);
+
+      setLog(`Quest Completed: Choose Your Race — You chose ${label}. +25 gold, +25 xp`, 'ok');
+
+      try { window.dispatchEvent(new CustomEvent('va-quest-updated')); } catch {}
+      try { renderRaceBadge2(); } catch {}
+      hideQuest();
+
+      // show Active Quest panel with Travel
+      try {
+        const aq = document.getElementById('activeQuest');
+        if (aq) {
+          aq.style.display = 'block';
+          const t = document.getElementById('aqTitle');
+          const d = document.getElementById('aqDesc');
+          const s = document.getElementById('aqStatus');
+          const b = document.getElementById('aqProgBar');
+          const v = document.getElementById('aqProgVal');
+          const btnOpen   = document.getElementById('aqOpen');
+          const btnTravel = document.getElementById('aqTravel');
+
+          if (t) t.textContent = 'Travel to your homeland';
+          if (d) d.textContent = `Go to ${label}.`;
+          if (s) s.textContent = 'Available';
+          if (b) b.style.width = '0%';
+          if (v) v.textContent = '0';
+          if (btnOpen)  btnOpen.textContent = 'Open';
+          if (btnTravel) btnTravel.style.display = 'inline-block';
+        }
+      } catch {}
+    }
+
+    // buttons
+    openBtn?.addEventListener('click', (e)=>{ e.preventDefault(); showQuest(); });
+    closeBtn?.addEventListener('click', hideQuest);
+
+    // Auto-open on first visit if not completed for THIS user
+    ensureQuestState();
+    (function(){
+      const list = readQuests();
+      const main = list.find(x => x.id === 'q_main_pick_race');
+      const hasRace = !!localStorage.getItem(RACE_KEY);
+      if (main && main.status !== 'completed' && !hasRace) {
+        setTimeout(()=> showQuest(), 250);
+      }
+    })();
+
+    // ---------- Race badge + title ----------
+    function currentRace(){ return localStorage.getItem(RACE_KEY); }
+    function renderRaceBadge2(){
+      const badgeContainer = document.getElementById('heroBadge');
+      const titleEl = document.getElementById('heroTitle');
+      if (!badgeContainer || !titleEl) return;
+
+      const race = currentRace();
+      if (!race) {
+        badgeContainer.innerHTML = '';
+        titleEl.textContent = 'Hero';
+        titleEl.classList.remove('va-sparkle');
+        return;
+      }
+      const srcMap = {
+        myriador:  '/guildbook/badges/myriadorian.svg',
+        dreadheim: '/guildbook/badges/dreadheimer.svg',
+        wildwood:  '/guildbook/badges/wildwooder.svg'
+      };
+      const label = race === 'myriador' ? 'Myriador' : (race === 'dreadheim' ? 'Dreadheim' : 'Wildwood');
+
+      titleEl.textContent = label;
+      titleEl.classList.add('va-sparkle');
+      const src = srcMap[race];
+      badgeContainer.innerHTML = src ? `<img src="${src}" alt="${label} badge" loading="eager">` : '';
+    }
+    window.renderRaceBadge2 = renderRaceBadge2; // expose for game.ts if needed
+    renderRaceBadge2();
+  })();
+  </script>
+  <script>
+/* --- Complete "Travel to your homeland" on Dreadheim map --- */
+(function () {
+  // Per-user keys (same scheme as arena)
+  function getUserId() {
+    try {
+      const raw = localStorage.getItem('mh_user');
+      if (raw) {
+        const o = JSON.parse(raw);
+        return o?.id || o?._id || o?.user?.id || null;
+      }
+    } catch {}
+    return new URLSearchParams(location.search).get('user');
+  }
+  const UID = getUserId() || 'guest';
+  const key = (b) => `${b}__${UID}`;
+  const STORAGE_KEY = key('va_quests');
+  const RACE_KEY    = key('va_race');
+
+  function readQuests() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch { return []; }
+  }
+  function writeQuests(list) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list || []));
+  }
+
+  // If you are Dreadheim and the travel quest exists, complete it here
+  const race = localStorage.getItem(RACE_KEY);
+  if (race === 'dreadheim') {
+    const list = readQuests();
+    const travel = list.find(q => q.id === 'q_travel_home');
+
+    if (travel && travel.status !== 'completed') {
+      travel.status = 'completed';
+      travel.progress = 100;
+      // (optional) you can add rewards here if you want:
+      // e.g., award via your backend or bump a local counter.
+      writeQuests(list);
+
+      // Let other pages listening for quest updates refresh their UI
+      try { window.dispatchEvent(new CustomEvent('va-quest-updated')); } catch {}
+
+      // Tiny on-page toast so the player sees it happened
+      const toast = document.createElement('div');
+      toast.textContent = '✅ Quest completed: Travel to your homeland — Dreadheim';
+      Object.assign(toast.style, {
+        position:'fixed', left:'50%', top:'16px', transform:'translateX(-50%)',
+        background:'rgba(20,20,20,.9)', color:'#e6d5a9', border:'1px solid #9b834d',
+        padding:'10px 14px', borderRadius:'10px', zIndex:'999999',
+        boxShadow:'0 6px 24px rgba(0,0,0,.45)', fontFamily:'Cinzel, serif'
+      });
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2400);
+    }
+  }
+})();
+</script>
+
+<script>
+/* === Yggdrasil Paths — per-user skill tree (CLASS-aware) === */
+(function () {
+  // ---- Per-user keys (same pattern as Quests) ----
+  function getUserId() {
+    try {
+      const raw = localStorage.getItem("mh_user");
+      if (raw) {
+        const obj = JSON.parse(raw);
+        return obj?.id || obj?._id || obj?.user?.id || null;
+      }
+    } catch {}
+    return new URLSearchParams(location.search).get("user");
+  }
+  const UID = getUserId() || "guest";
+  const key = (b) => `${b}__${UID}`;
+
+  // ---- Class helpers (match game.ts) ----
+  function getClassId() {
+    const perUserKey = key("va_class");
+    const raw =
+      localStorage.getItem(perUserKey) ||
+      localStorage.getItem("va_class") ||
+      "warrior";
+
+    const v = String(raw).toLowerCase();
+    const allowed = ["warrior", "shieldmaiden", "rune-mage", "berserker", "hunter"];
+    return allowed.includes(v) ? v : "warrior";
+  }
+
+  // These keys are class-scoped so each class keeps its own tree
+  function yggUnlocksKey() { return key(`va_ygg_unlocked__${getClassId()}`); }
+  function yggSpentKey()   { return key(`va_ygg_spent__${getClassId()}`); }
+
+  const LEVEL_EL = document.getElementById("level");
+
+  // ---- Skill defs per CLASS ----
+  // IDs are fixed slots: basic / aoe / buff / debuff
+
+  const WARRIOR_SKILLS = [
+    { id:"basic",  name:"Drengr Strike",    type:"Rage Builder", cost:0, innate:true,
+      desc:"+10 Rage basic strike (innate)" },
+    { id:"aoe",    name:"Storm of Blades",  type:"AOE",          cost:1,
+      desc:"Whirling strikes that damage all foes." },
+    { id:"buff",   name:"Odin’s Blessing",  type:"Buff",         cost:1,
+      desc:"+ATK and +DEF for 3 turns." },
+    { id:"debuff", name:"Hel’s Curse",      type:"Debuff",       cost:1,
+      desc:"Afflicts enemies with -DEF and -SPD for 3 turns." },
+  ];
+
+  const SHIELDMAIDEN_SKILLS = [
+    { id:"basic",  name:"Valkyrie Slash",   type:"Rage Builder", cost:0, innate:true,
+      desc:"+10 Rage basic strike (innate)" },
+    { id:"buff",   name:"Aegis of Freyja",  type:"Buff",         cost:1,
+      desc:"Raise DEF and minor heal over 3 turns." },
+    { id:"aoe",    name:"Whirlwind Dance",  type:"AOE",          cost:1,
+      desc:"Spinning strike that hits multiple foes." },
+    { id:"debuff", name:"Cursebreaker",     type:"Cleanse",      cost:1,
+      desc:"Remove debuffs and gain brief resistance." },
+  ];
+
+  const RUNEMAGE_SKILLS = [
+    { id:"basic",  name:"Raudr Bolt",        type:"Rage Builder", cost:0, innate:true,
+      desc:"Runic fire bolt that builds rage." },
+    { id:"aoe",    name:"Ginnungagap Nova",  type:"AOE",          cost:1,
+      desc:"Explosive rune that damages all enemies." },
+    { id:"buff",   name:"Eikthyrnir Shield", type:"Buff",         cost:1,
+      desc:"Runic barrier that boosts DEF and resists magic." },
+    { id:"debuff", name:"Nidhoggr Hex",      type:"Debuff",       cost:1,
+      desc:"Curse that shreds enemy DEF each turn." },
+  ];
+
+  const BERSERKER_SKILLS = [
+    { id:"basic",  name:"Feral Slash",   type:"Rage Builder", cost:0, innate:true,
+      desc:"Savage blow that builds rage with every hit." },
+    { id:"aoe",    name:"Ragequake",     type:"AOE",          cost:1,
+      desc:"Leap and slam the ground, hitting all foes." },
+    { id:"buff",   name:"Ulfhamr Trance",type:"Buff",         cost:1,
+      desc:"Enter a battle trance, greatly boosting ATK." },
+    { id:"debuff", name:"Blood Howl",    type:"Debuff",       cost:1,
+      desc:"Fearful howl that weakens enemy ATT and DEF." },
+  ];
+
+  const HUNTER_SKILLS = [
+    { id:"basic",  name:"Piercing Shot",    type:"Rage Builder", cost:0, innate:true,
+      desc:"Quick arrow that builds rage with each strike." },
+    { id:"aoe",    name:"Frostbite Volley", type:"AOE",          cost:1,
+      desc:"Volley of frost-tipped arrows that hit all foes." },
+    { id:"buff",   name:"Skadi’s Focus",    type:"Buff",         cost:1,
+      desc:"Sharpened senses, boosting crit and accuracy." },
+    { id:"debuff", name:"Winter’s Grasp",   type:"Debuff",       cost:1,
+      desc:"Chilling snare that slows and weakens enemies." },
+  ];
+
+  const YGG_BY_CLASS = {
+    "warrior":      WARRIOR_SKILLS,
+    "shieldmaiden": SHIELDMAIDEN_SKILLS,
+    "rune-mage":    RUNEMAGE_SKILLS,
+    "berserker":    BERSERKER_SKILLS,
+    "hunter":       HUNTER_SKILLS,
+  };
+
+  function currentCatalog() {
+    const cls = getClassId();
+    return (YGG_BY_CLASS[cls] || YGG_BY_CLASS["warrior"]).slice(); // copy
+  }
+
+  // ---- Storage helpers ----
+  function readUnlocks() {
+    try { return JSON.parse(localStorage.getItem(yggUnlocksKey()) || "{}"); }
+    catch { return {}; }
+  }
+  function writeUnlocks(u) {
+    localStorage.setItem(yggUnlocksKey(), JSON.stringify(u || {}));
+    try { window.dispatchEvent(new CustomEvent("va-ygg-updated")); } catch {}
+  }
+  function readSpent() {
+    return parseInt(localStorage.getItem(yggSpentKey()) || "0", 10) || 0;
+  }
+  function writeSpent(n) {
+    localStorage.setItem(yggSpentKey(), String(n || 0));
+  }
+
+  function currentLevel() {
+    const v = parseInt((LEVEL_EL && LEVEL_EL.textContent) || "1", 10);
+    return isNaN(v) ? 1 : v;
+  }
+  function totalPointsForLevel(lv) {
+    // 1 point per 10 levels: Lv 1–9 => 0, 10–19 => 1, etc.
+    return Math.floor(lv / 10);
+  }
+  function calcAvailablePoints() {
+    const lv = currentLevel();
+    const total = totalPointsForLevel(lv);
+    const spent = readSpent();
+    return { total, spent, left: Math.max(0, total - spent) };
+  }
+
+  // ---- UI elements ----
+  const openBtn  = document.getElementById("openYgg");
+  const overlay  = document.getElementById("yggOverlay");
+  const closeBtn = document.getElementById("yggClose");
+  const doneBtn  = document.getElementById("yggDone");
+  const resetBtn = document.getElementById("yggReset");
+  const pointsEl = document.getElementById("yggPoints");
+  const gridEl   = document.getElementById("yggGrid");
+
+  function renderTree() {
+    const unlocks = readUnlocks();
+    const { left } = calcAvailablePoints();
+    if (pointsEl) pointsEl.textContent = String(left);
+
+    if (!gridEl) return;
+    gridEl.innerHTML = "";
+
+    const SKILLS = currentCatalog();
+    SKILLS.forEach((s) => {
+      const unlocked = !!(s.innate || unlocks[s.id]);
+      const canAfford = s.cost <= left || unlocked;
+
+      const card = document.createElement("div");
+      card.style.cssText =
+        "background:#0f1215;border:1px solid #3b3325;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;";
+
+      card.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div style="font-weight:900">${s.name}</div>
+          <div class="muted" style="opacity:.9">${s.type}</div>
+        </div>
+        <div class="muted" style="opacity:.95">${s.desc}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div>${s.innate ? '<span class="ok">Innate</span>' : ('Cost: ' + s.cost + ' pt')}</div>
+          <button class="game-btn" data-id="${s.id}" ${unlocked ? "disabled" : ""} ${canAfford ? "" : "disabled"}>
+            ${unlocked ? "Unlocked ✓" : "Unlock"}
+          </button>
+        </div>
+      `;
+      if (!canAfford && !unlocked) card.style.opacity = ".75";
+      gridEl.appendChild(card);
+    });
+
+    gridEl.querySelectorAll("button[data-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        if (!id) return;
+
+        const SKILLS = currentCatalog();
+        const sk = SKILLS.find((x) => x.id === id);
+        if (!sk || sk.innate) return;
+
+        const u = readUnlocks();
+        if (u[id]) return; // already unlocked
+
+        const stats = calcAvailablePoints();
+        if (sk.cost > stats.left) return;
+
+        u[id] = true;
+        writeUnlocks(u);
+        writeSpent(readSpent() + sk.cost);
+        renderTree();
+      });
+    });
+  }
+
+  // Open/close
+  if (openBtn) openBtn.addEventListener("click", () => {
+    overlay.style.display = "flex";
+    renderTree();
+  });
+  if (closeBtn) closeBtn.addEventListener("click", () => overlay.style.display = "none");
+  if (doneBtn)  doneBtn.addEventListener("click",  () => overlay.style.display = "none");
+
+  // Dev/test reset (refund all — respects current CLASS scope)
+  if (resetBtn) resetBtn.addEventListener("click", () => {
+    writeUnlocks({});
+    writeSpent(0);
+    renderTree();
+  });
+
+  // If you ever dispatch these, tree will refresh:
+  window.addEventListener("va-level-updated", renderTree);
+  window.addEventListener("va-class-changed", renderTree);
+
+  // ---- Optional tiny bridge for battle UI to query current skills ----
+  window.VA_YGG = {
+    catalog: () => currentCatalog().slice(),             // returns current class skills
+    getActiveSkills: () => {                             // { id: skill }
+      const list = currentCatalog();
+      const m = {};
+      list.forEach((s) => { m[s.id] = s; });
+      return m;
+    },
+    getUnlocked: () => {                                 // quick boolean map by id
+      const u = readUnlocks();
+      const out = {};
+      currentCatalog().forEach((s) => { out[s.id] = !!(s.innate || u[s.id]); });
+      return out;
+    }
+  };
+})();
+</script>
+
+<script type="module" src="/src/game.ts"></script> 
+<script type="module" src="/src/global-game-setup.ts"></script>
+
+</body> 
+</html>

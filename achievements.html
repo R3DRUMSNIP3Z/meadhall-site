@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mead Hall • Achievements</title>
+
+  <link rel="icon" type="image/png" href="/logo/favicon.ico.png">
+  <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/Styles/odin.css"/>
+
+  <style>
+    :root{
+      --bg:#0b0e10; --panel:#151515d0; --border:#3b3325; --ink:#e9e4d5;
+      --gold:#d4a94d; --gold-soft:#aa8a28;
+    }
+    *{box-sizing:border-box}
+    body{
+      background:var(--bg); color:var(--ink);
+      font-family:"Cinzel",serif; margin:0; min-height:100svh;
+      display:flex; flex-direction:column;
+    }
+
+    header.site-header{position:sticky; top:0; z-index:50; background:var(--panel); border-bottom:1px solid var(--border)}
+    header .wrap{display:flex; align-items:center; gap:16px; padding:.6rem 1rem; width:min(1200px, 94vw); margin:0 auto}
+    header h1{font-size:1.1rem; margin:0}
+    nav{margin-left:auto; display:flex; gap:16px; align-items:center}
+    nav a{color:var(--ink); text-decoration:none; font-size:.95rem}
+    nav a:hover{color:#ffd700}
+
+    .coinbox{
+      display:flex; align-items:center; gap:6px;
+      padding:4px 10px;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:#0f1113;
+      color:#ffd700;
+      font-weight:900;
+      line-height:1;
+      user-select:none;
+    }
+    .coinbox img{width:18px; height:18px; object-fit:contain; display:block}
+    .coinbox #coinCount{min-width:18px; text-align:right}
+
+    .title{
+      padding:1rem; text-align:center;
+      font-size:1.8rem; font-weight:800; color:#ffd700;
+      text-shadow:0 0 5px #d4a94d,0 0 10px #ffcc00,0 0 15px #ffea80;
+      border-bottom:2px solid var(--border);
+    }
+
+    main .wrap{width:min(1200px,94vw); margin:14px auto 22px; flex:1}
+
+    .toprow{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      background:var(--panel); border:1px solid var(--border);
+      border-radius:14px; padding:12px 14px;
+      box-shadow:0 6px 18px rgba(0,0,0,.35);
+    }
+    .stat{
+      display:flex; align-items:baseline; gap:8px;
+      padding:6px 10px; border:1px solid var(--border);
+      border-radius:12px; background:#0f1113;
+    }
+    .stat b{color:#ffd700}
+    .hint{opacity:.85; color:#c8c1aa; font-size:.95rem}
+
+    .toolbar{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      margin-top:12px;
+    }
+    .search{
+      flex:1; min-width:240px;
+      display:flex; align-items:center; gap:8px;
+      background:#0f1113; border:1px solid var(--border);
+      border-radius:12px; padding:8px 10px;
+    }
+    .search input{flex:1; background:transparent; border:0; outline:none; color:var(--ink); font-size:1rem}
+
+    .btn{
+      background:var(--gold); color:#0b0e10;
+      border:1px solid var(--border);
+      border-radius:10px; padding:10px 14px;
+      font-weight:900; cursor:pointer;
+    }
+    .btn.secondary{background:transparent; color:var(--ink)}
+    .btn:hover{filter:brightness(1.05)}
+
+    .grid{
+      margin-top:14px;
+      display:grid; gap:14px;
+      grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
+    }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:14px;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      box-shadow:0 6px 18px rgba(0,0,0,.35);
+      min-height:180px;
+    }
+    .card.locked{opacity:.7}
+    .card .head{padding:12px 12px 6px}
+    .card h3{margin:0; font-size:1.05rem; color:#ffd700}
+    .meta{opacity:.9; font-size:.9rem; color:var(--gold-soft); margin-top:4px}
+    .desc{padding:0 12px 12px; color:#e9e4d5; opacity:.95}
+    .row{
+      margin-top:auto;
+      display:flex; gap:8px; align-items:center; justify-content:space-between;
+      padding:10px 12px;
+      border-top:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.02));
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:4px 10px;
+      background:#0f1113;
+      color:#c8c1aa;
+      font-size:.86rem;
+    }
+    .pill img{width:16px; height:16px; display:block}
+    .when{opacity:.8; font-size:.86rem}
+
+    .empty{
+      opacity:.8; text-align:center; padding:26px;
+      border:1px dashed var(--border);
+      border-radius:14px;
+      background:rgba(255,255,255,.02);
+    }
+    .note{
+      margin-top:14px;
+      opacity:.85;
+      color:#c8c1aa;
+      font-size:.95rem;
+      line-height:1.45;
+    }
+    code{background:#0f1113; border:1px solid var(--border); padding:2px 6px; border-radius:8px}
+  </style>
+</head>
+
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a href="/" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit">
+        <img src="/logo/logo-64.png" alt="Mead Hall" style="width:32px;height:32px;border-radius:6px;object-fit:cover"/>
+        <h1>Mead Hall</h1>
+      </a>
+      <nav>
+        <a href="/index.html#plans">Membership</a>
+        <a href="/index.html#contest">Skald Contest</a>
+        <a href="/index.html#lore">Lore</a>
+        <a href="/account.html">Account</a>
+        <a href="/library.html">Library</a>
+
+        <div class="coinbox" title="Coins earned from interactive stories">
+          <img src="/icons/coins.png" alt="Coins">
+          <span id="coinCount">0</span>
+        </div>
+
+        <a href="/achievements.html" aria-label="Open Achievements" style="color:#ffd700">Achievements</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="title">🏆 Mead Hall • Achievements</div>
+
+  <main>
+    <div class="wrap">
+      <div class="toprow">
+        <div class="stat"><span>Unlocked:</span> <b id="unlockedCount">0</b><span>/</span><span id="totalCount">0</span></div>
+        <div class="stat"><span>Coins:</span> <b id="coinCount2">0</b></div>
+        <div class="hint">Earn achievements in interactive stories. Some endings grant more coins.</div>
+      </div>
+
+      <div class="toolbar">
+        <div class="search" role="search" aria-label="Search achievements">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16a6.471 6.471 0 0 0 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM4 9.5C4 6.46 6.46 4 9.5 4S15 6.46 15 9.5 12.54 15 9.5 15 4 12.54 4 9.5"/></svg>
+          <input id="q" type="text" placeholder="Search achievements..."/>
+        </div>
+        <button id="toggleLocked" class="btn secondary" type="button">Show Locked</button>
+        <button id="clearDemo" class="btn secondary" type="button" title="Clears achievement data only (not stories)">Clear (Dev)</button>
+      </div>
+
+      <div id="grid" class="grid" aria-live="polite"></div>
+
+      <div class="note">
+        <b>How it works</b><br/>
+        Interactive story endings can include an <code>"achievement"</code> block with <code>id</code>, <code>title</code>, <code>description</code>, and <code>coins</code> (optional). Your story engine should save it under <code>mh_achievements</code> in localStorage and add coins to <code>mh_coins</code>.
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    // ===== Storage keys (match library.html + story engine) =====
+    const COIN_KEY = 'mh_coins';
+    const ACH_KEY  = 'mh_achievements'; // object map: { [id]: { id,title,description,coins,unlockedAt } }
+
+    // ===== Achievement catalog (new) =====
+    const ACH_CATALOG_URL = '/guildbook/achievements.json';
+
+    async function loadAchievementCatalog(){
+      try{
+        const r = await fetch(ACH_CATALOG_URL, { cache:'no-store' });
+        if(!r.ok) throw 0;
+        const js = await r.json();
+        const items = js?.items;
+        if(!Array.isArray(items)) throw 0;
+        return items;
+      }catch{
+        // fallback if the catalog is missing
+        return [];
+      }
+    }
+
+    function getCoins(){
+      return parseInt(localStorage.getItem(COIN_KEY) || '0', 10);
+    }
+    function renderCoins(){
+      const v = String(getCoins());
+      const a = document.getElementById('coinCount');
+      const b = document.getElementById('coinCount2');
+      if (a) a.textContent = v;
+      if (b) b.textContent = v;
+    }
+
+    function loadUnlocked(){
+      try{
+        const raw = localStorage.getItem(ACH_KEY);
+        if(!raw) return {};
+        const obj = JSON.parse(raw);
+        return (obj && typeof obj === 'object') ? obj : {};
+      }catch{
+        return {};
+      }
+    }
+
+    function mergeCatalog(known, unlockedMap){
+      const map = new Map();
+
+      // Known catalog entries first
+      for (const k of (known || [])) {
+        if (!k || !k.id) continue;
+        map.set(k.id, { ...k });
+      }
+
+      // Any unlocked that aren't in catalog still get shown
+      for (const [id, u] of Object.entries(unlockedMap || {})){
+        if(!map.has(id)){
+          map.set(id, {
+            id,
+            title: u.title || id,
+            description: u.description || '',
+            coins: typeof u.coins === 'number' ? u.coins : 0
+          });
+        }
+      }
+
+      return Array.from(map.values()).sort((a,b)=> (a.title||'').localeCompare(b.title||''));
+    }
+
+    function niceWhen(iso){
+      if(!iso) return '';
+      const d = new Date(iso);
+      if(isNaN(d.getTime())) return '';
+      return d.toLocaleString(undefined, { month:'short', day:'numeric', year:'numeric' });
+    }
+
+    // ===== UI =====
+    const grid = document.getElementById('grid');
+    const q = document.getElementById('q');
+    const toggleLocked = document.getElementById('toggleLocked');
+    const clearDemo = document.getElementById('clearDemo');
+    const unlockedCount = document.getElementById('unlockedCount');
+    const totalCount = document.getElementById('totalCount');
+
+    const state = {
+      query: '',
+      showLocked: false,
+      unlocked: loadUnlocked(),
+      catalog: []
+    };
+
+    function isUnlocked(id){
+      return !!state.unlocked?.[id];
+    }
+
+    function matches(a){
+      const qv = state.query.trim().toLowerCase();
+      if(!qv) return true;
+      const hay = [a.title||'', a.description||'', a.id||''].join(' • ').toLowerCase();
+      return hay.includes(qv);
+    }
+
+    function card(a){
+      const unlocked = isUnlocked(a.id);
+      const unlockedAt = unlocked ? (state.unlocked[a.id]?.unlockedAt || '') : '';
+      const coins = (typeof a.coins === 'number' ? a.coins : 0);
+
+      const el = document.createElement('article');
+      el.className = 'card' + (unlocked ? '' : ' locked');
+
+      el.innerHTML = `
+        <div class="head">
+          <h3>${unlocked ? (a.title || a.id) : 'Locked Achievement'}</h3>
+          <div class="meta">${unlocked ? a.id : '???'}</div>
+        </div>
+        <div class="desc">${unlocked ? (a.description || '') : 'Earn this by making choices in an interactive story.'}</div>
+        <div class="row">
+          <span class="pill" title="Coins awarded for this ending">
+            <img src="/icons/coins.png" alt="Coins"/>
+            <b style="color:#ffd700">${coins}</b>
+          </span>
+          <span class="when">${unlockedAt ? ('Unlocked: ' + niceWhen(unlockedAt)) : (unlocked ? 'Unlocked' : '')}</span>
+        </div>
+      `;
+      return el;
+    }
+
+    function draw(){
+      const all = state.catalog;
+
+      const unlockedN = all.filter(a => isUnlocked(a.id)).length;
+      unlockedCount.textContent = String(unlockedN);
+      totalCount.textContent = String(all.length);
+
+      let list = all.filter(matches);
+      if(!state.showLocked) list = list.filter(a => isUnlocked(a.id));
+
+      grid.innerHTML = '';
+      if(!list.length){
+        grid.innerHTML = `<div class="empty">${state.showLocked ? 'No achievements match your search.' : 'No achievements unlocked yet. Finish an ending to earn one.'}</div>`;
+        return;
+      }
+
+      list.forEach(a => grid.appendChild(card(a)));
+    }
+
+    // ===== Events =====
+    q.addEventListener('input', ()=>{
+      state.query = q.value;
+      draw();
+    });
+
+    toggleLocked.addEventListener('click', ()=>{
+      state.showLocked = !state.showLocked;
+      toggleLocked.textContent = state.showLocked ? 'Hide Locked' : 'Show Locked';
+      draw();
+    });
+
+    clearDemo.addEventListener('click', ()=>{
+  // clear map
+  localStorage.removeItem(ACH_KEY);
+
+  // clear prefix-based unlocks + meta
+  const prefix = "mh_achv:";
+  const toDelete = [];
+  for (let i=0; i<localStorage.length; i++){
+    const k = localStorage.key(i) || "";
+    if (k.startsWith(prefix)) toDelete.push(k);
+  }
+  toDelete.forEach(k => localStorage.removeItem(k));
+
+  state.unlocked = loadUnlocked();
+  state.catalog = mergeCatalog(state.catalog, state.unlocked);
+  draw();
+});
+
+
+    // ===== Boot =====
+    (async ()=>{
+      renderCoins();
+      state.catalog = mergeCatalog(await loadAchievementCatalog(), state.unlocked);
+      draw();
+    })();
+
+    // Optional: live update if another page dispatches event
+    window.addEventListener('mh_coins_changed', renderCoins);
+    window.addEventListener('mh_achievements_changed', ()=>{
+      state.unlocked = loadUnlocked();
+      state.catalog = mergeCatalog(state.catalog, state.unlocked);
+      draw();
+    });
+  </script>
+</body>
+</html>
+
+
