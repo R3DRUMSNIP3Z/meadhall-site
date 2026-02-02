@@ -13,7 +13,7 @@ function pickApiBase(sources: any): string {
   if (meta) return meta;
   if (sources.env && (sources.env as any).VITE_API_BASE) return (sources.env as any).VITE_API_BASE;
   if (sources.vite && (sources.vite as any).VITE_API_BASE) return (sources.vite as any).VITE_API_BASE;
-  return "";
+  return "https://meadhall-site.onrender.com";
 }
 const metaContent =
   (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content || "";
@@ -38,7 +38,7 @@ const getCurrentUserId = () => (getUser()?.id ? String(getUser()?.id) : "");
 
 /** refresh from server (safe user) */
 async function loadUserFresh(u: any) {
-  const base = API_BASE || location.origin;
+  const base = API_BASE || "https://meadhall-site.onrender.com";
   if (!u?.id) return u;
   try {
     const r = await fetch(`${base}/api/users/${u.id}`);
@@ -73,19 +73,10 @@ refreshAccountUI();
 /** STRICT membership calculation (server-truth only) */
 function computeMember(u: any): boolean {
   if (!u) return false;
-  if (u.membershipActive === true) return true;
-
-  const nowSec = Math.floor(Date.now() / 1000);
-  if (Array.isArray(u.subscriptions)) {
-    return u.subscriptions.some((s: any) => {
-      const status = String(s?.status || "").toLowerCase();
-      const good = status === "active" || status === "trialing";
-      const end = typeof s?.current_period_end === "number" ? s.current_period_end : 0;
-      return good && end > nowSec;
-    });
-  }
-  return false;
+  const m = String(u.membership || "").toLowerCase();
+  return m === "reader" || m === "premium" || m === "annual";
 }
+
 
 // ---------------- Signup modal helpers ----------------
 const modal = document.getElementById("signupModal") as HTMLDivElement | null;
@@ -128,7 +119,7 @@ navMeadHall?.addEventListener("click", (e) => {
 
 // ---------------- Membership checkout ----------------
 async function startCheckout(plan: string | null) {
-  const base = (API_BASE || location.origin).replace(/\/+$/, ""); // trim trailing slashes
+const base = (API_BASE || "https://meadhall-site.onrender.com").replace(/\/+$/, "");
   const u = getUser();
   if (!u) {
     openSignup();
@@ -280,6 +271,28 @@ window.addEventListener("storage", (e) => {
 });
 
 enforceNavLock();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -911,6 +911,17 @@ app.get("/api/_routes", (_req, res) => {
   res.json(routes);
 });
 
+// Backend root should NOT be the website
+app.get("/", (_req, res) => {
+  res.status(200).send("Mead Hall API is running. Visit the frontend on Vercel.");
+});
+
+// Prevent backend from serving frontend HTML by accident
+app.get(["/meadhall.html", "/index.html"], (_req, res) => {
+  res.status(404).send("Not found. Use the frontend site.");
+});
+
+
 app.listen(PORT, () => console.log(`🛡️ Backend listening on ${PORT}`));
 
 /* ==============================
