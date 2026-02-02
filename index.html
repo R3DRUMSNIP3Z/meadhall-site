@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+﻿```html
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Mead Hall</title>
-
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="/logo/favicon.ico.png">
@@ -77,6 +77,67 @@
     .mug-offline { opacity:.6; font-size:.85rem; margin-left:8px; display:none; }
     .mug-offline.show { display:inline; }
     .mug-sep { opacity:.35; margin: 0 .5rem; }
+
+    /* ===============================
+       Facebook-style Auth Overlay
+       =============================== */
+    .auth-overlay{
+      position:fixed;
+      inset:0;
+      z-index:9999;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      background:rgba(0,0,0,.72);
+      backdrop-filter: blur(6px);
+    }
+    .auth-overlay.show{ display:flex; }
+    .auth-shell{
+      width:min(520px, 92vw);
+      border:1px solid rgba(200,169,107,.35);
+      box-shadow: 0 20px 80px rgba(0,0,0,.6);
+    }
+    .auth-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:8px;
+    }
+    .auth-x{
+      border:1px solid rgba(200,169,107,.35);
+      background:rgba(0,0,0,.25);
+      color:#e9e4d5;
+      width:40px;
+      height:40px;
+      border-radius:12px;
+      cursor:pointer;
+      font-size:18px;
+      line-height:1;
+    }
+    .auth-tabs{
+      display:flex;
+      gap:10px;
+      margin: 10px 0 6px;
+    }
+    .auth-tab{
+      flex:1;
+      padding:.6rem .8rem;
+      border-radius:12px;
+      border:1px solid rgba(200,169,107,.35);
+      background:rgba(0,0,0,.18);
+      color:#e9e4d5;
+      cursor:pointer;
+      font-weight:800;
+    }
+    .auth-tab.is-active{
+      outline:2px solid rgba(212,169,77,.55);
+      background:rgba(212,169,77,.10);
+    }
+    .auth-panel{ display:none; }
+    .auth-panel.show{ display:block; }
+    body.modal-open{ overflow:hidden; }
   </style>
 
   <!-- Keep main.ts happy even if Vite env is missing -->
@@ -100,7 +161,7 @@
       <nav style="margin-left:auto; display:flex; align-items:center; gap:16px">
         <a href="#" aria-disabled="true" class="navlink sparkle locked" id="nav-meadhall">Mead Hall</a>
         <a href="#plans" class="navlink">Membership</a>
-                <a href="#lore" class="navlink">Lore</a>
+        <a href="#lore" class="navlink">Lore</a>
         <a href="#account" class="navlink" id="nav-account">Sign In</a>
       </nav>
     </div>
@@ -119,12 +180,11 @@
           lower it if you think we should tweak more UI first.
         </p>
 
-                <!-- target identifier used by backend -->
+        <!-- target identifier used by backend -->
         <div class="mug-row" id="mugRow"
              data-target="homepage"
              data-key="mh_mug_homepage">
           <button class="mug-btn" id="mugUp" aria-pressed="false">
-
             <span>🍺 Mug Up</span><span class="mug-count" id="mugUpCount">0</span>
           </button>
           <span class="mug-sep">•</span>
@@ -154,7 +214,6 @@
             <li>Community-forged chronicles</li>
             <li>Member-Only Profile Frame</li>
             <li>Access to Global MeadHall Chat</li>
-
           </ul>
           <div class="cta-row">
             <button class="btn btn-viking plan" data-plan="reader">Join Reader</button>
@@ -190,7 +249,6 @@
     </div>
   </section>
 
-
   <!-- Lore -->
   <section id="lore" class="plans" style="background: linear-gradient(180deg, rgba(8,12,14,.75), rgba(6,9,11,.95))">
     <div class="wrap">
@@ -217,7 +275,7 @@
 
   <footer>
     <div class="wrap">
-      <span> <span id="y"></span> Mead Hall</span>
+      <span><span id="y"></span> Mead Hall</span>
       <span class="sep"></span>
       <span>Forged in Myriador</span>
     </div>
@@ -235,8 +293,8 @@
       const guard = (e) => {
         if (!el.classList.contains('locked')) return;
         stopAll(e);
-        const modal = document.getElementById('signupModal');
-        if (modal) { modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false'); }
+        // Open auth overlay instead of showing bottom modal
+        if (window.__mh_openAuth) window.__mh_openAuth("signup");
       };
       el.addEventListener('click', guard, true);
       el.addEventListener('mousedown', guard, true);
@@ -265,16 +323,16 @@
       const noteEl = document.getElementById("mugNote");
       const offlineEl = document.getElementById("mugOffline");
 
-function authHeaders() {
-  try {
-    const u = JSON.parse(localStorage.getItem("mh_user") || "null");
-    return u?.id
-      ? { "Content-Type": "application/json", "x-user-id": String(u.id) }
-      : { "Content-Type": "application/json" };
-  } catch {
-    return { "Content-Type": "application/json" };
-  }
-}
+      function authHeaders() {
+        try {
+          const u = JSON.parse(localStorage.getItem("mh_user") || "null");
+          return u?.id
+            ? { "Content-Type": "application/json", "x-user-id": String(u.id) }
+            : { "Content-Type": "application/json" };
+        } catch {
+          return { "Content-Type": "application/json" };
+        }
+      }
 
       function getUser() {
         try { return JSON.parse(localStorage.getItem(LS_USER) || "null"); } catch { return null; }
@@ -296,8 +354,7 @@ function authHeaders() {
       function requireAuthOrOpenSignup() {
         const user = getUser();
         if (user && user.id) return true;
-        const modal = document.getElementById('signupModal');
-        if (modal) { modal.style.display = 'flex'; modal.setAttribute('aria-hidden','false'); }
+        if (window.__mh_openAuth) window.__mh_openAuth("signup");
         return false;
       }
 
@@ -317,14 +374,13 @@ function authHeaders() {
 
       async function sendVote(action) {
         if (!API_BASE) { offlineEl.classList.add("show"); return; }
-        const user = getUser() || {};
         const headers = authHeaders();
 
         try {
           const res = await fetch(`${API_BASE}/api/reactions/mug`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ target, action }), // action: "up" | "down"
+            body: JSON.stringify({ target, action }), // action: "up" | "down" | "clear"
             credentials: "include"
           });
           if (!res.ok) throw new Error("bad status");
@@ -333,7 +389,6 @@ function authHeaders() {
           dnCountEl.textContent = String(n(data.down));
           offlineEl.classList.remove("show");
         } catch {
-          // stay graceful; UI already bumped locally
           offlineEl.classList.add("show");
         }
       }
@@ -358,7 +413,7 @@ function authHeaders() {
           setPressed("");
           bump("up", -1);
           showNote("You removed your Mug Up.");
-          sendVote("clear"); // backend may treat as clear; if not, it's ignored gracefully
+          sendVote("clear");
           return;
         }
 
@@ -397,7 +452,7 @@ function authHeaders() {
     })();
   </script>
 
-  <!-- Auth UI first (modals, sign-in, code verify) -->
+  <!-- Auth UI first (existing logic) -->
   <script type="module" src="/src/auth.ts"></script>
 
   <!-- Main client logic (buttons, signup, lock/grace, etc.) -->
@@ -415,65 +470,80 @@ function authHeaders() {
     })();
   </script>
 
-  <!-- Auth Modals (Signup/Signin/Verify) -->
-  <div id="signupModal" class="modal" aria-hidden="true" aria-labelledby="signupTitle" role="dialog">
-    <div class="card" style="width:min(520px, 92vw);">
-      <h3 id="signupTitle" style="margin-bottom:6px">Create Your Guild Account</h3>
-      <p class="rune-sub" style="font-size:16px; margin-top:0">Free to join. Pick a name mortals will remember.</p>
-      <form id="signupForm" class="feat" style="margin-top:10px">
-        <label style="display:block; margin:10px 0 6px">Name
-          <input required name="name" class="input" placeholder="Freydis Eiriksdottir" autocomplete="name" />
-        </label>
-        <label style="display:block; margin:10px 0 6px">Email
-          <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
-        </label>
-        <label style="display:block; margin:10px 0 6px">Password
-          <input required type="password" name="password" class="input" placeholder="" autocomplete="new-password" />
-        </label>
-        <div class="cta-row" style="margin-top:16px">
-          <button class="btn btn-viking" type="submit">Create Account</button>
-          <button class="btn btn-ghost" type="button" id="closeSignup">Cancel</button>
-        </div>
-        <p id="signupMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
-      </form>
+  <!-- ===============================
+       Facebook-style Auth Overlay
+       Keeps same form IDs so auth.ts still works
+       =============================== -->
+  <div id="authOverlay" class="auth-overlay" aria-hidden="true">
+    <div class="auth-shell card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <div class="auth-top">
+        <h3 id="authTitle" style="margin:0">Welcome to Mead Hall</h3>
+        <button class="auth-x" type="button" id="authClose" aria-label="Close">✕</button>
+      </div>
+
+      <p class="rune-sub" style="font-size:16px;margin:.35rem 0 1rem">
+        Enter the hall — or forge a new name among the skalds.
+      </p>
+
+      <div class="auth-tabs" role="tablist" aria-label="Auth tabs">
+        <button type="button" class="auth-tab is-active" id="tabSignIn" role="tab" aria-selected="true">Sign In</button>
+        <button type="button" class="auth-tab" id="tabSignUp" role="tab" aria-selected="false">Create Account</button>
+      </div>
+
+      <!-- SIGN IN PANEL -->
+      <div id="panelSignIn" class="auth-panel show" role="tabpanel">
+        <form id="signinForm" class="feat" style="margin-top:12px">
+          <label style="display:block; margin:10px 0 6px">Email
+            <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
+          </label>
+          <label style="display:block; margin:10px 0 6px">Password
+            <input required type="password" name="password" class="input" placeholder="••••••••" autocomplete="current-password" />
+          </label>
+          <div class="cta-row" style="margin-top:16px">
+            <button class="btn btn-viking" type="submit" style="flex:1">Sign In</button>
+            <button class="btn btn-ghost" type="button" id="openSignupFromSignin" style="white-space:nowrap">Create one</button>
+          </div>
+          <p id="signinMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
+        </form>
+      </div>
+
+      <!-- SIGN UP PANEL -->
+      <div id="panelSignUp" class="auth-panel" role="tabpanel">
+        <form id="signupForm" class="feat" style="margin-top:12px">
+          <label style="display:block; margin:10px 0 6px">Name
+            <input required name="name" class="input" placeholder="Freydis Eiriksdottir" autocomplete="name" />
+          </label>
+          <label style="display:block; margin:10px 0 6px">Email
+            <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
+          </label>
+          <label style="display:block; margin:10px 0 6px">Password
+            <input required type="password" name="password" class="input" autocomplete="new-password" />
+          </label>
+          <div class="cta-row" style="margin-top:16px">
+            <button class="btn btn-viking" type="submit" style="flex:1">Create Account</button>
+            <button class="btn btn-ghost" type="button" id="openSigninFromSignup" style="white-space:nowrap">I have one</button>
+          </div>
+          <p id="signupMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
+        </form>
+      </div>
     </div>
   </div>
 
-  <div id="signinModal" class="modal" aria-hidden="true" aria-labelledby="signinTitle" role="dialog" style="display:none">
-    <div class="card" style="width:min(520px,92vw);">
-      <h3 id="signinTitle" style="margin-bottom:6px">Welcome Back</h3>
-      <p class="rune-sub" style="font-size:16px;margin-top:0">Enter the hall with your credentials.</p>
-      <form id="signinForm" class="feat" style="margin-top:10px">
-        <label style="display:block; margin:10px 0 6px">Email
-          <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
-        </label>
-        <label style="display:block; margin:10px 0 6px">Password
-          <input required type="password" name="password" class="input" placeholder="••••••••" autocomplete="current-password" />
-        </label>
-        <div class="cta-row" style="margin-top:16px">
-          <button class="btn btn-viking" type="submit">Sign In</button>
-          <button class="btn btn-ghost" type="button" id="closeSignin">Cancel</button>
-        </div>
-        <p class="rune-sub" style="margin:.5rem 0 0">No account yet?
-          <button type="button" id="openSignupFromSignin" class="btn btn-ghost" style="padding:.3rem .6rem">Create one</button>
-        </p>
-        <p id="signinMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
-      </form>
-    </div>
-  </div>
-
-  <div id="verifyModal" class="modal" aria-hidden="true" aria-labelledby="verifyTitle" role="dialog" style="display:none">
-    <div class="card" style="width:min(520px,92vw);">
-      <h3 id="verifyTitle" style="margin-bottom:6px">Verify Your Email</h3>
-      <p class="rune-sub" style="font-size:16px;margin-top:0">We sent a 6-digit code to your email.</p>
+  <!-- Verify overlay stays separate (still Facebook-style) -->
+  <div id="verifyModal" class="auth-overlay" aria-hidden="true" role="dialog" aria-modal="true" style="display:none">
+    <div class="auth-shell card" style="width:min(520px,92vw);">
+      <div class="auth-top">
+        <h3 id="verifyTitle" style="margin:0">Verify Your Email</h3>
+        <button class="auth-x" type="button" id="closeVerify" aria-label="Close">✕</button>
+      </div>
+      <p class="rune-sub" style="font-size:16px;margin:.35rem 0 1rem">We sent a 6-digit code to your email.</p>
       <form id="verifyForm" class="feat" style="margin-top:10px">
         <label style="display:block; margin:10px 0 6px">Code
           <input required name="code" class="input" inputmode="numeric" maxlength="6" placeholder="123456" />
         </label>
         <div class="cta-row" style="margin-top:16px">
-          <button class="btn btn-viking" type="submit">Confirm</button>
+          <button class="btn btn-viking" type="submit" style="flex:1">Confirm</button>
           <button class="btn btn-ghost" type="button" id="resendCode">Resend</button>
-          <button class="btn btn-ghost" type="button" id="closeVerify">Cancel</button>
         </div>
         <p id="verifyMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
       </form>
@@ -481,8 +551,96 @@ function authHeaders() {
   </div>
 
   <div data-flash style="display:none;margin:12px 0;color:#b91c1c;font-weight:600;"></div>
+
+  <!-- Overlay controller (does NOT fight auth.ts; just shows/hides + tab switch) -->
+  <script>
+    (function () {
+      const overlay = document.getElementById("authOverlay");
+      const closeBtn = document.getElementById("authClose");
+      const tabIn = document.getElementById("tabSignIn");
+      const tabUp = document.getElementById("tabSignUp");
+      const panIn = document.getElementById("panelSignIn");
+      const panUp = document.getElementById("panelSignUp");
+
+      const navAccount = document.getElementById("nav-account");
+
+      function show(which){
+        if (!overlay) return;
+        overlay.classList.add("show");
+        overlay.setAttribute("aria-hidden","false");
+        document.body.classList.add("modal-open");
+        set(which || "signin");
+      }
+      function hide(){
+        if (!overlay) return;
+        overlay.classList.remove("show");
+        overlay.setAttribute("aria-hidden","true");
+        document.body.classList.remove("modal-open");
+      }
+      function set(which){
+        const w = (which || "signin").toLowerCase();
+        const signin = (w === "signin" || w === "sign-in" || w === "in");
+        tabIn.classList.toggle("is-active", signin);
+        tabUp.classList.toggle("is-active", !signin);
+        tabIn.setAttribute("aria-selected", signin ? "true" : "false");
+        tabUp.setAttribute("aria-selected", !signin ? "true" : "false");
+        panIn.classList.toggle("show", signin);
+        panUp.classList.toggle("show", !signin);
+      }
+
+      // public hook used by other scripts on this page
+      window.__mh_openAuth = function(which){ show(which); };
+
+      // click outside to close
+      overlay && overlay.addEventListener("mousedown", (e) => {
+        if (e.target === overlay) hide();
+      });
+      closeBtn && closeBtn.addEventListener("click", hide);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") hide();
+      });
+
+      tabIn && tabIn.addEventListener("click", () => set("signin"));
+      tabUp && tabUp.addEventListener("click", () => set("signup"));
+
+      // small helpers for your existing buttons
+      const openSignupFromSignin = document.getElementById("openSignupFromSignin");
+      const openSigninFromSignup = document.getElementById("openSigninFromSignup");
+      openSignupFromSignin && openSignupFromSignin.addEventListener("click", () => set("signup"));
+      openSigninFromSignup && openSigninFromSignup.addEventListener("click", () => set("signin"));
+
+      // nav Sign In opens overlay
+      navAccount && navAccount.addEventListener("click", (e) => {
+        e.preventDefault();
+        show("signin");
+      });
+    })();
+  </script>
 </body>
 </html>
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
