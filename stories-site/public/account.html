@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Your Account  Mead Hall</title>
+  <title>Your Account · Mead Hall</title>
 
   <!-- API base (local first; you can swap the value) -->
   <meta name="api-base" content="https://meadhall-site.onrender.com" />
@@ -18,16 +18,40 @@
     .account-wrap{max-width:1080px;margin:110px auto 50px;padding:0 18px}
     .row{display:grid;gap:20px;grid-template-columns:1fr}
     @media(min-width:980px){.row{grid-template-columns:340px 1fr}}
-    .panel{background:linear-gradient(180deg,var(--glass),rgba(255,255,255,.02));border:1px solid rgba(200,169,107,.22);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
-    .avatar{width:180px;height:180px;border-radius:50%;object-fit:cover;border:2px solid rgba(200,169,107,.45);background:#1a1a1a}
+    .panel{
+      background:linear-gradient(180deg,var(--glass),rgba(255,255,255,.02));
+      border:1px solid rgba(200,169,107,.22);border-radius:var(--radius);
+      padding:22px;box-shadow:var(--shadow)
+    }
+    /* old .avatar styles got inlined into the wrapper; keep img clean */
+    .avatar{width:100%;height:100%;border-radius:50%;object-fit:cover;border:none;background:#1a1a1a}
     .label{font-size:12px;letter-spacing:.08em;color:var(--ink-dim);text-transform:uppercase;margin-bottom:6px}
     .story{padding:14px;border-radius:12px;border:1px solid rgba(200,169,107,.2);margin:10px 0;background:rgba(255,255,255,.03)}
-    .muted{color:var(--ink-dim)}
     .story .meta{font-size:12px;color:var(--ink-dim);margin-top:4px}
     .story .title{font-weight:700;font-size:16px;margin:0}
     .story .text{margin:.5em 0 0;white-space:pre-wrap}
     .story .row{display:flex;gap:8px;align-items:center}
     .story .input{width:100%}
+    .muted{color:var(--ink-dim)}
+
+    /* === Viking Profile Frames (universal) === */
+    .pfp{
+      --pfp: 180px; /* default for this page */
+      position: relative; display:inline-block; width:var(--pfp); height:var(--pfp);
+      border-radius:50%;
+    }
+    .pfp > img{
+      width:100%; height:100%; display:block; border-radius:50%; object-fit:cover;
+    }
+    .pfp::after{
+      content:""; position:absolute; inset:0;
+      background-repeat:no-repeat; background-position:center; background-size:100% 100%;
+      pointer-events:none;
+    }
+    /* swap SVGs by tier */
+    .pfp--reader::after  { background-image:url("/guildbook/reader-frame.svg"); }
+    .pfp--premium::after { background-image:url("/guildbook/premium-frame.svg"); }
+    .pfp--annual::after  { background-image:url("/guildbook/annual-frame.svg"); }
   </style>
 </head>
 <body>
@@ -50,7 +74,10 @@
       <!-- LEFT: profile info -->
       <div class="panel">
         <div style="text-align:center">
-          <img id="avatarImg" class="avatar" alt="Avatar"/>
+          <!-- wrapped avatar so the frame can overlay -->
+          <div id="avatarWrap" class="pfp">
+            <img id="avatarImg" class="avatar" alt="Avatar"/>
+          </div>
           <div style="margin-top:10px">
             <input id="avatarFile" type="file" accept="image/*"/>
             <button class="btn btn-ghost" id="uploadBtn" style="margin-top:8px">Upload Avatar</button>
@@ -95,6 +122,24 @@
         </div>
         <div id="stories"></div>
       </div>
+
+      <!-- RIGHT: gallery -->
+      <div class="panel">
+        <h3 style="margin:0 0 8px">Your Gallery</h3>
+
+        <div class="feat" style="margin:0 0 12px">
+          <input id="galleryFiles" type="file" accept="image/*" multiple />
+          <div class="cta-row" style="justify-content:flex-end;margin-top:8px">
+            <button class="btn btn-ghost" id="uploadPhotos">Upload Photos</button>
+          </div>
+          <div id="galleryMsg" class="muted" style="margin-top:6px"></div>
+        </div>
+
+        <div id="galleryGrid"
+             style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px">
+          <div class="muted">Loading…</div>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -104,13 +149,38 @@
 
   <script>
     document.getElementById('y').textContent = new Date().getFullYear();
+
+    // --- apply frame based on membership from localStorage (set by backend & login) ---
+    function getMhUser(){
+      try { return JSON.parse(localStorage.getItem('mh_user') || localStorage.getItem('user') || 'null'); }
+      catch { return null; }
+    }
+    function applyPfpTier(el, membership){
+      if (!el) return;
+      el.classList.remove('pfp--reader','pfp--premium','pfp--annual');
+      const m = (membership || '').toLowerCase();
+      if (m === 'reader')  el.classList.add('pfp--reader');
+      if (m === 'premium') el.classList.add('pfp--premium');
+      if (m === 'annual')  el.classList.add('pfp--annual');
+    }
+    function refreshPfp(){
+      const u = getMhUser();
+      applyPfpTier(document.getElementById('avatarWrap'), u?.membership);
+    }
+    document.addEventListener('DOMContentLoaded', refreshPfp);
+    // if account.ts updates localStorage after saves or fresh loads, catch it:
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'mh_user' || e.key === 'user') refreshPfp();
+    });
+    // also nudge once or twice after module init to catch async user refresh
+    setTimeout(refreshPfp, 500);
+    setTimeout(refreshPfp, 1500);
   </script>
 
-  <!-- Use ONLY the external module (no inline story manager) -->
+  <!-- Use ONLY the external module (no inline story/gallery logic here) -->
   <script type="module" src="/src/account.ts"></script>
 </body>
 </html>
-
 
 
 
