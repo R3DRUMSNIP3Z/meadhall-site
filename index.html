@@ -6,9 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Mead Hall</title>
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="/logo/favicon.ico.png">
-  <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png">
+  <!-- Favicons / logo -->
+  <link rel="icon" type="image/png" href="/logo/favicon.ico.png" />
+  <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png" />
+  <meta property="og:image" content="/logo/logo-512.png" />
+  <meta property="og:title" content="Mead Hall Skald Guild" />
+  <meta property="og:description" content="Forge your saga among shield-bearers and skalds." />
+  <meta property="og:type" content="website" />
 
   <meta name="description" content="Raise your horn. Share your saga. Join a guild of skalds and shield-bearers forging legends by firelight." />
   <meta name="theme-color" content="#0b0f12" />
@@ -17,135 +21,95 @@
   <meta name="api-base" content="https://meadhall-site.onrender.com" />
 
   <!-- Viking/Rune-esque fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
-
-  <!-- Logo & favicon -->
-  <link rel="icon" href="/logo/favicon.ico" sizes="any" />
-  <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png" />
-  <meta property="og:image" content="/logo/logo-512.png" />
-  <meta property="og:title" content="Mead Hall Skald Guild" />
-  <meta property="og:description" content="Forge your saga among shield-bearers and skalds." />
-  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet" />
 
   <!-- Odin theme CSS -->
-  <link rel="stylesheet" href="/Styles/odin.css">
+  <link rel="stylesheet" href="/Styles/odin.css" />
 
   <style>
     /* Sparkly medieval gold style for Mead Hall link */
-    .navlink.sparkle {
-      position: relative;
-      font-weight: 700;
-      color: #d4a94d;
-      text-shadow: 0 0 6px rgba(212,169,77,.6), 0 0 12px rgba(212,169,77,.4);
-      background: linear-gradient(90deg, #b8860b, #ffd700, #b8860b);
-      background-size: 200% auto;
+    .navlink.sparkle{
+      position:relative;
+      font-weight:800;
+      color:#d4a94d;
+      text-shadow:0 0 6px rgba(212,169,77,.6), 0 0 12px rgba(212,169,77,.4);
+      background:linear-gradient(90deg,#b8860b,#ffd700,#b8860b);
+      background-size:200% auto;
     }
-    @supports ((-webkit-background-clip: text) or (background-clip: text)) {
-      .navlink.sparkle {
-        background-clip: text;
-        -webkit-background-clip: text;
-        color: transparent;
-        -webkit-text-fill-color: transparent;
-        animation: shimmer 4s linear infinite;
+    @supports ((-webkit-background-clip:text) or (background-clip:text)){
+      .navlink.sparkle{
+        background-clip:text;
+        -webkit-background-clip:text;
+        color:transparent;
+        -webkit-text-fill-color:transparent;
+        animation:shimmer 4s linear infinite;
       }
     }
-    @keyframes shimmer { 0% {background-position:0% center;} 100% {background-position:200% center;} }
-    .navlink.sparkle::after { content:""; position:absolute; top:-6px; right:-12px; font-size:14px; color:#fff7d6; text-shadow:0 0 4px #ffefb0, 0 0 8px #ffd700; animation: twinkle 2s ease-in-out infinite alternate; }
-    @keyframes twinkle { from {opacity:.2; transform:scale(.9) rotate(0deg);} to {opacity:1; transform:scale(1.3) rotate(20deg);} }
-    @media (prefers-reduced-motion: reduce) { .navlink.sparkle, .navlink.sparkle::after { animation:none; } }
+    @keyframes shimmer{0%{background-position:0% center;}100%{background-position:200% center;}}
+    .navlink.sparkle::after{
+      content:"";
+      position:absolute; top:-6px; right:-12px;
+      font-size:14px; color:#fff7d6;
+      text-shadow:0 0 4px #ffefb0, 0 0 8px #ffd700;
+      animation:twinkle 2s ease-in-out infinite alternate;
+    }
+    @keyframes twinkle{from{opacity:.2; transform:scale(.9) rotate(0deg);}to{opacity:1; transform:scale(1.3) rotate(20deg);}}
+    @media (prefers-reduced-motion:reduce){ .navlink.sparkle, .navlink.sparkle::after{animation:none;} }
 
     .navlink.locked{
       opacity:.7; cursor:not-allowed; pointer-events:none;
-      background:none !important; -webkit-background-clip: initial !important; background-clip: initial !important;
+      background:none !important; -webkit-background-clip:initial !important; background-clip:initial !important;
       color:#d4a94d !important; -webkit-text-fill-color:#d4a94d !important; animation:none !important;
     }
     .navlink.locked.sparkle::after{ display:none; }
 
-    /* --- Mug reactions card --- */
-    .hall-card { max-width: 980px; margin: 0 auto; }
-    .mug-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; }
-    .mug-btn {
+    /* Mug reactions */
+    .hall-card{ max-width:980px; margin:0 auto; }
+    .mug-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .mug-btn{
       display:inline-flex; align-items:center; gap:8px;
       padding:.5rem .7rem; border-radius:10px; border:1px solid #3b3325;
       background:#0e0e0e; color:#e9e4d5; cursor:pointer; user-select:none;
     }
-    .mug-btn[aria-pressed="true"] { outline:2px solid #d4a94d; }
-    .mug-count { font-weight:700; min-width:1.5ch; text-align:right; }
-    .mug-note { opacity:.65; font-size:.9rem; }
-    .mug-offline { opacity:.6; font-size:.85rem; margin-left:8px; display:none; }
-    .mug-offline.show { display:inline; }
-    .mug-sep { opacity:.35; margin: 0 .5rem; }
+    .mug-btn[aria-pressed="true"]{ outline:2px solid #d4a94d; }
+    .mug-count{ font-weight:800; min-width:1.5ch; text-align:right; }
+    .mug-note{ opacity:.7; font-size:.9rem; }
+    .mug-offline{ opacity:.6; font-size:.85rem; margin-left:8px; display:none; }
+    .mug-offline.show{ display:inline; }
+    .mug-sep{ opacity:.35; margin:0 .5rem; }
 
-    /* ===============================
-       Facebook-style Auth Overlay
-       =============================== */
+    /* Facebook-style overlay */
     .auth-overlay{
-      position:fixed;
-      inset:0;
-      z-index:9999;
-      display:none;
-      align-items:center;
-      justify-content:center;
+      position:fixed; inset:0; z-index:9999;
+      display:none; align-items:center; justify-content:center;
       padding:24px;
       background:rgba(0,0,0,.72);
-      backdrop-filter: blur(6px);
+      backdrop-filter:blur(6px);
     }
-    .auth-overlay.show{ display:flex; }
     .auth-shell{
       width:min(520px, 92vw);
       border:1px solid rgba(200,169,107,.35);
-      box-shadow: 0 20px 80px rgba(0,0,0,.6);
+      box-shadow:0 20px 80px rgba(0,0,0,.6);
     }
     .auth-top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
       margin-bottom:8px;
     }
     .auth-x{
       border:1px solid rgba(200,169,107,.35);
       background:rgba(0,0,0,.25);
       color:#e9e4d5;
-      width:40px;
-      height:40px;
+      width:40px; height:40px;
       border-radius:12px;
       cursor:pointer;
-      font-size:18px;
-      line-height:1;
+      font-size:18px; line-height:1;
     }
-    .auth-tabs{
-      display:flex;
-      gap:10px;
-      margin: 10px 0 6px;
-    }
-    .auth-tab{
-      flex:1;
-      padding:.6rem .8rem;
-      border-radius:12px;
-      border:1px solid rgba(200,169,107,.35);
-      background:rgba(0,0,0,.18);
-      color:#e9e4d5;
-      cursor:pointer;
-      font-weight:800;
-    }
-    .auth-tab.is-active{
-      outline:2px solid rgba(212,169,77,.55);
-      background:rgba(212,169,77,.10);
-    }
-    .auth-panel{ display:none; }
-    .auth-panel.show{ display:block; }
     body.modal-open{ overflow:hidden; }
   </style>
-
-  <!-- Keep main.ts happy even if Vite env is missing -->
-  <script>
-    window.ENV = window.ENV || {};
-    window.ENV.VITE_API_BASE = window.ENV.VITE_API_BASE || "https://meadhall-site.onrender.com";
-  </script>
 </head>
+
 <body>
   <noscript style="position:fixed;inset:0;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;z-index:9999">
     <p>This site needs JavaScript to forge your legend. Please enable it.</p>
@@ -155,19 +119,24 @@
   <header>
     <div class="wrap" style="display:flex; gap:22px; align-items:center;">
       <a href="/" class="brand" style="display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit">
-        <img src="/logo/logo-64.png" alt="Mead Hall" style="width:40px;height:40px;border-radius:8px;object-fit:cover"/>
+        <img src="/logo/logo-64.png" alt="Mead Hall" style="width:40px;height:40px;border-radius:8px;object-fit:cover" />
         <h1 style="margin:0">Mead Hall</h1>
       </a>
+
       <nav style="margin-left:auto; display:flex; align-items:center; gap:16px">
+        <!-- Locked until membership verified by main.ts -->
         <a href="#" aria-disabled="true" class="navlink sparkle locked" id="nav-meadhall">Mead Hall</a>
+
         <a href="#plans" class="navlink">Membership</a>
         <a href="#lore" class="navlink">Lore</a>
+
+        <!-- auth.ts + main.ts expect this id -->
         <a href="#account" class="navlink" id="nav-account">Sign In</a>
       </nav>
     </div>
   </header>
 
-  <!-- ====== FEATURED HALL BOARD (Mug Reactions) ====== -->
+  <!-- Hall Board -->
   <section class="plans" id="hallboard" style="background:linear-gradient(180deg, rgba(8,12,14,.85), rgba(6,9,11,.95))">
     <div class="wrap hall-card">
       <div class="card">
@@ -175,15 +144,13 @@
           Hall Board
           <span class="mug-offline" id="mugOffline">(offline)</span>
         </h3>
+
         <p class="rune-sub" style="font-size:18px;margin-top:0">
           What do you think of the new Mead Hall front page? Raise your horn if you like it —
           lower it if you think we should tweak more UI first.
         </p>
 
-        <!-- target identifier used by backend -->
-        <div class="mug-row" id="mugRow"
-             data-target="homepage"
-             data-key="mh_mug_homepage">
+        <div class="mug-row" id="mugRow" data-target="homepage" data-key="mh_mug_homepage">
           <button class="mug-btn" id="mugUp" aria-pressed="false">
             <span>🍺 Mug Up</span><span class="mug-count" id="mugUpCount">0</span>
           </button>
@@ -201,7 +168,7 @@
   <section id="plans" class="plans">
     <div class="wrap">
       <svg class="knot" viewBox="0 0 800 40" preserveAspectRatio="none">
-        <path d="M0 20 Q80 0 160 20 T320 20 T480 20 T640 20 T800 20" fill="none" stroke="rgba(200,169,107,.6)" stroke-width="3"/>
+        <path d="M0 20 Q80 0 160 20 T320 20 T480 20 T640 20 T800 20" fill="none" stroke="rgba(200,169,107,.6)" stroke-width="3"></path>
       </svg>
 
       <div class="grid">
@@ -253,12 +220,15 @@
   <section id="lore" class="plans" style="background: linear-gradient(180deg, rgba(8,12,14,.75), rgba(6,9,11,.95))">
     <div class="wrap">
       <svg class="knot" viewBox="0 0 800 40" preserveAspectRatio="none">
-        <path d="M0 20 Q80 0 160 20 T320 20 T480 20 T640 20 T800 20" fill="none" stroke="rgba(200,169,107,.6)" stroke-width="3"/>
+        <path d="M0 20 Q80 0 160 20 T320 20 T480 20 T640 20 T800 20" fill="none" stroke="rgba(200,169,107,.6)" stroke-width="3"></path>
       </svg>
+
       <div class="grid" style="grid-template-columns:1fr; max-width:980px; margin:0 auto">
         <div class="card">
           <h3>Guild Lore</h3>
-          <p class="rune-sub" style="font-size:18px">Tales from Myriador and Dreadheim: sagas of shield-walls, oath-rings, and the mead of poetry.</p>
+          <p class="rune-sub" style="font-size:18px">
+            Tales from Myriador and Dreadheim: sagas of shield-walls, oath-rings, and the mead of poetry.
+          </p>
           <ul class="feat">
             <li>Weekly epics for members</li>
             <li>Behind-the-shield lore drops</li>
@@ -281,28 +251,7 @@
     </div>
   </footer>
 
-  <!-- Strong safety net: re-enable pointer-events so JS can intercept while locked -->
-  <script>
-    (() => {
-      const el = document.getElementById('nav-meadhall');
-      if (!el) return;
-      el.style.pointerEvents = 'auto';
-      if (el.classList.contains('locked')) el.removeAttribute('href');
-
-      const stopAll = (e) => { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); return false; };
-      const guard = (e) => {
-        if (!el.classList.contains('locked')) return;
-        stopAll(e);
-        // Open auth overlay instead of showing bottom modal
-        if (window.__mh_openAuth) window.__mh_openAuth("signup");
-      };
-      el.addEventListener('click', guard, true);
-      el.addEventListener('mousedown', guard, true);
-      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') guard(e); }, true);
-    })();
-  </script>
-
-  <!-- ====== MUG REACTIONS WIRING ====== -->
+  <!-- ===== Mug reactions wiring ===== -->
   <script>
     (function () {
       const LS_USER = "mh_user";
@@ -325,7 +274,7 @@
 
       function authHeaders() {
         try {
-          const u = JSON.parse(localStorage.getItem("mh_user") || "null");
+          const u = JSON.parse(localStorage.getItem(LS_USER) || "null");
           return u?.id
             ? { "Content-Type": "application/json", "x-user-id": String(u.id) }
             : { "Content-Type": "application/json" };
@@ -340,21 +289,22 @@
       function voted() { return (localStorage.getItem(voteKey) || "").toString(); }
       function setVoted(v) { localStorage.setItem(voteKey, v); }
       function setPressed(which) {
-        upBtn.setAttribute("aria-pressed", which === "up" ? "true" : "false");
-        dnBtn.setAttribute("aria-pressed", which === "down" ? "true" : "false");
+        upBtn?.setAttribute("aria-pressed", which === "up" ? "true" : "false");
+        dnBtn?.setAttribute("aria-pressed", which === "down" ? "true" : "false");
       }
       function n(v) { return Math.max(0, parseInt(v, 10) || 0); }
       function bump(which, dir) {
         const el = which === "up" ? upCountEl : dnCountEl;
+        if (!el) return;
         el.textContent = String(Math.max(0, n(el.textContent) + dir));
       }
-      function showNote(text) { noteEl.textContent = text || ""; }
+      function showNote(text) { if (noteEl) noteEl.textContent = text || ""; }
 
-      // Open sign-up if not logged in
       function requireAuthOrOpenSignup() {
         const user = getUser();
         if (user && user.id) return true;
-        if (window.__mh_openAuth) window.__mh_openAuth("signup");
+        // auth.ts will open the correct modal; if your main.ts is updated it will route here too
+        if (typeof window.__mh_openAuth === "function") window.__mh_openAuth("signup");
         return false;
       }
 
@@ -363,52 +313,46 @@
         try {
           const res = await fetch(`${API_BASE}/api/reactions/mug?target=${encodeURIComponent(target)}`, { headers: authHeaders(), credentials: "include" });
           if (!res.ok) throw new Error("bad status");
-          const data = await res.json(); // { up:number, down:number }
-          upCountEl.textContent = String(n(data.up));
-          dnCountEl.textContent = String(n(data.down));
-          offlineEl.classList.remove("show");
+          const data = await res.json();
+          if (upCountEl) upCountEl.textContent = String(n(data.up));
+          if (dnCountEl) dnCountEl.textContent = String(n(data.down));
+          offlineEl?.classList.remove("show");
         } catch {
-          offlineEl.classList.add("show");
+          offlineEl?.classList.add("show");
         }
       }
 
       async function sendVote(action) {
-        if (!API_BASE) { offlineEl.classList.add("show"); return; }
-        const headers = authHeaders();
-
+        if (!API_BASE) { offlineEl?.classList.add("show"); return; }
         try {
           const res = await fetch(`${API_BASE}/api/reactions/mug`, {
             method: "POST",
-            headers,
-            body: JSON.stringify({ target, action }), // action: "up" | "down" | "clear"
+            headers: authHeaders(),
+            body: JSON.stringify({ target, action }),
             credentials: "include"
           });
           if (!res.ok) throw new Error("bad status");
-          const data = await res.json(); // { up:number, down:number, action:"up"|"down" }
-          upCountEl.textContent = String(n(data.up));
-          dnCountEl.textContent = String(n(data.down));
-          offlineEl.classList.remove("show");
+          const data = await res.json();
+          if (upCountEl) upCountEl.textContent = String(n(data.up));
+          if (dnCountEl) dnCountEl.textContent = String(n(data.down));
+          offlineEl?.classList.remove("show");
         } catch {
-          offlineEl.classList.add("show");
+          offlineEl?.classList.add("show");
         }
       }
 
-      // Initialize pressed state from localStorage
       const initVote = voted();
       if (initVote === "up") setPressed("up");
       else if (initVote === "down") setPressed("down");
 
-      // Get counts from server
       fetchCounts();
 
-      // Click handlers
-      upBtn.addEventListener("click", async (e) => {
+      upBtn?.addEventListener("click", async (e) => {
         e.preventDefault();
         if (!requireAuthOrOpenSignup()) return;
 
         const current = voted();
         if (current === "up") {
-          // unvote
           setVoted("");
           setPressed("");
           bump("up", -1);
@@ -417,7 +361,6 @@
           return;
         }
 
-        // switch to up
         if (current === "down") bump("down", -1);
         bump("up", +1);
         setVoted("up");
@@ -426,13 +369,12 @@
         sendVote("up");
       });
 
-      dnBtn.addEventListener("click", async (e) => {
+      dnBtn?.addEventListener("click", async (e) => {
         e.preventDefault();
         if (!requireAuthOrOpenSignup()) return;
 
         const current = voted();
         if (current === "down") {
-          // unvote
           setVoted("");
           setPressed("");
           bump("down", -1);
@@ -441,7 +383,6 @@
           return;
         }
 
-        // switch to down
         if (current === "up") bump("up", -1);
         bump("down", +1);
         setVoted("down");
@@ -451,12 +392,6 @@
       });
     })();
   </script>
-
-  <!-- Auth UI first (existing logic) -->
-  <script type="module" src="/src/auth.ts"></script>
-
-  <!-- Main client logic (buttons, signup, lock/grace, etc.) -->
-  <script type="module" src="/src/main.ts"></script>
 
   <!-- Fallback: Read a Sample -->
   <script>
@@ -471,80 +406,95 @@
   </script>
 
   <!-- ===============================
-       Facebook-style Auth Overlay
-       Keeps same form IDs so auth.ts still works
+       SIGN IN MODAL (auth.ts expects these IDs)
        =============================== -->
-  <div id="authOverlay" class="auth-overlay" aria-hidden="true">
-    <div class="auth-shell card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div id="signinModal" class="auth-overlay" aria-hidden="true">
+    <div class="auth-shell card" role="dialog" aria-modal="true" aria-labelledby="signinTitle">
       <div class="auth-top">
-        <h3 id="authTitle" style="margin:0">Welcome to Mead Hall</h3>
-        <button class="auth-x" type="button" id="authClose" aria-label="Close">✕</button>
+        <h3 id="signinTitle" style="margin:0">Welcome back</h3>
+        <button class="auth-x" type="button" id="closeSignin" aria-label="Close">✕</button>
       </div>
 
       <p class="rune-sub" style="font-size:16px;margin:.35rem 0 1rem">
-        Enter the hall — or forge a new name among the skalds.
+        Sign in to enter the hall.
       </p>
 
-      <div class="auth-tabs" role="tablist" aria-label="Auth tabs">
-        <button type="button" class="auth-tab is-active" id="tabSignIn" role="tab" aria-selected="true">Sign In</button>
-        <button type="button" class="auth-tab" id="tabSignUp" role="tab" aria-selected="false">Create Account</button>
-      </div>
+      <form id="signinForm" class="feat" style="margin-top:12px">
+        <label style="display:block; margin:10px 0 6px">Email
+          <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
+        </label>
+        <label style="display:block; margin:10px 0 6px">Password
+          <input required type="password" name="password" class="input" placeholder="••••••••" autocomplete="current-password" />
+        </label>
 
-      <!-- SIGN IN PANEL -->
-      <div id="panelSignIn" class="auth-panel show" role="tabpanel">
-        <form id="signinForm" class="feat" style="margin-top:12px">
-          <label style="display:block; margin:10px 0 6px">Email
-            <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
-          </label>
-          <label style="display:block; margin:10px 0 6px">Password
-            <input required type="password" name="password" class="input" placeholder="••••••••" autocomplete="current-password" />
-          </label>
-          <div class="cta-row" style="margin-top:16px">
-            <button class="btn btn-viking" type="submit" style="flex:1">Sign In</button>
-            <button class="btn btn-ghost" type="button" id="openSignupFromSignin" style="white-space:nowrap">Create one</button>
-          </div>
-          <p id="signinMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
-        </form>
-      </div>
+        <div class="cta-row" style="margin-top:16px">
+          <button class="btn btn-viking" type="submit" style="flex:1">Sign In</button>
+          <button class="btn btn-ghost" type="button" id="openSignupFromSignin" style="white-space:nowrap">Create one</button>
+        </div>
 
-      <!-- SIGN UP PANEL -->
-      <div id="panelSignUp" class="auth-panel" role="tabpanel">
-        <form id="signupForm" class="feat" style="margin-top:12px">
-          <label style="display:block; margin:10px 0 6px">Name
-            <input required name="name" class="input" placeholder="Freydis Eiriksdottir" autocomplete="name" />
-          </label>
-          <label style="display:block; margin:10px 0 6px">Email
-            <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
-          </label>
-          <label style="display:block; margin:10px 0 6px">Password
-            <input required type="password" name="password" class="input" autocomplete="new-password" />
-          </label>
-          <div class="cta-row" style="margin-top:16px">
-            <button class="btn btn-viking" type="submit" style="flex:1">Create Account</button>
-            <button class="btn btn-ghost" type="button" id="openSigninFromSignup" style="white-space:nowrap">I have one</button>
-          </div>
-          <p id="signupMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
-        </form>
-      </div>
+        <p id="signinMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
+      </form>
     </div>
   </div>
 
-  <!-- Verify overlay stays separate (still Facebook-style) -->
+  <!-- ===============================
+       SIGN UP MODAL (auth.ts expects these IDs)
+       =============================== -->
+  <div id="signupModal" class="auth-overlay" aria-hidden="true">
+    <div class="auth-shell card" role="dialog" aria-modal="true" aria-labelledby="signupTitle">
+      <div class="auth-top">
+        <h3 id="signupTitle" style="margin:0">Create your name</h3>
+        <button class="auth-x" type="button" id="closeSignup" aria-label="Close">✕</button>
+      </div>
+
+      <p class="rune-sub" style="font-size:16px;margin:.35rem 0 1rem">
+        Forge a new name among the skalds.
+      </p>
+
+      <form id="signupForm" class="feat" style="margin-top:12px">
+        <label style="display:block; margin:10px 0 6px">Name
+          <input required name="name" class="input" placeholder="Freydis Eiriksdottir" autocomplete="name" />
+        </label>
+        <label style="display:block; margin:10px 0 6px">Email
+          <input required type="email" name="email" class="input" placeholder="you@example.com" autocomplete="email" />
+        </label>
+        <label style="display:block; margin:10px 0 6px">Password
+          <input required type="password" name="password" class="input" autocomplete="new-password" />
+        </label>
+
+        <div class="cta-row" style="margin-top:16px">
+          <button class="btn btn-viking" type="submit" style="flex:1">Create Account</button>
+        </div>
+
+        <p id="signupMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===============================
+       VERIFY MODAL (auth.ts expects these IDs)
+       =============================== -->
   <div id="verifyModal" class="auth-overlay" aria-hidden="true" role="dialog" aria-modal="true" style="display:none">
     <div class="auth-shell card" style="width:min(520px,92vw);">
       <div class="auth-top">
         <h3 id="verifyTitle" style="margin:0">Verify Your Email</h3>
         <button class="auth-x" type="button" id="closeVerify" aria-label="Close">✕</button>
       </div>
-      <p class="rune-sub" style="font-size:16px;margin:.35rem 0 1rem">We sent a 6-digit code to your email.</p>
+
+      <p class="rune-sub" style="font-size:16px;margin:.35rem 0 1rem">
+        We sent a 6-digit code to your email.
+      </p>
+
       <form id="verifyForm" class="feat" style="margin-top:10px">
         <label style="display:block; margin:10px 0 6px">Code
           <input required name="code" class="input" inputmode="numeric" maxlength="6" placeholder="123456" />
         </label>
+
         <div class="cta-row" style="margin-top:16px">
           <button class="btn btn-viking" type="submit" style="flex:1">Confirm</button>
           <button class="btn btn-ghost" type="button" id="resendCode">Resend</button>
         </div>
+
         <p id="verifyMsg" style="margin-top:10px; color:var(--ink-dim)"></p>
       </form>
     </div>
@@ -552,73 +502,12 @@
 
   <div data-flash style="display:none;margin:12px 0;color:#b91c1c;font-weight:600;"></div>
 
-  <!-- Overlay controller (does NOT fight auth.ts; just shows/hides + tab switch) -->
-  <script>
-    (function () {
-      const overlay = document.getElementById("authOverlay");
-      const closeBtn = document.getElementById("authClose");
-      const tabIn = document.getElementById("tabSignIn");
-      const tabUp = document.getElementById("tabSignUp");
-      const panIn = document.getElementById("panelSignIn");
-      const panUp = document.getElementById("panelSignUp");
-
-      const navAccount = document.getElementById("nav-account");
-
-      function show(which){
-        if (!overlay) return;
-        overlay.classList.add("show");
-        overlay.setAttribute("aria-hidden","false");
-        document.body.classList.add("modal-open");
-        set(which || "signin");
-      }
-      function hide(){
-        if (!overlay) return;
-        overlay.classList.remove("show");
-        overlay.setAttribute("aria-hidden","true");
-        document.body.classList.remove("modal-open");
-      }
-      function set(which){
-        const w = (which || "signin").toLowerCase();
-        const signin = (w === "signin" || w === "sign-in" || w === "in");
-        tabIn.classList.toggle("is-active", signin);
-        tabUp.classList.toggle("is-active", !signin);
-        tabIn.setAttribute("aria-selected", signin ? "true" : "false");
-        tabUp.setAttribute("aria-selected", !signin ? "true" : "false");
-        panIn.classList.toggle("show", signin);
-        panUp.classList.toggle("show", !signin);
-      }
-
-      // public hook used by other scripts on this page
-      window.__mh_openAuth = function(which){ show(which); };
-
-      // click outside to close
-      overlay && overlay.addEventListener("mousedown", (e) => {
-        if (e.target === overlay) hide();
-      });
-      closeBtn && closeBtn.addEventListener("click", hide);
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") hide();
-      });
-
-      tabIn && tabIn.addEventListener("click", () => set("signin"));
-      tabUp && tabUp.addEventListener("click", () => set("signup"));
-
-      // small helpers for your existing buttons
-      const openSignupFromSignin = document.getElementById("openSignupFromSignin");
-      const openSigninFromSignup = document.getElementById("openSigninFromSignup");
-      openSignupFromSignin && openSignupFromSignin.addEventListener("click", () => set("signup"));
-      openSigninFromSignup && openSigninFromSignup.addEventListener("click", () => set("signin"));
-
-      // nav Sign In opens overlay
-      navAccount && navAccount.addEventListener("click", (e) => {
-        e.preventDefault();
-        show("signin");
-      });
-    })();
-  </script>
+  <!-- Scripts -->
+  <script type="module" src="/src/auth.ts"></script>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
-```
+
 
 
 
