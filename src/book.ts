@@ -18,12 +18,13 @@ const API_BASE =
 function resolveStoryUrl(): string {
   // Primary: meta fallback
   const meta = (document.querySelector('meta[name="book-src"]') as HTMLMetaElement)?.content?.trim();
-  if (meta) return meta.startsWith('http') ? meta : `${API_BASE}${meta.startsWith('/') ? '' : '/'}${meta}`;
+  if (meta) return meta.startsWith('http') ? meta : `${location.origin}${meta.startsWith('/') ? '' : '/'}${meta}`;
 
   // Optional: direct src via querystring (if you want to use it)
   const qs = new URLSearchParams(location.search);
   const src = (qs.get('src') || '').trim();
-  if (src) return src.startsWith('http') ? src : `${API_BASE}${src.startsWith('/') ? '' : '/'}${src}`;
+if (src) return src.startsWith('http') ? src : `${location.origin}${src.startsWith('/') ? '' : '/'}${src}`;
+
 
   // Legacy: ?book=name → /uploads/name.rtf (fallback to .txt)
   const book = (qs.get('book') || '').trim();
