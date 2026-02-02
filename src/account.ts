@@ -49,38 +49,27 @@ function getUserFromLS(): SafeUser | null {
 function setUserToLS(u: SafeUser) { localStorage.setItem(LS_KEY, JSON.stringify(u)); }
 function normalizeId(raw: any): string { return String(raw ?? "").replace(/\s+/g, "_").trim(); }
 
-// Build an absolute URL from a possibly-relative path
-function fullUrl(p?: string) {
-  if (!p) return "";
-  if (/^https?:\/\//i.test(p)) return p;
-  const base = (API_BASE || "").replace(/\/+$/, "");
-  const path = String(p).replace(/^\/+/, "");
-  return `${base}/${path}`;
-}
+
 
 // Force URL to use the backend origin for *relative/backend* assets,
 // but DO NOT rewrite absolute third-party hosts (e.g., Cloudinary).
-function forceBackendHost(u: string) {
-  // If it's already an absolute URL to a different host (Cloudinary, etc), keep it.
-  if (/^https?:\/\//i.test(u)) {
-    try {
-      const backend = new URL(API_BASE || window.location.origin);
-      const urlObj = new URL(u);
-      if (urlObj.host !== backend.host) return u;
-    } catch { /* ignore */ }
+function assetOrBackendUrl(p: string) {
+  if (!p) return "";
+
+  // absolute 3rd-party (cloudinary etc) stays as-is
+  if (/^https?:\/\//i.test(p)) return p;
+
+  // backend-served files only
+  if (p.startsWith("/uploads/") || p.startsWith("uploads/")) {
+    const clean = p.startsWith("/") ? p : `/${p}`;
+    return `${(API_BASE || location.origin).replace(/\/+$/, "")}${clean}`;
   }
-  // Otherwise, resolve relative against backend and pin to backend host.
-  const abs = fullUrl(u);
-  try {
-    const backend = new URL(API_BASE || window.location.origin);
-    const out = new URL(abs);
-    out.protocol = backend.protocol;
-    out.host = backend.host;
-    return out.toString();
-  } catch {
-    return abs;
-  }
+
+  // everything else is a FRONTEND static asset
+  const clean = p.startsWith("/") ? p : `/${p}`;
+  return `${location.origin}${clean}`;
 }
+
 
 function cacheBust(u: string) {
   if (!u) return u;
@@ -145,8 +134,9 @@ async function loadUser() {
     const u: SafeUser = await r.json();
     if (avatarImg) {
       const src = u.avatarUrl
-        ? cacheBust(forceBackendHost(u.avatarUrl))
-        : "/images/odin-hero.jpg";
+  ? cacheBust(assetOrBackendUrl(u.avatarUrl))
+  : `${location.origin}/images/odin-hero.jpg`;
+
       avatarImg.src = src;
       avatarImg.onerror = () => { avatarImg.src = "/images/odin-hero.jpg"; };
     }
@@ -272,7 +262,7 @@ function renderGallery(photos: Photo[]) {
 
     const img = document.createElement("img");
     // Force backend only for relative/backend assets; Cloudinary stays untouched.
-    img.src = cacheBust(forceBackendHost(p.url));
+    img.src = cacheBust(assetOrBackendUrl(p.url));
     img.alt = "gallery photo";
     img.style.width = "100%";
     img.style.aspectRatio = "1 / 1";
@@ -541,7 +531,7 @@ if (!(window as any)[BIND_KEY]) {
       }
 
       const rawUrl = payload.url as string; // "/uploads/1699...-pic.png"
-      const absolute = forceBackendHost(rawUrl);
+      const absolute = assetOrBackendUrl(rawUrl); // rawUrl is /uploads/... so it will go to backend
 
       const put = await fetch(`${API_BASE}/api/users/${currentUser!.id}`, {
         method: "PUT",
