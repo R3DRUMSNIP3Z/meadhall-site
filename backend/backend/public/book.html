@@ -101,9 +101,10 @@
         <h1 style="margin:0">Mead Hall</h1>
       </a>
       <nav class="nav">
-        <a href="/library.html" class="navlink" aria-label="Back to Library">← Back</a>
-        <a href="/account.html" class="navlink">Account</a>
-      </nav>
+  <a href="/library.html" class="navlink" id="backLink" aria-label="Back to Library">← Back</a>
+  <a href="/account.html" class="navlink">Account</a>
+</nav>
+
     </div>
   </header>
 
@@ -128,6 +129,22 @@
 
   <!-- Reader logic -->
   <script type="module" src="/src/book.ts"></script>
+  <script>
+  (function () {
+    const back = document.getElementById("backLink");
+    if (!back) return;
+
+    const metaSrc = document.querySelector('meta[name="book-src"]')?.content?.trim() || "";
+    const qsSrc = new URLSearchParams(location.search).get("src") || "";
+    const src = (qsSrc || metaSrc).toLowerCase();
+
+    // Hide back button only on the sample story
+    if (src.endsWith("/guildbook/samplestorythorvald.rtf")) {
+      back.remove();
+    }
+  })();
+</script>
+
 </body>
 </html>
 
